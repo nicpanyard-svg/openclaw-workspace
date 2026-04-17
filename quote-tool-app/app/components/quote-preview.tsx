@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
-import type { CrmConnectionStatus, CrmProvider } from "@/app/lib/crm";
 import { PROPOSAL_STORAGE_KEY, serializeQuoteRecord } from "@/app/lib/proposal-state";
 import {
+  type AddressBlock,
   type EquipmentPricingRow,
   type PerKitPricingRow,
   type PoolPricingRow,
@@ -34,8 +34,6 @@ type CustomSectionField = {
 type DataQuickAddUnit = "GB" | "TB";
 type ServiceStage = "budgetary" | "final";
 type ServiceCategory = "site_inspection" | "installation" | "custom";
-
-const crmStatusOptions: CrmConnectionStatus[] = ["disconnected", "configured", "connected", "error"];
 
 const emptyEquipmentDraft: EquipmentDraft = {
   itemName: "",
@@ -90,13 +88,65 @@ function computeSectionARow<T extends PoolPricingRow | PerKitPricingRow>(row: T)
   };
 }
 
+function compactList(items: Array<string | undefined | null>) {
+  return items.map((item) => item?.trim()).filter((item): item is string => Boolean(item));
+}
+
+function countSectionAUnits(rows: Array<PoolPricingRow | PerKitPricingRow>) {
+  return rows.reduce((sum, row) => {
+    if (row.rowType === "support") return sum;
+    return sum + (typeof row.quantity === "number" ? row.quantity : 0);
+  }, 0);
+}
+
+function buildExecutiveSummaryDraft(quote: QuoteRecord) {
+  const customerName = quote.customer.name || quote.metadata.customerShortName || "the customer";
+  const provider = quote.metadata.customerProvider;
+  const pricingModel = quote.sections.sectionA.mode === "pool" ? "pooled service" : "per-kit service";
+  const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
+  const serviceUnits = countSectionAUnits(sectionARows);
+  const equipmentRows = quote.sections.sectionB.lineItems;
+  const equipmentUnits = equipmentRows.reduce((sum, row) => sum + row.quantity, 0);
+  const optionalServices = quote.sections.sectionC.enabled ? quote.sections.sectionC.lineItems : [];
+  const optionalServiceLabels = compactList(optionalServices.map((row) => row.description));
+  const equipmentLabels = compactList(equipmentRows.map((row) => `${row.quantity}x ${row.itemName}`));
+  const recurringDescriptions = compactList(
+    sectionARows
+      .filter((row) => row.rowType !== "support")
+      .map((row) => row.description),
+  );
+
+  const heading = "Executive Summary";
+  const customerContext = `${quote.metadata.documentTitle || "Proposal"} for ${customerName} covering ${provider} connectivity, equipment, and implementation scope as currently configured in the builder.`;
+
+  const bodyParts = [
+    `This draft reflects a ${quote.metadata.quoteType === "lease" ? "lease" : "purchase"} quote structured around ${pricingModel}${serviceUnits ? ` with ${serviceUnits} active service unit${serviceUnits === 1 ? "" : "s"}` : ""}.`,
+    recurringDescriptions.length
+      ? `Recurring service currently includes ${recurringDescriptions.slice(0, 3).join(", ")}${recurringDescriptions.length > 3 ? ", and additional configured line items" : ""}.`
+      : undefined,
+    equipmentLabels.length
+      ? `Hardware scope includes ${equipmentUnits} total item${equipmentUnits === 1 ? "" : "s"}, including ${equipmentLabels.slice(0, 4).join(", ")}${equipmentLabels.length > 4 ? ", and other selected equipment" : ""}.`
+      : undefined,
+    optionalServiceLabels.length
+      ? `Optional services currently include ${optionalServiceLabels.join(", ")}.`
+      : `Optional services are ${quote.sections.sectionC.enabled ? "available to add as needed" : "not included in the current draft"}.`,
+    `The summary is intended as a practical starting point and can be edited before sharing the final proposal with ${customerName}.`,
+  ];
+
+  const body = compactList(bodyParts).join(" ");
+  const paragraphs = compactList([customerContext, body]);
+
+  return { heading, customerContext, body, paragraphs };
+}
+
 function cloneQuote(source: QuoteRecord): QuoteRecord {
   return JSON.parse(JSON.stringify(source)) as QuoteRecord;
 }
 
 function moveInList<T>(list: T[], index: number, direction: -1 | 1) {
   if (list.length <= 1 || index < 0 || index >= list.length) return list;
-  const nextIndex = (index + direction + list.length) % list.length;
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= list.length) return list;
   const clone = [...list];
   const [item] = clone.splice(index, 1);
   clone.splice(nextIndex, 0, item);
@@ -124,45 +174,29 @@ function ToggleCard({
   active: boolean;
   onClick: () => void;
 }) {
-  const [pressed, setPressed] = useState(false);
-
-  const handleClick = () => {
-    setPressed(true);
-    window.setTimeout(() => setPressed(false), 160);
-    onClick();
-  };
-
   return (
     <button
       type="button"
-      onClick={handleClick}
+      onClick={onClick}
       className={`rounded-[18px] border px-4 py-4 text-left transition ${
-        pressed
-          ? "border-[#b00000] bg-[#b00000] text-white shadow-[0_12px_24px_rgba(176,0,0,0.18)]"
-          : active
-            ? "border-[#b00000] bg-[#fff6f6] shadow-[0_12px_24px_rgba(176,0,0,0.10)]"
-            : "border-[#d8dde3] bg-white hover:border-[#c3ccd6]"
+        active
+          ? "border-[#b00000] bg-[#fff6f6] shadow-[0_12px_24px_rgba(176,0,0,0.10)]"
+          : "border-[#d8dde3] bg-white hover:border-[#c3ccd6]"
       }`}
     >
-      <div className={`text-[15px] font-semibold ${pressed ? "text-white" : "text-[#16202b]"}`}>{label}</div>
-      <div className={`mt-1 text-[13px] leading-[1.45] ${pressed ? "text-white/90" : "text-[#5d6772]"}`}>{description}</div>
+      <div className="text-[15px] font-semibold text-[#16202b]">{label}</div>
+      <div className="mt-1 text-[13px] leading-[1.45] text-[#5d6772]">{description}</div>
     </button>
   );
 }
 
 function SectionToggle({ label, enabled, onChange }: { label: string; enabled: boolean; onChange: (next: boolean) => void }) {
-  const [pressed, setPressed] = useState(false);
-
   return (
-    <label className={`inline-flex items-center gap-3 rounded-full border px-4 py-2 text-[14px] font-medium transition ${pressed ? "border-[#b00000] bg-[#b00000] text-white" : "border-[#d7dde4] bg-white text-[#24303b]"}`}>
+    <label className="inline-flex items-center gap-3 rounded-full border border-[#d7dde4] bg-white px-4 py-2 text-[14px] font-medium text-[#24303b]">
       <input
         type="checkbox"
         checked={enabled}
-        onChange={(event) => {
-          setPressed(true);
-          window.setTimeout(() => setPressed(false), 160);
-          onChange(event.target.checked);
-        }}
+        onChange={(event) => onChange(event.target.checked)}
       />
       {label}
     </label>
@@ -180,19 +214,10 @@ function ActionButton({
   onClick: () => void;
   className?: string;
 }) {
-  const [pressed, setPressed] = useState(false);
-
-  const handleClick = () => {
-    setPressed(true);
-    window.setTimeout(() => setPressed(false), 160);
-    onClick();
-  };
-
   const baseClass = variant === "danger" ? "danger-button" : "pill-button";
-  const pressedClass = "button-flash-active";
 
   return (
-    <button type="button" className={`${baseClass} ${pressed ? pressedClass : ""} ${className}`.trim()} onClick={handleClick}>
+    <button type="button" className={`${baseClass} ${className}`.trim()} onClick={onClick}>
       {children}
     </button>
   );
@@ -200,6 +225,7 @@ function ActionButton({
 
 function RowActions({
   rowNumber,
+  totalRows,
   onMoveUp,
   onMoveDown,
   onMoveTo,
@@ -207,6 +233,7 @@ function RowActions({
   onRemove,
 }: {
   rowNumber: number;
+  totalRows: number;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onMoveTo: (targetPosition: number) => void;
@@ -217,23 +244,24 @@ function RowActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <ActionButton onClick={onMoveUp}>↑ Up</ActionButton>
-      <ActionButton onClick={onMoveDown}>↓ Down</ActionButton>
-      <label className="builder-inline-select min-w-[120px]">
-        <span>Row #</span>
+      <ActionButton onClick={onMoveUp}>Up</ActionButton>
+      <ActionButton onClick={onMoveDown}>Down</ActionButton>
+      <label className="builder-inline-select min-w-[104px]">
+        <span>Move to</span>
         <input value={targetRow} onChange={(e) => setTargetRow(e.target.value)} />
       </label>
-      <ActionButton onClick={() => onMoveTo(parseNumber(targetRow) || rowNumber)}>↻ Refresh</ActionButton>
+      <ActionButton onClick={() => onMoveTo(parseNumber(targetRow) || rowNumber)}>Go</ActionButton>
       <ActionButton onClick={onDuplicate}>Duplicate</ActionButton>
       <ActionButton variant="danger" onClick={onRemove}>Remove</ActionButton>
+      <span className="text-[12px] text-[#7a8793]">Row {rowNumber} of {totalRows}</span>
     </div>
   );
 }
 
 const accessoryMap: Record<string, string[]> = {
-  Performance: ["perf-pipe-adapter", "cable-50m", "non-pen-mount"],
-  Standard: ["pipe-adapter", "cable-50m", "non-pen-mount"],
-  Mini: ["savage-case", "cable-50m"],
+  "Performance G3": ["perf-pipe-adapter", "cable-50m", "non-pen-mount"],
+  "Standard V4": ["pipe-adapter", "cable-50m", "non-pen-mount"],
+  "Mini G1": ["mini-pole-mount", "savage-case", "cable-50m"],
 };
 
 const servicePresetTemplates: Array<{ key: string; label: string; description: string; category: ServiceCategory; stage: ServiceStage; unitPrice: number }> = [
@@ -270,6 +298,40 @@ const servicePresetTemplates: Array<{ key: string; label: string; description: s
     unitPrice: 0,
   },
 ];
+
+function AddressEditor({
+  title,
+  address,
+  onChange,
+  disabled = false,
+}: {
+  title: string;
+  address: AddressBlock;
+  onChange: (next: AddressBlock) => void;
+  disabled?: boolean;
+}) {
+  const updateLine = (index: number, value: string) => {
+    const nextLines = [...address.lines];
+    nextLines[index] = value;
+    onChange({ ...address, lines: nextLines });
+  };
+
+  return (
+    <div className={`space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4 ${disabled ? "opacity-65" : ""}`}>
+      <div>
+        <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Address block</div>
+        <div className="mt-1 text-[18px] font-semibold text-[#16202b]">{title}</div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="builder-field compact md:col-span-2"><span>Company</span><input disabled={disabled} value={address.companyName ?? ""} onChange={(e) => onChange({ ...address, companyName: e.target.value })} /></label>
+        <label className="builder-field compact md:col-span-2"><span>Attention</span><input disabled={disabled} value={address.attention ?? ""} onChange={(e) => onChange({ ...address, attention: e.target.value })} /></label>
+        <label className="builder-field compact md:col-span-2"><span>Address line 1</span><input disabled={disabled} value={address.lines[0] ?? ""} onChange={(e) => updateLine(0, e.target.value)} /></label>
+        <label className="builder-field compact md:col-span-2"><span>Address line 2</span><input disabled={disabled} value={address.lines[1] ?? ""} onChange={(e) => updateLine(1, e.target.value)} /></label>
+        <label className="builder-field compact md:col-span-2"><span>Address line 3</span><input disabled={disabled} value={address.lines[2] ?? ""} onChange={(e) => updateLine(2, e.target.value)} /></label>
+      </div>
+    </div>
+  );
+}
 
 export default function QuotePreview() {
   const [quote, setQuote] = useState<QuoteRecord>(() => cloneQuote(sampleQuoteRecord));
@@ -324,29 +386,21 @@ export default function QuotePreview() {
 
   const updateQuote = (updater: (current: QuoteRecord) => QuoteRecord) => setQuote((current) => updater(cloneQuote(current)));
 
-  const updateConnector = (provider: CrmProvider, updater: (connector: QuoteRecord["integrations"]["connectors"][number]) => void) => {
-    updateQuote((draft) => {
-      const connector = draft.integrations.connectors.find((item) => item.provider === provider);
-      if (!connector) return draft;
-      updater(connector);
-      draft.internal.crmSyncReady = draft.integrations.connectors.some((item) => item.enabled && item.status !== "disconnected");
-      return draft;
-    });
+  const syncExecutiveSummaryParagraphs = (draft: QuoteRecord) => {
+    draft.executiveSummary.paragraphs = compactList([
+      draft.executiveSummary.customerContext,
+      draft.executiveSummary.body,
+    ]);
   };
 
-  const updateReference = (key: "account" | "contact" | "deal" | "quote", field: "externalId" | "externalLabel", value: string) => {
+  const generateExecutiveSummary = () => {
+    const generated = buildExecutiveSummaryDraft(quote);
     updateQuote((draft) => {
-      const current = draft.integrations.quoteReferences[key];
-      if (!current) {
-        draft.integrations.quoteReferences[key] = {
-          provider: "salesforce",
-          entityType: key === "deal" ? "deal" : key,
-          externalId: field === "externalId" ? value : "",
-          externalLabel: field === "externalLabel" ? value : "",
-        };
-      } else {
-        current[field] = value;
-      }
+      draft.executiveSummary.enabled = true;
+      draft.executiveSummary.heading = generated.heading;
+      draft.executiveSummary.customerContext = generated.customerContext;
+      draft.executiveSummary.body = generated.body;
+      draft.executiveSummary.paragraphs = generated.paragraphs;
       return draft;
     });
   };
@@ -695,7 +749,7 @@ export default function QuotePreview() {
               <div className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[#8b96a3]">Quote Tool App</div>
               <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Fillable quote builder</h1>
               <p className="mt-2 text-[15px] leading-[1.55] text-[#5a6572]">
-                This pass shifts the builder closer to the source proposal style while keeping the quote tool practical. Section controls, provider selection, customer branding, and pricing rows are ready for quote assembly.
+                Cleaner builder surface, cleaner proposal output. This pass keeps the tool standalone-first, trims clutter, and keeps the proposal practical to edit and share.
               </p>
             </div>
 
@@ -746,8 +800,8 @@ export default function QuotePreview() {
                       <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Contact and address</div>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
-                      <label className="builder-field compact"><span>Customer name</span><input value={quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.customer.name = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact"><span>Contact name</span><input value={quote.customer.contactName} onChange={(e) => updateQuote((draft) => { draft.customer.contactName = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact"><span>Customer name</span><input value={quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.customer.name = e.target.value; draft.billTo.companyName = e.target.value; if (draft.shippingSameAsBillTo) draft.shipTo.companyName = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact"><span>Contact name</span><input value={quote.customer.contactName} onChange={(e) => updateQuote((draft) => { draft.customer.contactName = e.target.value; draft.billTo.attention = e.target.value; if (draft.shippingSameAsBillTo) draft.shipTo.attention = e.target.value; return draft; })} /></label>
                       <label className="builder-field compact"><span>Contact phone</span><input value={quote.customer.contactPhone} onChange={(e) => updateQuote((draft) => { draft.customer.contactPhone = e.target.value; return draft; })} /></label>
                       <label className="builder-field compact"><span>Contact email</span><input value={quote.customer.contactEmail} onChange={(e) => updateQuote((draft) => { draft.customer.contactEmail = e.target.value; return draft; })} /></label>
                       <label className="builder-field compact md:col-span-2"><span>Address line 1</span><input value={quote.customer.addressLines[0] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[0] = e.target.value; return draft; })} /></label>
@@ -770,6 +824,45 @@ export default function QuotePreview() {
                       <label className="builder-field compact md:col-span-2"><span>iNet address line 2</span><input value={quote.inet.addressLines[1] ?? ""} onChange={(e) => updateQuote((draft) => { draft.inet.addressLines[1] = e.target.value; return draft; })} /></label>
                       <label className="builder-field compact md:col-span-2"><span>iNet address line 3</span><input value={quote.inet.addressLines[2] ?? ""} onChange={(e) => updateQuote((draft) => { draft.inet.addressLines[2] = e.target.value; return draft; })} /></label>
                     </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                  <AddressEditor
+                    title="Bill To"
+                    address={quote.billTo}
+                    onChange={(next) => updateQuote((draft) => {
+                      draft.billTo = next;
+                      if (draft.shippingSameAsBillTo) draft.shipTo = JSON.parse(JSON.stringify(next));
+                      return draft;
+                    })}
+                  />
+
+                  <div className="space-y-4">
+                    <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]">
+                      <input
+                        type="checkbox"
+                        checked={quote.shippingSameAsBillTo}
+                        onChange={(e) => updateQuote((draft) => {
+                          draft.shippingSameAsBillTo = e.target.checked;
+                          if (e.target.checked) {
+                            draft.shipTo = JSON.parse(JSON.stringify(draft.billTo));
+                          }
+                          return draft;
+                        })}
+                      />
+                      Ship To same as Bill To
+                    </label>
+
+                    <AddressEditor
+                      title="Ship To"
+                      address={quote.shippingSameAsBillTo ? quote.billTo : quote.shipTo}
+                      disabled={quote.shippingSameAsBillTo}
+                      onChange={(next) => updateQuote((draft) => {
+                        draft.shipTo = next;
+                        return draft;
+                      })}
+                    />
                   </div>
                 </div>
               </div>
@@ -800,155 +893,9 @@ export default function QuotePreview() {
 
             <section className="builder-panel">
               <div className="builder-panel-header">
-                <div><div className="builder-eyebrow">Integrations</div><h2 className="builder-title">CRM settings groundwork</h2></div>
-                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#5e6974] max-w-[420px]">
-                  Standalone mode stays first. These settings only prepare optional Salesforce and HubSpot connectors.
-                </div>
-              </div>
-
-              <div className="grid gap-4 xl:grid-cols-2">
-                {quote.integrations.connectors.map((connector) => {
-                  const isSalesforce = connector.provider === "salesforce";
-                  return (
-                    <div key={connector.provider} className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="builder-eyebrow">Optional connector</div>
-                          <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">{connector.label}</h3>
-                          <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">{connector.description}</p>
-                        </div>
-                        <label className="inline-flex items-center gap-2 rounded-full border border-[#d7dde4] bg-white px-4 py-2 text-[13px] font-semibold text-[#24303b]">
-                          <input
-                            type="checkbox"
-                            checked={connector.enabled}
-                            onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
-                              draftConnector.enabled = e.target.checked;
-                              draftConnector.syncPreference.enabled = e.target.checked;
-                            })}
-                          />
-                          Enabled
-                        </label>
-                      </div>
-
-                      <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <label className="builder-field compact">
-                          <span>Connection status</span>
-                          <select
-                            value={connector.status}
-                            onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
-                              draftConnector.status = e.target.value as CrmConnectionStatus;
-                            })}
-                          >
-                            {crmStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
-                          </select>
-                        </label>
-                        <label className="builder-field compact">
-                          <span>Default sync direction</span>
-                          <select
-                            value={connector.syncPreference.defaultDirection}
-                            onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
-                              draftConnector.syncPreference.defaultDirection = e.target.value as typeof draftConnector.syncPreference.defaultDirection;
-                            })}
-                          >
-                            <option value="push">Push from quote tool</option>
-                            <option value="pull">Pull into quote tool</option>
-                            <option value="bidirectional">Bidirectional</option>
-                          </select>
-                        </label>
-                      </div>
-
-                      <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        {isSalesforce ? (
-                          <>
-                            <label className="builder-field compact">
-                              <span>Instance URL</span>
-                              <input
-                                value={typeof connector.config === "object" && "instanceUrl" in connector.config ? connector.config.instanceUrl ?? "" : ""}
-                                onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
-                                  if ("instanceUrl" in draftConnector.config) draftConnector.config.instanceUrl = e.target.value;
-                                })}
-                              />
-                            </label>
-                            <label className="builder-field compact">
-                              <span>Environment</span>
-                              <select
-                                value={typeof connector.config === "object" && "environment" in connector.config ? connector.config.environment : "sandbox"}
-                                onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
-                                  if ("environment" in draftConnector.config) draftConnector.config.environment = e.target.value as "production" | "sandbox";
-                                })}
-                              >
-                                <option value="sandbox">Sandbox</option>
-                                <option value="production">Production</option>
-                              </select>
-                            </label>
-                          </>
-                        ) : (
-                          <>
-                            <label className="builder-field compact">
-                              <span>Portal ID</span>
-                              <input
-                                value={typeof connector.config === "object" && "portalId" in connector.config ? connector.config.portalId ?? "" : ""}
-                                onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
-                                  if ("portalId" in draftConnector.config) draftConnector.config.portalId = e.target.value;
-                                })}
-                              />
-                            </label>
-                            <label className="builder-field compact">
-                              <span>App label</span>
-                              <input
-                                value={typeof connector.config === "object" && "privateAppLabel" in connector.config ? connector.config.privateAppLabel ?? "" : ""}
-                                onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
-                                  if ("privateAppLabel" in draftConnector.config) draftConnector.config.privateAppLabel = e.target.value;
-                                })}
-                              />
-                            </label>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="mt-4 grid gap-2 md:grid-cols-3 text-[13px] text-[#56616d]">
-                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={connector.syncPreference.autoCreateAccount} onChange={(e) => updateConnector(connector.provider, (draftConnector) => { draftConnector.syncPreference.autoCreateAccount = e.target.checked; })} /> Auto-create account/company</label>
-                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={connector.syncPreference.autoCreateDeal} onChange={(e) => updateConnector(connector.provider, (draftConnector) => { draftConnector.syncPreference.autoCreateDeal = e.target.checked; })} /> Auto-create deal/opportunity</label>
-                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={connector.syncPreference.autoAttachQuotePdf} onChange={(e) => updateConnector(connector.provider, (draftConnector) => { draftConnector.syncPreference.autoAttachQuotePdf = e.target.checked; })} /> Attach PDF on sync</label>
-                      </div>
-
-                      <div className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Default field mapping stubs</div>
-                        <div className="mt-2 space-y-2 text-[13px] text-[#5e6974]">
-                          {connector.fieldMappings.map((mapping) => (
-                            <div key={`${mapping.provider}-${mapping.internalField}-${mapping.externalField}`} className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[#f7f9fb] px-3 py-2">
-                              <span><strong>{mapping.internalField}</strong> → {mapping.externalField}</span>
-                              <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#697684]">{mapping.direction}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="mt-4 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                <div className="builder-eyebrow">External IDs stay separate</div>
-                <h3 className="mt-1 text-[18px] font-semibold text-[#16202b]">CRM reference slots</h3>
-                <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">These are connector-facing references only. The quote still works even if every field below is blank.</p>
-                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  <label className="builder-field compact"><span>Account / company label</span><input value={quote.integrations.quoteReferences.account?.externalLabel ?? ""} onChange={(e) => updateReference("account", "externalLabel", e.target.value)} /></label>
-                  <label className="builder-field compact"><span>Account / company ID</span><input value={quote.integrations.quoteReferences.account?.externalId ?? ""} onChange={(e) => updateReference("account", "externalId", e.target.value)} /></label>
-                  <label className="builder-field compact"><span>Contact label</span><input value={quote.integrations.quoteReferences.contact?.externalLabel ?? ""} onChange={(e) => updateReference("contact", "externalLabel", e.target.value)} /></label>
-                  <label className="builder-field compact"><span>Contact ID</span><input value={quote.integrations.quoteReferences.contact?.externalId ?? ""} onChange={(e) => updateReference("contact", "externalId", e.target.value)} /></label>
-                  <label className="builder-field compact"><span>Deal / opportunity label</span><input value={quote.integrations.quoteReferences.deal?.externalLabel ?? ""} onChange={(e) => updateReference("deal", "externalLabel", e.target.value)} /></label>
-                  <label className="builder-field compact"><span>Deal / opportunity ID</span><input value={quote.integrations.quoteReferences.deal?.externalId ?? ""} onChange={(e) => updateReference("deal", "externalId", e.target.value)} /></label>
-                  <label className="builder-field compact"><span>Quote label</span><input value={quote.integrations.quoteReferences.quote?.externalLabel ?? ""} onChange={(e) => updateReference("quote", "externalLabel", e.target.value)} /></label>
-                  <label className="builder-field compact"><span>Quote ID</span><input value={quote.integrations.quoteReferences.quote?.externalId ?? ""} onChange={(e) => updateReference("quote", "externalId", e.target.value)} /></label>
-                </div>
-              </div>
-            </section>
-
-            <section className="builder-panel">
-              <div className="builder-panel-header">
                 <div><div className="builder-eyebrow">Sections</div><h2 className="builder-title">Quote Sections</h2></div>
                 <div className="flex flex-wrap gap-2">
+                  <SectionToggle label="Executive Summary" enabled={quote.executiveSummary.enabled} onChange={(next) => updateQuote((draft) => { draft.executiveSummary.enabled = next; return draft; })} />
                   <SectionToggle label="Monthly service pricing" enabled={quote.sections.sectionA.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionA.enabled = next; return draft; })} />
                   <SectionToggle label="Hardware and accessories" enabled={quote.sections.sectionB.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionB.enabled = next; return draft; })} />
                   <SectionToggle label="Section C — Site inspection and install" enabled={quote.sections.sectionC.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionC.enabled = next; return draft; })} />
@@ -969,6 +916,25 @@ export default function QuotePreview() {
                   </div>
                 ))}
                 <button type="button" className="pill-button pill-button-active" onClick={addCustomSectionField}>Add section field</button>
+              </div>
+            </section>
+
+            <section className="builder-panel">
+              <div className="builder-panel-header">
+                <div><div className="builder-eyebrow">Executive Summary</div><h2 className="builder-title">Summary for the proposal intro page</h2></div>
+                <div className="flex flex-wrap gap-2">
+                  <SectionToggle label="Include in proposal" enabled={quote.executiveSummary.enabled} onChange={(next) => updateQuote((draft) => { draft.executiveSummary.enabled = next; return draft; })} />
+                  <button type="button" className="pill-button pill-button-active" onClick={generateExecutiveSummary}>Generate draft summary</button>
+                </div>
+              </div>
+              <p className="text-[14px] leading-[1.5] text-[#5c6772]">Give the proposal a usable front-end summary. Generate a draft from the current builder selections, then edit it however you want.</p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <label className="builder-field"><span>Summary heading</span><input value={quote.executiveSummary.heading ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.heading = e.target.value; return draft; })} /></label>
+                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#5e6974]">Uses customer name, provider, pricing mode, selected equipment, quantities, and optional services to build a practical first draft.</div>
+              </div>
+              <div className="mt-4 grid gap-4">
+                <label className="builder-field"><span>Customer context</span><textarea rows={3} value={quote.executiveSummary.customerContext ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.customerContext = e.target.value; syncExecutiveSummaryParagraphs(draft); return draft; })} /></label>
+                <label className="builder-field"><span>Summary body</span><textarea rows={6} value={quote.executiveSummary.body ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.body = e.target.value; syncExecutiveSummaryParagraphs(draft); return draft; })} /></label>
               </div>
             </section>
 
@@ -1006,7 +972,7 @@ export default function QuotePreview() {
                     <div key={row.id} className="line-editor-card">
                       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                         <div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Section A row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">{row.rowType === "support" ? "Included support row" : "Monthly pricing row"}</div></div>
-                        <RowActions rowNumber={index + 1} onMoveUp={() => moveActiveSectionARow(row.id, -1)} onMoveDown={() => moveActiveSectionARow(row.id, 1)} onMoveTo={(targetPosition) => moveActiveSectionAToPosition(row.id, targetPosition)} onDuplicate={() => duplicateActiveSectionARow(row.id)} onRemove={() => removeActiveSectionARow(row.id)} />
+                        <RowActions totalRows={activeSectionARows.length} rowNumber={index + 1} onMoveUp={() => moveActiveSectionARow(row.id, -1)} onMoveDown={() => moveActiveSectionARow(row.id, 1)} onMoveTo={(targetPosition) => moveActiveSectionAToPosition(row.id, targetPosition)} onDuplicate={() => duplicateActiveSectionARow(row.id)} onRemove={() => removeActiveSectionARow(row.id)} />
                       </div>
                       <div className="grid gap-3 lg:grid-cols-[2fr_.8fr_.8fr_1fr]">
                         <label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateActiveSectionARow(row.id, "description", e.target.value)} /></label>
@@ -1026,7 +992,7 @@ export default function QuotePreview() {
               <section className="builder-panel">
                 <div className="builder-panel-header">
                   <div><div className="builder-eyebrow">Section B</div><h2 className="builder-title">{quote.sections.sectionB.builderLabel}</h2></div>
-                  <div className="rounded-[18px] border border-[#ead9db] bg-[#fff7f7] px-4 py-3 text-[13px] text-[#6d4950]">Builder focus: pick from catalog, add custom hardware, or mint an article number without leaving the row-builder.</div>
+                  <div className="rounded-[18px] border border-[#ead9db] bg-[#fff7f7] px-4 py-3 text-[13px] text-[#6d4950]">Builder focus: pick from catalog, add custom hardware, or adjust the current line items without clutter.</div>
                 </div>
 
                 <label className="builder-field"><span>Section note</span><textarea rows={3} value={quote.sections.sectionB.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.introText = e.target.value; return draft; })} /></label>
@@ -1051,7 +1017,7 @@ export default function QuotePreview() {
                 <div className="mt-5 grid gap-4 xl:grid-cols-[1.3fr_.9fr]">
                   <div className="rounded-[24px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="builder-eyebrow">Standard catalog items</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Clean picker</h3></div><div className="text-[13px] text-[#66717d]">{filteredEquipmentCatalog.length} match(es)</div></div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_.8fr]"><label className="builder-field compact"><span>Search hardware</span><input placeholder="kit, mount, cable..." value={equipmentSearch} onChange={(e) => setEquipmentSearch(e.target.value)} /></label><label className="builder-field compact"><span>Category</span><select value={equipmentCategoryFilter} onChange={(e) => setEquipmentCategoryFilter(e.target.value)}>{equipmentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label></div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_.8fr]"><label className="builder-field compact"><span>Search hardware</span><input placeholder="mini, mount, cable..." value={equipmentSearch} onChange={(e) => setEquipmentSearch(e.target.value)} /></label><label className="builder-field compact"><span>Category</span><select value={equipmentCategoryFilter} onChange={(e) => setEquipmentCategoryFilter(e.target.value)}>{equipmentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label></div>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">{filteredEquipmentCatalog.map((item) => <div key={item.id} className="rounded-[20px] border border-[#d9e0e7] bg-white p-4 shadow-[0_8px_20px_rgba(31,42,52,0.05)]"><div className="flex items-start justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{item.category}</div><h4 className="mt-1 text-[16px] font-semibold text-[#16202b]">{item.label}</h4></div><div className="rounded-full bg-[#f3f6fa] px-3 py-1 text-[12px] font-semibold text-[#465361]">{formatCurrency(item.defaultUnitPrice, currencyCode)}</div></div><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">{item.description ?? "Source-backed catalog item."}</p><div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[#66717d]">{item.terminalType && <span className="rounded-full bg-[#f6f8fb] px-3 py-1">Type: {item.terminalType}</span>}<span className="rounded-full bg-[#f6f8fb] px-3 py-1">Source: {item.source}</span></div><button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={() => addEquipmentRow(item.id)}>Add to hardware rows</button></div>)}</div>
                   </div>
 
@@ -1062,11 +1028,10 @@ export default function QuotePreview() {
                       <label className="builder-field compact mt-3"><span>Description / notes</span><textarea rows={3} value={customEquipmentDraft.description} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, description: e.target.value }))} /></label>
                       <button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={addCustomEquipmentRow}>Add custom hardware row</button>
                     </div>
-
                   </div>
                 </div>
 
-                <div className="mt-5 space-y-3">{quote.sections.sectionB.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Hardware row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">{row.sourceType === "standard" ? "Catalog-backed line" : "Custom line"}</div></div><RowActions rowNumber={index + 1} onMoveUp={() => moveEquipmentRow(row.id, -1)} onMoveDown={() => moveEquipmentRow(row.id, 1)} onMoveTo={(targetPosition) => moveEquipmentRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateEquipmentRow(row.id)} onRemove={() => removeEquipmentRow(row.id)} /></div><div className="grid gap-3 lg:grid-cols-[1.7fr_1fr_.7fr_.8fr]"><label className="builder-field compact"><span>Item</span><input value={row.itemName} onChange={(e) => updateEquipmentRow(row.id, "itemName", e.target.value)} /></label><label className="builder-field compact"><span>Category</span><input value={row.itemCategory ?? ""} onChange={(e) => updateEquipmentRow(row.id, "itemCategory", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateEquipmentRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateEquipmentRow(row.id, "unitPrice", e.target.value)} /></label></div><div className="mt-3 grid gap-3 lg:grid-cols-3"><label className="builder-field compact"><span>Terminal type</span><input value={row.terminalType ?? ""} onChange={(e) => updateEquipmentRow(row.id, "terminalType", e.target.value)} /></label><label className="builder-field compact"><span>Article / part #</span><input value={row.partNumber ?? ""} onChange={(e) => updateEquipmentRow(row.id, "partNumber", e.target.value)} /></label><label className="builder-field compact"><span>Source label</span><input value={row.sourceLabel ?? ""} onChange={(e) => updateEquipmentRow(row.id, "sourceLabel", e.target.value)} /></label></div><label className="builder-field compact mt-3"><span>Description / notes</span><input value={row.description ?? ""} onChange={(e) => updateEquipmentRow(row.id, "description", e.target.value)} /></label><div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Source: {row.sourceLabel ?? (row.sourceType === "custom" ? "User entry" : "Catalog")}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div>)}</div>
+                <div className="mt-5 space-y-3">{quote.sections.sectionB.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Hardware row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">{row.sourceType === "standard" ? "Catalog-backed line" : "Custom line"}</div></div><RowActions totalRows={quote.sections.sectionB.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveEquipmentRow(row.id, -1)} onMoveDown={() => moveEquipmentRow(row.id, 1)} onMoveTo={(targetPosition) => moveEquipmentRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateEquipmentRow(row.id)} onRemove={() => removeEquipmentRow(row.id)} /></div><div className="grid gap-3 lg:grid-cols-[1.7fr_1fr_.7fr_.8fr]"><label className="builder-field compact"><span>Item</span><input value={row.itemName} onChange={(e) => updateEquipmentRow(row.id, "itemName", e.target.value)} /></label><label className="builder-field compact"><span>Category</span><input value={row.itemCategory ?? ""} onChange={(e) => updateEquipmentRow(row.id, "itemCategory", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateEquipmentRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateEquipmentRow(row.id, "unitPrice", e.target.value)} /></label></div><div className="mt-3 grid gap-3 lg:grid-cols-3"><label className="builder-field compact"><span>Terminal type</span><input value={row.terminalType ?? ""} onChange={(e) => updateEquipmentRow(row.id, "terminalType", e.target.value)} /></label><label className="builder-field compact"><span>Article / part #</span><input value={row.partNumber ?? ""} onChange={(e) => updateEquipmentRow(row.id, "partNumber", e.target.value)} /></label><label className="builder-field compact"><span>Source label</span><input value={row.sourceLabel ?? ""} onChange={(e) => updateEquipmentRow(row.id, "sourceLabel", e.target.value)} /></label></div><label className="builder-field compact mt-3"><span>Description / notes</span><input value={row.description ?? ""} onChange={(e) => updateEquipmentRow(row.id, "description", e.target.value)} /></label><div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Source: {row.sourceLabel ?? (row.sourceType === "custom" ? "User entry" : "Catalog")}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div>)}</div>
               </section>
             )}
 
@@ -1080,7 +1045,7 @@ export default function QuotePreview() {
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{servicePresetTemplates.map((preset) => <button key={preset.key} type="button" className="pill-button" onClick={() => addPresetServiceRow(preset.key)}>{preset.label}</button>)}</div>
 
-                <div className="mt-5 space-y-3">{quote.sections.sectionC.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Service row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">Optional field service</div></div><RowActions rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(targetPosition) => moveServiceRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} /></div><div className="grid gap-3 lg:grid-cols-[2fr_.7fr_.8fr_1fr]"><label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateServiceRow(row.id, "description", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateServiceRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateServiceRow(row.id, "unitPrice", e.target.value)} /></label><label className="builder-field compact"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(e) => updateServiceRow(row.id, "pricingStage", e.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label></div><label className="builder-field compact mt-3"><span>Notes</span><input value={row.notes ?? ""} onChange={(e) => updateServiceRow(row.id, "notes", e.target.value)} /></label><div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.serviceCategory === "site_inspection" ? "Site inspection" : row.serviceCategory === "installation" ? "Installation" : "Custom service"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div>)}</div>
+                <div className="mt-5 space-y-3">{quote.sections.sectionC.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Service row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">Optional field service</div></div><RowActions totalRows={quote.sections.sectionC.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(targetPosition) => moveServiceRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} /></div><div className="grid gap-3 lg:grid-cols-[2fr_.7fr_.8fr_1fr]"><label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateServiceRow(row.id, "description", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateServiceRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateServiceRow(row.id, "unitPrice", e.target.value)} /></label><label className="builder-field compact"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(e) => updateServiceRow(row.id, "pricingStage", e.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label></div><label className="builder-field compact mt-3"><span>Notes</span><input value={row.notes ?? ""} onChange={(e) => updateServiceRow(row.id, "notes", e.target.value)} /></label><div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.serviceCategory === "site_inspection" ? "Site inspection" : row.serviceCategory === "installation" ? "Installation" : "Custom service"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div>)}</div>
               </section>
             )}
           </div>
@@ -1091,16 +1056,17 @@ export default function QuotePreview() {
               <div className="space-y-5 text-[14px] text-[#32404c]">
                 <div className="summary-block"><div className="summary-label">Customer</div><div className="summary-value">{quote.customer.name}</div><div className="summary-subvalue">{quote.customer.contactName} • {quote.metadata.proposalNumber} • {quote.metadata.proposalDate}</div></div>
                 <div className="summary-block"><div className="summary-label">Proposal info</div><div className="summary-value">{quote.metadata.documentTitle}</div><div className="summary-subvalue">Prepared by {quote.inet.contactName} • {quote.inet.contactPhone}</div></div>
+                <div className="summary-block"><div className="summary-label">Bill To / Ship To</div><div className="summary-value">{quote.billTo.companyName || quote.customer.name}</div><div className="summary-subvalue">{quote.shippingSameAsBillTo ? "Ship To matches Bill To" : `${quote.shipTo.companyName || "Custom Ship To"} configured separately`}</div></div>
+                <div className="summary-block"><div className="summary-label">Executive Summary</div><div className="summary-value">{quote.executiveSummary.enabled ? (quote.executiveSummary.heading?.trim() || "Executive Summary") : "Hidden"}</div><div className="summary-subvalue">{quote.executiveSummary.enabled ? `${compactList([quote.executiveSummary.customerContext, quote.executiveSummary.body]).length} editable text block(s) ready for output` : "Not included in proposal output"}</div></div>
                 <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : `Estimated monthly blended total over ${quote.sections.sectionA.termMonths} months`}</div></div>
-                <div className="summary-block"><div className="summary-label">Section A provider</div><div className="summary-value">{quote.metadata.customerProvider}</div><div className="summary-subvalue">Builder-only provider option for the recurring services section</div></div>
-                <div className="summary-block"><div className="summary-label">CRM state</div><div className="summary-value">{quote.integrations.connectors.filter((connector) => connector.enabled).length ? `${quote.integrations.connectors.filter((connector) => connector.enabled).length} connector(s) enabled` : "Standalone mode"}</div><div className="summary-subvalue">{quote.integrations.lastSyncSummary ?? "No CRM sync summary yet."}</div></div>
+                <div className="summary-block"><div className="summary-label">Section A provider</div><div className="summary-value">{quote.metadata.customerProvider}</div><div className="summary-subvalue">Standalone-first quote builder selection</div></div>
                 <div className="summary-block"><div className="summary-label">Enabled sections</div><ul className="list-disc pl-5 text-[#56616d]">{quote.sections.sectionA.enabled && <li>Monthly service pricing</li>}{quote.sections.sectionB.enabled && <li>Hardware and accessories</li>}{quote.sections.sectionC.enabled && <li>Optional field services</li>}</ul></div>
                 {customSectionFields.length > 0 && <div className="summary-block"><div className="summary-label">Extra section fields</div><div className="space-y-1 text-[#56616d]">{customSectionFields.map((field) => <div key={field.id}><strong>{field.label}:</strong> {field.value || "—"}</div>)}</div></div>}
                 <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{activeSectionARows.length} row(s) ready for template mapping</div></div>
                 <div className="summary-block"><div className="summary-label">Section B output</div><div className="summary-value">{quote.sections.sectionB.lineItems.length} hardware row(s)</div><div className="summary-subvalue">{suggestedAccessories.length > 0 ? `${suggestedAccessories.length} accessory suggestion(s) available` : "All current accessory suggestions already added"}</div></div>
                 <div className="summary-block"><div className="summary-label">Section C output</div><div className="summary-value">{quote.sections.sectionC.title}</div><div className="summary-subvalue">{quote.sections.sectionC.lineItems.length} service row(s) • {quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "budgetary").length} budgetary / {quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "final").length} final</div></div>
                 <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>Recurring monthly</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div><div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div><div className="flex justify-between gap-3"><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>{quote.metadata.quoteType === "lease" && <div className="flex justify-between gap-3 text-[#b00000]"><span>Blended lease monthly</span><strong>{formatCurrency(leaseMonthly, currencyCode)}</strong></div>}</div></div>
-                <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">Next step after this pass: serialize the builder state cleanly and map it into branded PDF / DOCX output. First make the row-builder solid.</div>
+                <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">CRM-ready under the hood later is fine. On the surface, this stays a clean quote builder.</div>
               </div>
             </section>
           </aside>

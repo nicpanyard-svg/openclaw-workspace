@@ -7,7 +7,16 @@ export type QuoteType = "purchase" | "lease";
 
 export type QuoteTextBlock = {
   enabled: boolean;
+  heading?: string;
+  customerContext?: string;
+  body?: string;
   paragraphs: string[];
+};
+
+export type AddressBlock = {
+  companyName?: string;
+  attention?: string;
+  lines: string[];
 };
 
 export type QuoteParty = {
@@ -116,6 +125,8 @@ export type QuoteDocumentationDetails = {
   inetAddressHeading: string;
   preparedByLabel?: string;
   inetSalesHeading?: string;
+  billToHeading?: string;
+  shipToHeading?: string;
 };
 
 export type QuoteApprovalDetails = {
@@ -182,6 +193,9 @@ export type QuoteRecord = {
   terms: QuoteTermsSection;
   customer: QuoteParty;
   inet: QuoteParty;
+  billTo: AddressBlock;
+  shipTo: AddressBlock;
+  shippingSameAsBillTo: boolean;
   executiveSummary: QuoteTextBlock;
   sections: {
     sectionA: QuoteSectionA;

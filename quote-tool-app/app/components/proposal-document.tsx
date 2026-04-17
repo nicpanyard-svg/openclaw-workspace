@@ -56,6 +56,10 @@ function getPricingLabel(row: ServicePricingRow) {
   return "Budgetary pricing";
 }
 
+function cleanLines(lines: string[]) {
+  return lines.map((line) => line.trim()).filter(Boolean);
+}
+
 export function ProposalDocument({ quote }: ProposalDocumentProps) {
   const currencyCode = quote.metadata.currencyCode || "USD";
   const sectionARows = getSectionARows(quote.sections.sectionA);
@@ -63,18 +67,33 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
   const equipmentTotal = getSectionBTotal(quote);
   const sectionCTotal = getSectionCTotal(quote);
   const leaseMonthly = getLeaseMonthly(quote, recurringMonthlyTotal, equipmentTotal);
+  const executiveSummaryBlocks = [quote.executiveSummary.customerContext, quote.executiveSummary.body]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value?.length));
+  const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => paragraph.trim().length > 0);
+  const executiveSummaryParagraphs = executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary;
   const enabledSections = [
     quote.sections.sectionA.enabled ? `Section A — ${quote.sections.sectionA.title}` : null,
     quote.sections.sectionB.enabled ? `Section B — ${quote.sections.sectionB.title}` : null,
     quote.sections.sectionC.enabled ? `Section C — ${quote.sections.sectionC.title}` : null,
   ].filter(Boolean) as string[];
 
+  const billToLines = cleanLines([
+    quote.billTo.companyName ?? "",
+    quote.billTo.attention ?? "",
+    ...quote.billTo.lines,
+  ]);
+
+  const shipToSource = quote.shippingSameAsBillTo ? quote.billTo : quote.shipTo;
+  const shipToLines = cleanLines([
+    shipToSource.companyName ?? "",
+    shipToSource.attention ?? "",
+    ...shipToSource.lines,
+  ]);
+
   return (
     <main className="proposal-shell">
       <section className="proposal-page cover-page">
-        <div className="cover-watermark" />
-        <div className="proposal-confidential-mark">CONFIDENTIAL</div>
-        <div className="proposal-corner-watermark" />
         <div className="cover-grid">
           <div className="cover-topbar">
             <div className="cover-brand-lockup">
@@ -162,10 +181,8 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
       </section>
 
       <section className="proposal-page">
-        <div className="proposal-confidential-mark">CONFIDENTIAL</div>
-        <div className="proposal-corner-watermark" />
         <div className="proposal-header">
-          <span>Confidential</span>
+          <span>Proposal details</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
         </div>
 
@@ -223,9 +240,26 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
         </div>
 
-        {quote.executiveSummary.enabled && (
+        <div className="proposal-address-grid">
           <div className="proposal-copy proposal-copy-card">
-            {quote.executiveSummary.paragraphs.map((paragraph, index) => (
+            <div className="proposal-mini-heading">{quote.documentation.billToHeading ?? "Bill To"}</div>
+            {billToLines.map((line, index) => (
+              <p key={`bill-${line}-${index}`}>{line}</p>
+            ))}
+          </div>
+          <div className="proposal-copy proposal-copy-card">
+            <div className="proposal-mini-heading">{quote.documentation.shipToHeading ?? "Ship To"}</div>
+            {shipToLines.map((line, index) => (
+              <p key={`ship-${line}-${index}`}>{line}</p>
+            ))}
+            {quote.shippingSameAsBillTo && <p className="proposal-cell-note">Same as Bill To</p>}
+          </div>
+        </div>
+
+        {quote.executiveSummary.enabled && executiveSummaryParagraphs.length > 0 && (
+          <div className="proposal-copy proposal-copy-card">
+            <div className="proposal-mini-heading">{quote.executiveSummary.heading?.trim() || "Executive Summary"}</div>
+            {executiveSummaryParagraphs.map((paragraph, index) => (
               <p key={index}>{paragraph}</p>
             ))}
           </div>
@@ -266,10 +300,8 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
       {quote.sections.sectionA.enabled && (
         <section className="proposal-page">
-          <div className="proposal-confidential-mark">CONFIDENTIAL</div>
-          <div className="proposal-corner-watermark" />
           <div className="proposal-header">
-            <span>Confidential</span>
+            <span>Recurring services</span>
             <span>Proposal #{quote.metadata.proposalNumber}</span>
           </div>
 
@@ -342,10 +374,8 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
       {quote.sections.sectionB.enabled && (
         <section className="proposal-page">
-          <div className="proposal-confidential-mark">CONFIDENTIAL</div>
-          <div className="proposal-corner-watermark" />
           <div className="proposal-header">
-            <span>Confidential</span>
+            <span>Equipment and accessories</span>
             <span>Proposal #{quote.metadata.proposalNumber}</span>
           </div>
 
@@ -396,10 +426,8 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
       {quote.sections.sectionC.enabled && (
         <section className="proposal-page">
-          <div className="proposal-confidential-mark">CONFIDENTIAL</div>
-          <div className="proposal-corner-watermark" />
           <div className="proposal-header">
-            <span>Confidential</span>
+            <span>Optional field services</span>
             <span>Proposal #{quote.metadata.proposalNumber}</span>
           </div>
 
@@ -447,10 +475,8 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
       )}
 
       <section className="proposal-page">
-        <div className="proposal-confidential-mark">CONFIDENTIAL</div>
-        <div className="proposal-corner-watermark" />
         <div className="proposal-header">
-          <span>Confidential</span>
+          <span>Terms and conditions</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
         </div>
 
@@ -478,10 +504,8 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
       </section>
 
       <section className="proposal-page proposal-closing-page">
-        <div className="proposal-confidential-mark">CONFIDENTIAL</div>
-        <div className="proposal-corner-watermark" />
         <div className="proposal-header">
-          <span>Confidential</span>
+          <span>Commercial recap</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
         </div>
 

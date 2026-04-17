@@ -22,6 +22,8 @@ export const sampleQuoteRecord: QuoteRecord = {
     inetAddressHeading: "iNet Address",
     preparedByLabel: "Prepared By",
     inetSalesHeading: "iNet Sales",
+    billToHeading: "Bill To",
+    shipToHeading: "Ship To",
   },
   approval: {
     heading: "Approve and Authorize",
@@ -70,11 +72,25 @@ export const sampleQuoteRecord: QuoteRecord = {
     contactEmail: "nick.panyard@inetlte.com",
     addressLines: ["Galleria Tower 2", "5051 Westheimer Road, Suite 1700", "Houston, TX 77056"],
   },
+  billTo: {
+    companyName: "CZ USA",
+    attention: "Scott Duncan",
+    lines: ["PO Box 171073", "Kansas City, Kansas 66117", "United States"],
+  },
+  shipTo: {
+    companyName: "CZ USA",
+    attention: "Scott Duncan",
+    lines: ["PO Box 171073", "Kansas City, Kansas 66117", "United States"],
+  },
+  shippingSameAsBillTo: true,
   executiveSummary: {
     enabled: true,
+    heading: "Executive Summary",
+    customerContext: "Prepared for CZ USA to review Starlink managed communications services, hardware, and any supporting field services needed for deployment.",
+    body: "This budgetary estimate outlines the proposed commercial structure for Starlink managed communications services and related equipment. Section A captures the Starlink service schedule, while Section B covers hardware and accessories. Additional terms and approval details are included at the end of this estimate.",
     paragraphs: [
-      "This budgetary estimate outlines the proposed commercial structure for Starlink managed communications services and related equipment.",
-      "Section A captures the Starlink service schedule, while Section B covers hardware and accessories. Additional terms and approval details are included at the end of this estimate.",
+      "Prepared for CZ USA to review Starlink managed communications services, hardware, and any supporting field services needed for deployment.",
+      "This budgetary estimate outlines the proposed commercial structure for Starlink managed communications services and related equipment. Section A captures the Starlink service schedule, while Section B covers hardware and accessories. Additional terms and approval details are included at the end of this estimate.",
     ],
   },
   sections: {
@@ -201,9 +217,9 @@ export const sampleQuoteRecord: QuoteRecord = {
         {
           id: "b_gen3_perf",
           sourceType: "standard",
-          itemName: "Starlink Performance Kit",
+          itemName: "Performance G3",
           itemCategory: "Terminal",
-          terminalType: "Performance",
+          terminalType: "Performance G3",
           quantity: 2,
           unitPrice: 1999,
           totalPrice: 3998,
@@ -212,7 +228,7 @@ export const sampleQuoteRecord: QuoteRecord = {
         {
           id: "b_pipe_adapter",
           sourceType: "standard",
-          itemName: "Starlink Pipe Adapter",
+          itemName: "Performance G3 Pole Mount Adapter",
           itemCategory: "Mount Adapter",
           quantity: 2,
           unitPrice: 75,

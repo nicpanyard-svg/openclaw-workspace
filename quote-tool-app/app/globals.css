@@ -117,17 +117,6 @@ html {
   overflow: hidden;
 }
 
-.proposal-page::before {
-  content: "";
-  position: absolute;
-  top: 0.7in;
-  right: -0.18in;
-  width: 2.42in;
-  height: 2.12in;
-  background: radial-gradient(circle at center, rgba(196, 203, 212, 0.42) 0%, rgba(196, 203, 212, 0.18) 38%, rgba(196, 203, 212, 0) 72%);
-  opacity: 0.7;
-  pointer-events: none;
-}
 
 .cover-page {
   display: flex;
@@ -141,37 +130,6 @@ html {
   min-height: 100%;
 }
 
-.cover-watermark {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.9) 58%, rgba(255, 255, 255, 0.98) 100%),
-    radial-gradient(circle at 92% 20%, rgba(198, 205, 214, 0.42) 0%, rgba(198, 205, 214, 0.18) 24%, transparent 58%),
-    linear-gradient(145deg, transparent 0%, transparent 72%, rgba(122, 4, 46, 0.08) 72%, rgba(122, 4, 46, 0.14) 100%);
-  pointer-events: none;
-}
-
-.proposal-confidential-mark {
-  position: absolute;
-  top: 0.24in;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: #d10000;
-  font-weight: 700;
-}
-
-.proposal-corner-watermark {
-  position: absolute;
-  right: -0.1in;
-  bottom: 0.6in;
-  width: 2.3in;
-  height: 2in;
-  background: radial-gradient(circle at 40% 40%, rgba(203, 210, 218, 0.35) 0%, rgba(203, 210, 218, 0.16) 38%, rgba(203, 210, 218, 0) 74%);
-  pointer-events: none;
-}
 
 .cover-topbar {
   display: flex;
@@ -512,7 +470,33 @@ html {
 
 .proposal-callout-grid {
   margin-top: 18px;
-  grid-template-columns: 1.15fr 1fr;
+}
+
+.proposal-detail-grid,
+.proposal-address-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.proposal-mini-heading {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8a96a3;
+  margin-bottom: 10px;
+}
+
+.proposal-numbered-list {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 10px;
+  color: #334150;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .proposal-callout {
@@ -814,7 +798,9 @@ html {
   .cover-summary-strip,
   .proposal-callout-grid,
   .cover-customer-grid,
-  .approval-signature-grid {
+  .approval-signature-grid,
+  .proposal-detail-grid,
+  .proposal-address-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -993,12 +979,6 @@ body {
   transition: border-color 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease, background-color 0.12s ease, color 0.12s ease;
 }
 
-.button-flash-active {
-  border-color: #b00000 !important;
-  background: #b00000 !important;
-  color: #ffffff !important;
-  box-shadow: 0 10px 18px rgba(176, 0, 0, 0.18);
-}
 
 .customer-logo-dropzone {
   display: block;
