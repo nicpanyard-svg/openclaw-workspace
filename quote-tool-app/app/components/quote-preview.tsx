@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
+import type { CrmConnectionStatus, CrmProvider } from "@/app/lib/crm";
 import { PROPOSAL_STORAGE_KEY, serializeQuoteRecord } from "@/app/lib/proposal-state";
 import {
   type EquipmentPricingRow,
@@ -33,6 +34,8 @@ type CustomSectionField = {
 type DataQuickAddUnit = "GB" | "TB";
 type ServiceStage = "budgetary" | "final";
 type ServiceCategory = "site_inspection" | "installation" | "custom";
+
+const crmStatusOptions: CrmConnectionStatus[] = ["disconnected", "configured", "connected", "error"];
 
 const emptyEquipmentDraft: EquipmentDraft = {
   itemName: "",
@@ -320,6 +323,33 @@ export default function QuotePreview() {
   }, [quote.sections.sectionB.lineItems]);
 
   const updateQuote = (updater: (current: QuoteRecord) => QuoteRecord) => setQuote((current) => updater(cloneQuote(current)));
+
+  const updateConnector = (provider: CrmProvider, updater: (connector: QuoteRecord["integrations"]["connectors"][number]) => void) => {
+    updateQuote((draft) => {
+      const connector = draft.integrations.connectors.find((item) => item.provider === provider);
+      if (!connector) return draft;
+      updater(connector);
+      draft.internal.crmSyncReady = draft.integrations.connectors.some((item) => item.enabled && item.status !== "disconnected");
+      return draft;
+    });
+  };
+
+  const updateReference = (key: "account" | "contact" | "deal" | "quote", field: "externalId" | "externalLabel", value: string) => {
+    updateQuote((draft) => {
+      const current = draft.integrations.quoteReferences[key];
+      if (!current) {
+        draft.integrations.quoteReferences[key] = {
+          provider: "salesforce",
+          entityType: key === "deal" ? "deal" : key,
+          externalId: field === "externalId" ? value : "",
+          externalLabel: field === "externalLabel" ? value : "",
+        };
+      } else {
+        current[field] = value;
+      }
+      return draft;
+    });
+  };
 
   const updateActiveSectionARow = (rowId: string, field: string, value: string) => {
     updateQuote((draft) => {
@@ -693,10 +723,55 @@ export default function QuotePreview() {
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Quote setup</div><h2 className="builder-title">Core quote details</h2></div></div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <label className="builder-field"><span>Proposal #</span><input value={quote.metadata.proposalNumber} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalNumber = e.target.value; return draft; })} /></label>
-                <label className="builder-field"><span>Proposal date</span><input value={quote.metadata.proposalDate} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalDate = e.target.value; return draft; })} /></label>
-                <label className="builder-field"><span>Customer short name</span><input value={quote.metadata.customerShortName} onChange={(e) => updateQuote((draft) => { draft.metadata.customerShortName = e.target.value; draft.customer.logoText = e.target.value; return draft; })} /></label>
+                <label className="builder-field"><span>Proposal #</span><input value={quote.metadata.proposalNumber} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalNumber = e.target.value; draft.documentation.proposalNumberLabel = e.target.value; return draft; })} /></label>
+                <label className="builder-field"><span>Proposal date</span><input value={quote.metadata.proposalDate} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalDate = e.target.value; draft.documentation.proposalDateLabel = e.target.value; return draft; })} /></label>
+                <label className="builder-field"><span>Proposal title</span><input value={quote.metadata.documentTitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentTitle = e.target.value; draft.documentation.proposalTitle = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Status</span><select value={quote.metadata.status} onChange={(e) => updateQuote((draft) => { draft.metadata.status = e.target.value as QuoteRecord["metadata"]["status"]; draft.internal.quoteStatus = e.target.value as QuoteRecord["metadata"]["status"]; return draft; })}>{["draft", "sent", "open", "negotiating", "approved", "closed"].map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+                <label className="builder-field"><span>Proposal subtitle</span><input value={quote.metadata.documentSubtitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentSubtitle = e.target.value; return draft; })} /></label>
+                <label className="builder-field"><span>Customer short name</span><input value={quote.metadata.customerShortName} onChange={(e) => updateQuote((draft) => { draft.metadata.customerShortName = e.target.value; draft.customer.logoText = e.target.value; return draft; })} /></label>
+              </div>
+
+              <div className="mt-5 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
+                <div className="builder-eyebrow">Proposal contacts</div>
+                <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal and address details</h3>
+                <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Everything here feeds the proposal output directly so the cover page and info page match what gets edited in the builder.</p>
+
+                <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                  <div className="space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
+                    <div>
+                      <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Customer</div>
+                      <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Contact and address</div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="builder-field compact"><span>Customer name</span><input value={quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.customer.name = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact"><span>Contact name</span><input value={quote.customer.contactName} onChange={(e) => updateQuote((draft) => { draft.customer.contactName = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact"><span>Contact phone</span><input value={quote.customer.contactPhone} onChange={(e) => updateQuote((draft) => { draft.customer.contactPhone = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact"><span>Contact email</span><input value={quote.customer.contactEmail} onChange={(e) => updateQuote((draft) => { draft.customer.contactEmail = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact md:col-span-2"><span>Address line 1</span><input value={quote.customer.addressLines[0] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[0] = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact md:col-span-2"><span>Address line 2</span><input value={quote.customer.addressLines[1] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[1] = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact md:col-span-2"><span>Address line 3</span><input value={quote.customer.addressLines[2] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[2] = e.target.value; return draft; })} /></label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
+                    <div>
+                      <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">iNet</div>
+                      <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Sales contact and address</div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="builder-field compact"><span>Prepared by / salesman</span><input value={quote.inet.contactName} onChange={(e) => updateQuote((draft) => { draft.inet.contactName = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact"><span>iNet sales name</span><input value={quote.inet.name} onChange={(e) => updateQuote((draft) => { draft.inet.name = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact"><span>Sales phone</span><input value={quote.inet.contactPhone} onChange={(e) => updateQuote((draft) => { draft.inet.contactPhone = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact"><span>Sales email</span><input value={quote.inet.contactEmail} onChange={(e) => updateQuote((draft) => { draft.inet.contactEmail = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact md:col-span-2"><span>iNet address line 1</span><input value={quote.inet.addressLines[0] ?? ""} onChange={(e) => updateQuote((draft) => { draft.inet.addressLines[0] = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact md:col-span-2"><span>iNet address line 2</span><input value={quote.inet.addressLines[1] ?? ""} onChange={(e) => updateQuote((draft) => { draft.inet.addressLines[1] = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact md:col-span-2"><span>iNet address line 3</span><input value={quote.inet.addressLines[2] ?? ""} onChange={(e) => updateQuote((draft) => { draft.inet.addressLines[2] = e.target.value; return draft; })} /></label>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -719,6 +794,153 @@ export default function QuotePreview() {
                     {quote.customer.logoDataUrl && <img src={quote.customer.logoDataUrl} alt="Customer logo preview" className="customer-logo-preview mt-4" />}
                   </button>
                   <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onCustomerLogoSelected(e.target.files?.[0])} />
+                </div>
+              </div>
+            </section>
+
+            <section className="builder-panel">
+              <div className="builder-panel-header">
+                <div><div className="builder-eyebrow">Integrations</div><h2 className="builder-title">CRM settings groundwork</h2></div>
+                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#5e6974] max-w-[420px]">
+                  Standalone mode stays first. These settings only prepare optional Salesforce and HubSpot connectors.
+                </div>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-2">
+                {quote.integrations.connectors.map((connector) => {
+                  const isSalesforce = connector.provider === "salesforce";
+                  return (
+                    <div key={connector.provider} className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="builder-eyebrow">Optional connector</div>
+                          <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">{connector.label}</h3>
+                          <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">{connector.description}</p>
+                        </div>
+                        <label className="inline-flex items-center gap-2 rounded-full border border-[#d7dde4] bg-white px-4 py-2 text-[13px] font-semibold text-[#24303b]">
+                          <input
+                            type="checkbox"
+                            checked={connector.enabled}
+                            onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
+                              draftConnector.enabled = e.target.checked;
+                              draftConnector.syncPreference.enabled = e.target.checked;
+                            })}
+                          />
+                          Enabled
+                        </label>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        <label className="builder-field compact">
+                          <span>Connection status</span>
+                          <select
+                            value={connector.status}
+                            onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
+                              draftConnector.status = e.target.value as CrmConnectionStatus;
+                            })}
+                          >
+                            {crmStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+                          </select>
+                        </label>
+                        <label className="builder-field compact">
+                          <span>Default sync direction</span>
+                          <select
+                            value={connector.syncPreference.defaultDirection}
+                            onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
+                              draftConnector.syncPreference.defaultDirection = e.target.value as typeof draftConnector.syncPreference.defaultDirection;
+                            })}
+                          >
+                            <option value="push">Push from quote tool</option>
+                            <option value="pull">Pull into quote tool</option>
+                            <option value="bidirectional">Bidirectional</option>
+                          </select>
+                        </label>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        {isSalesforce ? (
+                          <>
+                            <label className="builder-field compact">
+                              <span>Instance URL</span>
+                              <input
+                                value={typeof connector.config === "object" && "instanceUrl" in connector.config ? connector.config.instanceUrl ?? "" : ""}
+                                onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
+                                  if ("instanceUrl" in draftConnector.config) draftConnector.config.instanceUrl = e.target.value;
+                                })}
+                              />
+                            </label>
+                            <label className="builder-field compact">
+                              <span>Environment</span>
+                              <select
+                                value={typeof connector.config === "object" && "environment" in connector.config ? connector.config.environment : "sandbox"}
+                                onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
+                                  if ("environment" in draftConnector.config) draftConnector.config.environment = e.target.value as "production" | "sandbox";
+                                })}
+                              >
+                                <option value="sandbox">Sandbox</option>
+                                <option value="production">Production</option>
+                              </select>
+                            </label>
+                          </>
+                        ) : (
+                          <>
+                            <label className="builder-field compact">
+                              <span>Portal ID</span>
+                              <input
+                                value={typeof connector.config === "object" && "portalId" in connector.config ? connector.config.portalId ?? "" : ""}
+                                onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
+                                  if ("portalId" in draftConnector.config) draftConnector.config.portalId = e.target.value;
+                                })}
+                              />
+                            </label>
+                            <label className="builder-field compact">
+                              <span>App label</span>
+                              <input
+                                value={typeof connector.config === "object" && "privateAppLabel" in connector.config ? connector.config.privateAppLabel ?? "" : ""}
+                                onChange={(e) => updateConnector(connector.provider, (draftConnector) => {
+                                  if ("privateAppLabel" in draftConnector.config) draftConnector.config.privateAppLabel = e.target.value;
+                                })}
+                              />
+                            </label>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="mt-4 grid gap-2 md:grid-cols-3 text-[13px] text-[#56616d]">
+                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={connector.syncPreference.autoCreateAccount} onChange={(e) => updateConnector(connector.provider, (draftConnector) => { draftConnector.syncPreference.autoCreateAccount = e.target.checked; })} /> Auto-create account/company</label>
+                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={connector.syncPreference.autoCreateDeal} onChange={(e) => updateConnector(connector.provider, (draftConnector) => { draftConnector.syncPreference.autoCreateDeal = e.target.checked; })} /> Auto-create deal/opportunity</label>
+                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={connector.syncPreference.autoAttachQuotePdf} onChange={(e) => updateConnector(connector.provider, (draftConnector) => { draftConnector.syncPreference.autoAttachQuotePdf = e.target.checked; })} /> Attach PDF on sync</label>
+                      </div>
+
+                      <div className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
+                        <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Default field mapping stubs</div>
+                        <div className="mt-2 space-y-2 text-[13px] text-[#5e6974]">
+                          {connector.fieldMappings.map((mapping) => (
+                            <div key={`${mapping.provider}-${mapping.internalField}-${mapping.externalField}`} className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[#f7f9fb] px-3 py-2">
+                              <span><strong>{mapping.internalField}</strong> → {mapping.externalField}</span>
+                              <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#697684]">{mapping.direction}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                <div className="builder-eyebrow">External IDs stay separate</div>
+                <h3 className="mt-1 text-[18px] font-semibold text-[#16202b]">CRM reference slots</h3>
+                <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">These are connector-facing references only. The quote still works even if every field below is blank.</p>
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <label className="builder-field compact"><span>Account / company label</span><input value={quote.integrations.quoteReferences.account?.externalLabel ?? ""} onChange={(e) => updateReference("account", "externalLabel", e.target.value)} /></label>
+                  <label className="builder-field compact"><span>Account / company ID</span><input value={quote.integrations.quoteReferences.account?.externalId ?? ""} onChange={(e) => updateReference("account", "externalId", e.target.value)} /></label>
+                  <label className="builder-field compact"><span>Contact label</span><input value={quote.integrations.quoteReferences.contact?.externalLabel ?? ""} onChange={(e) => updateReference("contact", "externalLabel", e.target.value)} /></label>
+                  <label className="builder-field compact"><span>Contact ID</span><input value={quote.integrations.quoteReferences.contact?.externalId ?? ""} onChange={(e) => updateReference("contact", "externalId", e.target.value)} /></label>
+                  <label className="builder-field compact"><span>Deal / opportunity label</span><input value={quote.integrations.quoteReferences.deal?.externalLabel ?? ""} onChange={(e) => updateReference("deal", "externalLabel", e.target.value)} /></label>
+                  <label className="builder-field compact"><span>Deal / opportunity ID</span><input value={quote.integrations.quoteReferences.deal?.externalId ?? ""} onChange={(e) => updateReference("deal", "externalId", e.target.value)} /></label>
+                  <label className="builder-field compact"><span>Quote label</span><input value={quote.integrations.quoteReferences.quote?.externalLabel ?? ""} onChange={(e) => updateReference("quote", "externalLabel", e.target.value)} /></label>
+                  <label className="builder-field compact"><span>Quote ID</span><input value={quote.integrations.quoteReferences.quote?.externalId ?? ""} onChange={(e) => updateReference("quote", "externalId", e.target.value)} /></label>
                 </div>
               </div>
             </section>
@@ -867,9 +1089,11 @@ export default function QuotePreview() {
             <section className="builder-panel sticky top-6">
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Output model</div><h2 className="builder-title">PDF-ready summary</h2></div></div>
               <div className="space-y-5 text-[14px] text-[#32404c]">
-                <div className="summary-block"><div className="summary-label">Customer</div><div className="summary-value">{quote.customer.name}</div><div className="summary-subvalue">{quote.metadata.proposalNumber} • {quote.metadata.proposalDate}</div></div>
+                <div className="summary-block"><div className="summary-label">Customer</div><div className="summary-value">{quote.customer.name}</div><div className="summary-subvalue">{quote.customer.contactName} • {quote.metadata.proposalNumber} • {quote.metadata.proposalDate}</div></div>
+                <div className="summary-block"><div className="summary-label">Proposal info</div><div className="summary-value">{quote.metadata.documentTitle}</div><div className="summary-subvalue">Prepared by {quote.inet.contactName} • {quote.inet.contactPhone}</div></div>
                 <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : `Estimated monthly blended total over ${quote.sections.sectionA.termMonths} months`}</div></div>
                 <div className="summary-block"><div className="summary-label">Section A provider</div><div className="summary-value">{quote.metadata.customerProvider}</div><div className="summary-subvalue">Builder-only provider option for the recurring services section</div></div>
+                <div className="summary-block"><div className="summary-label">CRM state</div><div className="summary-value">{quote.integrations.connectors.filter((connector) => connector.enabled).length ? `${quote.integrations.connectors.filter((connector) => connector.enabled).length} connector(s) enabled` : "Standalone mode"}</div><div className="summary-subvalue">{quote.integrations.lastSyncSummary ?? "No CRM sync summary yet."}</div></div>
                 <div className="summary-block"><div className="summary-label">Enabled sections</div><ul className="list-disc pl-5 text-[#56616d]">{quote.sections.sectionA.enabled && <li>Monthly service pricing</li>}{quote.sections.sectionB.enabled && <li>Hardware and accessories</li>}{quote.sections.sectionC.enabled && <li>Optional field services</li>}</ul></div>
                 {customSectionFields.length > 0 && <div className="summary-block"><div className="summary-label">Extra section fields</div><div className="space-y-1 text-[#56616d]">{customSectionFields.map((field) => <div key={field.id}><strong>{field.label}:</strong> {field.value || "—"}</div>)}</div></div>}
                 <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{activeSectionARows.length} row(s) ready for template mapping</div></div>

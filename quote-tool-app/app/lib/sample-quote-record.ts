@@ -1,3 +1,4 @@
+import { createDefaultIntegrationState } from "@/app/lib/crm";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 
 export const sampleQuoteRecord: QuoteRecord = {
@@ -19,6 +20,8 @@ export const sampleQuoteRecord: QuoteRecord = {
     proposalNumberLabel: "RCT001",
     customerAddressHeading: "Customer Address",
     inetAddressHeading: "iNet Address",
+    preparedByLabel: "Prepared By",
+    inetSalesHeading: "iNet Sales",
   },
   approval: {
     heading: "Approve and Authorize",
@@ -279,6 +282,27 @@ export const sampleQuoteRecord: QuoteRecord = {
     quoteId: "quote_cz_usa_rct001",
     quoteStatus: "draft",
     internalNotes: "Source-driven catalog is still partly stubbed until workbook/doc extraction is completed.",
+    crmOwnerLabel: "Standalone quote workspace",
+    crmSyncReady: false,
+  },
+  integrations: {
+    ...createDefaultIntegrationState(),
+    quoteReferences: {
+      account: {
+        provider: "salesforce",
+        entityType: "account",
+        externalId: "001-demo-account",
+        externalLabel: "CZ USA (sample mapping)",
+        lastSyncedAt: "2026-04-02T14:10:00Z",
+      },
+      contact: {
+        provider: "hubspot",
+        entityType: "contact",
+        externalId: "201-demo-contact",
+        externalLabel: "Scott Duncan (sample mapping)",
+      },
+    },
+    lastSyncSummary: "Demo references included to show CRM-neutral linkage without affecting standalone quote behavior.",
   },
   documentRules: {
     preserveTemplateLook: true,

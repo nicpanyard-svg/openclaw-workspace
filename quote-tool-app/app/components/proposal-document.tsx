@@ -112,20 +112,30 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
                   )}
                 </div>
                 <div className="cover-customer-name">{quote.customer.name}</div>
+                <div className="cover-contact-lines">
+                  <div>{quote.customer.contactName}</div>
+                  <div>{quote.customer.contactPhone}</div>
+                  <div>{quote.customer.contactEmail}</div>
+                </div>
                 <div className="cover-customer-lines">
-                  {quote.customer.addressLines.map((line) => (
-                    <div key={line}>{line}</div>
+                  {quote.customer.addressLines.map((line, index) => (
+                    <div key={`${line}-${index}`}>{line}</div>
                   ))}
                 </div>
               </div>
 
               <div className="cover-contact-card">
-                <div className="cover-customer-label">Prepared by</div>
+                <div className="cover-customer-label">{quote.documentation.preparedByLabel ?? "Prepared by"}</div>
                 <div className="cover-contact-name">{quote.inet.contactName}</div>
                 <div className="cover-contact-lines">
                   <div>{quote.inet.name}</div>
                   <div>{quote.inet.contactPhone}</div>
                   <div>{quote.inet.contactEmail}</div>
+                </div>
+                <div className="cover-customer-lines">
+                  {quote.inet.addressLines.map((line, index) => (
+                    <div key={`${line}-${index}`}>{line}</div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -184,7 +194,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             <div className="summary-panel-copy">Budgetary Estimate</div>
           </div>
           <div className="proposal-summary-panel">
-            <div className="summary-panel-label">Prepared by</div>
+            <div className="summary-panel-label">{quote.documentation.preparedByLabel ?? "Prepared by"}</div>
             <div className="summary-panel-value">{quote.inet.contactName}</div>
             <div className="summary-panel-copy">{quote.inet.name}</div>
           </div>
@@ -197,18 +207,18 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             <p><strong>Contact Phone</strong> {quote.customer.contactPhone}</p>
             <p><strong>Contact Email</strong> {quote.customer.contactEmail}</p>
             <p><strong>{quote.documentation.customerAddressHeading}</strong></p>
-            {quote.customer.addressLines.map((line) => (
-              <p key={line}>{line}</p>
+            {quote.customer.addressLines.map((line, index) => (
+              <p key={`${line}-${index}`}>{line}</p>
             ))}
           </div>
           <div className="proposal-copy proposal-copy-card">
-            <div className="proposal-mini-heading">iNet Sales</div>
-            <p><strong>Customer Contact</strong> {quote.inet.contactName}</p>
+            <div className="proposal-mini-heading">{quote.documentation.inetSalesHeading ?? "iNet Sales"}</div>
+            <p><strong>{quote.documentation.preparedByLabel ?? "Prepared By"}</strong> {quote.inet.contactName}</p>
             <p><strong>Contact Phone</strong> {quote.inet.contactPhone}</p>
             <p><strong>Contact Email</strong> {quote.inet.contactEmail}</p>
             <p><strong>{quote.documentation.inetAddressHeading}</strong></p>
-            {quote.inet.addressLines.map((line) => (
-              <p key={line}>{line}</p>
+            {quote.inet.addressLines.map((line, index) => (
+              <p key={`${line}-${index}`}>{line}</p>
             ))}
           </div>
         </div>
@@ -229,6 +239,14 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
                 <li key={section}>{section}</li>
               ))}
             </ul>
+          </div>
+          <div className="proposal-callout">
+            <div className="proposal-callout-label">CRM connector status</div>
+            <div className="totals-stack">
+              <div><span>Mode</span><strong>{quote.integrations.connectors.some((connector) => connector.enabled) ? "CRM-enabled" : "Standalone"}</strong></div>
+              <div><span>References</span><strong>{[quote.integrations.quoteReferences.account, quote.integrations.quoteReferences.contact, quote.integrations.quoteReferences.deal, quote.integrations.quoteReferences.quote].filter(Boolean).length}</strong></div>
+              <div><span>Sync summary</span><strong>{quote.integrations.lastSyncSummary ?? "Not synced"}</strong></div>
+            </div>
           </div>
           <div className="proposal-callout totals-callout">
             <div className="proposal-callout-label">Commercial snapshot</div>

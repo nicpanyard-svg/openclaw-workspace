@@ -1,3 +1,5 @@
+import type { QuoteIntegrationState } from "@/app/lib/crm";
+
 export type CurrencyCode = "USD" | "CAD" | "EUR" | string;
 export type QuoteStatus = "draft" | "sent" | "open" | "negotiating" | "approved" | "closed";
 export type SectionAMode = "pool" | "per_kit";
@@ -102,6 +104,8 @@ export type QuoteInternalMeta = {
   quoteId: string;
   quoteStatus: QuoteStatus;
   internalNotes?: string;
+  crmOwnerLabel?: string;
+  crmSyncReady?: boolean;
 };
 
 export type QuoteDocumentationDetails = {
@@ -110,6 +114,8 @@ export type QuoteDocumentationDetails = {
   proposalNumberLabel: string;
   customerAddressHeading: string;
   inetAddressHeading: string;
+  preparedByLabel?: string;
+  inetSalesHeading?: string;
 };
 
 export type QuoteApprovalDetails = {
@@ -184,5 +190,6 @@ export type QuoteRecord = {
   };
   revisionHistory: QuoteRevision[];
   internal: QuoteInternalMeta;
+  integrations: QuoteIntegrationState;
   documentRules: QuoteDocumentRules;
 };
