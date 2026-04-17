@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import {
@@ -958,19 +959,24 @@ export default function QuotePreview() {
       <div className="mx-auto max-w-[1380px] space-y-6">
         <section className="rounded-[28px] border border-white/60 bg-[var(--workspace-panel)] p-6 shadow-[0_16px_40px_rgba(75,88,106,0.12)] backdrop-blur">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-[780px]">
-              <div className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[#8b96a3]">Quote Tool App</div>
-              <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Fillable quote builder</h1>
-              <p className="mt-2 text-[15px] leading-[1.55] text-[#5a6572]">
-                Builder now runs on an editable catalog and active quarter price book instead of only fixed code defaults.
-              </p>
+            <div className="flex max-w-[820px] items-start gap-4">
+              <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center rounded-[18px] bg-white shadow-[0_10px_24px_rgba(31,42,52,0.08)] ring-1 ring-[#e3e8ee]">
+                <Image src="/inet-logo.png" alt="iNet logo" width={44} height={44} className="h-auto w-auto object-contain" priority />
+              </div>
+              <div>
+                <div className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[#8b96a3]">RapidQuote</div>
+                <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Quote builder</h1>
+                <p className="mt-2 max-w-[680px] text-[15px] leading-[1.55] text-[#5a6572]">
+                  Build polished iNet proposal drafts fast, with live pricing totals and a clean handoff into the proposal view.
+                </p>
+              </div>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
               <div className="builder-stat-card"><div className="builder-stat-label">Recurring monthly</div><div className="builder-stat-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div><div className="builder-stat-note">Live from Section A</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">One-time equipment</div><div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div><div className="builder-stat-note">Live from Section B</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">Optional services</div><div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div><div className="builder-stat-note">Inspection and install pricing</div></div>
-              <div className="builder-stat-card"><div className="builder-stat-label">Active catalog</div><div className="builder-stat-value">{activePriceBook?.quarterCode ?? "n/a"}</div><div className="builder-stat-note">{activePriceBook?.label ?? "No price book loaded"}</div></div>
+              <div className="builder-stat-card"><div className="builder-stat-label">Pricing status</div><div className="builder-stat-value">Live</div><div className="builder-stat-note">Builder totals are active and ready for proposal review</div></div>
             </div>
           </div>
 
@@ -981,117 +987,11 @@ export default function QuotePreview() {
             <Link href="/proposal" className="pill-button" target="_blank" rel="noreferrer" onClick={persistProposalState}>
               Open Proposal in New Tab
             </Link>
-            <button type="button" className="pill-button" onClick={saveCatalogLocally}>Save Catalog</button>
-            <button type="button" className="pill-button" onClick={exportCatalogJson}>Export Catalog JSON</button>
+            <button type="button" className="pill-button" onClick={saveCatalogLocally}>Save Draft</button>
           </div>
         </section>
 
-        <section className="builder-panel">
-          <div className="builder-panel-header">
-            <div>
-              <div className="builder-eyebrow">Catalog admin</div>
-              <h2 className="builder-title">Quarterly catalog and price list</h2>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className="pill-button pill-button-active" onClick={createNextQuarterDraft}>Clone next quarter draft</button>
-            </div>
-          </div>
-          <p className="text-[14px] leading-[1.5] text-[#5c6772]">Keep this simple: items live in one maintained catalog, pricing lives in quarter-based price books, and the active price book feeds new rows in the builder.</p>
-
-          <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr]">
-            <div className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-              <div className="builder-eyebrow">Active price books</div>
-              <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Choose active quarter</div>
-              <div className="mt-3 space-y-3">
-                {catalogStore.priceBooks.map((book) => (
-                  <div key={book.id} className="rounded-[16px] border border-[#d9e0e7] bg-white p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="text-[14px] font-semibold text-[#16202b]">{book.label}</div>
-                        <div className="text-[12px] text-[#66717d]">{book.quarterCode} • {book.status} • effective {book.effectiveDate}</div>
-                      </div>
-                      <button type="button" className={`pill-button ${book.id === catalogStore.activePriceBookId ? "pill-button-active" : ""}`} onClick={() => setActivePriceBook(book.id)}>
-                        {book.id === catalogStore.activePriceBookId ? "Active" : "Use this quarter"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 text-[13px] text-[#5f6b77]">{catalogMessage}</div>
-            </div>
-
-            <div className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-              <div className="builder-eyebrow">Import / upload</div>
-              <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Paste JSON or CSV price list</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" className={`pill-button ${catalogImportMode === "json" ? "pill-button-active" : ""}`} onClick={() => setCatalogImportMode("json")}>JSON</button>
-                <button type="button" className={`pill-button ${catalogImportMode === "csv" ? "pill-button-active" : ""}`} onClick={() => setCatalogImportMode("csv")}>CSV</button>
-              </div>
-              <label className="builder-field mt-3"><span>{catalogImportMode === "json" ? "Catalog JSON" : "CSV price list"}</span><textarea rows={10} value={catalogImportText} onChange={(e) => setCatalogImportText(e.target.value)} placeholder={catalogImportMode === "json" ? JSON.stringify(catalogStore, null, 2) : csvExample} /></label>
-              <div className="mt-3 flex gap-2">
-                <button type="button" className="pill-button pill-button-active" onClick={applyCatalogImport}>Import into builder</button>
-                {catalogImportMode === "csv" && <button type="button" className="pill-button" onClick={() => setCatalogImportText(csvExample)}>Load CSV example</button>}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
-            <div className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-              <div className="builder-eyebrow">Catalog items</div>
-              <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Products and service rows</div>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                {[...catalogEquipmentRows, ...catalogSectionARows].map((item) => (
-                  <div key={item.id} className="rounded-[16px] border border-[#d9e0e7] bg-white p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{item.section === "equipment" ? "Equipment" : `Section A • ${item.serviceMode}`}</div>
-                        <div className="mt-1 text-[15px] font-semibold text-[#16202b]">{item.label}</div>
-                        <div className="text-[12px] text-[#66717d]">{item.sku} • {item.category}</div>
-                      </div>
-                      <div className="rounded-full bg-[#f3f6fa] px-3 py-1 text-[12px] font-semibold text-[#465361]">{formatCurrency(item.unitPrice, item.currencyCode)}</div>
-                    </div>
-                    <div className="mt-2 text-[13px] text-[#5f6b77]">{item.description || "No description"}</div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button type="button" className="pill-button" onClick={() => loadCatalogItemIntoEditor(item)}>Edit</button>
-                      <button type="button" className="danger-button" onClick={() => deactivateCatalogItem(item.id)}>Deactivate</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-              <div className="builder-eyebrow">Catalog editor</div>
-              <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Add or edit item</div>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <label className="builder-field compact"><span>Section</span><select value={catalogDraft.section} onChange={(e) => setCatalogDraft((current) => ({ ...current, section: e.target.value as CatalogEditorSection }))}><option value="equipment">Equipment</option><option value="sectionA">Section A service</option></select></label>
-                <label className="builder-field compact"><span>SKU</span><input value={catalogDraft.sku} onChange={(e) => setCatalogDraft((current) => ({ ...current, sku: e.target.value }))} /></label>
-                <label className="builder-field compact md:col-span-2"><span>Label</span><input value={catalogDraft.label} onChange={(e) => setCatalogDraft((current) => ({ ...current, label: e.target.value }))} /></label>
-                <label className="builder-field compact"><span>Category</span><input value={catalogDraft.category} onChange={(e) => setCatalogDraft((current) => ({ ...current, category: e.target.value }))} /></label>
-                <label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={catalogDraft.unitPrice} onChange={(e) => setCatalogDraft((current) => ({ ...current, unitPrice: e.target.value }))} /></label>
-                {catalogDraft.section === "sectionA" && (
-                  <>
-                    <label className="builder-field compact"><span>Service mode</span><select value={catalogDraft.serviceMode} onChange={(e) => setCatalogDraft((current) => ({ ...current, serviceMode: e.target.value as CatalogDraft["serviceMode"] }))}><option value="pool">Pool</option><option value="per_kit">Per kit</option><option value="both">Both</option></select></label>
-                    <label className="builder-field compact"><span>Row type</span><select value={catalogDraft.rowType} onChange={(e) => setCatalogDraft((current) => ({ ...current, rowType: e.target.value as CatalogDraft["rowType"] }))}><option value="service">Service</option><option value="terminal_fee">Terminal fee</option><option value="overage">Overage</option><option value="support">Support</option></select></label>
-                    <label className="builder-field compact"><span>Unit label</span><input value={catalogDraft.unitLabel} onChange={(e) => setCatalogDraft((current) => ({ ...current, unitLabel: e.target.value }))} /></label>
-                  </>
-                )}
-                {catalogDraft.section === "equipment" && (
-                  <>
-                    <label className="builder-field compact"><span>Terminal type</span><input value={catalogDraft.terminalType} onChange={(e) => setCatalogDraft((current) => ({ ...current, terminalType: e.target.value }))} /></label>
-                    <label className="builder-field compact"><span>Part #</span><input value={catalogDraft.partNumber} onChange={(e) => setCatalogDraft((current) => ({ ...current, partNumber: e.target.value }))} /></label>
-                  </>
-                )}
-                <label className="builder-field compact md:col-span-2"><span>Source</span><input value={catalogDraft.source} onChange={(e) => setCatalogDraft((current) => ({ ...current, source: e.target.value }))} /></label>
-                <label className="builder-field compact md:col-span-2"><span>Description{catalogDraft.section === "sectionA" && catalogDraft.rowType === "support" ? " / support bullets" : ""}</span><textarea rows={4} value={catalogDraft.description} onChange={(e) => setCatalogDraft((current) => ({ ...current, description: e.target.value }))} /></label>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button type="button" className="pill-button pill-button-active" onClick={saveCatalogDraft}>{selectedCatalogItemId ? "Update item" : "Add item"}</button>
-                <button type="button" className="pill-button" onClick={resetCatalogDraft}>Clear</button>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Catalog admin surface intentionally hidden from main builder UI for branding-only launch. */}
 
         <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
           <div className="space-y-6">
@@ -1397,3 +1297,4 @@ export default function QuotePreview() {
     </main>
   );
 }
+
