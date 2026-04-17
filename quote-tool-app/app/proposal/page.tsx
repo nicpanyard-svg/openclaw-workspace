@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ProposalDocument } from "@/app/components/proposal-document";
-import { deserializeQuoteRecord, PROPOSAL_STORAGE_KEY } from "@/app/lib/proposal-state";
+import { buildProposalPayload, deserializeQuoteRecord, PROPOSAL_CATALOG_STORAGE_KEY, PROPOSAL_STORAGE_KEY } from "@/app/lib/proposal-state";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
@@ -14,7 +14,8 @@ function ProposalPage() {
   useEffect(() => {
     const savedQuote = deserializeQuoteRecord(window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY));
     if (savedQuote) {
-      setQuote(savedQuote);
+      const payload = buildProposalPayload(savedQuote, window.sessionStorage.getItem(PROPOSAL_CATALOG_STORAGE_KEY));
+      setQuote(payload.quote);
       setUsingSavedData(true);
     }
   }, []);
@@ -23,10 +24,10 @@ function ProposalPage() {
     <div className="proposal-route-shell">
       <div className="proposal-toolbar no-print">
         <div>
-          <div className="proposal-toolbar-label">Customer-facing output</div>
-          <div className="proposal-toolbar-title">Proposal print / PDF view</div>
+          <div className="proposal-toolbar-label">Proposal preview</div>
+          <div className="proposal-toolbar-title">Proposal view</div>
           <div className="proposal-toolbar-subtitle">
-            {usingSavedData ? "Using current builder data" : "Using sample proposal data"}
+            {usingSavedData ? "Using current builder details" : "Using sample proposal details"}
           </div>
         </div>
         <div className="proposal-toolbar-actions">

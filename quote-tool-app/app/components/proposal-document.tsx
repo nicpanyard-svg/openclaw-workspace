@@ -72,12 +72,6 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
     .filter((value): value is string => Boolean(value?.length));
   const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => paragraph.trim().length > 0);
   const executiveSummaryParagraphs = executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary;
-  const enabledSections = [
-    quote.sections.sectionA.enabled ? `Section A — ${quote.sections.sectionA.title}` : null,
-    quote.sections.sectionB.enabled ? `Section B — ${quote.sections.sectionB.title}` : null,
-    quote.sections.sectionC.enabled ? `Section C — ${quote.sections.sectionC.title}` : null,
-  ].filter(Boolean) as string[];
-
   const billToLines = cleanLines([
     quote.billTo.companyName ?? "",
     quote.billTo.attention ?? "",
@@ -169,10 +163,17 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
               <div className="cover-summary-label">One-time equipment</div>
               <div className="cover-summary-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
             </div>
-            <div className="cover-summary-card">
-              <div className="cover-summary-label">Sections included</div>
-              <div className="cover-summary-value cover-summary-value-small">{enabledSections.length}</div>
-            </div>
+            {quote.metadata.quoteType === "lease" ? (
+              <div className="cover-summary-card">
+                <div className="cover-summary-label">Estimated lease monthly</div>
+                <div className="cover-summary-value">{formatCurrency(leaseMonthly, currencyCode)}</div>
+              </div>
+            ) : quote.sections.sectionC.enabled ? (
+              <div className="cover-summary-card">
+                <div className="cover-summary-label">Optional services</div>
+                <div className="cover-summary-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="cover-band">
@@ -188,7 +189,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
         <div className="proposal-title-block">
           <div>
-            <div className="proposal-overline">Documentation Details &amp; Tracking</div>
+            <div className="proposal-overline">Proposal overview</div>
             <h2 className="proposal-section-title">Proposal Information</h2>
           </div>
           <div className="proposal-date-card">
@@ -266,22 +267,6 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         )}
 
         <div className="proposal-callout-grid">
-          <div className="proposal-callout">
-            <div className="proposal-callout-label">Included sections</div>
-            <ul className="proposal-bullets compact">
-              {enabledSections.map((section) => (
-                <li key={section}>{section}</li>
-              ))}
-            </ul>
-          </div>
-          <div className="proposal-callout">
-            <div className="proposal-callout-label">CRM connector status</div>
-            <div className="totals-stack">
-              <div><span>Mode</span><strong>{quote.integrations.connectors.some((connector) => connector.enabled) ? "CRM-enabled" : "Standalone"}</strong></div>
-              <div><span>References</span><strong>{[quote.integrations.quoteReferences.account, quote.integrations.quoteReferences.contact, quote.integrations.quoteReferences.deal, quote.integrations.quoteReferences.quote].filter(Boolean).length}</strong></div>
-              <div><span>Sync summary</span><strong>{quote.integrations.lastSyncSummary ?? "Not synced"}</strong></div>
-            </div>
-          </div>
           <div className="proposal-callout totals-callout">
             <div className="proposal-callout-label">Commercial snapshot</div>
             <div className="totals-stack">

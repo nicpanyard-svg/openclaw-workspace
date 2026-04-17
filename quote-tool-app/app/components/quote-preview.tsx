@@ -2,8 +2,23 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
-import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
-import { PROPOSAL_STORAGE_KEY, serializeQuoteRecord } from "@/app/lib/proposal-state";
+import {
+  CATALOG_STORAGE_KEY,
+  cloneCatalogStore,
+  createEquipmentRowFromCatalog,
+  createSectionARowFromCatalog,
+  defaultCatalogStore,
+  deserializeCatalogStore,
+  getActivePriceBook,
+  parseCatalogCsv,
+  resolveCatalogItems,
+  serializeCatalogStore,
+  type CatalogItem,
+  type CatalogPriceBook,
+  type CatalogStore,
+  type ResolvedCatalogItem,
+} from "@/app/lib/catalog-store";
+import { PROPOSAL_CATALOG_STORAGE_KEY, PROPOSAL_STORAGE_KEY, serializeCatalogSnapshot, serializeQuoteRecord } from "@/app/lib/proposal-state";
 import {
   type AddressBlock,
   type EquipmentPricingRow,
@@ -34,6 +49,24 @@ type CustomSectionField = {
 type DataQuickAddUnit = "GB" | "TB";
 type ServiceStage = "budgetary" | "final";
 type ServiceCategory = "site_inspection" | "installation" | "custom";
+type CatalogEditorSection = "equipment" | "sectionA";
+type CatalogImportMode = "json" | "csv";
+
+type CatalogDraft = {
+  id: string;
+  sku: string;
+  section: CatalogEditorSection;
+  label: string;
+  category: string;
+  description: string;
+  partNumber: string;
+  terminalType: string;
+  serviceMode: "pool" | "per_kit" | "both";
+  rowType: "service" | "overage" | "terminal_fee" | "support";
+  unitLabel: string;
+  unitPrice: string;
+  source: string;
+};
 
 const emptyEquipmentDraft: EquipmentDraft = {
   itemName: "",
@@ -43,6 +76,22 @@ const emptyEquipmentDraft: EquipmentDraft = {
   quantity: "1",
   unitPrice: "0",
   description: "",
+};
+
+const emptyCatalogDraft: CatalogDraft = {
+  id: "",
+  sku: "",
+  section: "equipment",
+  label: "",
+  category: "",
+  description: "",
+  partNumber: "",
+  terminalType: "",
+  serviceMode: "both",
+  rowType: "service",
+  unitLabel: "",
+  unitPrice: "0",
+  source: "Manual catalog entry",
 };
 
 function formatCurrency(value: number, currencyCode = "USD") {
@@ -333,17 +382,54 @@ function AddressEditor({
   );
 }
 
+function getStartingCatalogStore() {
+  if (typeof window === "undefined") return cloneCatalogStore(defaultCatalogStore);
+  return deserializeCatalogStore(window.localStorage.getItem(CATALOG_STORAGE_KEY)) ?? cloneCatalogStore(defaultCatalogStore);
+}
+
+function getCatalogPrice(item: CatalogItem, store: CatalogStore) {
+  const activeBook = getActivePriceBook(store);
+  return activeBook?.items.find((entry) => entry.itemId === item.id)?.unitPrice ?? 0;
+}
+
+function buildCatalogDraftFromItem(item: ResolvedCatalogItem): CatalogDraft {
+  return {
+    id: item.id,
+    sku: item.sku,
+    section: item.section,
+    label: item.label,
+    category: item.category,
+    description: item.description ?? "",
+    partNumber: item.partNumber ?? "",
+    terminalType: item.terminalType ?? "",
+    serviceMode: item.serviceMode ?? "both",
+    rowType: item.rowType ?? "service",
+    unitLabel: item.unitLabel ?? "",
+    unitPrice: String(item.unitPrice),
+    source: item.source ?? "Manual catalog entry",
+  };
+}
+
 export default function QuotePreview() {
   const [quote, setQuote] = useState<QuoteRecord>(() => cloneQuote(sampleQuoteRecord));
+  const [catalogStore, setCatalogStore] = useState<CatalogStore>(() => getStartingCatalogStore());
   const [equipmentSearch, setEquipmentSearch] = useState("");
   const [equipmentCategoryFilter, setEquipmentCategoryFilter] = useState("All");
   const [customEquipmentDraft, setCustomEquipmentDraft] = useState<EquipmentDraft>(emptyEquipmentDraft);
   const [customSectionFields, setCustomSectionFields] = useState<CustomSectionField[]>([]);
   const [dataQuickAddValue, setDataQuickAddValue] = useState("1");
   const [dataQuickAddUnit, setDataQuickAddUnit] = useState<DataQuickAddUnit>("TB");
+  const [catalogDraft, setCatalogDraft] = useState<CatalogDraft>(emptyCatalogDraft);
+  const [selectedCatalogItemId, setSelectedCatalogItemId] = useState<string>("");
+  const [catalogImportText, setCatalogImportText] = useState("");
+  const [catalogImportMode, setCatalogImportMode] = useState<CatalogImportMode>("json");
+  const [catalogMessage, setCatalogMessage] = useState("Using local catalog storage. Active prices feed the builder.");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const currencyCode = quote.metadata.currencyCode || "USD";
+  const currencyCode = quote.metadata.currencyCode || getActivePriceBook(catalogStore)?.currencyCode || "USD";
+  const activePriceBook = useMemo(() => getActivePriceBook(catalogStore), [catalogStore]);
+  const equipmentCatalog = useMemo(() => resolveCatalogItems(catalogStore, "equipment"), [catalogStore]);
+  const sectionACatalog = useMemo(() => resolveCatalogItems(catalogStore, "sectionA", quote.sections.sectionA.mode), [catalogStore, quote.sections.sectionA.mode]);
   const activeSectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
 
   const recurringMonthlyTotal = useMemo(() => Number(activeSectionARows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2)), [activeSectionARows]);
@@ -356,7 +442,7 @@ export default function QuotePreview() {
     return Number((recurringMonthlyTotal + equipmentTotal / term).toFixed(2));
   }, [equipmentTotal, quote.metadata.quoteType, quote.sections.sectionA.termMonths, recurringMonthlyTotal]);
 
-  const equipmentCategories = useMemo(() => ["All", ...Array.from(new Set(equipmentCatalog.map((item) => item.category))).sort()], []);
+  const equipmentCategories = useMemo(() => ["All", ...Array.from(new Set(equipmentCatalog.map((item) => item.category))).sort()], [equipmentCatalog]);
 
   const filteredEquipmentCatalog = useMemo(() => {
     const search = equipmentSearch.trim().toLowerCase();
@@ -366,25 +452,36 @@ export default function QuotePreview() {
       const matchesSearch = !search || haystack.includes(search);
       return matchesCategory && matchesSearch;
     });
-  }, [equipmentCategoryFilter, equipmentSearch]);
+  }, [equipmentCatalog, equipmentCategoryFilter, equipmentSearch]);
 
   const suggestedAccessories = useMemo(() => {
     const selectedTerminalTypes = Array.from(new Set(quote.sections.sectionB.lineItems.map((row) => row.terminalType).filter(Boolean))) as string[];
-    const existingIds = new Set(
-      quote.sections.sectionB.lineItems
-        .map((row) => equipmentCatalog.find((item) => item.label === row.itemName)?.id)
-        .filter(Boolean),
-    );
+    const existingLabels = new Set(quote.sections.sectionB.lineItems.map((row) => row.itemName));
 
     return selectedTerminalTypes
       .flatMap((terminalType) => (accessoryMap[terminalType] ?? []).map((catalogId) => ({ terminalType, catalogId })))
       .filter(({ catalogId }, index, list) => list.findIndex((entry) => entry.catalogId === catalogId) === index)
-      .filter(({ catalogId }) => !existingIds.has(catalogId))
-      .map(({ terminalType, catalogId }) => ({ terminalType, item: equipmentCatalog.find((entry) => entry.id === catalogId) }))
-      .filter((entry): entry is { terminalType: string; item: (typeof equipmentCatalog)[number] } => Boolean(entry.item));
-  }, [quote.sections.sectionB.lineItems]);
+      .map(({ terminalType, catalogId }) => ({ terminalType, item: equipmentCatalog.find((entry) => entry.id.includes(catalogId) || entry.label.toLowerCase().includes(catalogId.replace(/-/g, " "))) }))
+      .filter((entry): entry is { terminalType: string; item: ResolvedCatalogItem } => Boolean(entry.item))
+      .filter(({ item }) => !existingLabels.has(item.label));
+  }, [equipmentCatalog, quote.sections.sectionB.lineItems]);
+
+  const catalogEquipmentRows = useMemo(() => equipmentCatalog.slice().sort((a, b) => a.sortOrder - b.sortOrder), [equipmentCatalog]);
+  const catalogSectionARows = useMemo(() => resolveCatalogItems(catalogStore, "sectionA"), [catalogStore]);
+  const selectedCatalogItem = useMemo(() => [...catalogEquipmentRows, ...catalogSectionARows].find((item) => item.id === selectedCatalogItemId), [catalogEquipmentRows, catalogSectionARows, selectedCatalogItemId]);
 
   const updateQuote = (updater: (current: QuoteRecord) => QuoteRecord) => setQuote((current) => updater(cloneQuote(current)));
+
+  const updateCatalog = (updater: (current: CatalogStore) => CatalogStore) => {
+    setCatalogStore((current) => {
+      const next = updater(cloneCatalogStore(current));
+      next.updatedAt = new Date().toISOString();
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(CATALOG_STORAGE_KEY, serializeCatalogStore(next));
+      }
+      return next;
+    });
+  };
 
   const syncExecutiveSummaryParagraphs = (draft: QuoteRecord) => {
     draft.executiveSummary.paragraphs = compactList([
@@ -433,38 +530,7 @@ export default function QuotePreview() {
 
     updateQuote((draft) => {
       const target = draft.sections.sectionA.mode === "pool" ? draft.sections.sectionA.poolRows : draft.sections.sectionA.perKitRows;
-      const rowId = `a_${draft.sections.sectionA.mode}_${Date.now()}`;
-      const isSupport = item.id === "support-included";
-      const isTerminal = item.id === "terminal-access-fee";
-      const isOverage = item.id === "pool-overage";
-      const row =
-        draft.sections.sectionA.mode === "pool"
-          ? computeSectionARow({
-              id: rowId,
-              rowType: isSupport ? "support" : isTerminal ? "terminal_fee" : isOverage ? "overage" : "service",
-              description: item.label,
-              quantity: isSupport || isOverage ? null : 1,
-              unitLabel: item.unitLabel ?? null,
-              unitPrice: item.defaultUnitPrice,
-              monthlyRate: item.defaultUnitPrice,
-              totalMonthlyRate: item.defaultUnitPrice,
-              includedText: isSupport ? ["NOC 24/7/365 Support", "Customer portal access"] : undefined,
-              sourceLabel: item.source,
-            })
-          : computeSectionARow({
-              id: rowId,
-              rowType: isSupport ? "support" : isTerminal ? "terminal_fee" : "service",
-              description: item.label,
-              quantity: isSupport ? null : 1,
-              unitLabel: item.unitLabel ?? null,
-              unitPrice: item.defaultUnitPrice,
-              monthlyRate: item.defaultUnitPrice,
-              totalMonthlyRate: item.defaultUnitPrice,
-              includedText: isSupport ? ["Included support"] : undefined,
-              sourceLabel: item.source,
-            });
-
-      target.push(row);
+      target.push(computeSectionARow(createSectionARowFromCatalog(item, draft.sections.sectionA.mode)));
       return draft;
     });
   };
@@ -559,21 +625,7 @@ export default function QuotePreview() {
     if (!item) return;
 
     updateQuote((draft) => {
-      draft.sections.sectionB.lineItems.push(
-        computeEquipmentRow({
-          id: `b_${Date.now()}`,
-          sourceType: "standard",
-          itemName: item.label,
-          itemCategory: item.category,
-          terminalType: item.terminalType,
-          partNumber: item.partNumber,
-          quantity: 1,
-          unitPrice: item.defaultUnitPrice,
-          totalPrice: item.defaultUnitPrice,
-          description: item.description,
-          sourceLabel: item.source,
-        }),
-      );
+      draft.sections.sectionB.lineItems.push(computeEquipmentRow(createEquipmentRowFromCatalog(item)));
       return draft;
     });
   };
@@ -738,7 +790,168 @@ export default function QuotePreview() {
   const persistProposalState = () => {
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(quote));
+    window.sessionStorage.setItem(PROPOSAL_CATALOG_STORAGE_KEY, serializeCatalogSnapshot(catalogStore));
   };
+
+  const saveCatalogLocally = () => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CATALOG_STORAGE_KEY, serializeCatalogStore(catalogStore));
+    setCatalogMessage(`Saved locally. Active price book: ${activePriceBook?.label ?? "n/a"}.`);
+  };
+
+  const exportCatalogJson = () => {
+    const blob = new Blob([JSON.stringify(catalogStore, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `quote-catalog-${activePriceBook?.quarterCode ?? "export"}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setCatalogMessage("Catalog JSON exported.");
+  };
+
+  const createNextQuarterDraft = () => {
+    updateCatalog((draft) => {
+      const currentBook = getActivePriceBook(draft);
+      const currentQuarter = currentBook?.quarterCode ?? "2026-Q2";
+      const [yearText, quarterText] = currentQuarter.split("-Q");
+      const year = parseNumber(yearText) || new Date().getFullYear();
+      const quarter = parseNumber(quarterText) || 1;
+      const nextQuarter = quarter === 4 ? 1 : quarter + 1;
+      const nextYear = quarter === 4 ? year + 1 : year;
+      const quarterCode = `${nextYear}-Q${nextQuarter}`;
+      const newBookId = `pricebook-${quarterCode.toLowerCase()}`;
+
+      const clonedItems = currentBook?.items.map((item) => ({ ...item })) ?? [];
+      const newBook: CatalogPriceBook = {
+        id: newBookId,
+        label: `${quarterCode} Draft`,
+        quarterCode,
+        effectiveDate: `${nextYear}-${String(((nextQuarter - 1) * 3) + 1).padStart(2, "0")}-01`,
+        status: "draft",
+        currencyCode: currentBook?.currencyCode ?? "USD",
+        notes: `Cloned from ${currentBook?.label ?? "current active"}`,
+        items: clonedItems,
+      };
+
+      draft.priceBooks = draft.priceBooks.map((book) => ({ ...book, status: book.id === draft.activePriceBookId ? "active" : book.status }));
+      draft.priceBooks.unshift(newBook);
+      draft.activePriceBookId = newBook.id;
+      return draft;
+    });
+    setCatalogMessage("Created next-quarter draft price book and made it active in the builder.");
+  };
+
+  const setActivePriceBook = (priceBookId: string) => {
+    updateCatalog((draft) => {
+      draft.activePriceBookId = priceBookId;
+      draft.priceBooks = draft.priceBooks.map((book) => ({
+        ...book,
+        status: book.id === priceBookId ? "active" : book.status === "active" ? "archived" : book.status,
+      }));
+      return draft;
+    });
+    setCatalogMessage("Active price book switched. New builder adds will use that quarter's prices.");
+  };
+
+  const loadCatalogItemIntoEditor = (item: ResolvedCatalogItem) => {
+    setSelectedCatalogItemId(item.id);
+    setCatalogDraft(buildCatalogDraftFromItem(item));
+    setCatalogMessage(`Editing ${item.label}.`);
+  };
+
+  const resetCatalogDraft = () => {
+    setSelectedCatalogItemId("");
+    setCatalogDraft(emptyCatalogDraft);
+  };
+
+  const saveCatalogDraft = () => {
+    updateCatalog((draft) => {
+      const activeBook = getActivePriceBook(draft);
+      if (!activeBook) return draft;
+
+      const isSectionA = catalogDraft.section === "sectionA";
+      const itemId = selectedCatalogItemId || `catalog_${catalogDraft.section}_${Date.now()}`;
+      const existingItemIndex = draft.items.findIndex((item) => item.id === itemId);
+      const nextSort = existingItemIndex >= 0 ? draft.items[existingItemIndex].sortOrder : draft.items.filter((item) => item.section === catalogDraft.section).length + 1;
+
+      const nextItem: CatalogItem = {
+        id: itemId,
+        sku: catalogDraft.sku || `SKU-${Date.now()}`,
+        kind: isSectionA ? "service" : "equipment",
+        section: catalogDraft.section,
+        label: catalogDraft.label || "New catalog item",
+        category: catalogDraft.category || (isSectionA ? "Service" : "Equipment"),
+        description: catalogDraft.description || undefined,
+        partNumber: catalogDraft.partNumber || undefined,
+        terminalType: catalogDraft.terminalType || undefined,
+        serviceMode: isSectionA ? catalogDraft.serviceMode : undefined,
+        rowType: isSectionA ? catalogDraft.rowType : undefined,
+        unitLabel: catalogDraft.unitLabel || undefined,
+        source: catalogDraft.source || "Manual catalog entry",
+        isActive: true,
+        sortOrder: nextSort,
+        metadata: isSectionA && catalogDraft.rowType === "support" && catalogDraft.description
+          ? { includedText: catalogDraft.description.split("\n").filter(Boolean).join("\n") }
+          : undefined,
+      };
+
+      if (existingItemIndex >= 0) {
+        draft.items[existingItemIndex] = nextItem;
+      } else {
+        draft.items.push(nextItem);
+      }
+
+      const priceIndex = activeBook.items.findIndex((entry) => entry.itemId === itemId);
+      const nextPrice = {
+        itemId,
+        unitPrice: parseNumber(catalogDraft.unitPrice),
+        currencyCode: activeBook.currencyCode,
+      };
+      if (priceIndex >= 0) {
+        activeBook.items[priceIndex] = nextPrice;
+      } else {
+        activeBook.items.push(nextPrice);
+      }
+
+      return draft;
+    });
+
+    setCatalogMessage(selectedCatalogItemId ? "Catalog item updated." : "Catalog item added.");
+    resetCatalogDraft();
+  };
+
+  const deactivateCatalogItem = (itemId: string) => {
+    updateCatalog((draft) => {
+      const target = draft.items.find((item) => item.id === itemId);
+      if (target) target.isActive = false;
+      return draft;
+    });
+    setCatalogMessage("Catalog item marked inactive. Existing quote rows stay as-is.");
+  };
+
+  const applyCatalogImport = () => {
+    try {
+      const imported = catalogImportMode === "json"
+        ? deserializeCatalogStore(catalogImportText)
+        : parseCatalogCsv(catalogImportText, `Imported-${new Date().toISOString().slice(0, 10)}`);
+
+      if (!imported) {
+        setCatalogMessage("Import failed. JSON could not be parsed into a catalog store.");
+        return;
+      }
+
+      setCatalogStore(imported);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(CATALOG_STORAGE_KEY, serializeCatalogStore(imported));
+      }
+      setCatalogMessage(`Imported catalog. Active price book: ${getActivePriceBook(imported)?.label ?? "n/a"}.`);
+    } catch (error) {
+      setCatalogMessage(error instanceof Error ? error.message : "Catalog import failed.");
+    }
+  };
+
+  const csvExample = `type,sku,label,category,serviceMode,rowType,unitPrice,currencyCode,description,partNumber,terminalType,unitLabel,source,isActive\nequipment,SL-PERF-G3,Performance G3,Terminal,,,1999,USD,Rugged enterprise kit,,Performance G3,,Quarterly sheet,true\nservice,SVC-POOL-3TB,3 TB U.S. Pool for Starlink Service,Pool Plan,pool,service,1200,USD,Quarterly pooled data row,,,,Quarterly sheet,true`;
 
   return (
     <main className="min-h-screen px-4 py-6 text-[#232a31] md:px-6 md:py-8">
@@ -749,7 +962,7 @@ export default function QuotePreview() {
               <div className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[#8b96a3]">Quote Tool App</div>
               <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Fillable quote builder</h1>
               <p className="mt-2 text-[15px] leading-[1.55] text-[#5a6572]">
-                Cleaner builder surface, cleaner proposal output. This pass keeps the tool standalone-first, trims clutter, and keeps the proposal practical to edit and share.
+                Builder now runs on an editable catalog and active quarter price book instead of only fixed code defaults.
               </p>
             </div>
 
@@ -757,7 +970,7 @@ export default function QuotePreview() {
               <div className="builder-stat-card"><div className="builder-stat-label">Recurring monthly</div><div className="builder-stat-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div><div className="builder-stat-note">Live from Section A</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">One-time equipment</div><div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div><div className="builder-stat-note">Live from Section B</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">Optional services</div><div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div><div className="builder-stat-note">Inspection and install pricing</div></div>
-              <div className="builder-stat-card"><div className="builder-stat-label">Lease rollup</div><div className="builder-stat-value">{quote.metadata.quoteType === "lease" ? formatCurrency(leaseMonthly, currencyCode) : "Off"}</div><div className="builder-stat-note">Equipment amortized across term</div></div>
+              <div className="builder-stat-card"><div className="builder-stat-label">Active catalog</div><div className="builder-stat-value">{activePriceBook?.quarterCode ?? "n/a"}</div><div className="builder-stat-note">{activePriceBook?.label ?? "No price book loaded"}</div></div>
             </div>
           </div>
 
@@ -768,6 +981,115 @@ export default function QuotePreview() {
             <Link href="/proposal" className="pill-button" target="_blank" rel="noreferrer" onClick={persistProposalState}>
               Open Proposal in New Tab
             </Link>
+            <button type="button" className="pill-button" onClick={saveCatalogLocally}>Save Catalog</button>
+            <button type="button" className="pill-button" onClick={exportCatalogJson}>Export Catalog JSON</button>
+          </div>
+        </section>
+
+        <section className="builder-panel">
+          <div className="builder-panel-header">
+            <div>
+              <div className="builder-eyebrow">Catalog admin</div>
+              <h2 className="builder-title">Quarterly catalog and price list</h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="pill-button pill-button-active" onClick={createNextQuarterDraft}>Clone next quarter draft</button>
+            </div>
+          </div>
+          <p className="text-[14px] leading-[1.5] text-[#5c6772]">Keep this simple: items live in one maintained catalog, pricing lives in quarter-based price books, and the active price book feeds new rows in the builder.</p>
+
+          <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <div className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+              <div className="builder-eyebrow">Active price books</div>
+              <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Choose active quarter</div>
+              <div className="mt-3 space-y-3">
+                {catalogStore.priceBooks.map((book) => (
+                  <div key={book.id} className="rounded-[16px] border border-[#d9e0e7] bg-white p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[14px] font-semibold text-[#16202b]">{book.label}</div>
+                        <div className="text-[12px] text-[#66717d]">{book.quarterCode} • {book.status} • effective {book.effectiveDate}</div>
+                      </div>
+                      <button type="button" className={`pill-button ${book.id === catalogStore.activePriceBookId ? "pill-button-active" : ""}`} onClick={() => setActivePriceBook(book.id)}>
+                        {book.id === catalogStore.activePriceBookId ? "Active" : "Use this quarter"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 text-[13px] text-[#5f6b77]">{catalogMessage}</div>
+            </div>
+
+            <div className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+              <div className="builder-eyebrow">Import / upload</div>
+              <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Paste JSON or CSV price list</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" className={`pill-button ${catalogImportMode === "json" ? "pill-button-active" : ""}`} onClick={() => setCatalogImportMode("json")}>JSON</button>
+                <button type="button" className={`pill-button ${catalogImportMode === "csv" ? "pill-button-active" : ""}`} onClick={() => setCatalogImportMode("csv")}>CSV</button>
+              </div>
+              <label className="builder-field mt-3"><span>{catalogImportMode === "json" ? "Catalog JSON" : "CSV price list"}</span><textarea rows={10} value={catalogImportText} onChange={(e) => setCatalogImportText(e.target.value)} placeholder={catalogImportMode === "json" ? JSON.stringify(catalogStore, null, 2) : csvExample} /></label>
+              <div className="mt-3 flex gap-2">
+                <button type="button" className="pill-button pill-button-active" onClick={applyCatalogImport}>Import into builder</button>
+                {catalogImportMode === "csv" && <button type="button" className="pill-button" onClick={() => setCatalogImportText(csvExample)}>Load CSV example</button>}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
+            <div className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+              <div className="builder-eyebrow">Catalog items</div>
+              <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Products and service rows</div>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {[...catalogEquipmentRows, ...catalogSectionARows].map((item) => (
+                  <div key={item.id} className="rounded-[16px] border border-[#d9e0e7] bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{item.section === "equipment" ? "Equipment" : `Section A • ${item.serviceMode}`}</div>
+                        <div className="mt-1 text-[15px] font-semibold text-[#16202b]">{item.label}</div>
+                        <div className="text-[12px] text-[#66717d]">{item.sku} • {item.category}</div>
+                      </div>
+                      <div className="rounded-full bg-[#f3f6fa] px-3 py-1 text-[12px] font-semibold text-[#465361]">{formatCurrency(item.unitPrice, item.currencyCode)}</div>
+                    </div>
+                    <div className="mt-2 text-[13px] text-[#5f6b77]">{item.description || "No description"}</div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button type="button" className="pill-button" onClick={() => loadCatalogItemIntoEditor(item)}>Edit</button>
+                      <button type="button" className="danger-button" onClick={() => deactivateCatalogItem(item.id)}>Deactivate</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+              <div className="builder-eyebrow">Catalog editor</div>
+              <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Add or edit item</div>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <label className="builder-field compact"><span>Section</span><select value={catalogDraft.section} onChange={(e) => setCatalogDraft((current) => ({ ...current, section: e.target.value as CatalogEditorSection }))}><option value="equipment">Equipment</option><option value="sectionA">Section A service</option></select></label>
+                <label className="builder-field compact"><span>SKU</span><input value={catalogDraft.sku} onChange={(e) => setCatalogDraft((current) => ({ ...current, sku: e.target.value }))} /></label>
+                <label className="builder-field compact md:col-span-2"><span>Label</span><input value={catalogDraft.label} onChange={(e) => setCatalogDraft((current) => ({ ...current, label: e.target.value }))} /></label>
+                <label className="builder-field compact"><span>Category</span><input value={catalogDraft.category} onChange={(e) => setCatalogDraft((current) => ({ ...current, category: e.target.value }))} /></label>
+                <label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={catalogDraft.unitPrice} onChange={(e) => setCatalogDraft((current) => ({ ...current, unitPrice: e.target.value }))} /></label>
+                {catalogDraft.section === "sectionA" && (
+                  <>
+                    <label className="builder-field compact"><span>Service mode</span><select value={catalogDraft.serviceMode} onChange={(e) => setCatalogDraft((current) => ({ ...current, serviceMode: e.target.value as CatalogDraft["serviceMode"] }))}><option value="pool">Pool</option><option value="per_kit">Per kit</option><option value="both">Both</option></select></label>
+                    <label className="builder-field compact"><span>Row type</span><select value={catalogDraft.rowType} onChange={(e) => setCatalogDraft((current) => ({ ...current, rowType: e.target.value as CatalogDraft["rowType"] }))}><option value="service">Service</option><option value="terminal_fee">Terminal fee</option><option value="overage">Overage</option><option value="support">Support</option></select></label>
+                    <label className="builder-field compact"><span>Unit label</span><input value={catalogDraft.unitLabel} onChange={(e) => setCatalogDraft((current) => ({ ...current, unitLabel: e.target.value }))} /></label>
+                  </>
+                )}
+                {catalogDraft.section === "equipment" && (
+                  <>
+                    <label className="builder-field compact"><span>Terminal type</span><input value={catalogDraft.terminalType} onChange={(e) => setCatalogDraft((current) => ({ ...current, terminalType: e.target.value }))} /></label>
+                    <label className="builder-field compact"><span>Part #</span><input value={catalogDraft.partNumber} onChange={(e) => setCatalogDraft((current) => ({ ...current, partNumber: e.target.value }))} /></label>
+                  </>
+                )}
+                <label className="builder-field compact md:col-span-2"><span>Source</span><input value={catalogDraft.source} onChange={(e) => setCatalogDraft((current) => ({ ...current, source: e.target.value }))} /></label>
+                <label className="builder-field compact md:col-span-2"><span>Description{catalogDraft.section === "sectionA" && catalogDraft.rowType === "support" ? " / support bullets" : ""}</span><textarea rows={4} value={catalogDraft.description} onChange={(e) => setCatalogDraft((current) => ({ ...current, description: e.target.value }))} /></label>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button type="button" className="pill-button pill-button-active" onClick={saveCatalogDraft}>{selectedCatalogItemId ? "Update item" : "Add item"}</button>
+                <button type="button" className="pill-button" onClick={resetCatalogDraft}>Clear</button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -951,7 +1273,7 @@ export default function QuotePreview() {
                 <div className="grid gap-4 md:grid-cols-3">
                   <label className="builder-field"><span>Section title</span><input value={quote.sections.sectionA.title} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.title = e.target.value; return draft; })} /></label>
                   <label className="builder-field"><span>Term (months)</span><input type="number" value={quote.sections.sectionA.termMonths} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.termMonths = parseNumber(e.target.value); return draft; })} /></label>
-                  <label className="builder-field"><span>Quick add source row</span><select defaultValue="" onChange={(e) => { if (e.target.value) { addSectionARowFromCatalog(e.target.value); e.target.value = ""; } }}><option value="">Choose Section A item…</option>{sectionACatalog.filter((item) => quote.sections.sectionA.mode === "pool" ? !item.id.startsWith("block-") : !item.id.startsWith("pool-")).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+                  <label className="builder-field"><span>Quick add source row</span><select defaultValue="" onChange={(e) => { if (e.target.value) { addSectionARowFromCatalog(e.target.value); e.target.value = ""; } }}><option value="">Choose active catalog item…</option>{sectionACatalog.map((item) => <option key={item.id} value={item.id}>{item.label} — {formatCurrency(item.unitPrice, item.currencyCode)}</option>)}</select></label>
                 </div>
 
                 <div className="mt-4 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
@@ -992,7 +1314,7 @@ export default function QuotePreview() {
               <section className="builder-panel">
                 <div className="builder-panel-header">
                   <div><div className="builder-eyebrow">Section B</div><h2 className="builder-title">{quote.sections.sectionB.builderLabel}</h2></div>
-                  <div className="rounded-[18px] border border-[#ead9db] bg-[#fff7f7] px-4 py-3 text-[13px] text-[#6d4950]">Builder focus: pick from catalog, add custom hardware, or adjust the current line items without clutter.</div>
+                  <div className="rounded-[18px] border border-[#ead9db] bg-[#fff7f7] px-4 py-3 text-[13px] text-[#6d4950]">Builder focus: pick from active catalog, add custom hardware, or adjust the current line items without clutter.</div>
                 </div>
 
                 <label className="builder-field"><span>Section note</span><textarea rows={3} value={quote.sections.sectionB.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.introText = e.target.value; return draft; })} /></label>
@@ -1016,9 +1338,9 @@ export default function QuotePreview() {
 
                 <div className="mt-5 grid gap-4 xl:grid-cols-[1.3fr_.9fr]">
                   <div className="rounded-[24px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="builder-eyebrow">Standard catalog items</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Clean picker</h3></div><div className="text-[13px] text-[#66717d]">{filteredEquipmentCatalog.length} match(es)</div></div>
+                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="builder-eyebrow">Catalog items</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Clean picker</h3></div><div className="text-[13px] text-[#66717d]">{filteredEquipmentCatalog.length} match(es)</div></div>
                     <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_.8fr]"><label className="builder-field compact"><span>Search hardware</span><input placeholder="mini, mount, cable..." value={equipmentSearch} onChange={(e) => setEquipmentSearch(e.target.value)} /></label><label className="builder-field compact"><span>Category</span><select value={equipmentCategoryFilter} onChange={(e) => setEquipmentCategoryFilter(e.target.value)}>{equipmentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label></div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">{filteredEquipmentCatalog.map((item) => <div key={item.id} className="rounded-[20px] border border-[#d9e0e7] bg-white p-4 shadow-[0_8px_20px_rgba(31,42,52,0.05)]"><div className="flex items-start justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{item.category}</div><h4 className="mt-1 text-[16px] font-semibold text-[#16202b]">{item.label}</h4></div><div className="rounded-full bg-[#f3f6fa] px-3 py-1 text-[12px] font-semibold text-[#465361]">{formatCurrency(item.defaultUnitPrice, currencyCode)}</div></div><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">{item.description ?? "Source-backed catalog item."}</p><div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[#66717d]">{item.terminalType && <span className="rounded-full bg-[#f6f8fb] px-3 py-1">Type: {item.terminalType}</span>}<span className="rounded-full bg-[#f6f8fb] px-3 py-1">Source: {item.source}</span></div><button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={() => addEquipmentRow(item.id)}>Add to hardware rows</button></div>)}</div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">{filteredEquipmentCatalog.map((item) => <div key={item.id} className="rounded-[20px] border border-[#d9e0e7] bg-white p-4 shadow-[0_8px_20px_rgba(31,42,52,0.05)]"><div className="flex items-start justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{item.category}</div><h4 className="mt-1 text-[16px] font-semibold text-[#16202b]">{item.label}</h4></div><div className="rounded-full bg-[#f3f6fa] px-3 py-1 text-[12px] font-semibold text-[#465361]">{formatCurrency(item.unitPrice, currencyCode)}</div></div><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">{item.description ?? "Source-backed catalog item."}</p><div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[#66717d]">{item.terminalType && <span className="rounded-full bg-[#f6f8fb] px-3 py-1">Type: {item.terminalType}</span>}<span className="rounded-full bg-[#f6f8fb] px-3 py-1">Book: {item.priceBookQuarterCode}</span></div><button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={() => addEquipmentRow(item.id)}>Add to hardware rows</button></div>)}</div>
                   </div>
 
                   <div className="space-y-4">
@@ -1059,14 +1381,14 @@ export default function QuotePreview() {
                 <div className="summary-block"><div className="summary-label">Bill To / Ship To</div><div className="summary-value">{quote.billTo.companyName || quote.customer.name}</div><div className="summary-subvalue">{quote.shippingSameAsBillTo ? "Ship To matches Bill To" : `${quote.shipTo.companyName || "Custom Ship To"} configured separately`}</div></div>
                 <div className="summary-block"><div className="summary-label">Executive Summary</div><div className="summary-value">{quote.executiveSummary.enabled ? (quote.executiveSummary.heading?.trim() || "Executive Summary") : "Hidden"}</div><div className="summary-subvalue">{quote.executiveSummary.enabled ? `${compactList([quote.executiveSummary.customerContext, quote.executiveSummary.body]).length} editable text block(s) ready for output` : "Not included in proposal output"}</div></div>
                 <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : `Estimated monthly blended total over ${quote.sections.sectionA.termMonths} months`}</div></div>
-                <div className="summary-block"><div className="summary-label">Section A provider</div><div className="summary-value">{quote.metadata.customerProvider}</div><div className="summary-subvalue">Standalone-first quote builder selection</div></div>
+                <div className="summary-block"><div className="summary-label">Active price book</div><div className="summary-value">{activePriceBook?.label ?? "n/a"}</div><div className="summary-subvalue">{activePriceBook?.quarterCode ?? "n/a"} • {catalogStore.items.filter((item) => item.isActive).length} active catalog item(s)</div></div>
                 <div className="summary-block"><div className="summary-label">Enabled sections</div><ul className="list-disc pl-5 text-[#56616d]">{quote.sections.sectionA.enabled && <li>Monthly service pricing</li>}{quote.sections.sectionB.enabled && <li>Hardware and accessories</li>}{quote.sections.sectionC.enabled && <li>Optional field services</li>}</ul></div>
                 {customSectionFields.length > 0 && <div className="summary-block"><div className="summary-label">Extra section fields</div><div className="space-y-1 text-[#56616d]">{customSectionFields.map((field) => <div key={field.id}><strong>{field.label}:</strong> {field.value || "—"}</div>)}</div></div>}
                 <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{activeSectionARows.length} row(s) ready for template mapping</div></div>
                 <div className="summary-block"><div className="summary-label">Section B output</div><div className="summary-value">{quote.sections.sectionB.lineItems.length} hardware row(s)</div><div className="summary-subvalue">{suggestedAccessories.length > 0 ? `${suggestedAccessories.length} accessory suggestion(s) available` : "All current accessory suggestions already added"}</div></div>
                 <div className="summary-block"><div className="summary-label">Section C output</div><div className="summary-value">{quote.sections.sectionC.title}</div><div className="summary-subvalue">{quote.sections.sectionC.lineItems.length} service row(s) • {quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "budgetary").length} budgetary / {quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "final").length} final</div></div>
                 <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>Recurring monthly</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div><div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div><div className="flex justify-between gap-3"><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>{quote.metadata.quoteType === "lease" && <div className="flex justify-between gap-3 text-[#b00000]"><span>Blended lease monthly</span><strong>{formatCurrency(leaseMonthly, currencyCode)}</strong></div>}</div></div>
-                <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">CRM-ready under the hood later is fine. On the surface, this stays a clean quote builder.</div>
+                <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">This stays admin-simple: local catalog now, deeper CRM sync later.</div>
               </div>
             </section>
           </aside>
