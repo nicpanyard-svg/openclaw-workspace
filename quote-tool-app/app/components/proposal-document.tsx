@@ -92,12 +92,12 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
               <div className="cover-meta-label">Proposal</div>
               <div className="cover-meta-value">#{quote.metadata.proposalNumber}</div>
               <div>{quote.metadata.proposalDate}</div>
-              <div className="cover-meta-chip">{quote.metadata.quoteType === "lease" ? "Lease" : "Purchase"}</div>
+              <div className="cover-meta-chip">Budgetary Estimate</div>
             </div>
           </div>
 
           <div className="cover-content">
-            <div className="cover-kicker">Managed Services Proposal</div>
+            <div className="cover-kicker">Budgetary Estimate</div>
             <h1>{quote.metadata.documentTitle}</h1>
             <h2>{quote.metadata.documentSubtitle}</h2>
 
@@ -161,8 +161,8 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
         <div className="proposal-title-block">
           <div>
-            <div className="proposal-overline">Executive Summary</div>
-            <h2 className="proposal-section-title">Recommended commercial structure</h2>
+            <div className="proposal-overline">Documentation Details &amp; Tracking</div>
+            <h2 className="proposal-section-title">Proposal Information</h2>
           </div>
           <div className="proposal-date-card">
             <div className="proposal-date-label">Prepared</div>
@@ -174,25 +174,42 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
         <div className="proposal-summary-grid">
           <div className="proposal-summary-panel">
-            <div className="summary-panel-label">Customer</div>
-            <div className="summary-panel-value">{quote.customer.name}</div>
-            <div className="summary-panel-copy">{quote.customer.contactName}</div>
+            <div className="summary-panel-label">Title</div>
+            <div className="summary-panel-value">{quote.documentation.proposalTitle}</div>
+            <div className="summary-panel-copy">Proposal Number {quote.documentation.proposalNumberLabel}</div>
           </div>
           <div className="proposal-summary-panel">
-            <div className="summary-panel-label">Commercial model</div>
-            <div className="summary-panel-value">
-              {quote.metadata.quoteType === "lease" ? "Lease structure" : "Purchase structure"}
-            </div>
-            <div className="summary-panel-copy">
-              {quote.metadata.quoteType === "lease"
-                ? `Estimated blended monthly total over ${quote.sections.sectionA.termMonths} months`
-                : "Recurring services and one-time hardware shown separately"}
-            </div>
+            <div className="summary-panel-label">Date</div>
+            <div className="summary-panel-value">{quote.documentation.proposalDateLabel}</div>
+            <div className="summary-panel-copy">Budgetary Estimate</div>
           </div>
           <div className="proposal-summary-panel">
             <div className="summary-panel-label">Prepared by</div>
             <div className="summary-panel-value">{quote.inet.contactName}</div>
             <div className="summary-panel-copy">{quote.inet.name}</div>
+          </div>
+        </div>
+
+        <div className="proposal-detail-grid">
+          <div className="proposal-copy proposal-copy-card">
+            <div className="proposal-mini-heading">Customer Information</div>
+            <p><strong>Customer Contact</strong> {quote.customer.contactName}</p>
+            <p><strong>Contact Phone</strong> {quote.customer.contactPhone}</p>
+            <p><strong>Contact Email</strong> {quote.customer.contactEmail}</p>
+            <p><strong>{quote.documentation.customerAddressHeading}</strong></p>
+            {quote.customer.addressLines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+          <div className="proposal-copy proposal-copy-card">
+            <div className="proposal-mini-heading">iNet Sales</div>
+            <p><strong>Customer Contact</strong> {quote.inet.contactName}</p>
+            <p><strong>Contact Phone</strong> {quote.inet.contactPhone}</p>
+            <p><strong>Contact Email</strong> {quote.inet.contactEmail}</p>
+            <p><strong>{quote.documentation.inetAddressHeading}</strong></p>
+            {quote.inet.addressLines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
           </div>
         </div>
 
@@ -248,6 +265,14 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             </p>
           </div>
 
+          {quote.sections.sectionA.explanatoryParagraphs?.length ? (
+            <div className="proposal-copy proposal-copy-card section-copy-block">
+              {quote.sections.sectionA.explanatoryParagraphs.map((paragraph, index) => (
+                <p key={index}>{paragraph}</p>
+              ))}
+            </div>
+          ) : null}
+
           <table className="proposal-table sample-table">
             <thead>
               <tr>
@@ -262,7 +287,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
                 <tr key={row.id} className="keep-together">
                   <td>
                     <div className="proposal-cell-title">{row.description}</div>
-                    {row.unitLabel && row.rowType !== "support" && (
+                    {row.unitLabel && row.rowType !== "support" && row.rowType !== "terminal_fee" && (
                       <div className="proposal-cell-subtitle">Unit: {row.unitLabel}</div>
                     )}
                     {row.rowType === "support" && row.includedText && (
@@ -289,7 +314,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             </tbody>
             <tfoot>
               <tr className="proposal-total-row">
-                <td colSpan={3}>Section A total monthly recurring</td>
+                <td colSpan={3}>Total monthly recurring</td>
                 <td>{formatCurrency(recurringMonthlyTotal, currencyCode)}</td>
               </tr>
             </tfoot>
@@ -343,7 +368,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             </tbody>
             <tfoot>
               <tr className="proposal-total-row">
-                <td colSpan={3}>Section B one-time equipment total</td>
+                <td colSpan={3}>One-time equipment total</td>
                 <td>{formatCurrency(equipmentTotal, currencyCode)}</td>
               </tr>
             </tfoot>
@@ -395,13 +420,44 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             </tbody>
             <tfoot>
               <tr className="proposal-total-row">
-                <td colSpan={3}>Section C optional services total</td>
+                <td colSpan={3}>Optional services total</td>
                 <td>{formatCurrency(sectionCTotal, currencyCode)}</td>
               </tr>
             </tfoot>
           </table>
         </section>
       )}
+
+      <section className="proposal-page">
+        <div className="proposal-confidential-mark">CONFIDENTIAL</div>
+        <div className="proposal-corner-watermark" />
+        <div className="proposal-header">
+          <span>Confidential</span>
+          <span>Proposal #{quote.metadata.proposalNumber}</span>
+        </div>
+
+        <div className="proposal-overline">Terms and conditions</div>
+        <h2 className="proposal-section-title">{quote.terms.generalStarlinkServiceTermsTitle}</h2>
+        <div className="section-title-rule" />
+
+        <div className="proposal-copy proposal-copy-card section-copy-block">
+          <ol className="proposal-numbered-list">
+            {quote.terms.generalStarlinkServiceTerms.map((term, index) => (
+              <li key={`${term}-${index}`}>{term}</li>
+            ))}
+          </ol>
+        </div>
+
+        <div className="proposal-overline">Commercial terms</div>
+        <h2 className="proposal-section-title">{quote.terms.pricingTermsTitle}</h2>
+        <div className="proposal-copy proposal-copy-card section-copy-block">
+          <ul className="proposal-bullets compact">
+            {quote.terms.pricingTerms.map((term) => (
+              <li key={term}>{term}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       <section className="proposal-page proposal-closing-page">
         <div className="proposal-confidential-mark">CONFIDENTIAL</div>
@@ -452,7 +508,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         <div className="approval-block keep-together sample-approval-block">
           <div className="approval-block-header">
             <div>
-              <div className="proposal-overline">Customer approval</div>
+              <div className="proposal-overline">{quote.approval.heading}</div>
               <h3 className="approval-title">Authorization to proceed</h3>
             </div>
             <div className="approval-status-chip">Order Approval</div>
@@ -463,22 +519,18 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             proposal, subject to any mutually agreed revisions or final contract documents.
           </div>
 
-          <div className="approval-signature-grid">
+          <div className="approval-signature-grid approval-signature-grid-three-up">
             <div className="signature-field">
               <div className="signature-line" />
-              <div className="signature-label">Authorized customer signature</div>
+              <div className="signature-label">{quote.approval.signatureLabel}</div>
             </div>
             <div className="signature-field">
               <div className="signature-line" />
-              <div className="signature-label">Printed name / title</div>
+              <div className="signature-label">{quote.approval.customerNameLabel}</div>
             </div>
             <div className="signature-field">
               <div className="signature-line" />
-              <div className="signature-label">Company</div>
-            </div>
-            <div className="signature-field">
-              <div className="signature-line" />
-              <div className="signature-label">Date</div>
+              <div className="signature-label">{quote.approval.dateLabel}</div>
             </div>
           </div>
         </div>

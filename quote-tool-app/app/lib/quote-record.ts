@@ -104,10 +104,34 @@ export type QuoteInternalMeta = {
   internalNotes?: string;
 };
 
+export type QuoteDocumentationDetails = {
+  proposalTitle: string;
+  proposalDateLabel: string;
+  proposalNumberLabel: string;
+  customerAddressHeading: string;
+  inetAddressHeading: string;
+};
+
+export type QuoteApprovalDetails = {
+  heading: string;
+  signatureLabel: string;
+  customerNameLabel: string;
+  dateLabel: string;
+  approvalNote?: string;
+};
+
+export type QuoteTermsSection = {
+  generalStarlinkServiceTermsTitle: string;
+  generalStarlinkServiceTerms: string[];
+  pricingTermsTitle: string;
+  pricingTerms: string[];
+};
+
 export type QuoteSectionA = QuoteSectionState & {
   mode: SectionAMode;
   title: string;
   introText?: string;
+  explanatoryParagraphs?: string[];
   termMonths: number;
   poolRows: PoolPricingRow[];
   perKitRows: PerKitPricingRow[];
@@ -147,6 +171,9 @@ export type QuoteDocumentRules = {
 
 export type QuoteRecord = {
   metadata: QuoteMetadata;
+  documentation: QuoteDocumentationDetails;
+  approval: QuoteApprovalDetails;
+  terms: QuoteTermsSection;
   customer: QuoteParty;
   inet: QuoteParty;
   executiveSummary: QuoteTextBlock;
