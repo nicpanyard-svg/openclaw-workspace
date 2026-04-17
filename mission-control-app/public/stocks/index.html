@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graham Stock Board</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f10; color: #e8e8ea; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* Header */
+  .header { background: #161618; border-bottom: 1px solid #2a2a2d; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .header-title { font-size: 20px; font-weight: 700; color: #e8e8ea; letter-spacing: 0.5px; }
+  .header-title span { color: #5e6ad2; }
+  .header-meta { font-size: 12px; color: #55555c; }
+
+  /* Summary tiles */
+  .summary-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 16px 24px; }
+  .tile { background: #161618; border: 1px solid #2a2a2d; border-radius: 10px; padding: 14px 18px; }
+  .tile-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #55555c; margin-bottom: 6px; }
+  .tile-ticker { font-size: 22px; font-weight: 800; margin-bottom: 2px; }
+  .tile-sub { font-size: 11px; color: #8b8b91; }
+  .tile.top-pick .tile-ticker { color: #5e6ad2; }
+  .tile.best-setup .tile-ticker { color: #26a86a; }
+  .tile.at-risk .tile-ticker { color: #e8a045; }
+
+  /* Controls */
+  .controls { display: flex; gap: 10px; padding: 0 24px 16px; flex-wrap: wrap; align-items: center; }
+  .controls select, .controls button { background: #161618; border: 1px solid #2a2a2d; color: #e8e8ea; padding: 7px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .controls select:focus, .controls button:focus { outline: none; border-color: #5e6ad2; }
+  .controls button.active { background: #2d2f5a; border-color: #5e6ad2; color: #a5b4fc; }
+  .controls label { font-size: 12px; color: #55555c; }
+
+  /* Board */
+  .board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 0 24px 32px; min-height: 400px; }
+  .column { background: #161618; border: 1px solid #2a2a2d; border-radius: 10px; overflow: hidden; }
+  .col-header { padding: 12px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #2a2a2d; background: #1a1a1d; }
+  .col-header.pipeline { color: #8b8b91; }
+  .col-header.watch { color: #818cf8; }
+  .col-header.starter { color: #26a86a; }
+  .col-header.add { color: #a78bfa; }
+  .col-header.trim { color: #e05252; }
+  .col-header { position: relative; cursor: help; }
+  .col-tooltip { display: none; position: absolute; top: 110%; left: 0; z-index: 50; background: #2a2a2d; border: 1px solid #5e6ad2; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #cbd5e1; line-height: 1.6; width: 220px; font-weight: 400; text-transform: none; letter-spacing: 0; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  .col-header:hover .col-tooltip { display: block; }
+  .col-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+  /* Cards */
+  .card { background: #1c1c1f; border: 1px solid #2a2a2d; border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.15s; }
+  .card:hover { border-color: #5e6ad2; background: #22222a; transform: translateY(-1px); }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .card-ticker { font-size: 18px; font-weight: 800; color: #e8e8ea; }
+  .card-price { font-size: 12px; color: #8b8b91; margin-top: 2px; }
+  .score-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 5px; }
+  .score-gold { background: #3d2a00; color: #f59e0b; }
+  .score-green { background: #0d3320; color: #6ee7b7; }
+  .score-yellow { background: #3d2800; color: #fcd34d; }
+  .score-red { background: #3d0a0a; color: #fca5a5; }
+  .card-status { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .status-label { font-size: 11px; color: #8b8b91; }
+  .theme-tag { display: inline-block; font-size: 10px; background: #2a2a2d; color: #818cf8; padding: 2px 7px; border-radius: 4px; margin-bottom: 6px; }
+  .conviction { display: flex; gap: 3px; margin-bottom: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #2a2a2d; }
+  .dot.filled { background: #5e6ad2; }
+  .card-summary { font-size: 11px; color: #55555c; line-height: 1.5; }
+  .card-analyst { font-size: 11px; color: #26a86a; font-weight: 600; margin-top: 4px; }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #161618; border: 1px solid #2a2a2d; border-radius: 14px; width: 100%; max-height: 90vh; overflow-y: auto; max-width: 580px; max-height: 85vh; overflow-y: auto; }
+  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid #2a2a2d; display: flex; justify-content: space-between; align-items: flex-start; }
+  .modal-ticker { font-size: 28px; font-weight: 900; color: #e8e8ea; }
+  .modal-theme { font-size: 12px; color: #818cf8; margin-top: 4px; }
+  .modal-close { background: none; border: none; color: #55555c; font-size: 22px; cursor: pointer; padding: 0 4px; }
+  .modal-close:hover { color: #e8e8ea; }
+  .modal-body { padding: 20px 24px; }
+  .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .modal-stat { background: #1c1c1f; border: 1px solid #2a2a2d; border-radius: 8px; padding: 12px; }
+  .modal-stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: #55555c; margin-bottom: 4px; }
+  .modal-stat-value { font-size: 14px; font-weight: 600; color: #e8e8ea; }
+  .modal-stat-value.green { color: #26a86a; }
+  .modal-stat-value.amber { color: #e8a045; }
+  .modal-stat-value.red { color: #e05252; }
+  .modal-section { margin-bottom: 16px; }
+  .modal-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #55555c; margin-bottom: 8px; font-weight: 700; }
+  .thesis-break { background: #200a0a; border: 1px solid #3d0a0a; border-radius: 8px; padding: 12px; font-size: 13px; color: #fca5a5; line-height: 1.5; }
+  .commentary-box { background: #1c1c1f; border: 1px solid #2a2a2d; border-radius: 8px; padding: 12px; font-size: 13px; color: #8b8b91; line-height: 1.6; }
+
+  /* Hidden cards */
+  .card.hidden { display: none; }
+
+  /* Commodities section */
+  .commodities-section { padding: 0 24px 16px; }
+  .commodities-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  @media (max-width: 900px) { .commodities-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px) { .commodities-grid { grid-template-columns: repeat(2, 1fr); } }
+  .commodity-card { background: #161618; border: 1px solid #2a2a2d; border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: all 0.15s; }
+  .commodity-card:hover { border-color: #5e6ad2; background: #101a2e; transform: translateY(-1px); }
+  .commodity-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .commodity-name { font-size: 13px; font-weight: 700; color: #e8e8ea; }
+  .commodity-ticker { font-size: 10px; color: #55555c; margin-bottom: 8px; }
+  .commodity-price { font-size: 22px; font-weight: 800; color: #e8e8ea; margin-bottom: 8px; }
+  .commodity-signal { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .signal-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .signal-dot.bullish { background: #26a86a; }
+  .signal-dot.cautious { background: #e8a045; }
+  .signal-dot.neutral { background: #8b8b91; }
+  .signal-label { font-size: 11px; color: #8b8b91; }
+  .commodity-role { font-size: 11px; color: #55555c; line-height: 1.5; }
+
+  /* Commodity modal */
+  .commodity-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+  .commodity-modal-overlay.open { display: flex; }
+  .commodity-modal { background: #161618; border: 1px solid #2a2a2d; border-radius: 14px; width: 100%; max-width: 480px; }
+  .commodity-modal-header { padding: 20px 24px 16px; border-bottom: 1px solid #2a2a2d; display: flex; justify-content: space-between; align-items: flex-start; }
+  .commodity-modal-title { font-size: 22px; font-weight: 900; color: #e8e8ea; }
+  .commodity-modal-ticker { font-size: 12px; color: #55555c; margin-top: 4px; }
+  .commodity-modal-body { padding: 20px 24px; }
+  .commodity-modal-price { font-size: 28px; font-weight: 800; color: #e8e8ea; margin-bottom: 16px; }
+  .commodity-modal-signal { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 10px 14px; border-radius: 8px; }
+  .commodity-modal-signal.bullish { background: #0d3320; border: 1px solid #166534; }
+  .commodity-modal-signal.cautious { background: #3d2800; border: 1px solid #854d0e; }
+  .commodity-modal-signal.neutral { background: #1e293b; border: 1px solid #3a3a42; }
+  .commodity-modal-signal-text { font-size: 13px; font-weight: 600; }
+  .commodity-modal-signal.bullish .commodity-modal-signal-text { color: #6ee7b7; }
+  .commodity-modal-signal.cautious .commodity-modal-signal-text { color: #fcd34d; }
+  .commodity-modal-signal.neutral .commodity-modal-signal-text { color: #cbd5e1; }
+  .commodity-modal-section { margin-bottom: 16px; }
+  .commodity-modal-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #55555c; margin-bottom: 6px; font-weight: 700; }
+  .commodity-modal-text { font-size: 13px; color: #8b8b91; line-height: 1.6; }
+  .commodity-modal-equity { background: #1c1c1f; border: 1px solid #2a2a2d; border-radius: 8px; padding: 12px; font-size: 13px; color: #818cf8; line-height: 1.6; }
+
+  /* Market context banner */
+  .market-bar { background: #161618; border-bottom: 1px solid #2a2a2d; padding: 8px 24px; display: flex; gap: 24px; align-items: center; font-size: 12px; color: #55555c; }
+  .market-item { display: flex; gap: 6px; }
+  .market-label { color: #55555c; }
+  .market-val { color: #8b8b91; }
+  .market-val.red { color: #e05252; }
+  .market-val.amber { color: #e8a045; }
+
+  .commodities-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .commodities-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #55555c; }
+  .commodities-sub { font-size: 11px; color: #3a3a42; }
+
+  /* Paper Trading */
+  .paper-section { padding: 0 24px 16px; }
+  .paper-panel { background: #161618; border: 1px solid #2a2a2d; border-radius: 10px; overflow: hidden; }
+  .paper-header-bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #2a2a2d; background: #1a1a1d; }
+  .paper-header-left { display: flex; align-items: center; gap: 10px; }
+  .paper-title { font-size: 14px; font-weight: 700; color: #e8e8ea; text-transform: uppercase; letter-spacing: 0.5px; }
+  .paper-badge { font-size: 9px; font-weight: 800; background: #854d0e; color: #fcd34d; padding: 2px 7px; border-radius: 4px; letter-spacing: 1px; }
+  .paper-stats { display: flex; gap: 20px; }
+  .paper-stat { text-align: right; }
+  .paper-stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #55555c; }
+  .paper-stat-value { font-size: 15px; font-weight: 700; color: #e8e8ea; }
+  .paper-stat-value.cash { color: #26a86a; }
+  .paper-stat-value.deployed { color: #818cf8; }
+  .paper-stat-sub { font-size: 10px; color: #55555c; }
+  .paper-note-toggle { background: none; border: 1px solid #2a2a2d; color: #8b8b91; padding: 5px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.15s; }
+  .paper-note-toggle:hover { border-color: #5e6ad2; color: #e8e8ea; }
+  .paper-note { display: none; padding: 14px 18px; background: #161618; border-bottom: 1px solid #2a2a2d; font-size: 13px; color: #8b8b91; line-height: 1.6; }
+  .paper-note.open { display: block; }
+  .paper-table { width: 100%; border-collapse: collapse; }
+  .paper-table th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: #55555c; padding: 10px 14px; text-align: left; border-bottom: 1px solid #2a2a2d; background: #161618; font-weight: 700; }
+  .paper-table td { font-size: 13px; padding: 10px 14px; border-bottom: 1px solid #1a1a1d; color: #e8e8ea; }
+  .paper-table tr:last-child td { border-bottom: none; }
+  .paper-table .ticker-cell { font-weight: 800; color: #e8e8ea; }
+  .paper-table .pnl-zero { color: #55555c; }
+  .paper-table .reasoning-cell { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #55555c; font-size: 11px; cursor: help; }
+  .paper-table .price-note { font-size: 9px; color: #55555c; display: block; }
+  .paper-passed { padding: 14px 18px; border-top: 1px solid #2a2a2d; }
+  .paper-passed-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #55555c; font-weight: 700; margin-bottom: 8px; }
+  .passed-item { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; font-size: 12px; }
+  .passed-ticker { font-weight: 700; color: #e05252; min-width: 42px; }
+  .passed-reason { color: #55555c; line-height: 1.4; }
+
+  @media (max-width: 900px) {
+    .board { grid-template-columns: 1fr 1fr; }
+    .summary-bar { grid-template-columns: 1fr; }
+    .paper-stats { flex-wrap: wrap; gap: 12px; }
+    .paper-header-bar { flex-direction: column; gap: 10px; align-items: flex-start; }
+    .paper-table { font-size: 11px; }
+  }
+  @media (max-width: 600px) {
+    .board { grid-template-columns: 1fr; }
+    .modal-row { grid-template-columns: 1fr; }
+    .paper-table th, .paper-table td { padding: 8px 10px; }
+  }
+
+  /* Charts section */
+  .charts-section { padding: 0 24px 16px; }
+  .charts-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #55555c; margin-bottom: 10px; }
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .chart-card { background: #161618; border: 1px solid #2a2a2d; border-radius: 10px; overflow: hidden; }
+  .chart-card-title { font-size: 12px; font-weight: 700; color: #8b8b91; padding: 12px 16px 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .chart-card canvas { display: block; }
+  .chart-scroll { max-height: 340px; overflow-y: auto; }
+  .chart-scroll::-webkit-scrollbar { width: 6px; }
+  .chart-scroll::-webkit-scrollbar-track { background: #161618; }
+  .chart-scroll::-webkit-scrollbar-thumb { background: #2a2a2d; border-radius: 3px; }
+  @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+
+  /* Live price badges */
+  .live-badge, .offline-badge, .market-closed-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px;
+    border-radius: 4px; margin-left: 10px; letter-spacing: 0.5px; vertical-align: middle;
+  }
+  .live-badge { background: #0d3320; color: #6ee7b7; }
+  .offline-badge { background: #3d0a0a; color: #fca5a5; }
+  .market-closed-badge { background: #3d2800; color: #fcd34d; }
+  .refresh-btn { background: #161618; border: 1px solid #2a2a2d; color: #e8e8ea; padding: 7px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+  .refresh-btn:hover { border-color: #5e6ad2; color: #a5b4fc; }
+  .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .price-timestamp { font-size: 11px; color: #55555c; margin-left: 6px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title"><span>Graham</span> Stock Board<span id="priceBadge"></span></div>
+  </div>
+  <div class="header-meta">Updated: 2026-03-21 · VIX 26.8 · Bear tape</div>
+</div>
+
+<div class="market-bar">
+  <div class="market-item"><span class="market-label">SPY</span><span class="market-val red">-4.1% (10d)</span></div>
+  <div class="market-item"><span class="market-label">QQQ</span><span class="market-val red">-4.2% (10d)</span></div>
+  <div class="market-item"><span class="market-label">VIX</span><span class="market-val amber">26.8 (elevated)</span></div>
+  <div class="market-item"><span class="market-label">Market</span><span class="market-val red">Bear</span></div>
+</div>
+
+<div class="commodities-section">
+  <div class="commodities-header">
+    <span class="commodities-title">📊 Macro Backdrop — Commodities</span>
+    <span class="commodities-sub">Monitor before judging equity weakness or strength</span>
+  </div>
+  <div class="commodities-grid" id="commodities-grid"></div>
+</div>
+
+<div class="summary-bar">
+  <div class="tile top-pick">
+    <div class="tile-label">🎯 Top Pick Today</div>
+    <div class="tile-ticker">IONQ</div>
+    <div class="tile-sub">Quantum · 109% analyst upside · Score 75</div>
+  </div>
+  <div class="tile best-setup">
+    <div class="tile-label">🔍 Best Setup Not Yet Bought</div>
+    <div class="tile-ticker">RXRX</div>
+    <div class="tile-sub">AI Drug Discovery · Near 52-week lows · Score 69</div>
+  </div>
+  <div class="tile at-risk">
+    <div class="tile-label">⚠️ Most At Risk</div>
+    <div class="tile-ticker">HIMS</div>
+    <div class="tile-sub">FDA GLP-1 ruling is binary · Score 57</div>
+  </div>
+</div>
+
+<!-- Paper Trading Section -->
+<div class="paper-section">
+  <div class="paper-panel">
+    <div class="paper-header-bar">
+      <div class="paper-header-left">
+        <span class="paper-title">Paper Trading</span>
+        <span class="paper-badge">PAPER</span>
+      </div>
+      <div class="paper-stats">
+        <div class="paper-stat">
+          <div class="paper-stat-label">Portfolio Value</div>
+          <div class="paper-stat-value">$100,000</div>
+        </div>
+        <div class="paper-stat">
+          <div class="paper-stat-label">Cash</div>
+          <div class="paper-stat-value cash">$92,049.93</div>
+        </div>
+        <div class="paper-stat">
+          <div class="paper-stat-label">Deployed</div>
+          <div class="paper-stat-value deployed">$7,949.07 <span class="paper-stat-sub">(7.95%)</span></div>
+        </div>
+        <div class="paper-stat">
+          <button class="paper-note-toggle" onclick="document.getElementById('grahamNote').classList.toggle('open'); this.textContent = this.textContent.includes('+') ? '- Graham\'s Note' : '+ Graham\'s Note'">+ Graham's Note</button>
+        </div>
+      </div>
+    </div>
+    <div class="paper-note" id="grahamNote">Opening three starter positions for a combined 8% deployment &mdash; deliberately light given VIX near 27 and a clear bear tape. IONQ, RKLB, and SOUN represent the three highest-conviction names with real sector catalysts. The remaining 92% stays in cash, ready to average down on these three or open new positions if the market finds a floor. Measure twice, cut once &mdash; no sense rushing it.</div>
+    <table class="paper-table">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Entry Date</th>
+          <th>Entry Price</th>
+          <th>Shares</th>
+          <th>Cost Basis</th>
+          <th>Current Price</th>
+          <th>P&amp;L $</th>
+          <th>P&amp;L %</th>
+          <th>Reasoning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="ticker-cell">IONQ</td>
+          <td>2026-03-21</td>
+          <td>$31.20</td>
+          <td>96</td>
+          <td>$2,995.20</td>
+          <td>$31.20 <span class="price-note">entry (live soon)</span></td>
+          <td class="pnl-zero">$0.00</td>
+          <td class="pnl-zero">0.00%</td>
+          <td class="reasoning-cell" title="Highest score of the group at 75 with a clear bullish thesis in quantum computing — a sector with genuine long-term tailwinds. Price is near the middle of the starter zone, giving us room to add lower if the tape stays weak.">Highest score of the group at 75 with a clear bullish thesis in quantum computing...</td>
+        </tr>
+        <tr>
+          <td class="ticker-cell">SOUN</td>
+          <td>2026-03-21</td>
+          <td>$6.55</td>
+          <td>305</td>
+          <td>$1,997.75</td>
+          <td>$6.55 <span class="price-note">entry (live soon)</span></td>
+          <td class="pnl-zero">$0.00</td>
+          <td class="pnl-zero">0.00%</td>
+          <td class="reasoning-cell" title="Score of 71 and bullish on voice AI, a real near-term commercial theme. Small 2% starter keeps risk tight — this is a higher-volatility name that can move hard in both directions in a bear tape.">Score of 71 and bullish on voice AI, a real near-term commercial theme...</td>
+        </tr>
+        <tr>
+          <td class="ticker-cell">RKLB</td>
+          <td>2026-03-21</td>
+          <td>$67.23</td>
+          <td>44</td>
+          <td>$2,958.12</td>
+          <td>$67.23 <span class="price-note">entry (live soon)</span></td>
+          <td class="pnl-zero">$0.00</td>
+          <td class="pnl-zero">0.00%</td>
+          <td class="reasoning-cell" title="Score 70, bullish, and RKLB has real revenue and launch cadence behind it — not pure speculation. Near the top of the starter zone so sizing stays conservative at 3%, with intent to add on any flush toward $60.">Score 70, bullish, and RKLB has real revenue and launch cadence behind it...</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="paper-passed">
+      <div class="paper-passed-title">Passed</div>
+      <div class="passed-item"><span class="passed-ticker">RXRX</span><span class="passed-reason">Score of 69 with a Cautious tag — passing until the tape stabilizes or a cleaner entry appears.</span></div>
+      <div class="passed-item"><span class="passed-ticker">SERV</span><span class="passed-reason">Lowest bullish score at 65, delivery robotics still early-stage — watching for a pullback toward $7.</span></div>
+      <div class="passed-item"><span class="passed-ticker">HIMS</span><span class="passed-reason">Score 57, Cautious — weakest setup, no cushion at top of starter zone.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Section -->
+<div class="charts-section">
+  <div class="charts-title">Charts</div>
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-card-title">Portfolio Allocation</div>
+      <canvas id="chartDonut" width="400" height="320"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">Theme Distribution</div>
+      <canvas id="chartTheme" width="400" height="320"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">Graham Score Rankings</div>
+      <div class="chart-scroll">
+        <canvas id="chartScoreBar" width="400" height="900"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">Score vs Analyst Upside</div>
+      <canvas id="chartScatter" width="400" height="320"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <label>Filter:</label>
+  <select id="themeFilter" onchange="applyFilters()">
+    <option value="">All Themes</option>
+    <option value="Commodities">--- Commodities ---</option>
+    <option value="Precious metals">Precious metals</option>
+    <option value="Energy">Energy</option>
+    <option value="Industrial metals">Industrial metals</option>
+    <option value="Quantum computing">Quantum computing</option>
+    <option value="AI clinical genomics">AI clinical genomics</option>
+    <option value="Voice AI">Voice AI</option>
+    <option value="Space infrastructure">Space infrastructure</option>
+    <option value="AI drug discovery">AI drug discovery</option>
+    <option value="Warehouse robotics">Warehouse robotics</option>
+    <option value="Delivery robots">Delivery robots</option>
+    <option value="Grid storage">Grid storage</option>
+    <option value="Direct-to-device satellite">Direct-to-device satellite</option>
+    <option value="Digital health">Digital health</option>
+    <option value="Defense AI">Defense AI</option>
+    <option value="Earth observation">Earth observation</option>
+    <option value="Defense autonomy">Defense autonomy</option>
+    <option value="Fintech / BNPL">Fintech / BNPL</option>
+    <option value="Retail fintech">Retail fintech</option>
+    <option value="Solar energy">Solar energy</option>
+    <option value="Solar infrastructure">Solar infrastructure</option>
+    <option value="Autonomous vehicles">Autonomous vehicles</option>
+    <option value="Defense drones">Defense drones</option>
+    <option value="Consumer EdTech">Consumer EdTech</option>
+    <option value="EdTech / AI monetization">EdTech / AI monetization</option>
+    <option value="AI platform / Enterprise">AI platform / Enterprise</option>
+    <option value="AI lending">AI lending</option>
+    <option value="RPA / Automation">RPA / Automation</option>
+    <option value="Enterprise AI">Enterprise AI</option>
+    <option value="Lunar infrastructure">Lunar infrastructure</option>
+    <option value="Defense drones / autonomy">Defense drones / autonomy</option>
+    <option value="Space manufacturing">Space manufacturing</option>
+    <option value="Physician network / digital health">Physician network / digital health</option>
+    <option value="Telehealth">Telehealth</option>
+    <option value="Full-stack fintech">Full-stack fintech</option>
+    <option value="Crypto infrastructure">Crypto infrastructure</option>
+    <option value="Bitcoin mining">Bitcoin mining</option>
+    <option value="Bitcoin treasury">Bitcoin treasury</option>
+    <option value="EV manufacturing">EV manufacturing</option>
+    <option value="EV charging">EV charging</option>
+    <option value="Fuel cells / distributed energy">Fuel cells / distributed energy</option>
+    <option value="Solar tracking">Solar tracking</option>
+    <option value="Solar electrical">Solar electrical</option>
+    <option value="eVTOL / air mobility">eVTOL / air mobility</option>
+    <option value="Data cloud">Data cloud</option>
+    <option value="Observability / DevOps">Observability / DevOps</option>
+    <option value="Developer database">Developer database</option>
+    <option value="DevSecOps">DevSecOps</option>
+    <option value="Gene editing">Gene editing</option>
+    <option value="Base editing / biotech">Base editing / biotech</option>
+    <option value="Functional beverages">Functional beverages</option>
+    <option value="Work management SaaS">Work management SaaS</option>
+    <option value="AI data platform">AI data platform</option>
+    <option value="Digital banking">Digital banking</option>
+    <option value="Electric vehicles">Electric vehicles</option>
+    <option value="Electric aviation">Electric aviation</option>
+    <option value="Cloud data">Cloud data</option>
+    <option value="Crypto mining">Crypto mining</option>
+    <option value="Developer platforms">Developer platforms</option>
+    <option value="Clean energy">Clean energy</option>
+    <option value="Consumer brands">Consumer brands</option>
+  </select>
+  <select id="statusFilter" onchange="applyFilters()">
+    <option value="">All Statuses</option>
+    <option value="Bullish">Bullish</option>
+    <option value="Neutral">Neutral</option>
+    <option value="Cautious">Cautious</option>
+  </select>
+  <label>Sort:</label>
+  <button id="sortScore" class="active" onclick="setSort('score')">Graham Score</button>
+  <button id="sortAnalyst" onclick="setSort('analyst')">Analyst Upside</button>
+  <span style="margin-left:auto; display:flex; align-items:center; gap:6px;">
+    <button class="refresh-btn" id="refreshBtn" onclick="fetchLivePrices()">Refresh Prices</button>
+    <span class="price-timestamp" id="priceTimestamp"></span>
+  </span>
+</div>
+
+<div class="board">
+  <div class="column" id="col-pipeline">
+    <div class="col-header pipeline">Pipeline<div class="col-tooltip">Names worth researching but no capital plan yet. Interesting story, needs more proof before taking a position.</div></div>
+    <div class="col-body" id="body-pipeline"></div>
+  </div>
+  <div class="column" id="col-watch">
+    <div class="col-header watch">Watch / Setup<div class="col-tooltip">Thesis is interesting but waiting for the right price, an earnings beat, or technical confirmation. No position yet.</div></div>
+    <div class="col-body" id="body-watch"></div>
+  </div>
+  <div class="column" id="col-starter">
+    <div class="col-header starter">Starter Buy<div class="col-tooltip">First small entry — 25–33% of your intended full position. Gets you skin in the game without over-committing to an unproven name.</div></div>
+    <div class="col-body" id="body-starter"></div>
+  </div>
+  <div class="column" id="col-add">
+    <div class="col-header add">Add on Proof<div class="col-tooltip">Add to your position only when the company earns it — earnings beat, new contract win, or technical trend confirmation. Never add just because price fell.</div></div>
+    <div class="col-body" id="body-add"></div>
+  </div>
+  <div class="column" id="col-trim">
+    <div class="col-header trim">Trim / Exit<div class="col-tooltip">Near the upside target, too extended, or the thesis is broken. Reduce into strength — don't wait for a perfect top. Thesis-break = non-negotiable exit.</div></div>
+    <div class="col-body" id="body-trim"></div>
+  </div>
+</div>
+
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" id="modalContent">
+    <div class="modal-header">
+      <div>
+        <div class="modal-ticker" id="m-ticker"></div>
+        <div id="m-theme" class="modal-theme"></div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('modal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-row">
+        <div class="modal-stat"><div class="modal-stat-label">Current Price</div><div class="modal-stat-value" id="m-price"></div></div>
+        <div class="modal-stat"><div class="modal-stat-label">Graham Score</div><div class="modal-stat-value" id="m-score"></div></div>
+        <div class="modal-stat"><div class="modal-stat-label">Analyst Upside</div><div class="modal-stat-value green" id="m-analyst"></div></div>
+        <div class="modal-stat"><div class="modal-stat-label">Conviction</div><div class="modal-stat-value" id="m-conviction"></div></div>
+      </div>
+      <div class="modal-row">
+        <div class="modal-stat"><div class="modal-stat-label">🟢 Starter Buy</div><div class="modal-stat-value green" id="m-starter"></div></div>
+        <div class="modal-stat"><div class="modal-stat-label">➕ Add Zone</div><div class="modal-stat-value" id="m-add"></div></div>
+        <div class="modal-stat"><div class="modal-stat-label">✂️ Trim Zone</div><div class="modal-stat-value amber" id="m-trim"></div></div>
+        <div class="modal-stat"><div class="modal-stat-label">🚀 Upside (12-24mo)</div><div class="modal-stat-value green" id="m-upside"></div></div>
+      </div>
+      <div class="modal-section">
+        <div class="modal-section-title">Chart</div>
+        <div style="border-radius:8px; overflow:hidden; margin-bottom:4px;">
+          <iframe
+            id="m-chart-frame"
+            src=""
+            style="width:100%; height:300px; border:none; display:block; background:#161618;"
+            loading="lazy"
+          ></iframe>
+        </div>
+        <p style="font-size:10px; color:#3a3a3d; margin:0;">Powered by TradingView</p>
+      </div>
+      <div class="modal-section">
+        <div class="modal-section-title">Thesis Break — Exit if:</div>
+        <div class="thesis-break" id="m-break"></div>
+      </div>
+      <div class="modal-section">
+        <div class="modal-section-title">Commentary</div>
+        <div class="commentary-box" id="m-commentary"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Commodity Modal -->
+<div class="commodity-modal-overlay" id="commodityModal" onclick="closeCommodityModal(event)">
+  <div class="commodity-modal">
+    <div class="commodity-modal-header">
+      <div>
+        <div class="commodity-modal-title" id="cm-name"></div>
+        <div class="commodity-modal-ticker" id="cm-ticker"></div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('commodityModal').classList.remove('open')">&#10005;</button>
+    </div>
+    <div class="commodity-modal-body">
+      <div class="commodity-modal-price" id="cm-price"></div>
+      <div class="commodity-modal-signal" id="cm-signal-box">
+        <div class="signal-dot" id="cm-signal-dot"></div>
+        <div class="commodity-modal-signal-text" id="cm-signal-text"></div>
+      </div>
+      <div class="commodity-modal-section">
+        <div class="commodity-modal-section-title">Role</div>
+        <div class="commodity-modal-text" id="cm-role"></div>
+      </div>
+      <div class="commodity-modal-section">
+        <div class="commodity-modal-section-title">What This Signal Means for Equities</div>
+        <div class="commodity-modal-equity" id="cm-equity"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const commodities = [
+  {
+    name: 'Gold', ticker: 'GC=F', price: '$4,574.90', theme: 'Precious metals',
+    role: 'Risk-off / real-rate stress indicator',
+    signal: 'Bullish', signalNote: 'Safe haven demand elevated',
+    equityImpact: 'Elevated gold signals risk-off sentiment and real-rate stress. When gold is trending strongly higher, equity rallies may lack conviction — investors are hedging. Watch for divergence: if gold and equities both rise, it may indicate liquidity-driven moves rather than fundamental strength. Gold strength favors defensive positioning and caution on high-beta growth names.'
+  },
+  {
+    name: 'Silver', ticker: 'SI=F', price: '$69.66', theme: 'Precious metals',
+    role: 'Higher-beta precious metals / industrial crossover',
+    signal: 'Neutral', signalNote: '',
+    equityImpact: 'Silver sits at the crossroads of safe-haven demand and industrial activity (solar panels, EVs, electronics). A neutral signal means neither fear nor industrial optimism is dominating. Watch the gold-silver ratio: if silver starts outperforming gold, it signals improving industrial demand — bullish for NXT, FLNC, and clean energy plays on the board.'
+  },
+  {
+    name: 'WTI Crude Oil', ticker: 'CL=F', price: '$98.23', theme: 'Energy',
+    role: 'Inflation + energy risk + geopolitics barometer',
+    signal: 'Cautious', signalNote: 'Demand concerns',
+    equityImpact: 'Oil above $90 adds inflation pressure and margin compression risk for most equities, especially consumer-facing names. Cautious signal means demand concerns are emerging despite elevated prices — a stagflationary setup. Energy stocks benefit but the broader market faces headwinds. If oil breaks above $100, expect VIX expansion and rotation into defensives. Impacts RIVN (input costs), CELH (distribution costs), and consumer discretionary names.'
+  },
+  {
+    name: 'Natural Gas', ticker: 'NG=F', price: '$3.10', theme: 'Energy',
+    role: 'Power/weather volatility indicator',
+    signal: 'Neutral', signalNote: '',
+    equityImpact: 'Natural gas at $3 is in a stable, non-disruptive range. Neutral signal means no immediate catalyst for energy-related volatility. Key watch: AI data center power demand is a structural tailwind for natural gas prices. If NG spikes, it benefits BE (Bloom Energy fuel cells) and creates headwinds for power-intensive operations. LNG export growth supports NXT and energy infrastructure themes.'
+  },
+  {
+    name: 'Copper', ticker: 'HG=F', price: '$5.05', theme: 'Industrial metals',
+    role: 'Industrial demand / electrification / global growth pulse',
+    signal: 'Cautious', signalNote: 'Tariff concerns',
+    equityImpact: 'Copper is the best real-time barometer of global industrial demand. A cautious signal due to tariff concerns suggests the market is pricing in trade friction that could slow the electrification buildout. This directly impacts NXT (solar), FLNC (grid storage), RIVN (EVs), and clean energy names. If copper breaks lower, it signals weakening global demand — bearish for cyclical and industrial growth names on the board.'
+  }
+];
+
+const stocks = [
+  {
+    ticker: 'IONQ', company: 'IonQ, Inc.', score: 75, stage: 'Starter Buy', status: 'Bullish',
+    price: '$31.20', conviction: 4, theme: 'Quantum computing', analystUpside: 109,
+    starterBuy: '$28–32', addZone: '$35–42 (on contract wins / hardware milestones)',
+    trimZone: '$55+', thesisBreak: 'Below $22 on failed government contract pipeline',
+    upside: '$60–75 bull case (+90–140%)',
+    summary: 'Best fundamentals-to-price setup. 428% revenue growth, beat by 17%.',
+    commentary: 'Only publicly traded pure-play quantum computing company at scale. Government + enterprise demand accelerating. 13 analysts with 109% upside target. Elevated market (VIX 26.8) creates starter-size entry, not full size.'
+  },
+  {
+    ticker: 'TEM', company: 'Tempus AI, Inc.', score: 74, stage: 'Watch', status: 'Bullish',
+    price: '$46.96', conviction: 3, theme: 'AI clinical genomics', analystUpside: 66,
+    starterBuy: '$43–49', addZone: '$52–60 (on revenue guidance raise)',
+    trimZone: '$80+', thesisBreak: 'Below $38 or major clinical data partnership cancellation',
+    upside: '$90–100 bull case (+90–110%)',
+    summary: 'Building the data layer for AI-powered medicine. 83% revenue growth.',
+    commentary: '14 analysts, 66% consensus upside. High debt is the watch item (D/E 2.7x) but manageable at this growth rate. Current price at $47 is in starter range. Best analyst upside among the not-yet-bought names.'
+  },
+  {
+    ticker: 'SOUN', company: 'SoundHound AI, Inc.', score: 71, stage: 'Starter Buy', status: 'Bullish',
+    price: '$6.55', conviction: 3, theme: 'Voice AI', analystUpside: 123,
+    starterBuy: '$5.50–7.00', addZone: '$8–10 (on Nvidia/automotive contract expansion)',
+    trimZone: '$15+', thesisBreak: 'Below $4.50 or Nvidia partner exit',
+    upside: '$18–22 bull case (+170–240%)',
+    summary: '200% EPS beat. 75% off 52-week high. Strong Buy consensus.',
+    commentary: 'The 200% EPS beat (flipped from -$0.10 to +$0.10) is the single biggest positive surprise on this board. Analysts love it — Strong Buy, 123% upside. At $6.55 it\'s 75% off its 52-week high. Compelling setup but bear tape means starter sizing only.'
+  },
+  {
+    ticker: 'RKLB', company: 'Rocket Lab Corporation', score: 70, stage: 'Starter Buy', status: 'Bullish',
+    price: '$67.23', conviction: 3, theme: 'Space infrastructure', analystUpside: 33.7,
+    starterBuy: '$60–70', addZone: '$75–85 (on Neutron progress / new launch contracts)',
+    trimZone: '$100+', thesisBreak: 'Neutron program delay >6 months or major launch failure',
+    upside: '$110–130 bull case (+60–90%)',
+    summary: 'Only scaled private launch company besides SpaceX. Expanding into satellite manufacturing.',
+    commentary: 'Strong execution story. Beat Q4 by 10%, 12 analysts at Buy, 33.7% upside. At $38B mktcap it\'s priced for perfection already so adding cautiously. Best for accumulation into dips below $65. Neutron rocket is the real catalyst.'
+  },
+  {
+    ticker: 'RXRX', company: 'Recursion Pharmaceuticals', score: 69, stage: 'Starter Buy', status: 'Cautious',
+    price: '$3.25', conviction: 2, theme: 'AI drug discovery', analystUpside: 106,
+    starterBuy: '$2.50–3.50', addZone: '$4.00–5.00 (on clinical candidate milestone)',
+    trimZone: '$7+', thesisBreak: 'Below $2 or Nvidia partnership restructuring',
+    upside: '$8–10 bull case (+145–210%)',
+    summary: 'Nvidia-backed. 681% revenue growth. Near 52-week lows. $1.7B mktcap.',
+    commentary: 'Best value proposition on the board at $1.7B. Near 52-week lows. Analysts see 106% upside. Risk is dilution — they will raise capital. Small starter only. Speculative setup with high upside and high variance. Cautious because of bear tape and heavy cash burn.'
+  },
+  {
+    ticker: 'SYM', company: 'Symbotic Inc.', score: 68, stage: 'Watch', status: 'Neutral',
+    price: '$50.12', conviction: 3, theme: 'Warehouse robotics', analystUpside: 27.8,
+    starterBuy: '$44–52', addZone: '$58–65 (on new customer wins)',
+    trimZone: '$80+', thesisBreak: 'Walmart contract renegotiation or major deployment delays',
+    upside: '$85–100 bull case (+70–100%)',
+    summary: '344% EPS beat. Walmart anchor customer. Real enterprise automation.',
+    commentary: 'The 344% EPS beat ($0.40 vs $0.09 expected) was monster. 3 of 4 quarters beat. Execution is real. At $30B mktcap it\'s not cheap. Neutral here — great company, but need either a pullback to $44 or a new customer announcement to get more excited.'
+  },
+  {
+    ticker: 'SERV', company: 'Serve Robotics Inc.', score: 65, stage: 'Starter Buy', status: 'Bullish',
+    price: '$8.86', conviction: 2, theme: 'Delivery robots', analystUpside: 114,
+    starterBuy: '$7.00–9.00', addZone: '$11–14 (on fleet deployment announcements)',
+    trimZone: '$18+', thesisBreak: 'Uber partnership ends or regulatory ban on sidewalk robots',
+    upside: '$20–25 bull case (+125–180%)',
+    summary: 'Uber-backed. 401% revenue growth. Tiny $0.7B mktcap. Highly speculative.',
+    commentary: 'Tiny company ($0.7B), extreme speculative setup. 401% revenue growth but -4410% margin shows how early this is. Analysts see 114% upside, Strong Buy. At $8.86 it\'s in the starter zone but this is a Pipeline/speculation name. Keep sizing tiny.'
+  },
+  {
+    ticker: 'FLNC', company: 'Fluence Energy, Inc.', score: 63, stage: 'Watch', status: 'Cautious',
+    price: '$15.13', conviction: 2, theme: 'Grid storage', analystUpside: 19.7,
+    starterBuy: '$12–15 (not yet)', addZone: '$17–20 (on earnings beat and margin improvement)',
+    trimZone: '$28+', thesisBreak: 'Below $10 or losing major grid contracts to competitors',
+    upside: '$30–35 bull case (+100–130%)',
+    summary: '154% revenue growth but missed 3 of 4 quarters. Needs a beat.',
+    commentary: '154% revenue growth is real. But they missed earnings by 45% last quarter and only 1 of 4 quarters beat. Analysts are Hold with 19.7% upside — tepid. BESS market is competitive and FLNC is fighting on price. Execution needs to improve before this moves to Starter. Watching at $15 but not buying yet.'
+  },
+  {
+    ticker: 'ASTS', company: 'AST SpaceMobile', score: 59, stage: 'Trim', status: 'Cautious',
+    price: '$89.93', conviction: 2, theme: 'Direct-to-device satellite', analystUpside: 0,
+    starterBuy: 'No new starters — stock extended', addZone: 'N/A',
+    trimZone: '$88–95 (current range — reduce into strength)',
+    thesisBreak: 'Failed satellite launch or major carrier partner exit',
+    upside: '$110+ bull case if everything works (+20%)',
+    summary: 'Stock extended at $34.4B mktcap. 0% analyst upside. Trim into strength.',
+    commentary: 'The vision is real but the stock has priced in a lot. At $34.4B mktcap with deeply negative margins (-133%) and 0 of 4 quarters beat, the easy money has been made. Analyst consensus shows basically 0 upside from here. This is a trimming-into-strength situation. New buyers should wait for a meaningful pullback.'
+  },
+  {
+    ticker: 'HIMS', company: 'Hims & Hers Health', score: 57, stage: 'Starter Buy', status: 'Cautious',
+    price: '$22.02', conviction: 2, theme: 'Digital health', analystUpside: 10.4,
+    starterBuy: '$18–22 (only if FDA ruling resolves favorably)',
+    addZone: '$25–28 (on confirmed GLP-1 path forward)',
+    trimZone: '$38+', thesisBreak: 'FDA bans compounded GLP-1 products permanently',
+    upside: '$40–50 bull case (+80–125%) — IF regulatory clears',
+    summary: 'FDA GLP-1 ruling is binary risk. Only name with real margins (2.7% net).',
+    commentary: 'Fundamentals are actually decent — 2.7% net margin, rare for this cohort. But the regulatory risk is binary and real. FDA crackdown on compounded semaglutide is the sword of Damocles. Analyst Hold, lowest upside on the board (10.4%). Watch and wait for clarity. If the FDA ruling is favorable, HIMS could be the fastest mover on the board.'
+  },
+  {
+    ticker: 'BBAI', company: 'BigBear.ai Holdings', score: 58, stage: 'Pipeline', status: 'Cautious',
+    price: '$3.42', conviction: 2, theme: 'Defense AI', analystUpside: 46,
+    starterBuy: '$2.80–3.50', addZone: '$4.00–5.00 (on new government contract wins)',
+    trimZone: '$7+', thesisBreak: 'Below $2 or loss of key government contracts',
+    upside: '$6–8 bull case (+75–135%)',
+    summary: 'Defense/gov AI decision-intelligence platform. Tiny mktcap, high dilution risk.',
+    commentary: 'BigBear.ai plays the defense AI analytics space with government and commercial contracts. Revenue growth is modest and profitability remains elusive — heavy SBC and convertible debt overhang. The thesis rests on expanding defense budgets and AI adoption in government. Needs a meaningful contract win to move off the bench.'
+  },
+  {
+    ticker: 'PL', company: 'Planet Labs PBC', score: 60, stage: 'Pipeline', status: 'Neutral',
+    price: '$3.18', conviction: 2, theme: 'Earth observation', analystUpside: 58,
+    starterBuy: '$2.50–3.25', addZone: '$3.75–4.50 (on defense contract expansion)',
+    trimZone: '$6+', thesisBreak: 'Below $2 or major satellite constellation failure',
+    upside: '$7–9 bull case (+120–180%)',
+    summary: 'Largest earth observation satellite fleet. Defense, agriculture, and logistics data.',
+    commentary: 'Planet operates 200+ satellites imaging the entire Earth daily — unmatched dataset for defense intel, agriculture monitoring, and supply chain visibility. Revenue growing ~10-15% but path to profitability remains unclear with heavy capex for satellite replenishment. Government contracts are the near-term catalyst. Interesting long-term but needs proof on unit economics.'
+  },
+  {
+    ticker: 'AVAV', company: 'AeroVironment, Inc.', score: 68, stage: 'Watch', status: 'Bullish',
+    price: '$168.50', conviction: 3, theme: 'Defense drones', analystUpside: 35,
+    starterBuy: '$155–170', addZone: '$180–200 (on new Switchblade / LMAMS orders)',
+    trimZone: '$250+', thesisBreak: 'Below $130 or major defense budget cuts to drone programs',
+    upside: '$240–280 bull case (+40–65%)',
+    summary: 'Dominant small UAS maker with real backlog. Switchblade demand accelerating.',
+    commentary: 'AeroVironment is the rare defense name with real revenue, real backlog, and real product-market fit in the drone space. Switchblade loitering munitions are battle-proven in Ukraine and demand from NATO allies is growing. $0.8B+ backlog provides visibility. Valuation is not cheap at ~40x earnings, but this is a secular growth story within defense. Current price is in the starter zone.'
+  },
+  {
+    ticker: 'AFRM', company: 'Affirm Holdings', score: 66, stage: 'Watch', status: 'Neutral',
+    price: '$54.30', conviction: 3, theme: 'Fintech / BNPL', analystUpside: 28,
+    starterBuy: '$48–55', addZone: '$60–70 (on GAAP profitability or new merchant wins)',
+    trimZone: '$85+', thesisBreak: 'Below $38 or credit losses spike above 5%',
+    upside: '$80–100 bull case (+47–84%)',
+    summary: 'BNPL leader with improving unit economics and expanding merchant network.',
+    commentary: 'Affirm is the highest-quality BNPL platform with a real network effect — integrated into Amazon, Shopify, and Apple Pay. Revenue growing ~40% with improving take rates and declining delinquencies. The path to GAAP profitability is getting closer. Risk is macro — a consumer recession would hit credit quality. Neutral until we see sustained margin improvement.'
+  },
+  {
+    ticker: 'HOOD', company: 'Robinhood Markets', score: 64, stage: 'Watch', status: 'Neutral',
+    price: '$46.75', conviction: 3, theme: 'Retail fintech', analystUpside: 22,
+    starterBuy: '$40–47', addZone: '$52–60 (on Gold subscriber growth / revenue diversification proof)',
+    trimZone: '$70+', thesisBreak: 'Below $32 or regulatory crackdown on payment for order flow',
+    upside: '$65–80 bull case (+40–70%)',
+    summary: 'Retail financial platform expanding into Gold, crypto, and retirement accounts.',
+    commentary: 'Robinhood has evolved well beyond its meme-stock origins — Gold subscriptions, retirement accounts, crypto, and credit cards are diversifying revenue. Now profitable with real operating leverage. The risk is that trading volumes are cyclical and PFOF regulation is a perennial overhang. At $46 it is in the starter zone but wait for a catalyst or pullback to build conviction.'
+  },
+  {
+    ticker: 'NXT', company: 'Nextracker Inc.', score: 67, stage: 'Watch', status: 'Bullish',
+    price: '$38.20', conviction: 3, theme: 'Solar infrastructure', analystUpside: 40,
+    starterBuy: '$34–39', addZone: '$42–48 (on backlog expansion or margin beat)',
+    trimZone: '$60+', thesisBreak: 'Below $28 or tariff policy destroys domestic solar economics',
+    upside: '$55–70 bull case (+45–85%)',
+    summary: 'Solar tracker leader with $4B+ backlog. Most proven fundamentals on the solar side.',
+    commentary: 'Nextracker is the market leader in solar trackers with strong margins (~30% gross) and a massive $4B+ backlog providing multi-year visibility. Revenue growing 30%+ with real profitability — rare in clean energy. IRA tailwinds and domestic manufacturing give it policy protection. The most fundamentally sound solar name on this board. Current price is in the starter buy zone.'
+  },
+  {
+    ticker: 'PONY', company: 'Pony AI Inc.', score: 52, stage: 'Pipeline', status: 'Cautious',
+    price: '$9.85', conviction: 1, theme: 'Autonomous vehicles', analystUpside: 70,
+    starterBuy: '$7.50–10.00 (speculative only)', addZone: '$12–15 (on robotaxi regulatory approval in new markets)',
+    trimZone: '$20+', thesisBreak: 'Below $5 or major autonomous driving regulatory setback',
+    upside: '$18–25 bull case (+80–155%)',
+    summary: 'Speculative robotaxi play. China-based AV with limited US visibility.',
+    commentary: 'Pony AI operates robotaxi services in China and has testing permits in the US. Revenue is tiny and the path to scale is long. This is a pure speculation name — if autonomous driving regulation breaks open in China or the US, the upside is enormous. But execution risk is extreme and the competitive field (Waymo, Cruise, Baidu) is fierce. Minimum conviction, minimum sizing.'
+  },
+  {
+    ticker: 'DUOL', company: 'Duolingo, Inc.', score: 62, stage: 'Pipeline', status: 'Neutral',
+    price: '$335.00', conviction: 2, theme: 'Consumer EdTech', analystUpside: 18,
+    starterBuy: '$290–335', addZone: '$360–400 (on subscriber growth acceleration / AI feature monetization)',
+    trimZone: '$450+', thesisBreak: 'Below $240 or subscriber growth declines below 15% YoY',
+    upside: '$420–500 bull case (+25–50%)',
+    summary: 'Consumer language platform with strong brand, AI features, and 40%+ revenue growth.',
+    commentary: 'Duolingo has one of the strongest consumer brands in EdTech with 100M+ MAUs and excellent subscription economics. Revenue growing 40%+ with improving margins. AI integration (Duolingo Max) is a real monetization lever. The concern is valuation — trading at ~60x forward earnings, a lot of growth is priced in. Pipeline tier because the entry point needs to be more compelling for the upside available.'
+  },
+  {
+    ticker: 'PLTR', company: 'Palantir Technologies', score: 78, stage: 'Starter Buy', status: 'Bullish',
+    price: '$150.68', conviction: 4, theme: 'AI data platform', analystUpside: 32,
+    starterBuy: '$82–95', addZone: '$100–115 (on new AIP commercial wins)',
+    trimZone: '$140+', thesisBreak: 'Below $65 or major government contract losses',
+    upside: '$135–160 bull case (+45–75%)',
+    summary: 'AI platform with deepest government + enterprise moat. AIP driving commercial acceleration.',
+    commentary: 'Palantir is the rare AI company with real revenue, real margins, and real government lock-in. AIP (Artificial Intelligence Platform) is driving a commercial inflection — boot camps converting Fortune 500 customers at scale. 20%+ revenue growth with expanding margins and Rule of 40 compliance. Valuation is rich at ~60x forward earnings but the moat justifies a premium. Bear tape pullback creates a better entry.'
+  },
+  {
+    ticker: 'LUNR', company: 'Intuitive Machines', score: 61, stage: 'Pipeline', status: 'Neutral',
+    price: '$13.40', conviction: 2, theme: 'Space infrastructure', analystUpside: 85,
+    starterBuy: '$11–14', addZone: '$16–20 (on successful lunar mission or new NASA contracts)',
+    trimZone: '$28+', thesisBreak: 'Below $8 or consecutive mission failures',
+    upside: '$25–35 bull case (+85–160%)',
+    summary: 'Only company to land on the Moon commercially. NASA CLPS contracts provide revenue baseline.',
+    commentary: 'Intuitive Machines made history with the first commercial lunar landing and has a $4.8B NASA near-space network contract. Revenue is lumpy and mission-dependent — one failed landing resets the narrative. At $13 and ~$3B mktcap the stock is speculative but analysts see 85% upside. Pipeline tier until they prove repeatable execution across multiple missions.'
+  },
+  {
+    ticker: 'KTOS', company: 'Kratos Defense & Security', score: 67, stage: 'Watch', status: 'Bullish',
+    price: '$30.15', conviction: 3, theme: 'Defense drones', analystUpside: 40,
+    starterBuy: '$27–31', addZone: '$34–40 (on Valkyrie production orders or new drone contracts)',
+    trimZone: '$50+', thesisBreak: 'Below $22 or cancellation of key drone programs',
+    upside: '$48–60 bull case (+60–100%)',
+    summary: 'Leading affordable drone maker. Valkyrie and target drone programs scaling.',
+    commentary: 'Kratos is positioned at the nexus of two mega-trends: drone warfare proliferation and defense budget expansion. The XQ-58A Valkyrie loyal wingman drone and extensive target drone business provide diversified revenue. Margins are improving as production scales. Revenue growing ~15% with $1B+ backlog. Not as flashy as software plays but real hardware with real contracts. Current pullback puts it in the starter zone.'
+  },
+  {
+    ticker: 'SOFI', company: 'SoFi Technologies', score: 70, stage: 'Watch', status: 'Bullish',
+    price: '$15.80', conviction: 3, theme: 'Digital banking', analystUpside: 45,
+    starterBuy: '$14–17', addZone: '$19–23 (on member growth acceleration or lending margin expansion)',
+    trimZone: '$30+', thesisBreak: 'Below $10 or credit quality deterioration above 5% charge-offs',
+    upside: '$28–35 bull case (+75–120%)',
+    summary: 'Full-stack digital bank with 10M+ members. Now profitable with lending + platform fees.',
+    commentary: 'SoFi has transformed from a student loan refinancer into a full-stack digital bank with 10M+ members. Bank charter gives it a funding cost advantage over fintech peers. Revenue diversifying across lending, financial services, and tech platform (Galileo/Technisys). Now GAAP profitable — a major milestone. Risk is credit cycle exposure in a slowing economy. At $15.80, valuation is reasonable for the growth trajectory.'
+  },
+  {
+    ticker: 'COIN', company: 'Coinbase Global', score: 72, stage: 'Watch', status: 'Neutral',
+    price: '$245.00', conviction: 3, theme: 'Crypto infrastructure', analystUpside: 28,
+    starterBuy: '$220–250', addZone: '$270–310 (on regulatory clarity or stablecoin revenue growth)',
+    trimZone: '$380+', thesisBreak: 'Below $160 or adverse SEC enforcement action',
+    upside: '$350–420 bull case (+45–70%)',
+    summary: 'Dominant US crypto exchange. Revenue diversifying into staking, custody, and Base L2.',
+    commentary: 'Coinbase is the institutional-grade on-ramp to crypto with unmatched regulatory positioning in the US. Revenue is diversifying beyond trading — staking, USDC interest, custody, and Base L2 chain are growing. The business swings wildly with crypto cycles but the infrastructure moat deepens each cycle. Neutral because crypto markets are volatile and the macro tape is bearish. At $245 it is in the starter range if you have conviction on crypto\'s next leg.'
+  },
+  {
+    ticker: 'RIVN', company: 'Rivian Automotive', score: 55, stage: 'Pipeline', status: 'Cautious',
+    price: '$12.75', conviction: 2, theme: 'Electric vehicles', analystUpside: 60,
+    starterBuy: '$10–13', addZone: '$15–19 (on gross margin positive or new platform revenue)',
+    trimZone: '$28+', thesisBreak: 'Below $8 or cash runway drops below 12 months',
+    upside: '$25–35 bull case (+95–175%)',
+    summary: 'Premium EV trucks + Amazon van fleet. Burning cash but R2 platform is the bet.',
+    commentary: 'Rivian makes the best electric trucks on the market and has a captive Amazon delivery van fleet providing revenue visibility. The problem is cash burn — losing ~$30k per vehicle with no clear path to gross margin positive until the R2 platform launches. VW joint venture provides capital and validation. At $12.75 and ~$13B mktcap it is cheap on a revenue basis but cash runway is the existential risk. Pipeline tier — needs margin proof before committing capital.'
+  },
+  {
+    ticker: 'JOBY', company: 'Joby Aviation', score: 54, stage: 'Pipeline', status: 'Neutral',
+    price: '$7.20', conviction: 2, theme: 'Electric aviation', analystUpside: 95,
+    starterBuy: '$6–8', addZone: '$10–13 (on FAA type certification milestone)',
+    trimZone: '$20+', thesisBreak: 'Below $4 or FAA certification delays beyond 2027',
+    upside: '$18–25 bull case (+150–250%)',
+    summary: 'Leading eVTOL with Toyota backing and DoD contracts. Pre-revenue, FAA certification pending.',
+    commentary: 'Joby is the furthest along in the eVTOL race with Toyota manufacturing partnership, DoD contracts for validation, and the most flight test hours in the industry. But this is still pre-revenue and FAA type certification remains the gating event. At $7.20 the stock prices in significant execution risk. Analysts see 95% upside but that is contingent on certification timeline. Pipeline until FAA milestones de-risk the story.'
+  },
+  {
+    ticker: 'ACHR', company: 'Archer Aviation', score: 52, stage: 'Pipeline', status: 'Neutral',
+    price: '$8.15', conviction: 2, theme: 'Electric aviation', analystUpside: 80,
+    starterBuy: '$6.50–8.50', addZone: '$10–13 (on FAA type certification or commercial launch)',
+    trimZone: '$18+', thesisBreak: 'Below $4.50 or FAA certification delays beyond 2027',
+    upside: '$16–22 bull case (+95–170%)',
+    summary: 'eVTOL competitor with United Airlines partnership. Pre-revenue, certification race with Joby.',
+    commentary: 'Archer is Joby\'s closest competitor in the eVTOL space with a United Airlines partnership providing a built-in launch customer. The Midnight aircraft is designed for urban air mobility with a simpler, lower-risk design philosophy. Like Joby, this is pre-revenue and entirely dependent on FAA certification. At $8.15 the risk/reward is similar — massive upside if eVTOL becomes real, zero if it doesn\'t. Pipeline tier with minimum sizing.'
+  },
+  {
+    ticker: 'CRSP', company: 'CRISPR Therapeutics', score: 63, stage: 'Pipeline', status: 'Neutral',
+    price: '$48.30', conviction: 2, theme: 'Gene editing', analystUpside: 55,
+    starterBuy: '$42–50', addZone: '$55–65 (on new indication approvals or pipeline readouts)',
+    trimZone: '$85+', thesisBreak: 'Below $35 or safety signal in Casgevy post-market surveillance',
+    upside: '$80–100 bull case (+65–105%)',
+    summary: 'First approved gene editing therapy (Casgevy). Pipeline expanding into oncology and diabetes.',
+    commentary: 'CRISPR Therapeutics achieved the historic milestone of the first approved CRISPR-based therapy — Casgevy for sickle cell disease and beta-thalassemia. The question now is commercial execution and pipeline expansion. Casgevy launch is slower than expected due to complex manufacturing and patient identification. The oncology and in-vivo editing pipeline is the long-term upside driver. At $48 with ~$3.5B mktcap and $2B+ cash, the downside is protected but the catalyst timeline is long.'
+  },
+  {
+    ticker: 'SNOW', company: 'Snowflake Inc.', score: 68, stage: 'Watch', status: 'Neutral',
+    price: '$172.50', conviction: 3, theme: 'Cloud data', analystUpside: 25,
+    starterBuy: '$160–175', addZone: '$185–210 (on consumption growth reacceleration)',
+    trimZone: '$250+', thesisBreak: 'Below $130 or consumption growth declines below 20% YoY',
+    upside: '$230–280 bull case (+35–60%)',
+    summary: 'Cloud data warehouse leader. AI/ML workloads driving next consumption wave.',
+    commentary: 'Snowflake remains the premier cloud data platform with best-in-class net revenue retention and expanding workload diversity. The transition to consumption-based AI/ML workloads (Cortex, Snowpark) is the growth story. Revenue growing ~25% with improving margins. The post-IPO valuation reset has brought it to more reasonable levels. At $172 it is approaching the starter zone. Neutral because cloud spending is under scrutiny in this macro environment.'
+  },
+  {
+    ticker: 'DDOG', company: 'Datadog, Inc.', score: 72, stage: 'Watch', status: 'Bullish',
+    price: '$125.00', conviction: 3, theme: 'Cloud data', analystUpside: 30,
+    starterBuy: '$115–130', addZone: '$135–155 (on multi-product adoption acceleration)',
+    trimZone: '$190+', thesisBreak: 'Below $95 or enterprise spending contraction persists',
+    upside: '$180–220 bull case (+45–75%)',
+    summary: 'Leading cloud monitoring and observability platform. Multi-product land-and-expand driving durable growth.',
+    commentary: 'Datadog is the dominant observability platform benefiting from cloud migration complexity. Customers increasingly adopt multiple products (APM, logs, security, CI visibility), driving best-in-class net revenue retention. Revenue growing ~25% with strong free cash flow margins. The AI/ML observability opportunity (LLM monitoring, AI agent tracing) is an emerging tailwind. Valuation is rich but justified by execution consistency and TAM expansion.'
+  },
+  {
+    ticker: 'MNDY', company: 'Monday.com Ltd.', score: 67, stage: 'Watch', status: 'Bullish',
+    price: '$260.00', conviction: 3, theme: 'Developer platforms', analystUpside: 25,
+    starterBuy: '$240–265', addZone: '$275–310 (on enterprise seat expansion)',
+    trimZone: '$380+', thesisBreak: 'Below $200 or net revenue retention drops below 110%',
+    upside: '$350–400 bull case (+35–55%)',
+    summary: 'Work management SaaS platform expanding into CRM, dev, and service management.',
+    commentary: 'Monday.com has successfully expanded beyond project management into a multi-product work OS platform. CRM, Dev, and Service products are growing rapidly and increasing deal sizes. Revenue growing ~30% with improving profitability. The enterprise push is working — large deals ($50K+ ARR) growing faster than overall. Competitive market (Asana, Smartsheet, Atlassian) but Monday is winning on UX and platform breadth.'
+  },
+  {
+    ticker: 'GTLB', company: 'GitLab Inc.', score: 66, stage: 'Watch', status: 'Neutral',
+    price: '$52.00', conviction: 3, theme: 'Developer platforms', analystUpside: 30,
+    starterBuy: '$48–55', addZone: '$58–68 (on AI-assisted DevSecOps adoption)',
+    trimZone: '$85+', thesisBreak: 'Below $38 or GitHub Copilot captures DevSecOps share',
+    upside: '$75–95 bull case (+45–85%)',
+    summary: 'End-to-end DevSecOps platform. AI code generation and security scanning driving platform stickiness.',
+    commentary: 'GitLab offers the most complete single-platform DevSecOps solution, competing against GitHub (Microsoft) and fragmented point tools. The AI-native development wave (Duo AI assistant) is a growth catalyst. Revenue growing ~25% with path to profitability improving. The risk is GitHub Copilot ecosystem dominance — but enterprises value GitLab\'s single-platform security and compliance story. Neutral until AI monetization proves out.'
+  },
+  {
+    ticker: 'CELH', company: 'Celsius Holdings, Inc.', score: 63, stage: 'Watch', status: 'Neutral',
+    price: '$32.00', conviction: 2, theme: 'Consumer brands', analystUpside: 45,
+    starterBuy: '$28–34', addZone: '$36–42 (on international expansion traction)',
+    trimZone: '$55+', thesisBreak: 'Below $22 or Pepsi distribution partnership deteriorates',
+    upside: '$50–65 bull case (+55–100%)',
+    summary: 'Fast-growing functional energy drink brand. Pepsi distribution partnership driving shelf space gains.',
+    commentary: 'Celsius has carved out a premium position in the energy drink market with a health-conscious brand identity. The Pepsi distribution deal transformed their retail reach. Revenue growth has decelerated from triple digits but still strong. International expansion (Canada, UK, Australia) is the next growth vector. The stock has pulled back significantly from highs, creating a more attractive entry. Key risk is Monster/Red Bull competitive response and consumer spending sensitivity.'
+  },
+  {
+    ticker: 'BEAM', company: 'Beam Therapeutics Inc.', score: 62, stage: 'Watch', status: 'Cautious',
+    price: '$28.00', conviction: 2, theme: 'Gene editing', analystUpside: 80,
+    starterBuy: '$24–30', addZone: '$32–40 (on clinical data readouts)',
+    trimZone: '$55+', thesisBreak: 'Below $18 or lead program clinical failure',
+    upside: '$50–70 bull case (+80–150%)',
+    summary: 'Pioneer in base editing — more precise than traditional CRISPR. Lead programs in sickle cell and leukemia.',
+    commentary: 'Beam Therapeutics is developing base editing technology that enables single-letter DNA changes without double-strand breaks, potentially safer and more precise than CRISPR-Cas9. Lead programs BEAM-101 (sickle cell) and BEAM-201 (leukemia) are in clinical trials. The technology platform is differentiated but clinical risk is high — this is early-stage biotech. Cash runway is adequate but binary clinical readouts make position sizing critical. Cautious until Phase 1/2 data matures.'
+  },
+  {
+    ticker: 'BE', company: 'Bloom Energy Corporation', score: 61, stage: 'Watch', status: 'Neutral',
+    price: '$22.00', conviction: 2, theme: 'Clean energy', analystUpside: 50,
+    starterBuy: '$19–23', addZone: '$25–30 (on data center power contract wins)',
+    trimZone: '$40+', thesisBreak: 'Below $14 or fuel cell cost reduction stalls',
+    upside: '$35–45 bull case (+60–105%)',
+    summary: 'Solid oxide fuel cell technology for distributed clean power. Data center demand is emerging catalyst.',
+    commentary: 'Bloom Energy provides solid oxide fuel cells for on-site clean power generation — increasingly relevant as data centers face grid power constraints. The AI infrastructure buildout is driving demand for reliable, distributed power solutions. Revenue growing modestly but the data center opportunity could be transformational. Path to sustained profitability remains the key question. Hydrogen and carbon capture capabilities add long-term optionality. Neutral given execution uncertainty but the setup is improving.'
+  },
+  {
+    ticker: 'MARA', company: 'Marathon Digital Holdings, Inc.', score: 60, stage: 'Watch', status: 'Cautious',
+    price: '$18.00', conviction: 2, theme: 'Crypto mining', analystUpside: 65,
+    starterBuy: '$15–19', addZone: '$21–26 (on Bitcoin breakout above $80K)',
+    trimZone: '$35+', thesisBreak: 'Below $10 or Bitcoin drops below $40K sustained',
+    upside: '$30–40 bull case (+65–120%)',
+    summary: 'Largest publicly traded Bitcoin miner by hash rate. Leveraged play on Bitcoin price.',
+    commentary: 'Marathon Digital is a pure-play Bitcoin mining operation and the largest public miner by installed hash rate. The stock is essentially leveraged Bitcoin exposure — it amplifies BTC moves in both directions. Post-halving economics require scale and efficiency, which Marathon has. The diversification into hosting and energy monetization adds some resilience. Cautious because Bitcoin correlation dominates all other fundamentals — size accordingly and pair with your Bitcoin thesis.'
+  },
+  {
+    ticker: 'TDOC', company: 'Teladoc Health, Inc.', score: 54, stage: 'Watch', status: 'Cautious',
+    price: '$9.50', conviction: 2, theme: 'Digital health', analystUpside: 40,
+    starterBuy: '$8–10', addZone: '$11–14 (on membership growth reacceleration)',
+    trimZone: '$20+', thesisBreak: 'Below $6 or member churn accelerates',
+    upside: '$16–22 bull case (+70–130%)',
+    summary: 'Telehealth pioneer. Struggling post-pandemic but integrated care platform has long-term value.',
+    commentary: 'Teladoc was the pandemic darling that has fallen 95% from highs after the Livongo acquisition proved poorly timed. The core telehealth business is stable but growth has stalled. The integrated care platform (primary care, mental health, chronic care) is the long-term thesis. BetterHelp mental health segment is under pressure from competition. At $9.50 the stock is priced for minimal growth — any reacceleration would drive significant upside. Cautious because turnaround timing is uncertain and management credibility is low.'
+  }
+];
+
+const stageMap = {
+  'Pipeline': 'pipeline',
+  'Watch': 'watch',
+  'Starter Buy': 'starter',
+  'Add on Proof': 'add',
+  'Trim': 'trim'
+};
+
+function getScoreClass(score) {
+  if (score >= 80) return 'score-gold';
+  if (score >= 65) return 'score-green';
+  if (score >= 50) return 'score-yellow';
+  return 'score-red';
+}
+
+function getStatusColor(status) {
+  const colors = { Bullish: '#26a86a', Neutral: '#8b8b91', Cautious: '#e8a045', Broken: '#e05252' };
+  return colors[status] || '#8b8b91';
+}
+
+function convictionDots(n) {
+  let html = '';
+  for (let i = 1; i <= 5; i++) {
+    html += `<div class="dot ${i <= n ? 'filled' : ''}"></div>`;
+  }
+  return html;
+}
+
+let currentSort = 'score';
+let currentTheme = '';
+let currentStatus = '';
+
+function buildCards(sortedStocks) {
+  // Clear columns
+  ['pipeline','watch','starter','add','trim'].forEach(col => {
+    document.getElementById('body-' + col).innerHTML = '';
+  });
+
+  sortedStocks.forEach(s => {
+    const colKey = stageMap[s.stage] || 'watch';
+    const colBody = document.getElementById('body-' + colKey);
+    if (!colBody) return;
+
+    const hidden = (currentTheme && s.theme !== currentTheme) || (currentStatus && s.status !== currentStatus);
+
+    const card = document.createElement('div');
+    card.className = 'card' + (hidden ? ' hidden' : '');
+    card.dataset.ticker = s.ticker;
+    card.innerHTML = `
+      <div class="card-top">
+        <div>
+          <div class="card-ticker">${s.ticker}</div>
+          <div class="card-price">${s.price}</div>
+        </div>
+        <div class="score-badge ${getScoreClass(s.score)}">${s.score}</div>
+      </div>
+      <div class="card-status">
+        <div class="status-dot" style="background:${getStatusColor(s.status)}"></div>
+        <span class="status-label">${s.status}</span>
+      </div>
+      <div class="theme-tag">${s.theme}</div>
+      <div class="conviction">${convictionDots(s.conviction)}</div>
+      <div class="card-summary">${s.summary}</div>
+      <div class="card-analyst">↑ ${s.analystUpside}% analyst upside</div>
+    `;
+    card.addEventListener('click', () => openModal(s));
+    colBody.appendChild(card);
+  });
+}
+
+function getSorted() {
+  return [...stocks].sort((a, b) => {
+    if (currentSort === 'score') return b.score - a.score;
+    return b.analystUpside - a.analystUpside;
+  });
+}
+
+function applyFilters() {
+  currentTheme = document.getElementById('themeFilter').value;
+  currentStatus = document.getElementById('statusFilter').value;
+
+  // Commodity theme filtering
+  const commodityThemes = ['Commodities', 'Precious metals', 'Energy', 'Industrial metals'];
+  const isCommodityFilter = commodityThemes.includes(currentTheme);
+  const comSection = document.querySelector('.commodities-section');
+  const boardSection = document.querySelector('.board');
+
+  if (isCommodityFilter) {
+    comSection.style.display = '';
+    boardSection.style.display = 'none';
+    // Filter commodity cards
+    const comCards = document.querySelectorAll('.commodity-card');
+    comCards.forEach((card, i) => {
+      const c = commodities[i];
+      if (currentTheme === 'Commodities' || c.theme === currentTheme) {
+        card.style.display = '';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  } else {
+    comSection.style.display = '';
+    boardSection.style.display = '';
+    document.querySelectorAll('.commodity-card').forEach(c => c.style.display = '');
+    buildCards(getSorted());
+  }
+}
+
+function setSort(type) {
+  currentSort = type;
+  document.getElementById('sortScore').classList.toggle('active', type === 'score');
+  document.getElementById('sortAnalyst').classList.toggle('active', type === 'analyst');
+  buildCards(getSorted());
+}
+
+function openModal(s) {
+  document.getElementById('m-ticker').textContent = `${s.ticker} — ${s.company}`;
+  document.getElementById('m-theme').textContent = s.theme + ' · ' + s.status + ' · Conviction ' + s.conviction + '/5';
+  document.getElementById('m-price').textContent = s.price;
+  document.getElementById('m-score').textContent = s.score + ' / 100';
+  document.getElementById('m-analyst').textContent = '+' + s.analystUpside + '%';
+  document.getElementById('m-conviction').textContent = '★'.repeat(s.conviction) + '☆'.repeat(5 - s.conviction);
+  document.getElementById('m-starter').textContent = s.starterBuy;
+  document.getElementById('m-add').textContent = s.addZone;
+  document.getElementById('m-trim').textContent = s.trimZone;
+  document.getElementById('m-upside').textContent = s.upside;
+  document.getElementById('m-break').textContent = s.thesisBreak;
+  document.getElementById('m-commentary').textContent = s.commentary;
+
+  // Load TradingView chart for this ticker
+  const chartFrame = document.getElementById('m-chart-frame');
+  const chartSrc = `https://s.tradingview.com/widgetembed/?frameElementId=m-chart-frame&symbol=${encodeURIComponent(s.ticker)}&interval=W&hidesidetoolbar=1&hidetoptoolbar=0&symboledit=0&saveimage=0&toolbarbg=161618&studies=[]&theme=dark&style=1&timezone=America%2FChicago&withdateranges=1&showpopupbutton=0&locale=en`;
+  chartFrame.src = chartSrc;
+
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modal')) {
+    document.getElementById('modal').classList.remove('open');
+  }
+}
+
+// Commodities rendering
+function getSignalClass(signal) {
+  if (signal === 'Bullish') return 'bullish';
+  if (signal === 'Cautious') return 'cautious';
+  return 'neutral';
+}
+
+function buildCommodities() {
+  const grid = document.getElementById('commodities-grid');
+  grid.innerHTML = '';
+  commodities.forEach(c => {
+    const cls = getSignalClass(c.signal);
+    const card = document.createElement('div');
+    card.className = 'commodity-card';
+    card.innerHTML = `
+      <div class="commodity-header">
+        <div class="commodity-name">${c.name}</div>
+        <div class="signal-dot ${cls}"></div>
+      </div>
+      <div class="commodity-ticker">${c.ticker}</div>
+      <div class="commodity-price">${c.price}</div>
+      <div class="commodity-signal">
+        <span class="signal-label">${c.signal}${c.signalNote ? ' — ' + c.signalNote : ''}</span>
+      </div>
+      <div class="commodity-role">${c.role}</div>
+    `;
+    card.addEventListener('click', () => openCommodityModal(c));
+    grid.appendChild(card);
+  });
+}
+
+function openCommodityModal(c) {
+  const cls = getSignalClass(c.signal);
+  document.getElementById('cm-name').textContent = c.name;
+  document.getElementById('cm-ticker').textContent = c.ticker + ' · ' + c.theme;
+  document.getElementById('cm-price').textContent = c.price;
+  const signalBox = document.getElementById('cm-signal-box');
+  signalBox.className = 'commodity-modal-signal ' + cls;
+  document.getElementById('cm-signal-dot').className = 'signal-dot ' + cls;
+  document.getElementById('cm-signal-text').textContent = c.signal + (c.signalNote ? ' — ' + c.signalNote : '');
+  document.getElementById('cm-role').textContent = c.role;
+  document.getElementById('cm-equity').textContent = c.equityImpact;
+  document.getElementById('commodityModal').classList.add('open');
+}
+
+function closeCommodityModal(e) {
+  if (e.target === document.getElementById('commodityModal')) {
+    document.getElementById('commodityModal').classList.remove('open');
+  }
+}
+
+// --- Charts ---
+function drawCharts() {
+  drawDonut();
+  drawScoreBar();
+  drawScatter();
+  drawTheme();
+}
+
+function drawDonut() {
+  const canvas = document.getElementById('chartDonut');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * dpr;
+  canvas.height = canvas.clientHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+
+  const data = [
+    { label: 'Cash', value: 92049.93, color: '#55555c' },
+    { label: 'IONQ', value: 2995, color: '#5e6ad2' },
+    { label: 'SOUN', value: 1998, color: '#a78bfa' },
+    { label: 'RKLB', value: 2958, color: '#f97316' }
+  ];
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const cx = W * 0.4, cy = H / 2, r = Math.min(cx, cy) - 30, inner = r * 0.55;
+
+  ctx.clearRect(0, 0, W, H);
+  let angle = -Math.PI / 2;
+  data.forEach(d => {
+    const sweep = (d.value / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, angle, angle + sweep);
+    ctx.arc(cx, cy, inner, angle + sweep, angle, true);
+    ctx.closePath();
+    ctx.fillStyle = d.color;
+    ctx.fill();
+    angle += sweep;
+  });
+
+  // Center text
+  ctx.fillStyle = '#e8e8ea';
+  ctx.font = 'bold 14px Segoe UI, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('$100,000', cx, cy - 8);
+  ctx.font = '11px Segoe UI, system-ui, sans-serif';
+  ctx.fillStyle = '#55555c';
+  ctx.fillText('Total', cx, cy + 10);
+
+  // Legend
+  const lx = W * 0.72, ly = H / 2 - data.length * 14;
+  ctx.textAlign = 'left';
+  data.forEach((d, i) => {
+    const y = ly + i * 32;
+    ctx.fillStyle = d.color;
+    ctx.fillRect(lx, y, 10, 10);
+    ctx.fillStyle = '#e8e8ea';
+    ctx.font = '12px Segoe UI, system-ui, sans-serif';
+    ctx.fillText(d.label, lx + 16, y + 9);
+    ctx.fillStyle = '#55555c';
+    ctx.font = '11px Segoe UI, system-ui, sans-serif';
+    ctx.fillText((d.value / total * 100).toFixed(1) + '%', lx + 16, y + 23);
+  });
+}
+
+function drawScoreBar() {
+  const sorted = [...stocks].sort((a, b) => b.score - a.score);
+  const canvas = document.getElementById('chartScoreBar');
+  const dpr = window.devicePixelRatio || 1;
+  const barH = 20, gap = 4, padTop = 10, padBot = 10, padLeft = 52, padRight = 40;
+  const totalH = padTop + sorted.length * (barH + gap) + padBot;
+  canvas.style.height = totalH + 'px';
+  canvas.width = canvas.clientWidth * dpr;
+  canvas.height = totalH * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = canvas.clientWidth;
+
+  ctx.clearRect(0, 0, W, totalH);
+  const maxScore = 100;
+
+  sorted.forEach((s, i) => {
+    const y = padTop + i * (barH + gap);
+    const barW = (s.score / maxScore) * (W - padLeft - padRight);
+    let color;
+    if (s.score >= 80) color = '#f59e0b';
+    else if (s.score >= 65) color = '#26a86a';
+    else if (s.score >= 50) color = '#eab308';
+    else color = '#e05252';
+
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(padLeft, y, barW, barH);
+    ctx.globalAlpha = 1;
+
+    // Ticker label
+    ctx.fillStyle = '#8b8b91';
+    ctx.font = '11px Segoe UI, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(s.ticker, padLeft - 6, y + barH / 2);
+
+    // Score value
+    ctx.fillStyle = '#e8e8ea';
+    ctx.textAlign = 'left';
+    ctx.fillText(s.score, padLeft + barW + 6, y + barH / 2);
+  });
+}
+
+function drawScatter() {
+  const canvas = document.getElementById('chartScatter');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * dpr;
+  canvas.height = canvas.clientHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+
+  const pad = { top: 20, right: 20, bottom: 30, left: 45 };
+  const pw = W - pad.left - pad.right, ph = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Axes
+  ctx.strokeStyle = '#2a2a2d';
+  ctx.lineWidth = 1;
+
+  // Grid lines
+  for (let v = 0; v <= 100; v += 25) {
+    const x = pad.left + (v / 100) * pw;
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + ph); ctx.stroke();
+  }
+  const maxUp = Math.max(...stocks.map(s => s.analystUpside), 130);
+  for (let v = 0; v <= maxUp; v += 25) {
+    const y = pad.top + ph - (v / maxUp) * ph;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + pw, y); ctx.stroke();
+  }
+
+  // Quadrant lines
+  ctx.strokeStyle = '#3a3a42';
+  ctx.setLineDash([4, 4]);
+  const qx = pad.left + (65 / 100) * pw;
+  const qy = pad.top + ph - (50 / maxUp) * ph;
+  ctx.beginPath(); ctx.moveTo(qx, pad.top); ctx.lineTo(qx, pad.top + ph); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad.left, qy); ctx.lineTo(pad.left + pw, qy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Axis labels
+  ctx.fillStyle = '#55555c';
+  ctx.font = '10px Segoe UI, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  for (let v = 0; v <= 100; v += 25) {
+    ctx.fillText(v, pad.left + (v / 100) * pw, pad.top + ph + 16);
+  }
+  ctx.textAlign = 'right';
+  for (let v = 0; v <= maxUp; v += 25) {
+    ctx.fillText(v + '%', pad.left - 6, pad.top + ph - (v / maxUp) * ph + 4);
+  }
+
+  // Dots
+  const statusColors = { Bullish: '#26a86a', Neutral: '#8b8b91', Cautious: '#e8a045' };
+  stocks.forEach(s => {
+    const x = pad.left + (s.score / 100) * pw;
+    const y = pad.top + ph - (s.analystUpside / maxUp) * ph;
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = statusColors[s.status] || '#8b8b91';
+    ctx.globalAlpha = 0.85;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Label
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '9px Segoe UI, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(s.ticker, x, y - 8);
+  });
+
+  // Axis titles
+  ctx.fillStyle = '#55555c';
+  ctx.font = '10px Segoe UI, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Graham Score', pad.left + pw / 2, H - 2);
+  ctx.save();
+  ctx.translate(12, pad.top + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Analyst Upside %', 0, 0);
+  ctx.restore();
+}
+
+function drawTheme() {
+  const canvas = document.getElementById('chartTheme');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * dpr;
+  canvas.height = canvas.clientHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+
+  // Count themes
+  const counts = {};
+  stocks.forEach(s => { counts[s.theme] = (counts[s.theme] || 0) + 1; });
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+  const pad = { top: 20, right: 10, bottom: 90, left: 30 };
+  const pw = W - pad.left - pad.right, ph = H - pad.top - pad.bottom;
+  const maxCount = Math.max(...sorted.map(e => e[1]));
+  const barW = Math.min(24, (pw / sorted.length) * 0.7);
+  const spacing = pw / sorted.length;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Y grid
+  ctx.strokeStyle = '#2a2a2d';
+  ctx.lineWidth = 1;
+  for (let v = 0; v <= maxCount; v++) {
+    const y = pad.top + ph - (v / maxCount) * ph;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + pw, y); ctx.stroke();
+    ctx.fillStyle = '#55555c';
+    ctx.font = '10px Segoe UI, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(v, pad.left - 6, y + 4);
+  }
+
+  // Bars
+  const barColors = ['#5e6ad2','#26a86a','#a78bfa','#e8a045','#e05252','#06b6d4','#ec4899','#84cc16'];
+  sorted.forEach(([theme, count], i) => {
+    const x = pad.left + i * spacing + (spacing - barW) / 2;
+    const barH = (count / maxCount) * ph;
+    const y = pad.top + ph - barH;
+
+    ctx.fillStyle = barColors[i % barColors.length];
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(x, y, barW, barH);
+    ctx.globalAlpha = 1;
+
+    // Count on top
+    ctx.fillStyle = '#e8e8ea';
+    ctx.font = 'bold 10px Segoe UI, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(count, x + barW / 2, y - 5);
+
+    // Rotated label
+    ctx.save();
+    ctx.translate(x + barW / 2, pad.top + ph + 8);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#8b8b91';
+    ctx.font = '9px Segoe UI, system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    const label = theme.length > 18 ? theme.slice(0, 16) + '…' : theme;
+    ctx.fillText(label, 0, 0);
+    ctx.restore();
+  });
+}
+
+// --- Live Price Fetching ---
+let priceRefreshTimer = null;
+const CORS_PROXY = 'https://corsproxy.io/?';
+const YAHOO_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart/';
+
+function isMarketOpen() {
+  const now = new Date();
+  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const day = et.getDay();
+  const h = et.getHours(), m = et.getMinutes();
+  const mins = h * 60 + m;
+  return day >= 1 && day <= 5 && mins >= 570 && mins < 960; // 9:30-16:00
+}
+
+function setBadge(type) {
+  const el = document.getElementById('priceBadge');
+  if (type === 'live') {
+    el.innerHTML = '<span class="live-badge">LIVE</span>';
+  } else if (type === 'offline') {
+    el.innerHTML = '<span class="offline-badge">OFFLINE</span>';
+  } else if (type === 'closed') {
+    el.innerHTML = '<span class="market-closed-badge">MARKET CLOSED</span>';
+  }
+}
+
+function setTimestamp() {
+  const now = new Date();
+  const str = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  document.getElementById('priceTimestamp').textContent = 'Updated: ' + str;
+}
+
+async function fetchSinglePrice(ticker) {
+  const url = YAHOO_BASE + encodeURIComponent(ticker) + '?interval=1d&range=1d';
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const meta = data.chart.result[0].meta;
+    return meta.regularMarketPrice;
+  } catch (e) {
+    // Try CORS proxy fallback
+    try {
+      const resp = await fetch(CORS_PROXY + encodeURIComponent(url));
+      if (!resp.ok) throw new Error('Proxy HTTP ' + resp.status);
+      const data = await resp.json();
+      const meta = data.chart.result[0].meta;
+      return meta.regularMarketPrice;
+    } catch (e2) {
+      return null;
+    }
+  }
+}
+
+function formatPrice(num) {
+  if (num >= 1000) return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (num >= 100) return '$' + num.toFixed(2);
+  return '$' + num.toFixed(2);
+}
+
+async function fetchLivePrices(silent = false) {
+  const btn = document.getElementById('refreshBtn');
+  if (!silent) {
+    btn.disabled = true;
+    btn.textContent = 'Fetching...';
+  }
+
+  const allTickers = stocks.map(s => s.ticker);
+  const commodityTickers = commodities.map(c => c.ticker);
+
+  const results = {};
+  let anySuccess = false;
+
+  // Fetch all in parallel
+  const promises = [...allTickers, ...commodityTickers].map(async ticker => {
+    const price = await fetchSinglePrice(ticker);
+    if (price !== null) {
+      results[ticker] = price;
+      anySuccess = true;
+    }
+  });
+
+  await Promise.all(promises);
+
+  if (anySuccess) {
+    // Update stock prices
+    stocks.forEach(s => {
+      if (results[s.ticker] !== undefined) {
+        s.price = formatPrice(results[s.ticker]);
+      }
+    });
+
+    // Update commodity prices
+    commodities.forEach(c => {
+      if (results[c.ticker] !== undefined) {
+        c.price = formatPrice(results[c.ticker]);
+      }
+    });
+
+    // Update paper trading current prices
+    const paperRows = document.querySelectorAll('.paper-table tbody tr');
+    paperRows.forEach(row => {
+      const tickerCell = row.querySelector('.ticker-cell');
+      if (!tickerCell) return;
+      const ticker = tickerCell.textContent.trim();
+      if (results[ticker] !== undefined) {
+        const priceStr = formatPrice(results[ticker]);
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 6) {
+          cells[5].innerHTML = priceStr;
+          // Calculate P&L
+          const entryPrice = parseFloat(cells[2].textContent.replace('$', '').replace(',', ''));
+          const shares = parseInt(cells[3].textContent);
+          const currentPrice = results[ticker];
+          const pnlDollar = (currentPrice - entryPrice) * shares;
+          const pnlPct = ((currentPrice - entryPrice) / entryPrice) * 100;
+          const pnlClass = pnlDollar === 0 ? 'pnl-zero' : (pnlDollar > 0 ? 'green' : 'red');
+          const sign = pnlDollar > 0 ? '+' : '';
+          cells[6].className = pnlClass;
+          cells[6].textContent = sign + '$' + Math.abs(pnlDollar).toFixed(2);
+          cells[7].className = pnlClass;
+          cells[7].textContent = sign + pnlPct.toFixed(2) + '%';
+        }
+      }
+    });
+
+    // Rebuild UI
+    buildCards(getSorted());
+    buildCommodities();
+
+    if (isMarketOpen()) {
+      setBadge('live');
+    } else {
+      setBadge('closed');
+    }
+    setTimestamp();
+  } else {
+    if (!silent) setBadge('offline');
+  }
+
+  if (!silent) {
+    btn.disabled = false;
+    btn.textContent = 'Refresh Prices';
+  }
+}
+
+function startAutoRefresh() {
+  fetchLivePrices(true);
+  if (priceRefreshTimer) clearInterval(priceRefreshTimer);
+  priceRefreshTimer = setInterval(() => {
+    if (isMarketOpen()) {
+      fetchLivePrices(true);
+    }
+  }, 30000);
+}
+
+// Init
+buildCommodities();
+buildCards(getSorted());
+drawCharts();
+window.addEventListener('resize', drawCharts);
+// Set initial badge based on market hours (not offline � prices are static until refresh)
+setBadge(isMarketOpen() ? 'live' : 'closed');
+startAutoRefresh();
+</script>
+</body>
+</html>
+

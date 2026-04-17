@@ -1,0 +1,18 @@
+Graham Equities
+1. ASTS
+2. RKLB
+3. TEM
+4. HIMS
+5. SYM
+6. IONQ
+7. FLNC
+8. SOUN
+9. RXRX
+10. SERV
+
+Graham Commodities
+1. GC=F
+2. SI=F
+3. CL=F
+4. NG=F
+5. HG=F

@@ -1,0 +1,1428 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ike Mission Control</title>
+  <style>
+    :root {
+      --bg: #07101f;
+      --bg-2: #0b1630;
+      --panel: rgba(14, 25, 48, 0.92);
+      --panel-2: rgba(20, 35, 67, 0.98);
+      --panel-3: rgba(10, 20, 40, 0.95);
+      --text: #eef4ff;
+      --muted: #94a7cf;
+      --line: #27365f;
+      --accent: #69d6ff;
+      --accent-2: #8f78ff;
+      --good: #35d68a;
+      --warn: #ffbf63;
+      --bad: #ff7676;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(105, 214, 255, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(143, 120, 255, 0.12), transparent 30%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+    }
+
+    .shell {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      font-weight: 850;
+    }
+
+    .subline {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .header-pills, .toolbar, .tag-row, .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill, .chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .pill { background: rgba(255,255,255,0.04); color: var(--text); }
+    .pill.good, .chip.good { background: rgba(53,214,138,0.14); color: var(--good); border-color: rgba(53,214,138,0.35); }
+    .pill.warn, .chip.warn { background: rgba(255,191,99,0.14); color: var(--warn); border-color: rgba(255,191,99,0.35); }
+    .pill.bad, .chip.bad { background: rgba(255,118,118,0.14); color: var(--bad); border-color: rgba(255,118,118,0.35); }
+    .chip { background: rgba(105,214,255,0.09); color: var(--accent); border-color: rgba(105,214,255,0.24); }
+
+    .toolbar { align-items: center; }
+
+    button {
+      appearance: none;
+      border: 1px solid #38579f;
+      background: #18305f;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.18s ease;
+    }
+
+    button:hover { background: #24407d; border-color: #5680d9; }
+    button.action { background: rgba(105,214,255,0.12); color: var(--accent); border-color: rgba(105,214,255,0.45); }
+    button.action:hover { background: rgba(105,214,255,0.2); }
+    button.ghost { background: rgba(255,255,255,0.04); border-color: var(--line); color: var(--muted); }
+    button.danger { background: rgba(255,118,118,0.1); color: var(--bad); border-color: rgba(255,118,118,0.34); }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1.35fr 0.95fr;
+      gap: 16px;
+    }
+
+    .main-stack, .side-stack {
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .panel-inner { padding: 18px; }
+
+    .panel-titlebar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .panel-title {
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 800;
+      margin: 0;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 14px;
+    }
+
+    .hero-card {
+      background: linear-gradient(180deg, rgba(105,214,255,0.12), rgba(255,255,255,0.02));
+      border: 1px solid rgba(105,214,255,0.22);
+      border-radius: 18px;
+      padding: 18px;
+      min-height: 220px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -30px;
+      width: 180px;
+      height: 180px;
+      background: radial-gradient(circle, rgba(105,214,255,0.22), transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      margin-bottom: 12px;
+      font-weight: 800;
+    }
+
+    .focus-line {
+      font-size: 28px;
+      line-height: 1.15;
+      font-weight: 820;
+      letter-spacing: -0.04em;
+      max-width: 14ch;
+      margin-bottom: 12px;
+    }
+
+    .focus-copy {
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+      max-width: 60ch;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .metric {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      min-height: 104px;
+    }
+
+    .metric .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .metric .value {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+    }
+
+    .metric .detail {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .signal-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .signal {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .signal .value {
+      margin-top: 10px;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .ops-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 14px;
+    }
+
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .agent-card {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .agent-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .agent-name {
+      font-size: 15px;
+      font-weight: 800;
+      margin: 0 0 4px 0;
+    }
+
+    .agent-role {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .agent-copy {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+      margin: 12px 0;
+    }
+
+    .list, .queue-list, .mini-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .item, .queue-item {
+      background: var(--panel-3);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 12px 13px;
+    }
+
+    .item-title {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .item-meta {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .queue-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .queue-copy {
+      flex: 1;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .queue-num {
+      min-width: 28px;
+      height: 28px;
+      border-radius: 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(105,214,255,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(105,214,255,0.24);
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .triple {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .stack-box {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      min-height: 220px;
+    }
+
+    .stack-box h3 {
+      margin: 0 0 12px 0;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .chip-row { margin-top: 10px; }
+
+    .footer {
+      margin-top: 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .modal-bg {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.66);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+
+    .modal-bg.open { display: flex; }
+
+    .modal {
+      width: min(560px, 96vw);
+      background: #101a33;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    .modal h3 { margin: 0 0 14px 0; font-size: 19px; }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      background: #091121;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: var(--text);
+      padding: 14px;
+      resize: vertical;
+      font: inherit;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      background: #163160;
+      color: var(--text);
+      border: 1px solid #3b5faa;
+      border-radius: 14px;
+      padding: 13px 18px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: 0.24s ease;
+      z-index: 120;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── Weekly Calendar ── */
+    .cal-section { grid-column: 1 / -1; }
+    .cal-nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .cal-nav button {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 10px;
+    }
+    .cal-week-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      min-width: 220px;
+      text-align: center;
+    }
+    .cal-wrap {
+      overflow-x: auto;
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #0a0e1a;
+    }
+    .cal-table {
+      min-width: 900px;
+      width: 100%;
+    }
+    .cal-header {
+      display: grid;
+      grid-template-columns: 64px repeat(7, 1fr);
+    }
+    .cal-corner {
+      background: #0f1629;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      padding: 10px 6px;
+    }
+    .cal-day-header {
+      text-align: center;
+      padding: 10px 6px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: #0f1629;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid rgba(255,255,255,0.04);
+    }
+    .cal-day-header.today {
+      color: var(--accent);
+      background: rgba(105,214,255,0.06);
+    }
+    .cal-day-header .cal-date {
+      display: block;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-top: 2px;
+      color: var(--text);
+    }
+    .cal-day-header.today .cal-date { color: var(--accent); }
+    .cal-body {
+      position: relative;
+      display: grid;
+      grid-template-columns: 64px repeat(7, 1fr);
+    }
+    .cal-time-col {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: right;
+      padding: 0 8px;
+      background: #0f1629;
+      border-right: 1px solid var(--line);
+      height: 48px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding-top: 2px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .cal-cell {
+      position: relative;
+      height: 48px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      border-right: 1px solid rgba(255,255,255,0.04);
+    }
+    .cal-event {
+      position: absolute;
+      border-radius: 6px;
+      padding: 3px 6px;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.3;
+      cursor: pointer;
+      overflow: hidden;
+      z-index: 2;
+      transition: filter 0.15s;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .cal-event:hover { filter: brightness(1.25); z-index: 5; }
+    .cal-event .cal-ev-agent {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      opacity: 0.85;
+    }
+    .cal-event .cal-ev-title {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cal-tooltip {
+      position: fixed;
+      background: #101a33;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      z-index: 200;
+      max-width: 280px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+      display: none;
+      pointer-events: none;
+    }
+    .cal-tooltip.visible { display: block; }
+    .cal-tooltip .tt-agent {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+    .cal-tooltip .tt-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .cal-tooltip .tt-time {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .cal-tooltip .tt-detail {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .cal-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .cal-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .cal-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+
+    @media (max-width: 1180px) {
+      .dashboard, .hero, .ops-grid, .triple { grid-template-columns: 1fr; }
+      .signal-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 820px) {
+      .agent-grid, .metrics { grid-template-columns: 1fr; }
+      .signal-grid { grid-template-columns: 1fr; }
+      .shell { padding: 16px; }
+      h1 { font-size: 28px; }
+      .focus-line { font-size: 24px; max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Multi-Agent Operating Board</div>
+        <h1>⚡ Ike Mission Control</h1>
+        <div class="subline" id="lastUpdated">Loading latest status…</div>
+      </div>
+      <div class="toolbar">
+        <button class="action" onclick="openAddTask()">+ Add Task</button>
+        <button class="action" onclick="openAddBlocker()">+ Add Blocker</button>
+        <button onclick="copyStatus()">📋 Copy Status</button>
+        <button class="ghost" onclick="reloadStatus()">↻ Refresh</button>
+        <button class="danger" onclick="clearDone()">✓ Clear Done</button>
+      </div>
+    </div>
+
+    <div class="header-pills" id="headerPills"></div>
+
+    <div class="dashboard">
+      <div class="main-stack">
+        <section class="panel">
+          <div class="panel-inner">
+            <div class="panel-titlebar">
+              <h2 class="panel-title">Command Overview</h2>
+              <div class="chip-row">
+                <span class="chip" id="focusChip">Focus: —</span>
+                <span class="chip" id="nextChip">Next: —</span>
+              </div>
+            </div>
+            <div class="hero">
+              <div class="hero-card">
+                <div class="hero-title">Current Mission</div>
+                <div class="focus-line" id="currentTask">Loading…</div>
+                <div class="focus-copy" id="currentStep">Pulling latest status and routing work lanes.</div>
+                <div class="tag-row" id="priorityTags" style="margin-top:14px;"></div>
+              </div>
+              <div class="metrics">
+                <div class="metric">
+                  <div class="label">Primary Blocker</div>
+                  <div class="value" id="currentBlocker">—</div>
+                  <div class="detail">What is slowing the work down right now.</div>
+                </div>
+                <div class="metric">
+                  <div class="label">Next Move</div>
+                  <div class="value" id="nextMove">—</div>
+                  <div class="detail">Immediate practical action.</div>
+                </div>
+                <div class="metric">
+                  <div class="label">Agent Lanes</div>
+                  <div class="value" id="agentCount">5</div>
+                  <div class="detail">Planner, Builder, Reliability, Sales, Stocks · <a href="calendar.html" style="color:#69d6ff;text-decoration:none;">📅 View Calendar</a></div>
+                </div>
+                <div class="metric">
+                  <div class="label">Open Work Items</div>
+                  <div class="value" id="openCount">0</div>
+                  <div class="detail">Now + Blocked items in queue</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-inner">
+            <div class="panel-titlebar">
+              <h2 class="panel-title">System Signals</h2>
+            </div>
+            <div class="signal-grid" id="signalGrid"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-inner">
+            <div class="panel-titlebar">
+              <h2 class="panel-title">Agent Board</h2>
+              <div class="chip-row">
+                <span class="chip">Built from live local status</span>
+              </div>
+            </div>
+            <div class="ops-grid">
+              <div class="agent-grid" id="agentGrid"></div>
+              <div class="stack-box">
+                <h3>Execution Queue</h3>
+                <div class="queue-list" id="queueList"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel cal-section">
+          <div class="panel-inner">
+            <div class="panel-titlebar">
+              <h2 class="panel-title">Weekly Calendar</h2>
+              <div class="cal-nav">
+                <button class="ghost" onclick="calPrev()">← Prev</button>
+                <span class="cal-week-label" id="calWeekLabel"></span>
+                <button class="ghost" onclick="calNext()">Next →</button>
+                <button class="action" onclick="calToday()">This Week</button>
+              </div>
+            </div>
+            <div class="cal-wrap" id="calWrap"></div>
+            <div class="cal-legend" id="calLegend"></div>
+          </div>
+          <div class="cal-tooltip" id="calTooltip">
+            <div class="tt-agent"></div>
+            <div class="tt-title"></div>
+            <div class="tt-time"></div>
+            <div class="tt-detail"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-inner">
+            <div class="panel-titlebar">
+              <h2 class="panel-title">Work Streams</h2>
+            </div>
+            <div class="triple">
+              <div class="stack-box">
+                <h3>🔥 Now</h3>
+                <div class="list" id="workNow"></div>
+              </div>
+              <div class="stack-box">
+                <h3>🚧 Blocked</h3>
+                <div class="list" id="blockedList"></div>
+              </div>
+              <div class="stack-box">
+                <h3>✅ Done</h3>
+                <div class="list" id="doneList"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="side-stack">
+        <section class="panel">
+          <div class="panel-inner">
+            <div class="panel-titlebar">
+              <h2 class="panel-title">Build Queue</h2>
+            </div>
+            <div class="stack-box" style="min-height:auto; background:transparent; border:none; padding:0;">
+              <h3>Active</h3>
+              <div class="queue-list" id="buildActive"></div>
+            </div>
+            <div class="stack-box" style="min-height:auto; margin-top:12px;">
+              <h3>Tomorrow</h3>
+              <div class="queue-list" id="buildTomorrow"></div>
+            </div>
+            <div class="stack-box" style="min-height:auto; margin-top:12px;">
+              <h3>Next</h3>
+              <div class="queue-list" id="buildNext"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-inner">
+            <div class="panel-titlebar">
+              <h2 class="panel-title">Markets</h2>
+            </div>
+            <div class="chip-row" id="markets"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-inner">
+            <div class="panel-titlebar">
+              <h2 class="panel-title">Target Accounts</h2>
+            </div>
+            <div class="list" id="targets"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-inner">
+            <div class="panel-titlebar">
+              <h2 class="panel-title">Core Offers</h2>
+            </div>
+            <div class="chip-row" id="offers"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>Ike Mission Control · local file app · multi-agent board</span>
+      <span>Nick Panyard · nick.panyard@inetlte.com</span>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="taskModal">
+    <div class="modal">
+      <h3>Add Task</h3>
+      <textarea id="taskText" placeholder="Describe the new task or work item..."></textarea>
+      <div class="modal-actions">
+        <button onclick="closeModal('taskModal')">Cancel</button>
+        <button class="action" onclick="submitTask()">Add to Now</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="blockerModal">
+    <div class="modal">
+      <h3>Add Blocker</h3>
+      <textarea id="blockerText" placeholder="Describe the blocker..."></textarea>
+      <div class="modal-actions">
+        <button onclick="closeModal('blockerModal')">Cancel</button>
+        <button class="action" onclick="submitBlocker()">Add Blocker</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    window.__MISSION_CONTROL_STATUS__ = {
+      currentTask: '5-agent operating structure',
+      currentStep: 'Graham Stock Board live with 36 stocks, charts, and paper trading. iNet World complete. Next: live price feed for Graham board + Mission Control auto-sync.',
+      currentBlocker: 'Graham board needs live price feed (prices currently static)',
+      nextMove: 'Wire live Yahoo Finance prices into the Graham Stock Board',
+      lastUpdate: '2026-03-21 20:40 CDT',
+      priorities: [
+        'Graham board live price feed',
+        'Mission Control auto-sync',
+        'Sales outreach and lead hunting workflow'
+      ],
+      workNow: [
+        'Susan — coordinating agent priorities and next moves',
+        'Jill — Mission Control and board improvements',
+        'Dr Phil — OpenClaw health and reliability monitoring',
+        'Mike — product, lead, and infrastructure research',
+        'Graham — stock board active, paper trading running, adding live prices next'
+      ],
+      blocked: [
+        'Mission Control auto-sync is planned but not yet built',
+        'Graham board needs live price feed (currently static)'
+      ],
+      done: [
+        'openclaw-cli skill installed',
+        'stock-analysis skill installed for Graham',
+        'Mission Control multi-agent board first pass built',
+        'Named agents added to Mission Control',
+        'Supported OpenClaw browser path verified working',
+        'LinkedIn access path documented',
+        'Google integration status documented',
+        'iNet World home screen reworked toward new structure',
+        'iNet World — COMPLETE (2026-03-21)',
+        'Graham Stock Board built — 36 stocks, 5 commodities, 4 charts, paper trading portfolio with 3 positions'
+      ],
+      targets: [
+        'SOLV Energy',
+        'Blattner',
+        'DEPCOM Power',
+        'Rosendin',
+        'Burns & McDonnell',
+        'Primoris Renewable Energy'
+      ],
+      offers: [
+        'Starlink',
+        'Starlink Data Pool',
+        'SecureLynk',
+        'RAD SecFlow-1p',
+        'Ilios',
+        'HydraGauge',
+        'Axis',
+        'Alertus'
+      ],
+      markets: [
+        'Upstream',
+        'Retail',
+        'Manufacturing',
+        'Mining',
+        'Water / Wastewater',
+        'Healthcare',
+        'Midstream',
+        'Maritime',
+        'Solar',
+        'Flood / Environmental Monitoring'
+      ],
+      health: {
+        'Susan / Planner': 'Active — coordinating priorities and calendars',
+        'Jill / Builder': 'Active — visible build work should be the priority',
+        'Dr Phil / Reliability': 'Active — prevent breakage before it hits',
+        'Mike / Sales': 'Active — researching products, leads, and infrastructure use cases',
+        'Graham / Stocks': 'Active — stock board built, 36 stocks, 4 charts, paper trading live',
+        missionControl: 'Working locally'
+      },
+      buildCalendar: {
+        active: [
+          'Mission Control auto-sync build',
+          'iNet World visible progress and asset completeness',
+          'Environment stage flow between tile and flat drawing',
+          'Browser-enabled product and lead research lanes'
+        ],
+        tomorrow: [
+          'Add Flood / Environmental Monitoring back into iNet World',
+          'Give every vertical a complete tile + environment stage + flat path',
+          'Improve Mission Control interaction and visibility',
+          'Have Mike feed product research directly into iNet World'
+        ],
+        next: [
+          'Install notes skill later if/when note-routing and Notion workflow becomes worth the added complexity',
+          'Make Mission Control truly self-updating',
+          'Bring iNet World closer to inet.global quality',
+          'Refine agent calendars so planning supports action'
+        ]
+      }
+    };
+
+    const defaultStatus = {
+      currentTask: 'Mission Control',
+      currentStep: 'Build the local multi-agent board and tighten the operating view.',
+      currentBlocker: 'No blocker recorded',
+      nextMove: 'Review the current board and update the data model.',
+      lastUpdate: new Date().toLocaleString(),
+      priorities: ['Stable execution', 'Clear next actions', 'Visible blockers'],
+      workNow: [],
+      blocked: [],
+      done: ['Mission control board upgraded'],
+      targets: [],
+      offers: [],
+      markets: [],
+      health: {},
+      buildCalendar: { active: [], tomorrow: [], next: [] }
+    };
+
+    let appState = structuredClone(defaultStatus);
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2400);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function statusTone(text = '') {
+      const v = String(text).toLowerCase();
+      if (/(working|active|online|good|stable|confirmed)/.test(v)) return 'good';
+      if (/(partial|pending|waiting|priority|scheduled|monitor|polling)/.test(v)) return 'warn';
+      if (/(blocked|down|error|close|failed|not|issue)/.test(v)) return 'bad';
+      return '';
+    }
+
+    function renderPills(items, className = 'chip') {
+      return (items || []).map(item => `<span class="${className}">${escapeHtml(item)}</span>`).join('');
+    }
+
+    function renderList(elId, items, empty = 'Nothing here yet.') {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      if (!items || !items.length) {
+        el.innerHTML = `<div class="item"><div class="item-title">${escapeHtml(empty)}</div></div>`;
+        return;
+      }
+      el.innerHTML = items.map(item => `
+        <div class="item">
+          <div class="item-title">${escapeHtml(item)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderQueue(elId, items) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      if (!items || !items.length) {
+        el.innerHTML = `<div class="queue-item"><span class="queue-num">—</span><div class="queue-copy">No queued items.</div></div>`;
+        return;
+      }
+      el.innerHTML = items.map((item, i) => `
+        <div class="queue-item">
+          <span class="queue-num">${i + 1}</span>
+          <div class="queue-copy">${escapeHtml(item)}</div>
+        </div>
+      `).join('');
+    }
+
+    function buildAgents(data) {
+      const planner = {
+        name: 'Susan',
+        role: 'Planner · sets focus, priority, and next move',
+        status: 'active',
+        summary: data.currentTask,
+        detail: data.nextMove,
+        tags: [data.priorities?.[0] || 'Priority', data.priorities?.[1] || 'Planning']
+      };
+      const builder = {
+        name: 'Jill',
+        role: 'Builder · turns active work into shipped changes',
+        status: data.workNow?.length ? 'warn' : 'good',
+        summary: data.workNow?.[0] || 'No active build item set',
+        detail: data.workNow?.[1] || 'Ready for next implementation pass',
+        tags: ['Execution', 'Files', 'UI']
+      };
+      const reliability = {
+        name: 'Dr Phil',
+        role: 'Reliability · tracks blockers, watchdogs, and system health',
+        status: data.currentBlocker && data.currentBlocker !== 'No blocker recorded' ? 'bad' : 'good',
+        summary: data.currentBlocker,
+        detail: data.health?.watchdog || data.health?.browser || 'No reliability issue logged',
+        tags: ['Watchdog', 'Stability', 'Alerts']
+      };
+      const sales = {
+        name: 'Mike',
+        role: 'Sales · keeps targets, markets, and offers visible',
+        status: data.targets?.length ? 'good' : 'warn',
+        summary: `${data.targets?.length || 0} target accounts in focus`,
+        detail: data.markets?.slice(0, 2).join(' · ') || 'No markets loaded yet',
+        tags: ['Targets', 'Markets', 'Offers']
+      };
+      const stocks = {
+        name: 'Graham',
+        role: 'Stocks · stock analysis, charts, and paper trading',
+        status: 'good',
+        summary: 'Stock board built — 36 stocks, 5 commodities, 4 charts',
+        detail: 'Paper trading portfolio active with 3 positions',
+        tags: ['Stocks', 'Charts', 'Trading']
+      };
+      return [planner, builder, reliability, sales, stocks];
+    }
+
+    function renderAgents(data) {
+      const el = document.getElementById('agentGrid');
+      const agents = buildAgents(data);
+      document.getElementById('agentCount').textContent = String(agents.length);
+      el.innerHTML = agents.map(agent => `
+        <div class="agent-card">
+          <div class="agent-top">
+            <div>
+              <div class="agent-name">${escapeHtml(agent.name)}</div>
+              <div class="agent-role">${escapeHtml(agent.role)}</div>
+            </div>
+            <span class="pill ${agent.status}">${escapeHtml(agent.status.toUpperCase())}</span>
+          </div>
+          <div class="agent-copy">${escapeHtml(agent.summary)}</div>
+          <div class="item" style="margin-bottom:0;">
+            <div class="item-title">${escapeHtml(agent.detail)}</div>
+            <div class="item-meta">${renderPills(agent.tags, 'chip')}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderSignals(health = {}) {
+      const el = document.getElementById('signalGrid');
+      const entries = Object.entries(health);
+      if (!entries.length) {
+        el.innerHTML = '<div class="signal"><div class="label">Status</div><div class="value">No health signals yet</div></div>';
+        return;
+      }
+      el.innerHTML = entries.map(([key, value]) => `
+        <div class="signal">
+          <div class="label">${escapeHtml(key)}</div>
+          <div class="value">${escapeHtml(value)}</div>
+          <div class="chip-row" style="margin-top:10px;"><span class="pill ${statusTone(value)}">${statusTone(value) ? statusTone(value).toUpperCase() : 'INFO'}</span></div>
+        </div>
+      `).join('');
+    }
+
+    function renderStatus(data) {
+      appState = { ...structuredClone(defaultStatus), ...data };
+      if (!appState.done) appState.done = ['Mission control board upgraded'];
+
+      document.getElementById('lastUpdated').textContent = `Ops · Sales · Stability · Updated ${appState.lastUpdate || 'recently'}`;
+      document.getElementById('currentTask').textContent = appState.currentTask || 'Mission Control';
+      document.getElementById('currentStep').textContent = appState.currentStep || 'No current step recorded.';
+      document.getElementById('currentBlocker').textContent = appState.currentBlocker || 'No blocker recorded';
+      document.getElementById('nextMove').textContent = appState.nextMove || 'No next move recorded';
+      document.getElementById('focusChip').textContent = `Focus: ${appState.currentTask || '—'}`;
+      document.getElementById('nextChip').textContent = `Next: ${appState.nextMove || '—'}`;
+      document.getElementById('openCount').textContent = String((appState.workNow?.length || 0) + (appState.blocked?.length || 0));
+
+      document.getElementById('priorityTags').innerHTML = renderPills(appState.priorities || []);
+      document.getElementById('headerPills').innerHTML = [
+        `<span class="pill warn">Task: ${escapeHtml(appState.currentTask || '—')}</span>`,
+        `<span class="pill ${statusTone(appState.currentBlocker)}">Blocker: ${escapeHtml(appState.currentBlocker || 'None')}</span>`,
+        `<span class="pill ${statusTone(appState.health?.watchdog || '')}">Watchdog: ${escapeHtml(appState.health?.watchdog || '—')}</span>`,
+        `<span class="pill ${statusTone(appState.health?.email || '')}">Email: ${escapeHtml(appState.health?.email || '—')}</span>`
+      ].join('');
+
+      renderSignals(appState.health || {});
+      renderAgents(appState);
+      renderList('workNow', appState.workNow, 'No active work right now.');
+      renderList('blockedList', appState.blocked, 'No blockers recorded.');
+      renderList('doneList', appState.done, 'No completed items yet.');
+      renderQueue('queueList', [appState.nextMove, ...(appState.workNow || []).slice(0, 3)].filter(Boolean));
+      renderQueue('buildActive', appState.buildCalendar?.active || []);
+      renderQueue('buildTomorrow', appState.buildCalendar?.tomorrow || []);
+      renderQueue('buildNext', appState.buildCalendar?.next || []);
+      document.getElementById('markets').innerHTML = renderPills(appState.markets || []);
+      document.getElementById('offers').innerHTML = renderPills(appState.offers || []);
+      renderList('targets', appState.targets, 'No target accounts loaded.');
+    }
+
+    async function reloadStatus() {
+      try {
+        const res = await fetch('./status.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error('Failed to load status.json');
+        const data = await res.json();
+        renderStatus(data);
+        showToast('Status refreshed ✓');
+      } catch (err) {
+        console.error(err);
+        renderStatus(window.__MISSION_CONTROL_STATUS__ || defaultStatus);
+        showToast('Using built-in status');
+      }
+    }
+
+    function openAddTask() {
+      document.getElementById('taskModal').classList.add('open');
+      setTimeout(() => document.getElementById('taskText').focus(), 80);
+    }
+
+    function openAddBlocker() {
+      document.getElementById('blockerModal').classList.add('open');
+      setTimeout(() => document.getElementById('blockerText').focus(), 80);
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    function submitTask() {
+      const field = document.getElementById('taskText');
+      const value = field.value.trim();
+      if (!value) return;
+      appState.workNow = [...(appState.workNow || []), value];
+      field.value = '';
+      closeModal('taskModal');
+      renderStatus(appState);
+      showToast('Task added ✓');
+    }
+
+    function submitBlocker() {
+      const field = document.getElementById('blockerText');
+      const value = field.value.trim();
+      if (!value) return;
+      appState.blocked = [...(appState.blocked || []), value];
+      appState.currentBlocker = value;
+      field.value = '';
+      closeModal('blockerModal');
+      renderStatus(appState);
+      showToast('Blocker added ✓');
+    }
+
+    function clearDone() {
+      appState.done = [];
+      renderStatus(appState);
+      showToast('Done list cleared ✓');
+    }
+
+    async function copyStatus() {
+      const text = [
+        `Ike Mission Control`,
+        `Task: ${appState.currentTask || '—'}`,
+        `Current step: ${appState.currentStep || '—'}`,
+        `Blocker: ${appState.currentBlocker || '—'}`,
+        `Next move: ${appState.nextMove || '—'}`,
+        `Now: ${(appState.workNow || []).join('; ') || '—'}`,
+        `Blocked: ${(appState.blocked || []).join('; ') || '—'}`,
+        `Targets: ${(appState.targets || []).slice(0, 6).join(', ') || '—'}`
+      ].join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Status copied ✓');
+      } catch {
+        showToast('Clipboard copy blocked');
+      }
+    }
+
+    document.querySelectorAll('.modal-bg').forEach(bg => {
+      bg.addEventListener('click', e => {
+        if (e.target === bg) bg.classList.remove('open');
+      });
+    });
+
+    /* ── Weekly Calendar Logic ── */
+    const AGENTS_CAL = [
+      { name: 'Susan', role: 'Planner', color: '#3b82f6' },
+      { name: 'Jill', role: 'Builder', color: '#a78bfa' },
+      { name: 'Dr Phil', role: 'Reliability', color: '#22c55e' },
+      { name: 'Mike', role: 'Sales', color: '#f59e0b' },
+      { name: 'Graham', role: 'Stocks', color: '#fbbf24' },
+    ];
+
+    // day: 0=Mon..6=Sun, startHour (decimal), duration (hours)
+    const SCHEDULE = [
+      // Susan
+      { agent: 'Susan', day: 0, start: 9, dur: 1, title: 'Weekly priority review + agent sync', detail: 'Review all agent statuses, set weekly priorities, align next moves across the team.' },
+      { agent: 'Susan', day: 2, start: 14, dur: 1, title: 'Mid-week check-in', detail: 'Adjust priorities based on progress. Reassign work if blockers have shifted.' },
+      { agent: 'Susan', day: 4, start: 16, dur: 1, title: 'End-of-week summary + next week planning', detail: 'Summarize what shipped, what stalled, and draft next week\'s focus areas.' },
+      // Jill — daily build windows + daily focus
+      { agent: 'Jill', day: 0, start: 10, dur: 2, title: 'Build: Mission Control improvements', detail: 'Active build window — Mission Control dashboard enhancements and new features.' },
+      { agent: 'Jill', day: 1, start: 10, dur: 2, title: 'Build: iNet World polish', detail: 'Active build window — iNet World UI polish, asset completeness, and staging.' },
+      { agent: 'Jill', day: 2, start: 10, dur: 2, title: 'Build: Graham board live prices', detail: 'Active build window — Wire live price feeds into the Graham Stock Board.' },
+      { agent: 'Jill', day: 3, start: 10, dur: 2, title: 'Build: Graham board live prices', detail: 'Active build window — Continue Graham board live price integration and testing.' },
+      { agent: 'Jill', day: 4, start: 10, dur: 2, title: 'Build: Testing + cleanup', detail: 'Active build window — End-of-week testing, bug fixes, and code cleanup.' },
+      // Dr Phil
+      { agent: 'Dr Phil', day: 0, start: 8, dur: 0.5, title: 'System health check', detail: 'Daily health check — verify all agents, services, and watchdogs are running correctly.' },
+      { agent: 'Dr Phil', day: 1, start: 8, dur: 0.5, title: 'System health check', detail: 'Daily health check — verify all agents, services, and watchdogs are running correctly.' },
+      { agent: 'Dr Phil', day: 2, start: 8, dur: 0.5, title: 'System health check', detail: 'Daily health check — verify all agents, services, and watchdogs are running correctly.' },
+      { agent: 'Dr Phil', day: 3, start: 8, dur: 0.5, title: 'System health check', detail: 'Daily health check — verify all agents, services, and watchdogs are running correctly.' },
+      { agent: 'Dr Phil', day: 4, start: 8, dur: 0.5, title: 'System health check', detail: 'Daily health check — verify all agents, services, and watchdogs are running correctly.' },
+      { agent: 'Dr Phil', day: 5, start: 8, dur: 0.5, title: 'System health check', detail: 'Weekend health check — quick scan for overnight issues.' },
+      { agent: 'Dr Phil', day: 6, start: 8, dur: 0.5, title: 'System health check', detail: 'Weekend health check — quick scan for overnight issues.' },
+      { agent: 'Dr Phil', day: 0, start: 15, dur: 1, title: 'Deep watchdog audit', detail: 'Deep audit — review all watchdog logs, error rates, and alert thresholds.' },
+      { agent: 'Dr Phil', day: 3, start: 15, dur: 1, title: 'Deep watchdog audit', detail: 'Deep audit — review all watchdog logs, error rates, and alert thresholds.' },
+      { agent: 'Dr Phil', day: 0, start: 13, dur: 1, title: 'OpenClaw stability monitoring', detail: 'Monitor OpenClaw ecosystem stability — check browser paths, CLI, and integrations.' },
+      { agent: 'Dr Phil', day: 2, start: 13, dur: 1, title: 'OpenClaw stability monitoring', detail: 'Mid-week OpenClaw stability review and regression checks.' },
+      { agent: 'Dr Phil', day: 4, start: 13, dur: 1, title: 'OpenClaw stability monitoring', detail: 'End-of-week stability wrap-up and incident log review.' },
+      // Mike
+      { agent: 'Mike', day: 0, start: 9, dur: 1.5, title: 'Target account review', detail: 'Review target accounts: SOLV Energy, Blattner, DEPCOM Power, Rosendin, Burns & McDonnell, Primoris.' },
+      { agent: 'Mike', day: 1, start: 11, dur: 1.5, title: 'Lead research session', detail: 'Research new leads, company profiles, decision makers, and contact paths.' },
+      { agent: 'Mike', day: 2, start: 14, dur: 1.5, title: 'Offer mapping', detail: 'Map offers to verticals — Starlink, SecureLynk, HydraGauge, Ilios, Alertus, Axis, RAD.' },
+      { agent: 'Mike', day: 3, start: 11, dur: 1.5, title: 'Lead research session', detail: 'Continue lead research — follow up on promising contacts and new opportunities.' },
+      { agent: 'Mike', day: 4, start: 10, dur: 1.5, title: 'Weekly pipeline summary', detail: 'Compile weekly pipeline summary — leads contacted, offers matched, next steps.' },
+      // Graham
+      { agent: 'Graham', day: 0, start: 7, dur: 1, title: 'Pre-market scan + board update', detail: 'Daily pre-market scan — check futures, pre-market movers, update board with latest data.' },
+      { agent: 'Graham', day: 1, start: 7, dur: 1, title: 'Pre-market scan + board update', detail: 'Daily pre-market scan — check futures, pre-market movers, update board with latest data.' },
+      { agent: 'Graham', day: 2, start: 7, dur: 1, title: 'Pre-market scan + board update', detail: 'Daily pre-market scan — check futures, pre-market movers, update board with latest data.' },
+      { agent: 'Graham', day: 3, start: 7, dur: 1, title: 'Pre-market scan + board update', detail: 'Daily pre-market scan — check futures, pre-market movers, update board with latest data.' },
+      { agent: 'Graham', day: 4, start: 7, dur: 1, title: 'Pre-market scan + board update', detail: 'Daily pre-market scan — check futures, pre-market movers, update board with latest data.' },
+      { agent: 'Graham', day: 0, start: 9, dur: 1.5, title: 'Weekly board review + conviction scoring', detail: 'Deep weekly review — score conviction levels, review thesis for each position, update watchlist.' },
+      { agent: 'Graham', day: 2, start: 14, dur: 1, title: 'Mid-week data refresh', detail: 'Refresh all stock data, check for earnings surprises, sector rotation signals.' },
+      { agent: 'Graham', day: 4, start: 17, dur: 1, title: 'Weekly email summary to Nick', detail: 'Compile and send weekly stock summary email to Nick — top movers, conviction changes, P&L update.' },
+      { agent: 'Graham', day: 1, start: 14, dur: 1, title: 'Paper trading P&L tracking', detail: 'Review paper trading portfolio — track P&L, evaluate entry/exit timing, log lessons.' },
+      { agent: 'Graham', day: 3, start: 14, dur: 1, title: 'Paper trading P&L tracking', detail: 'Mid-week paper trading review — adjust positions if thesis has changed.' },
+    ];
+
+    const CAL_START_HOUR = 7;
+    const CAL_END_HOUR = 18;
+    const CAL_HOURS = CAL_END_HOUR - CAL_START_HOUR + 1;
+    let calWeekOffset = 0;
+
+    function getMonday(d) {
+      const dt = new Date(d);
+      const day = dt.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      dt.setDate(dt.getDate() + diff);
+      dt.setHours(0, 0, 0, 0);
+      return dt;
+    }
+
+    function fmtDate(d) {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${months[d.getMonth()]} ${d.getDate()}`;
+    }
+
+    function fmtHour(h) {
+      const hh = Math.floor(h);
+      const mm = Math.round((h - hh) * 60);
+      const ampm = hh >= 12 ? 'pm' : 'am';
+      const display = hh > 12 ? hh - 12 : hh === 0 ? 12 : hh;
+      return mm > 0 ? `${display}:${String(mm).padStart(2,'0')}${ampm}` : `${display}${ampm}`;
+    }
+
+    function renderCalendar() {
+      const today = new Date();
+      const monday = getMonday(today);
+      monday.setDate(monday.getDate() + calWeekOffset * 7);
+
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        days.push(d);
+      }
+
+      const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const todayStr = today.toDateString();
+
+      // Week label
+      document.getElementById('calWeekLabel').textContent =
+        `${fmtDate(days[0])} — ${fmtDate(days[6])}, ${days[6].getFullYear()}`;
+
+      // Build grid HTML
+      let html = '';
+      // Header row
+      html += '<div class="cal-corner"></div>';
+      for (let i = 0; i < 7; i++) {
+        const isToday = days[i].toDateString() === todayStr;
+        html += `<div class="cal-day-header${isToday ? ' today' : ''}">
+          ${dayNames[i]}<span class="cal-date">${days[i].getDate()}</span>
+        </div>`;
+      }
+
+      // Hour rows
+      for (let h = CAL_START_HOUR; h <= CAL_END_HOUR; h++) {
+        html += `<div class="cal-time-col">${fmtHour(h)}</div>`;
+        for (let d = 0; d < 7; d++) {
+          html += `<div class="cal-cell" data-day="${d}" data-hour="${h}"></div>`;
+        }
+      }
+
+      const grid = document.getElementById('calGrid');
+      grid.innerHTML = html;
+
+      // Place events
+      const cellH = 48; // matches CSS
+      SCHEDULE.forEach((ev, idx) => {
+        if (ev.start + ev.dur <= CAL_START_HOUR || ev.start > CAL_END_HOUR) return;
+        const agent = AGENTS_CAL.find(a => a.name === ev.agent);
+        if (!agent) return;
+
+        const topOffset = (ev.start - CAL_START_HOUR) * cellH;
+        const height = Math.max(ev.dur * cellH - 2, 20);
+
+        // Find the cell container for this day column
+        const cells = grid.querySelectorAll(`.cal-cell[data-day="${ev.day}"]`);
+        if (!cells.length) return;
+        const container = cells[0].parentElement;
+
+        // We need to place absolutely within the grid. Calculate grid position.
+        // Column = ev.day + 2 (1-indexed, +1 for time col)
+        // Row start = (ev.start - CAL_START_HOUR) + 2 (1-indexed, +1 for header)
+        const el = document.createElement('div');
+        el.className = 'cal-event';
+        el.style.cssText = `
+          grid-column: ${ev.day + 2};
+          grid-row: ${Math.floor(ev.start - CAL_START_HOUR) + 2};
+          top: ${((ev.start % 1) * cellH)}px;
+          height: ${height}px;
+          background: ${agent.color}22;
+          border-color: ${agent.color}55;
+          color: ${agent.color};
+        `;
+        el.setAttribute('data-idx', idx);
+        el.innerHTML = `<div class="cal-ev-agent">${escapeHtml(agent.name)}</div><div class="cal-ev-title">${escapeHtml(ev.title)}</div>`;
+
+        el.addEventListener('mouseenter', (e) => showCalTooltip(e, ev, agent));
+        el.addEventListener('mouseleave', hideCalTooltip);
+        el.addEventListener('click', (e) => showCalTooltip(e, ev, agent));
+
+        grid.appendChild(el);
+      });
+
+      // Fix event positioning — events are grid children, use grid placement
+      grid.querySelectorAll('.cal-event').forEach(el => {
+        el.style.position = 'relative';
+        el.style.alignSelf = 'start';
+      });
+
+      // Legend
+      document.getElementById('calLegend').innerHTML = AGENTS_CAL.map(a =>
+        `<div class="cal-legend-item"><div class="cal-legend-dot" style="background:${a.color}"></div>${escapeHtml(a.name)} <span style="opacity:0.6">(${escapeHtml(a.role)})</span></div>`
+      ).join('');
+    }
+
+    function showCalTooltip(e, ev, agent) {
+      const tip = document.getElementById('calTooltip');
+      tip.querySelector('.tt-agent').textContent = `${agent.name} — ${agent.role}`;
+      tip.querySelector('.tt-agent').style.color = agent.color;
+      tip.querySelector('.tt-title').textContent = ev.title;
+      tip.querySelector('.tt-time').textContent = `${fmtHour(ev.start)} — ${fmtHour(ev.start + ev.dur)} (${ev.dur < 1 ? Math.round(ev.dur * 60) + 'min' : ev.dur + 'h'})`;
+      tip.querySelector('.tt-detail').textContent = ev.detail || '';
+      tip.classList.add('visible');
+      const rect = e.target.getBoundingClientRect();
+      let left = rect.right + 10;
+      let top = rect.top;
+      if (left + 280 > window.innerWidth) left = rect.left - 290;
+      if (top + 140 > window.innerHeight) top = window.innerHeight - 150;
+      tip.style.left = left + 'px';
+      tip.style.top = top + 'px';
+    }
+
+    function hideCalTooltip() {
+      document.getElementById('calTooltip').classList.remove('visible');
+    }
+
+    function calPrev() { calWeekOffset--; renderCalendar(); }
+    function calNext() { calWeekOffset++; renderCalendar(); }
+    function calToday() { calWeekOffset = 0; renderCalendar(); }
+
+    renderCalendar();
+
+    reloadStatus();
+  </script>
+</body>
+</html>

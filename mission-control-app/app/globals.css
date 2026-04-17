@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0f0f10;
+  --panel: #161618;
+  --surface: #1c1c1f;
+  --border: #2a2a2d;
+  --text-primary: #e8e8ea;
+  --text-secondary: #8b8b91;
+  --text-muted: #55555c;
+  --accent: #5e6ad2;
+  --green: #26a86a;
+  --amber: #e8a045;
+  --red: #e05252;
+  --hover: rgba(255, 255, 255, 0.03);
+  --row-hover: rgba(255, 255, 255, 0.03);
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text-primary);
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "SF Mono", "Fira Code", monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2d #0f0f10;
+}
+
+::selection {
+  background: rgba(94, 106, 210, 0.3);
+}
+
+input, textarea, select {
+  outline: none;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent) !important;
+}
+
+.input {
+  width: 100%;
+  background: #1c1c1f;
+  border: 1px solid #2a2a2d;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #e8e8ea;
+  font-family: inherit;
+}
+
+.btn-primary {
+  padding: 6px 14px;
+  border-radius: 5px;
+  background: #5e6ad2;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #4f5bc4; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-ghost {
+  padding: 6px 14px;
+  border-radius: 5px;
+  background: transparent;
+  border: 1px solid #2a2a2d;
+  color: #8b8b91;
+  font-size: 12px;
+  font-weight: 500;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-ghost:hover { color: #e8e8ea; border-color: #3a3a3d; }
+
+/* Doc content styles */
+.doc-content h2 { font-size: 15px; font-weight: 600; color: #e8e8ea; margin-top: 0; margin-bottom: 8px; }
+.doc-content h3 { font-size: 13px; font-weight: 600; color: #e8e8ea; margin-top: 16px; margin-bottom: 6px; }
+.doc-content p { margin-bottom: 10px; }
+.doc-content ul { padding-left: 16px; margin-bottom: 10px; }
+.doc-content li { margin-bottom: 4px; list-style: disc; }
+.doc-content b { color: #e8e8ea; font-weight: 600; }
+
+/* Office page — agent desk pulse */
+@keyframes desk-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--pulse-color), 0 0 12px var(--pulse-color); }
+  50% { box-shadow: 0 0 0 5px var(--pulse-color), 0 0 24px var(--pulse-color); }
+}
+.desk-pulse {
+  animation: desk-pulse 2.4s ease-in-out infinite;
+}

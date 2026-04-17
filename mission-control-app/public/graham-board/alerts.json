@@ -1,0 +1,207 @@
+[
+  {
+    "ticker": "IONQ",
+    "condition": "above",
+    "price": 33,
+    "note": "Approaching insider resistance zone ($33-35). Re-evaluate position sizing.",
+    "active": false,
+    "firedAt": "2026-03-23T15:10:00Z",
+    "firedPrice": 33.17
+  },
+  {
+    "ticker": "IONQ",
+    "condition": "above",
+    "price": 33.34,
+    "note": "Insider resistance breakout \u00e2\u20ac\u201d re-added 24 shares at $33.38. Back to 96 shares.",
+    "active": false,
+    "firedAt": "2026-03-23T15:40:00Z",
+    "firedPrice": 33.38,
+    "action": "BOUGHT 24 shares at $33.38 \u00e2\u20ac\u201d restored full position"
+  },
+  {
+    "ticker": "IONQ",
+    "condition": "above",
+    "price": 35.73,
+    "note": "Top of insider sale zone (Mar 10-12 filings). Multiple insiders filed $33.34-$35.73. If IONQ clears $35.73 with volume, real breakout. If rejected, trim 50% of position.",
+    "active": false,
+    "firedAt": "2026-04-14T20:00:00Z",
+    "firedPrice": 35.77,
+    "action": "ALERT FIRED \u2014 IONQ cleared $35.73. No position on, so no trade taken; watch for breakout follow-through vs rejection in the insider zone."
+  },
+  {
+    "ticker": "IONQ",
+    "condition": "below",
+    "price": 32.5,
+    "note": "WARNING \u00e2\u20ac\u201d IONQ faded below $32.50. $32.50 is the line in the sand. If it closes below here, consider trimming.",
+    "active": false,
+    "firedAt": "2026-03-26T14:12:00Z",
+    "firedPrice": 31.27
+  },
+  {
+    "ticker": "IONQ",
+    "condition": "below",
+    "price": 31,
+    "note": "Hard stop-loss \u00e2\u20ac\u201d IONQ stop executed 3/26/26. Sold 5-share runner at $31.00. Position closed. No longer in IONQ.",
+    "active": false,
+    "firedAt": "2026-03-26T14:30:00Z",
+    "firedPrice": 31,
+    "action": "EXECUTED \u00e2\u20ac\u201d sold 5 shares at $31.00 stop price"
+  },
+  {
+    "ticker": "IONQ",
+    "condition": "below",
+    "price": 29,
+    "note": "RE-ENTRY WATCH \u00e2\u20ac\u201d FIRED 3/27/26 at open. IONQ $28.45. In the re-entry zone $28-29. NOT entering yet \u00e2\u20ac\u201d broad market selloff. Need tape stabilization.",
+    "active": false,
+    "firedAt": "2026-03-27T14:00:00Z",
+    "firedPrice": 28.45
+  },
+  {
+    "ticker": "IONQ",
+    "condition": "below",
+    "price": 28,
+    "note": "RE-ENTRY SWEET SPOT \u00e2\u20ac\u201d FIRED 3/27/26 12:20 PM at $27.895. Entry NOT taken: tape in freefall. IONQ now $28.42 at 12:40 PM \u00e2\u20ac\u201d recovered above $28. Motley Fool quantum warning today. No Friday entry. Monday: $27-29 zone watch.",
+    "active": false,
+    "firedAt": "2026-03-27T17:20:00Z",
+    "firedPrice": 27.895,
+    "action": "ALERT FIRED \u00e2\u20ac\u201d No entry taken, recovering above $28 at 12:40 PM"
+  },
+  {
+    "ticker": "IONQ",
+    "condition": "above",
+    "price": 30,
+    "note": "RE-ENTRY CONFIRMATION \u00e2\u20ac\u201d If IONQ reverses back above $30 on volume (green candle after current selloff), starter 3 shares. Tape stabilization signal.",
+    "active": false,
+    "firedAt": "2026-04-08T14:40:00Z",
+    "firedPrice": 30.66,
+    "action": "ALERT FIRED \u2014 no trade taken; IONQ reclaimed , watching for hold above the level."
+  },
+  {
+    "ticker": "IONQ",
+    "condition": "below",
+    "price": 25,
+    "note": "NEW LOWER SUPPORT WATCH \u00e2\u20ac\u201d If IONQ continues to $25 zone, reassess thesis. $25 is next major support. Would need volume reversal candle before any entry.",
+    "active": true
+  },
+  {
+    "ticker": "RKLB",
+    "condition": "above",
+    "price": 69,
+    "note": "Entering insider sale zone ($69-75 March sales). Trim 1/3 executed at $69.12.",
+    "active": false,
+    "firedAt": "2026-03-23T15:15:00Z",
+    "firedPrice": 69.12
+  },
+  {
+    "ticker": "RKLB",
+    "condition": "above",
+    "price": 69.59,
+    "note": "CFO Adam Spice exact sale price. Fired at $73.92 \u00e2\u20ac\u201d full exit.",
+    "active": false,
+    "firedAt": "2026-03-25T14:55:00Z",
+    "firedPrice": 73.92
+  },
+  {
+    "ticker": "RKLB",
+    "condition": "above",
+    "price": 71.95,
+    "note": "COO Klein sale level. FIRED \u00e2\u20ac\u201d sold all 4 remaining shares at $73.92. Position closed.",
+    "active": false,
+    "firedAt": "2026-03-25T14:55:00Z",
+    "firedPrice": 73.92,
+    "action": "SOLD 4 shares at $73.92 \u00e2\u20ac\u201d full exit, +$25.88 realized"
+  },
+  {
+    "ticker": "RKLB",
+    "condition": "below",
+    "price": 67,
+    "note": "RE-ENTRY WATCH FIRED \u00e2\u20ac\u201d RKLB closed $65.94 on 3/26/26. Plan was starter at open 3/27 if $65-67 holds. FAILED \u00e2\u20ac\u201d gapped to $62.95 at open. No entry. Revised plan: watch $60 reclaim.",
+    "active": false,
+    "firedAt": "2026-03-26T20:00:00Z",
+    "firedPrice": 65.94
+  },
+  {
+    "ticker": "RKLB",
+    "condition": "below",
+    "price": 63,
+    "note": "WATCH ZONE COMPROMISED \u00e2\u20ac\u201d RKLB broke below $60 at 12:40 PM 3/27/26 (~$59.65, -9.5%). $60-63 zone integrity lost. Monday: need $60 reclaim with volume before re-engaging. Stop $57 still valid on any new entry.",
+    "active": false,
+    "firedAt": "2026-03-27T17:40:00Z",
+    "firedPrice": 59.65,
+    "action": "ZONE BROKEN \u00e2\u20ac\u201d $60 floor lost, no entry, reassess Monday"
+  },
+  {
+    "ticker": "RKLB",
+    "condition": "above",
+    "price": 60,
+    "note": "RKLB $60 RECLAIM WATCH - FIRED 4/6/26 at $68.79. Reclaim confirmed, but price is already near the $69-75 insider resistance band. No chase. Watch for breakout or pullback.",
+    "active": false,
+    "firedAt": "2026-04-06T19:20:00Z",
+    "firedPrice": 68.79,
+    "action": "ALERT FIRED - RKLB well above $60 reclaim. No trade taken; now watching $69-75 resistance."
+  },
+  {
+    "ticker": "RKLB",
+    "condition": "below",
+    "price": 57,
+    "note": "\u00f0\u0178\u0161\u00a8 RKLB $57 SUPPORT BROKEN \u00e2\u20ac\u201d Day low $56.93 at 12:25 PM CT 3/30/26. Price $57.05. $57 floor breached intraday. No position \u00e2\u20ac\u201d alert only. Next support ~$54-55. $60 reclaim still required for any re-entry consideration.",
+    "active": false,
+    "firedAt": "2026-03-30T17:25:00Z",
+    "firedPrice": 56.93,
+    "action": "ALERT FIRED \u00e2\u20ac\u201d no position. $57 support broken intraday. Watching $54-55 next."
+  },
+  {
+    "ticker": "SOUN",
+    "condition": "note",
+    "price": null,
+    "note": "EXITED 2026-03-25 at $6.36. COO Zagorsek sold 52,968 shares + Director Sroka sold + SVP Emami sold 31,019 on 3/20. Three insider sale events in one week at 52-week lows. Thesis broken. Not watching.",
+    "active": false,
+    "firedAt": "2026-03-25T14:10:00Z"
+  },
+  {
+    "ticker": "PLTR",
+    "condition": "below",
+    "price": 144,
+    "note": "PLTR HARD STOP TRIGGERED \u00e2\u20ac\u201d 3/27/26 open $142.10. Sold all 4 shares at $142.10. -$30.76 realized loss (-5.13%). Position closed.",
+    "active": false,
+    "firedAt": "2026-03-27T14:00:00Z",
+    "firedPrice": 142.1,
+    "action": "EXECUTED \u00e2\u20ac\u201d sold 4 shares at $142.10, realized -$30.76"
+  },
+  {
+    "ticker": "PLTR",
+    "condition": "above",
+    "price": 153,
+    "note": "PLTR zone exited to upside. Fired at $155.10. Do not chase.",
+    "active": false,
+    "firedAt": "2026-03-26T15:00:00Z",
+    "firedPrice": 155.1
+  },
+  {
+    "ticker": "PLTR",
+    "condition": "above",
+    "price": 160,
+    "note": "PLTR first target \u00e2\u20ac\u201d above 3/26 open high zone. At $160, consider trimming 1 share and reassessing. NOT relevant currently \u00e2\u20ac\u201d stopped out.",
+    "active": false
+  },
+  {
+    "ticker": "PLTR",
+    "condition": "below",
+    "price": 140,
+    "note": "\u00f0\u0178\u0161\u00a8 PLTR $140 ALERT FIRED \u00e2\u20ac\u201d 12:11 PM CT 3/30/26. Price $139.98, day low $139.92. $140 breached. Next support $135. No position \u00e2\u20ac\u201d watching only. $148 reclaim still required for re-entry.",
+    "active": false,
+    "firedAt": "2026-03-30T17:11:00Z",
+    "firedPrice": 139.98,
+    "action": "ALERT ONLY \u00e2\u20ac\u201d no position. $135 next support watch."
+  },
+  {
+    "ticker": "PLTR",
+    "condition": "above",
+    "price": 148,
+    "note": "PLTR RE-ENTRY TRIGGER \u00e2\u20ac\u201d Fired 2026-04-06 1:16 PM CT at $148.18. Trigger reclaimed, but no entry taken. Holding cash and waiting for follow-through above the zone instead of buying the first tag.",
+    "active": false,
+    "firedAt": "2026-04-06T18:16:00Z",
+    "firedPrice": 148.18,
+    "action": "ALERT FIRED \u00e2\u20ac\u201d no trade. PLTR reclaimed $148, watching for confirmation."
+  }
+]

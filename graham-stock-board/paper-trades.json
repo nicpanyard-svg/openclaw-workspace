@@ -1,0 +1,182 @@
+{
+  "portfolioName": "Long-Term Buys",
+  "portfolioSize": 10000,
+  "cash": 9987.81,
+  "deployed": 0,
+  "deployedPct": 0,
+  "portfolioValue": 9987.81,
+  "totalPnl": -12.19,
+  "totalPnlPct": -0.12,
+  "date": "2026-04-17",
+  "lastUpdated": "2026-04-17T16:00:00Z",
+  "note": "4/17/26 11:00 AM CT - All cash. No open positions, so no P&L changes or trade actions. Held cash. Alerts fired: none. Refreshed watch prices via Yahoo: IONQ 44.47, MELI 1865.39, PLTR 147.11, RKLB 84.43, RXRX 3.83, SERV 9.64, TEM 56.23. Zone validation skipped because index.html stocks array remains malformed/corrupted, so no safe board-zone edits were made.",
+  "positions": [],
+  "trades": [
+    {
+      "date": "2026-03-21",
+      "ticker": "IONQ",
+      "action": "BUY",
+      "shares": 10,
+      "price": 31.2,
+      "total": 312,
+      "note": "Starter position. Quantum computing, score 75."
+    },
+    {
+      "date": "2026-03-21",
+      "ticker": "RKLB",
+      "action": "BUY",
+      "shares": 4,
+      "price": 67.23,
+      "total": 268.92,
+      "note": "Starter position. Space infrastructure, score 70."
+    },
+    {
+      "date": "2026-03-21",
+      "ticker": "SOUN",
+      "action": "BUY",
+      "shares": 31,
+      "price": 6.55,
+      "total": 203.05,
+      "note": "Starter position. Voice AI, score 71."
+    },
+    {
+      "date": "2026-03-25",
+      "ticker": "SOUN",
+      "action": "SELL",
+      "shares": 31,
+      "price": 6.36,
+      "total": 197.16,
+      "note": "EXIT ? Escalating insider selling. NEW filings today: COO Zagorsek sold 52,968 shares + Director Diana Sroka sold. Combined with SVP Emami's 31,019 share sale on 3/20 = 3 insider events this week. Stock at 52-week low $6.36. Risk/reward gone. Realized loss: -$5.89 (-2.9%)."
+    },
+    {
+      "date": "2026-03-25",
+      "ticker": "RKLB",
+      "action": "SELL",
+      "shares": 4,
+      "price": 73.92,
+      "total": 295.68,
+      "note": "EXIT ? COO Klein's $71.95 alert level cleared. RKLB surged to $73.92 (+11.9% from yesterday close $66.07). Per plan: trim all at COO Klein sale level. Realized gain: +$25.88 (+9.59%). ATM dilution overhang + $1B offering risk = no reason to hold higher. Locked profit on trailer."
+    },
+    {
+      "date": "2026-03-25",
+      "ticker": "IONQ",
+      "action": "SELL",
+      "shares": 5,
+      "price": 32.21,
+      "total": 161.05,
+      "note": "PARTIAL TRIM ? Pulled 2PM CT trim trigger early. Stock at $32.21, just $0.04 above day low $32.17. Accelerating fade. Sold 5 of 10 shares. Realized gain: +$2.33 (+1.46%). Keeping 5-share runner with hard stop $31.00."
+    },
+    {
+      "date": "2026-03-26",
+      "ticker": "IONQ",
+      "action": "SELL",
+      "shares": 5,
+      "price": 31,
+      "total": 155,
+      "note": "STOP-LOSS TRIGGERED ? Hard stop $31.00 hit. Day low $30.93. Sold 5-share runner at $31.00. Realized loss on runner: -$3.725 (-2.35%). Net IONQ P&L: -$1.40 total."
+    },
+    {
+      "date": "2026-03-26",
+      "ticker": "PLTR",
+      "action": "BUY",
+      "shares": 3,
+      "price": 149.34,
+      "total": 448.02,
+      "note": "STARTER ? PLTR back inside $148-153 re-entry zone. 3-share starter, 4.5% of portfolio. Stop $144."
+    },
+    {
+      "date": "2026-03-26",
+      "ticker": "PLTR",
+      "action": "BUY",
+      "shares": 1,
+      "price": 151.155,
+      "total": 151.16,
+      "note": "ADD ? Fifth consecutive higher print triggers $151-152 confirmation. Now 4 shares avg $149.79. Stop $144."
+    },
+    {
+      "date": "2026-03-27",
+      "ticker": "PLTR",
+      "action": "SELL",
+      "shares": 4,
+      "price": 142.1,
+      "total": 568.4,
+      "note": "STOP-LOSS TRIGGERED ? PLTR opened $142.10, hard below $144 hard stop. Broad market gap-down. Sold all 4 shares. Realized loss: -$30.76 (-5.13%). Portfolio now 100% cash $9,987.81."
+    }
+  ],
+  "passed": [
+    {
+      "ticker": "RXRX",
+      "reason": "Score 69. Watching zone .75-3.50.. Quote 4/17/26 11:00 AM CT: 3.83"
+    },
+    {
+      "ticker": "SERV",
+      "reason": "Score 65. Watching zone .50-9.25.. Quote 4/17/26 11:00 AM CT: 9.64"
+    },
+    {
+      "ticker": "HIMS",
+      "reason": "Score 57, Cautious ? FDA GLP-1 binary risk, weakest setup in the group."
+    },
+    {
+      "ticker": "SOUN",
+      "reason": "EXITED 2026-03-25 ? COO + SVP + Director all sold in one week. Thesis broken by insider activity. Will not re-enter without major catalyst and insider buying reversal."
+    },
+    {
+      "ticker": "RKLB",
+      "reason": "EXITED 2026-03-25 at .92.. Quote 4/17/26 11:00 AM CT: 84.43"
+    },
+    {
+      "ticker": "IONQ",
+      "reason": "STOPPED OUT 2026-03-26 at .00.. Quote 4/17/26 11:00 AM CT: 44.47"
+    },
+    {
+      "ticker": "PLTR",
+      "reason": "STOPPED OUT 2026-03-27 at .10.. Quote 4/17/26 11:00 AM CT: 147.11"
+    }
+  ],
+  "watchlist": {
+    "IONQ": {
+      "price": 44.47,
+      "note": "4/17/26 11:00 AM CT - All cash. No open positions, so no P&L changes or trade actions. Held cash. Alerts fired: none. Refreshed watch prices via Yahoo: IONQ 44.47, MELI 1865.39, PLTR 147.11, RKLB 84.43, RXRX 3.83, SERV 9.64, TEM 56.23. Zone validation skipped because index.html stocks array remains malformed/corrupted, so no safe board-zone edits were made."
+    },
+    "PLTR": {
+      "price": 147.11,
+      "note": "4/17/26 11:00 AM CT - All cash. No open positions, so no P&L changes or trade actions. Held cash. Alerts fired: none. Refreshed watch prices via Yahoo: IONQ 44.47, MELI 1865.39, PLTR 147.11, RKLB 84.43, RXRX 3.83, SERV 9.64, TEM 56.23. Zone validation skipped because index.html stocks array remains malformed/corrupted, so no safe board-zone edits were made."
+    },
+    "RKLB": {
+      "price": 84.43,
+      "note": "4/17/26 11:00 AM CT - All cash. No open positions, so no P&L changes or trade actions. Held cash. Alerts fired: none. Refreshed watch prices via Yahoo: IONQ 44.47, MELI 1865.39, PLTR 147.11, RKLB 84.43, RXRX 3.83, SERV 9.64, TEM 56.23. Zone validation skipped because index.html stocks array remains malformed/corrupted, so no safe board-zone edits were made."
+    },
+    "RXRX": {
+      "price": 3.83,
+      "note": "4/17/26 11:00 AM CT - All cash. No open positions, so no P&L changes or trade actions. Held cash. Alerts fired: none. Refreshed watch prices via Yahoo: IONQ 44.47, MELI 1865.39, PLTR 147.11, RKLB 84.43, RXRX 3.83, SERV 9.64, TEM 56.23. Zone validation skipped because index.html stocks array remains malformed/corrupted, so no safe board-zone edits were made."
+    },
+    "SERV": {
+      "price": 9.64,
+      "note": "4/17/26 11:00 AM CT - All cash. No open positions, so no P&L changes or trade actions. Held cash. Alerts fired: none. Refreshed watch prices via Yahoo: IONQ 44.47, MELI 1865.39, PLTR 147.11, RKLB 84.43, RXRX 3.83, SERV 9.64, TEM 56.23. Zone validation skipped because index.html stocks array remains malformed/corrupted, so no safe board-zone edits were made."
+    },
+    "TEM": {
+      "price": 56.23,
+      "note": "4/17/26 11:00 AM CT - All cash. No open positions, so no P&L changes or trade actions. Held cash. Alerts fired: none. Refreshed watch prices via Yahoo: IONQ 44.47, MELI 1865.39, PLTR 147.11, RKLB 84.43, RXRX 3.83, SERV 9.64, TEM 56.23. Zone validation skipped because index.html stocks array remains malformed/corrupted, so no safe board-zone edits were made."
+    },
+    "MELI": {
+      "price": 1865.39,
+      "note": "4/17/26 11:00 AM CT - All cash. No open positions, so no P&L changes or trade actions. Held cash. Alerts fired: none. Refreshed watch prices via Yahoo: IONQ 44.47, MELI 1865.39, PLTR 147.11, RKLB 84.43, RXRX 3.83, SERV 9.64, TEM 56.23. Zone validation skipped because index.html stocks array remains malformed/corrupted, so no safe board-zone edits were made."
+    }
+  },
+  "strategy": {
+    "lastRevised": "2026-04-03",
+    "maxPositions": 6,
+    "targetPositionSize": {
+      "core": "10-12% ($1,000-$1,200) ? highest conviction names only",
+      "speculative": "5-7% ($500-$700) ? thesis still developing",
+      "watch": "0% ? tracked, not yet entered"
+    },
+    "cashReserve": "20-30% minimum ($2,000-$3,000) ? dry powder for pullbacks and new setups",
+    "targetDeployed": "70-80% when fully positioned",
+    "tradingFrequency": "Low ? 1 to 3 trades per week max. No churning.",
+    "stopPolicy": "Hard stops on every position. A 10% loss on a $1,000 position = $100 hit, ~1% of portfolio. Acceptable. A 30% loss without a stop is not.",
+    "entryDiscipline": "No chasing. Enter on pullbacks to support or confirmed breakouts with volume. Setup must be clear before entry.",
+    "currentAssessment": "4/17/26 11:00 AM CT - All cash. No open positions, so no P&L changes or trade actions. Held cash. Alerts fired: none. Refreshed watch prices via Yahoo: IONQ 44.47, MELI 1865.39, PLTR 147.11, RKLB 84.43, RXRX 3.83, SERV 9.64, TEM 56.23. Zone validation skipped because index.html stocks array remains malformed/corrupted, so no safe board-zone edits were made."
+  },
+  "grahamNote": "4/17/26 11:00 AM CT - All cash. No open positions, so no P&L changes or trade actions. Held cash. Alerts fired: none. Refreshed watch prices via Yahoo: IONQ 44.47, MELI 1865.39, PLTR 147.11, RKLB 84.43, RXRX 3.83, SERV 9.64, TEM 56.23. Zone validation skipped because index.html stocks array remains malformed/corrupted, so no safe board-zone edits were made."
+}

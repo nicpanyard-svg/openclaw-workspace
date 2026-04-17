@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Calendar — Mission Control</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #07101f; color: #eef4ff; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+.header { background: #0b1630; border-bottom: 1px solid #27365f; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+.header-left { display: flex; align-items: center; gap: 16px; }
+.back-link { color: #69d6ff; text-decoration: none; font-size: 13px; }
+.back-link:hover { text-decoration: underline; }
+.title { font-size: 18px; font-weight: 700; color: #eef4ff; }
+.week-nav { display: flex; align-items: center; gap: 10px; }
+.nav-btn { background: #0b1630; border: 1px solid #27365f; color: #eef4ff; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.nav-btn:hover { border-color: #69d6ff; color: #69d6ff; }
+.week-label { font-size: 14px; color: #94a7cf; min-width: 160px; text-align: center; }
+
+.legend { display: flex; gap: 16px; padding: 12px 24px; background: #0b1630; border-bottom: 1px solid #1a2440; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #94a7cf; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+.calendar-wrap { padding: 20px 24px; overflow-x: auto; }
+.calendar { display: grid; grid-template-columns: 60px repeat(7, 1fr); min-width: 800px; }
+
+.cal-header { display: contents; }
+.time-corner { background: transparent; }
+.day-header { background: #0f1a2e; border: 1px solid #1a2440; border-left: none; padding: 10px 8px; text-align: center; }
+.day-header:first-of-type { border-left: 1px solid #1a2440; }
+.day-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b; }
+.day-date { font-size: 15px; font-weight: 700; color: #eef4ff; margin-top: 2px; }
+.day-header.today .day-date { color: #69d6ff; }
+.day-header.today { border-top: 2px solid #69d6ff; }
+
+.cal-body { display: contents; }
+.time-slot { font-size: 10px; color: #475569; padding: 0 8px; height: 50px; display: flex; align-items: flex-start; padding-top: 4px; border-top: 1px solid #1a2440; }
+.day-cell { border: 1px solid #1a2440; border-left: none; border-top: none; height: 50px; position: relative; }
+.day-cell:first-of-type { border-left: 1px solid #1a2440; }
+.day-cell.hour-line { border-top: 1px solid #1e2d4a; }
+.day-cell.half-hour { border-top: 1px dashed #141e33; }
+
+.event { position: absolute; left: 2px; right: 2px; border-radius: 4px; padding: 2px 5px; font-size: 10px; font-weight: 600; overflow: hidden; cursor: pointer; z-index: 5; line-height: 1.3; white-space: nowrap; text-overflow: ellipsis; }
+.event:hover { opacity: 0.85; z-index: 10; white-space: normal; overflow: visible; }
+
+/* Tooltip */
+.tooltip { display: none; position: fixed; background: #0f1a2e; border: 1px solid #27365f; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #eef4ff; max-width: 220px; z-index: 100; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.6); }
+.tooltip.show { display: block; }
+.tooltip-title { font-weight: 700; margin-bottom: 4px; }
+.tooltip-agent { font-size: 11px; color: #94a7cf; margin-bottom: 4px; }
+.tooltip-desc { font-size: 11px; color: #64748b; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <a href="index.html" class="back-link">← Mission Control</a>
+    <div class="title">Agent Calendar</div>
+  </div>
+  <div class="week-nav">
+    <button class="nav-btn" onclick="changeWeek(-1)">◀ Prev</button>
+    <div class="week-label" id="weekLabel"></div>
+    <button class="nav-btn" onclick="changeWeek(1)">Next ▶</button>
+    <button class="nav-btn" onclick="goToday()">Today</button>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Susan (Planner)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>Jill (Builder)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Dr Phil (Reliability)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Mike (Sales)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div>Graham (Stocks)</div>
+</div>
+
+<div class="calendar-wrap">
+  <div class="calendar" id="calendar"></div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-title" id="tip-title"></div>
+  <div class="tooltip-agent" id="tip-agent"></div>
+  <div class="tooltip-desc" id="tip-desc"></div>
+</div>
+
+<script>
+const AGENTS = {
+  susan:  { name: 'Susan', color: '#3b82f6', bg: '#1e3a5f22' },
+  jill:   { name: 'Jill',  color: '#a78bfa', bg: '#4c1d9522' },
+  drphil: { name: 'Dr Phil', color: '#22c55e', bg: '#14532d22' },
+  mike:   { name: 'Mike',  color: '#f59e0b', bg: '#78350f22' },
+  graham: { name: 'Graham', color: '#fbbf24', bg: '#78350f22' }
+};
+
+// Events: day=0(Mon)-6(Sun), hour=0-23, duration in hours, title, agent, desc
+const RECURRING = [
+  // SUSAN
+  { day:0, hour:9, min:0, dur:1,   agent:'susan',  title:'Weekly priority review + agent sync', desc:'Sets focus and priorities for all agents for the week ahead.' },
+  { day:2, hour:14, min:0, dur:0.5, agent:'susan', title:'Mid-week check-in', desc:'Reviews progress, adjusts priorities, unblocks any stuck items.' },
+  { day:4, hour:16, min:0, dur:1,   agent:'susan', title:'End-of-week summary', desc:'Wraps the week, prepares next week plan, updates Mission Control status.' },
+
+  // JILL
+  { day:0, hour:10, min:0, dur:2, agent:'jill', title:'Build: Mission Control improvements', desc:'Active coding session on Mission Control dashboard and interactivity.' },
+  { day:1, hour:10, min:0, dur:2, agent:'jill', title:'Build: iNet World polish', desc:'Finishing touches on iNet World — assets, verticals, environment stages.' },
+  { day:2, hour:10, min:0, dur:2, agent:'jill', title:'Build: Graham board live prices', desc:'Wiring Yahoo Finance live price feed into the Graham Stock Board.' },
+  { day:3, hour:10, min:0, dur:2, agent:'jill', title:'Build: Graham board live prices', desc:'Continued work on live price feed integration and auto-refresh.' },
+  { day:4, hour:10, min:0, dur:1.5, agent:'jill', title:'Testing + cleanup', desc:'End-of-week testing pass, bug fixes, and code cleanup.' },
+
+  // DR PHIL
+  { day:0, hour:8, min:0, dur:0.5, agent:'drphil', title:'System health check', desc:'Daily OpenClaw health audit — gateway, watchdog, integrations.' },
+  { day:1, hour:8, min:0, dur:0.5, agent:'drphil', title:'System health check', desc:'Daily OpenClaw health audit — gateway, watchdog, integrations.' },
+  { day:2, hour:8, min:0, dur:0.5, agent:'drphil', title:'System health check', desc:'Daily OpenClaw health audit — gateway, watchdog, integrations.' },
+  { day:3, hour:8, min:0, dur:0.5, agent:'drphil', title:'System health check', desc:'Daily OpenClaw health audit — gateway, watchdog, integrations.' },
+  { day:4, hour:8, min:0, dur:0.5, agent:'drphil', title:'System health check', desc:'Daily OpenClaw health audit — gateway, watchdog, integrations.' },
+  { day:0, hour:15, min:0, dur:1, agent:'drphil', title:'Deep watchdog audit', desc:'Full reliability review — logs, error rates, recovery procedures.' },
+  { day:3, hour:15, min:0, dur:1, agent:'drphil', title:'Deep watchdog audit', desc:'Full reliability review — logs, error rates, recovery procedures.' },
+
+  // MIKE
+  { day:0, hour:9, min:0, dur:1, agent:'mike', title:'Target account review', desc:'Reviews SOLV Energy, Blattner, DEPCOM Power, Rosendin, Burns & McDonnell, Primoris.' },
+  { day:1, hour:11, min:0, dur:1.5, agent:'mike', title:'Lead research session', desc:'Browser + LinkedIn research on new leads and expansion opportunities.' },
+  { day:2, hour:14, min:0, dur:1, agent:'mike', title:'Offer mapping session', desc:'Maps Starlink, SecureLynk, HydraGauge, RAD SecFlow-1p to market verticals.' },
+  { day:3, hour:11, min:0, dur:1.5, agent:'mike', title:'Lead research session', desc:'Continued lead research — contact mapping, company intel, use case fit.' },
+  { day:4, hour:10, min:0, dur:1, agent:'mike', title:'Weekly pipeline summary', desc:'Prepares pipeline summary report for Nick — accounts, status, next steps.' },
+
+  // GRAHAM
+  { day:0, hour:7, min:0, dur:0.5, agent:'graham', title:'Pre-market scan + board update', desc:'Reviews overnight news, analyst actions, unusual moves. Updates board scores.' },
+  { day:1, hour:7, min:0, dur:0.5, agent:'graham', title:'Pre-market scan + board update', desc:'Reviews overnight news, analyst actions, unusual moves. Updates board scores.' },
+  { day:2, hour:7, min:0, dur:0.5, agent:'graham', title:'Pre-market scan + board update', desc:'Reviews overnight news, analyst actions, unusual moves. Updates board scores.' },
+  { day:3, hour:7, min:0, dur:0.5, agent:'graham', title:'Pre-market scan + board update', desc:'Reviews overnight news, analyst actions, unusual moves. Updates board scores.' },
+  { day:4, hour:7, min:0, dur:0.5, agent:'graham', title:'Pre-market scan + board update', desc:'Reviews overnight news, analyst actions, unusual moves. Updates board scores.' },
+  { day:0, hour:9, min:30, dur:1.5, agent:'graham', title:'Weekly board review + conviction scoring', desc:'Full review of all 36 stocks — promote, demote, or remove names. Adjust conviction scores.' },
+  { day:2, hour:13, min:0, dur:1, agent:'graham', title:'Mid-week data refresh', desc:'Refreshes prices, checks for analyst upgrades/downgrades, earnings alerts.' },
+  { day:4, hour:17, min:0, dur:1, agent:'graham', title:'Weekly email summary to Nick', desc:'Drafts and sends weekly Graham board summary to nick.panyard@inetlte.com.' },
+];
+
+const HOURS_START = 7;
+const HOURS_END = 19;
+const HOUR_HEIGHT = 50; // px per hour
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+let weekOffset = 0; // 0 = current week
+
+function getWeekStart(offset = 0) {
+  const now = new Date('2026-03-21'); // board base date
+  const day = now.getDay(); // 0=Sun
+  const diff = (day === 0 ? -6 : 1 - day); // Mon offset
+  const mon = new Date(now);
+  mon.setDate(now.getDate() + diff + offset * 7);
+  return mon;
+}
+
+function formatDate(d) {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function isToday(d) {
+  const now = new Date('2026-03-21');
+  return d.toDateString() === now.toDateString();
+}
+
+function changeWeek(dir) {
+  weekOffset += dir;
+  render();
+}
+
+function goToday() {
+  weekOffset = 0;
+  render();
+}
+
+function render() {
+  const cal = document.getElementById('calendar');
+  const weekStart = getWeekStart(weekOffset);
+
+  // Week label
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  document.getElementById('weekLabel').textContent = `${formatDate(weekStart)} – ${formatDate(weekEnd)}`;
+
+  cal.innerHTML = '';
+
+  // Header row
+  const corner = document.createElement('div');
+  corner.className = 'time-corner';
+  cal.appendChild(corner);
+
+  for (let d = 0; d < 7; d++) {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + d);
+    const cell = document.createElement('div');
+    cell.className = 'day-header' + (isToday(date) ? ' today' : '');
+    cell.innerHTML = `<div class="day-name">${DAYS[d]}</div><div class="day-date">${date.getDate()}</div>`;
+    cal.appendChild(cell);
+  }
+
+  // Time rows
+  const totalSlots = (HOURS_END - HOURS_START) * 2; // 30-min slots
+  for (let slot = 0; slot < totalSlots; slot++) {
+    const hour = HOURS_START + Math.floor(slot / 2);
+    const isHalf = slot % 2 === 1;
+
+    // Time label
+    const timeCell = document.createElement('div');
+    timeCell.className = 'time-slot';
+    if (!isHalf) {
+      const h = hour > 12 ? hour - 12 : hour;
+      const ampm = hour >= 12 ? 'pm' : 'am';
+      timeCell.textContent = `${h}${ampm}`;
+    }
+    cal.appendChild(timeCell);
+
+    // Day cells
+    for (let d = 0; d < 7; d++) {
+      const cell = document.createElement('div');
+      cell.className = 'day-cell' + (isHalf ? ' half-hour' : ' hour-line');
+      cal.appendChild(cell);
+    }
+  }
+
+  // Place events
+  RECURRING.forEach(ev => {
+    // Find the column for this day
+    // Column index in grid: 1 (time) + ev.day
+    const colStart = ev.day + 2; // grid-column (1-indexed, col 1 = time)
+    const rowStart = (ev.hour - HOURS_START) * 2 + (ev.min >= 30 ? 1 : 0) + 2; // +2 for header row
+
+    // Find the actual cell to append event into
+    // We'll use absolute positioning relative to the calendar grid
+    // Instead, find the day column cells and overlay
+    // Simpler: use a separate overlay div approach
+
+    const agent = AGENTS[ev.agent];
+    const topPx = ((ev.hour - HOURS_START) + ev.min / 60) * HOUR_HEIGHT;
+    const heightPx = ev.dur * HOUR_HEIGHT - 2;
+
+    // Find the day column wrapper div — we'll inject into body cells
+    // Use a positioned parent per day column
+    // Simplest: add overlay container per day column
+    const dayColIndex = ev.day;
+
+    // Get all day-cell elements for this day column
+    // Grid columns: col 1=time, col 2=Mon, ... col 8=Sun
+    // We'll just inject directly into a positioned overlay per column
+    // Mark column containers on first render
+    const colContainer = document.getElementById(`col-${dayColIndex}`);
+    if (colContainer) {
+      const evDiv = createEventEl(ev, agent, heightPx, topPx);
+      colContainer.appendChild(evDiv);
+    }
+  });
+
+  // Build column overlays
+  buildColumnOverlays(weekStart);
+}
+
+function buildColumnOverlays(weekStart) {
+  const cal = document.getElementById('calendar');
+
+  // Remove old overlays
+  cal.querySelectorAll('.col-overlay').forEach(e => e.remove());
+
+  // Create overlay wrapper for each day column
+  // These sit on top of the grid using CSS grid placement
+  for (let d = 0; d < 7; d++) {
+    const overlay = document.createElement('div');
+    overlay.id = `col-${d}`;
+    overlay.className = 'col-overlay';
+    overlay.style.cssText = `
+      grid-column: ${d + 2};
+      grid-row: 2 / ${2 + (HOURS_END - HOURS_START) * 2};
+      position: relative;
+      pointer-events: none;
+    `;
+    cal.appendChild(overlay);
+
+    // Place events for this day
+    RECURRING.filter(ev => ev.day === d).forEach(ev => {
+      const agent = AGENTS[ev.agent];
+      const topPx = ((ev.hour - HOURS_START) + ev.min / 60) * HOUR_HEIGHT;
+      const heightPx = Math.max(ev.dur * HOUR_HEIGHT - 3, 18);
+      const evDiv = createEventEl(ev, agent, heightPx, topPx);
+      overlay.appendChild(evDiv);
+    });
+  }
+}
+
+function createEventEl(ev, agent, heightPx, topPx) {
+  const el = document.createElement('div');
+  el.className = 'event';
+  el.style.cssText = `
+    top: ${topPx}px;
+    height: ${heightPx}px;
+    background: ${agent.color}33;
+    border-left: 3px solid ${agent.color};
+    color: ${agent.color};
+    pointer-events: all;
+  `;
+  el.textContent = `${agent.name}: ${ev.title}`;
+  el.addEventListener('mouseenter', (e) => showTip(e, ev, agent));
+  el.addEventListener('mousemove', (e) => moveTip(e));
+  el.addEventListener('mouseleave', hideTip);
+  return el;
+}
+
+function showTip(e, ev, agent) {
+  const tip = document.getElementById('tooltip');
+  document.getElementById('tip-title').textContent = ev.title;
+  document.getElementById('tip-agent').textContent = `${agent.name} · ${formatTime(ev.hour, ev.min)} – ${formatTime(ev.hour + Math.floor(ev.dur), ev.min + (ev.dur % 1) * 60)}`;
+  document.getElementById('tip-desc').textContent = ev.desc;
+  tip.classList.add('show');
+  moveTip(e);
+}
+
+function moveTip(e) {
+  const tip = document.getElementById('tooltip');
+  tip.style.left = (e.clientX + 14) + 'px';
+  tip.style.top = (e.clientY - 10) + 'px';
+}
+
+function hideTip() {
+  document.getElementById('tooltip').classList.remove('show');
+}
+
+function formatTime(h, m) {
+  const hh = Math.floor(h) % 24;
+  const mm = Math.round(m % 60);
+  const ampm = hh >= 12 ? 'pm' : 'am';
+  const h12 = hh > 12 ? hh - 12 : (hh === 0 ? 12 : hh);
+  return `${h12}:${mm.toString().padStart(2,'0')}${ampm}`;
+}
+
+render();
+</script>
+</body>
+</html>

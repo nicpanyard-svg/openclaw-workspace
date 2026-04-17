@@ -1,0 +1,55 @@
+{
+  "portfolioSize": 100000,
+  "cash": 92049.93,
+  "deployed": 7949.07,
+  "deployedPct": 7.95,
+  "date": "2026-03-21",
+  "lastUpdated": "2026-03-21",
+  "positions": [
+    {
+      "ticker": "IONQ",
+      "action": "BUY",
+      "entryDate": "2026-03-21",
+      "entryPrice": 31.20,
+      "shares": 96,
+      "cost": 2995.20,
+      "allocationPct": 3,
+      "reasoning": "Highest score of the group at 75 with a clear bullish thesis in quantum computing — a sector with genuine long-term tailwinds. Price is near the middle of the starter zone, giving us room to add lower if the tape stays weak."
+    },
+    {
+      "ticker": "SOUN",
+      "action": "BUY",
+      "entryDate": "2026-03-21",
+      "entryPrice": 6.55,
+      "shares": 305,
+      "cost": 1997.75,
+      "allocationPct": 2,
+      "reasoning": "Score of 71 and bullish on voice AI, a real near-term commercial theme. Small 2% starter keeps risk tight — this is a higher-volatility name that can move hard in both directions in a bear tape."
+    },
+    {
+      "ticker": "RKLB",
+      "action": "BUY",
+      "entryDate": "2026-03-21",
+      "entryPrice": 67.23,
+      "shares": 44,
+      "cost": 2958.12,
+      "allocationPct": 3,
+      "reasoning": "Score 70, bullish, and RKLB has real revenue and launch cadence behind it — not pure speculation. Near the top of the starter zone so sizing stays conservative at 3%, with intent to add on any flush toward $60."
+    }
+  ],
+  "passed": [
+    {
+      "ticker": "RXRX",
+      "reason": "Score of 69 with a Cautious tag is a yellow flag in this environment. AI drug discovery is a long-duration thesis and this stock has shown it can cut in half fast — passing until the tape stabilizes or a cleaner entry appears."
+    },
+    {
+      "ticker": "SERV",
+      "reason": "Lowest score of the bullish names at 65 and delivery robotics is still early-stage with real execution risk. In a bear tape I want higher conviction before opening; watching for a pullback toward $7 to reassess."
+    },
+    {
+      "ticker": "HIMS",
+      "reason": "Score 57 and Cautious — weakest setup in the group. Price is right at the top of the starter zone at $22.02, meaning there's no cushion. Digital health faces regulatory and competitive headwinds; not worth the risk here."
+    }
+  ],
+  "grahamNote": "Opening three starter positions for a combined 8% deployment — deliberately light given VIX near 27 and a clear bear tape. IONQ, RKLB, and SOUN represent the three highest-conviction names with real sector catalysts. The remaining 92% stays in cash, ready to average down on these three or open new positions if the market finds a floor. Measure twice, cut once — no sense rushing it."
+}

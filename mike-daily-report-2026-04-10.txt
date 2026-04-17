@@ -1,0 +1,56 @@
+Mike Daily Report — 2026-04-10
+
+Hi Nick,
+
+Quick end-of-day scan below. I do not see any new April 10 prospect activity files in mission-control-app/data, so this report reflects the latest logged pipeline data on hand (last update: 2026-03-23 ZoomInfo merge).
+
+Prospects researched today
+- No new prospect research was logged in today's source files.
+- Latest research set on hand is the 2026-03-23 ZoomInfo merge plus the base 2026-03-21 target list.
+- Arizona Public Service (APS) | Electric Power / Utility | Arizona's largest electric utility — 58 locations, $4.6B revenue, 6000 employees. Massive transmission/distribution footprint in remote desert terrain. Perfect for Starlink + cellular IoT for remote substations and generation sites.
+- Brazos Electric Cooperative | Electric Power / Utility | Texas electric cooperative — 21 locations, generation and transmission across rural Texas. Co-ops are great iNet buyers: distributed infrastructure, rural/remote sites, smaller procurement cycles.
+- U.S. Venture | Energy Distribution | Energy distribution company — fuel, lubricants, renewable energy. 144 locations. Distributed fleet and fuel terminal operations need connectivity and IoT monitoring.
+- Idaho Power | Electric Power / Utility | Idaho/Oregon electric utility — 37 locations, hydroelectric dams and transmission across remote mountain terrain. Excellent Starlink + cellular IoT use case for remote substations and dam monitoring.
+- Unitil | Electric Power / Utility | New England electric and gas utility — 14 locations. CTO/VP is the ideal buyer. Mid-size utility with modern IT leadership = faster procurement.
+- Chesapeake Utilities | Electric Power / Utility | Mid-Atlantic gas and electric utility — 15 locations, propane distribution, pipeline operations. VP & CIO is the perfect buyer. Mid-size = accessible procurement.
+- Cobb EMC | Electric Power / Utility | Large Georgia electric cooperative — 8 locations, 200k+ members. Co-ops are great iNet buyers. VP IT has direct purchasing authority.
+- Kinder Morgan | Oil & Gas (Midstream) | Largest midstream operator in North America — 83,000 miles of pipelines, 209 locations. VP IT is the decision-maker for SCADA connectivity, remote monitoring at compressor stations, terminals, and pipeline ROW. This is iNet's bread and butter.
+
+Any outreach sent
+- None logged in the available prospect files.
+- inmailsSent array is still empty, so no LinkedIn outreach is recorded yet.
+
+Replies or responses received
+- None logged in the available prospect files.
+
+Prospects added to the pipeline
+- 17 contacts were added from the 2026-03-23 ZoomInfo export and marked qualified for active follow-up (8 records were skipped, and 1 was marked marginal).
+- Active qualified pipeline on hand now totals 25 prospects across the current files.
+- Water/Wastewater: 3
+- Oil & Gas (Midstream): 4
+- Manufacturing: 2
+- Retail (Distributed Networks): 2
+- Hospital / Healthcare: 1
+- Electric Power / Solar: 1
+- Electric Power / Utility: 9
+- Energy Distribution: 1
+- Oil & Gas (Integrated): 1
+- Electric Power / Generation: 1
+- Standout adds from the ZoomInfo merge: Kinder Morgan, APS, Idaho Power, Unitil, Chesapeake Utilities, Cobb EMC, Brazos Electric Cooperative, U.S. Venture, Atlantic Power, NV Energy.
+
+What's queued for tomorrow
+- Refresh LinkedIn session cookies (li_at + JSESSIONID) — current cookies are expired
+- Open Sales Navigator and search each prospect using the 'salesNavSearchString' field
+- Find the named decision-maker and update name + linkedinUrl fields in this JSON
+- Review the InMail template for their vertical — personalize [Name] and any bracketed fields
+- Send InMails Monday 8am-5pm Central only
+- Log each sent InMail in the 'inmailsSent' array below
+- Import contacts into Salesforce using salesforceFields block
+
+Blockers / things you should know
+- LinkedIn session cookies are expired, so Sales Navigator name lookup and InMail work are blocked until refreshed.
+- No Salesforce credentials are present in this environment; records are ready for import but not pushed.
+- The latest source data is stale relative to today. No newer ZoomInfo/prospect export file was found after 2026-03-23.
+- Nine Energy Service is marked marginal, and Chord/Devon/EOG are upstream E&P, so I would keep focus on utilities, co-ops, retail, manufacturing, healthcare, renewables, and true midstream.
+
+— Mike

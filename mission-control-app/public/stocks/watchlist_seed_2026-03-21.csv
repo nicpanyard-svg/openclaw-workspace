@@ -1,0 +1,31 @@
+platform,section,order,ticker,label,notes
+Google Finance,Graham Equities,1,ASTS,AST SpaceMobile,Tier 1 Active
+Google Finance,Graham Equities,2,RKLB,Rocket Lab,Tier 1 Active
+Google Finance,Graham Equities,3,TEM,Tempus AI,Tier 1 Active
+Google Finance,Graham Equities,4,HIMS,Hims & Hers,Tier 1 Active
+Google Finance,Graham Equities,5,SYM,Symbotic,Tier 1 Active
+Google Finance,Graham Equities,6,IONQ,IonQ,Tier 2 Bench
+Google Finance,Graham Equities,7,FLNC,Fluence Energy,Tier 2 Bench
+Google Finance,Graham Equities,8,SOUN,SoundHound AI,Tier 2 Bench
+Google Finance,Graham Equities,9,RXRX,Recursion Pharmaceuticals,Tier 3 Event Watch
+Google Finance,Graham Equities,10,SERV,Serve Robotics,Tier 3 Event Watch
+Google Finance,Graham Commodities,1,GC=F,Gold,Macro commodities
+Google Finance,Graham Commodities,2,SI=F,Silver,Macro commodities
+Google Finance,Graham Commodities,3,CL=F,WTI Crude Oil,Macro commodities
+Google Finance,Graham Commodities,4,NG=F,Natural Gas,Macro commodities
+Google Finance,Graham Commodities,5,HG=F,Copper,Macro commodities
+TradingView,Commodities / Macro,1,GC1!,Gold front-month,Macro first
+TradingView,Commodities / Macro,2,SI1!,Silver front-month,Macro first
+TradingView,Commodities / Macro,3,CL1!,WTI Crude front-month,Macro first
+TradingView,Commodities / Macro,4,NG1!,Natural Gas front-month,Macro first
+TradingView,Commodities / Macro,5,HG1!,Copper front-month,Macro first
+TradingView,Tier 1 Active,1,ASTS,AST SpaceMobile,Highest attention
+TradingView,Tier 1 Active,2,RKLB,Rocket Lab,Highest attention
+TradingView,Tier 1 Active,3,TEM,Tempus AI,Highest attention
+TradingView,Tier 1 Active,4,HIMS,Hims & Hers,Highest attention
+TradingView,Tier 1 Active,5,SYM,Symbotic,Highest attention
+TradingView,Tier 2 Bench,1,IONQ,IonQ,Needs more proof
+TradingView,Tier 2 Bench,2,FLNC,Fluence Energy,Needs more proof
+TradingView,Tier 2 Bench,3,SOUN,SoundHound AI,Needs more proof
+TradingView,Tier 3 Event Watch,1,RXRX,Recursion Pharmaceuticals,Catalyst-driven only
+TradingView,Tier 3 Event Watch,2,SERV,Serve Robotics,Catalyst-driven only

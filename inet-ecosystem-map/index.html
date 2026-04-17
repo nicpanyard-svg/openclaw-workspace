@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iNet Ecosystem Map</title>
+  <style>
+    :root{
+      --bg:#08101f;--panel:#0f1a2b;--line:#203652;--text:#eef4ff;--muted:#9fb2cc;--accent:#62d0ff;
+    }
+    *{box-sizing:border-box} body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#08101f,#0e1730);color:var(--text)}
+    .app{display:grid;grid-template-columns:300px 1fr;min-height:100vh}
+    .side{background:rgba(15,26,43,.95);border-right:1px solid var(--line);padding:20px}
+    .main{padding:20px}
+    h1{margin:0 0 8px 0;font-size:28px} h2{margin:0 0 10px 0;font-size:18px} p{color:var(--muted)}
+    .zone-btn{display:block;width:100%;text-align:left;margin:8px 0;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#13233a;color:var(--text);cursor:pointer}
+    .zone-btn:hover,.zone-btn.active{border-color:var(--accent);background:#16304f}
+    .panel{background:rgba(15,26,43,.92);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px}
+    .map-wrap{background:#f3f6fb;border-radius:18px;padding:16px;overflow:hidden}
+    .toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+    .toolbar button{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#173153;color:white;cursor:pointer}
+    svg{width:100%;height:auto;transition:transform .35s ease;transform-origin:center center}
+    .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tag{background:#dff1ff;color:#145a96;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700}
+    .callout{font-size:13px;line-height:1.5;color:var(--muted)} .big{font-size:20px;font-weight:700;margin-bottom:6px}
+    @media(max-width:960px){.app{grid-template-columns:1fr}.side{border-right:0;border-bottom:1px solid var(--line)}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <h1>iNet World</h1>
+    <p>Interactive ecosystem map prototype</p>
+    <div class="panel">
+      <h2>Zones</h2>
+      <button class="zone-btn active" data-zone="overview">Overview</button>
+      <button class="zone-btn" data-zone="flood">Flood / Environmental</button>
+      <button class="zone-btn" data-zone="water">Water / Wastewater</button>
+      <button class="zone-btn" data-zone="upstream">Upstream Drilling</button>
+      <button class="zone-btn" data-zone="midstream">Midstream</button>
+      <button class="zone-btn" data-zone="solar">Solar / Utilities</button>
+      <button class="zone-btn" data-zone="retail">Retail</button>
+      <button class="zone-btn" data-zone="maritime">Maritime</button>
+      <button class="zone-btn" data-zone="manufacturing">Manufacturing</button>
+      <button class="zone-btn" data-zone="hospital">Hospitals</button>
+    </div>
+    <div class="panel">
+      <h2>Selected View</h2>
+      <div id="zoneTitle" class="big">Overview</div>
+      <div id="zoneDesc" class="callout">See the full ecosystem first, then click into each market zone.</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="toolbar">
+      <button onclick="setZone('overview')">Reset View</button>
+    </div>
+    <div class="map-wrap">
+      <svg id="ecosystem" viewBox="0 0 1600 1000" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="1600" height="1000" fill="#f6f9fd"/>
+        <g id="mapRoot">
+          <g id="overviewFrame">
+            <rect x="50" y="40" width="1500" height="900" rx="24" fill="#ffffff" stroke="#d6e1ef" stroke-width="3"/>
+          </g>
+          <g id="flood"><rect x="120" y="120" width="360" height="240" rx="26" fill="#dff1ff" stroke="#8fc3f3" stroke-width="4"/><text x="150" y="170" font-size="28" font-weight="700" fill="#17324f">Flood / Environmental</text><text x="150" y="205" font-size="16" fill="#4d6280">River • bridge • gauges • cameras • alerts</text></g>
+          <g id="water"><rect x="560" y="120" width="360" height="240" rx="26" fill="#dff8eb" stroke="#96d6b5" stroke-width="4"/><text x="590" y="170" font-size="28" font-weight="700" fill="#17324f">Water / Wastewater</text><text x="590" y="205" font-size="16" fill="#4d6280">Plants • tanks • lift stations • telemetry</text></g>
+          <g id="solar"><rect x="1000" y="120" width="420" height="240" rx="26" fill="#fff4da" stroke="#e7cb7d" stroke-width="4"/><text x="1030" y="170" font-size="28" font-weight="700" fill="#17324f">Solar / Utilities</text><text x="1030" y="205" font-size="16" fill="#4d6280">Solar fields • substations • remote comms</text></g>
+          <g id="upstream"><rect x="120" y="430" width="360" height="220" rx="26" fill="#f1e8ff" stroke="#baa1ef" stroke-width="4"/><text x="150" y="480" font-size="28" font-weight="700" fill="#17324f">Upstream Drilling</text><text x="150" y="515" font-size="16" fill="#4d6280">Drill pads • rigs • field operations</text></g>
+          <g id="midstream"><rect x="560" y="430" width="360" height="220" rx="26" fill="#ffe5e5" stroke="#efaaaa" stroke-width="4"/><text x="590" y="480" font-size="28" font-weight="700" fill="#17324f">Midstream</text><text x="590" y="515" font-size="16" fill="#4d6280">Pipelines • pump/compressor stations</text></g>
+          <g id="retail"><rect x="1000" y="430" width="420" height="220" rx="26" fill="#e7eefb" stroke="#a9bbdf" stroke-width="4"/><text x="1030" y="480" font-size="28" font-weight="700" fill="#17324f">Retail</text><text x="1030" y="515" font-size="16" fill="#4d6280">Distributed stores • backup WAN</text></g>
+          <g id="maritime"><rect x="120" y="720" width="420" height="150" rx="26" fill="#dbf6ff" stroke="#89cee2" stroke-width="4"/><text x="150" y="775" font-size="28" font-weight="700" fill="#17324f">Maritime</text><text x="150" y="808" font-size="16" fill="#4d6280">Ports • vessels • remote monitoring</text></g>
+          <g id="manufacturing"><rect x="610" y="720" width="420" height="150" rx="26" fill="#e8ffe8" stroke="#9bc89b" stroke-width="4"/><text x="640" y="775" font-size="28" font-weight="700" fill="#17324f">Manufacturing</text><text x="640" y="808" font-size="16" fill="#4d6280">Plants • OT networks • uptime</text></g>
+          <g id="hospital"><rect x="1100" y="720" width="320" height="150" rx="26" fill="#fff0f0" stroke="#dfb2b2" stroke-width="4"/><text x="1130" y="775" font-size="28" font-weight="700" fill="#17324f">Hospitals</text><text x="1130" y="808" font-size="16" fill="#4d6280">Critical comms • alerting • backup</text></g>
+          <path d="M500 250 C 540 250, 550 250, 560 250" stroke="#62d0ff" stroke-width="8" fill="none" stroke-dasharray="12 10"/>
+          <path d="M930 250 C 970 250, 980 250, 1000 250" stroke="#62d0ff" stroke-width="8" fill="none" stroke-dasharray="12 10"/>
+          <path d="M500 530 C 540 530, 550 530, 560 530" stroke="#62d0ff" stroke-width="8" fill="none" stroke-dasharray="12 10"/>
+          <path d="M930 530 C 970 530, 980 530, 1000 530" stroke="#62d0ff" stroke-width="8" fill="none" stroke-dasharray="12 10"/>
+          <path d="M330 665 C 330 690, 330 710, 330 720" stroke="#62d0ff" stroke-width="8" fill="none" stroke-dasharray="12 10"/>
+          <path d="M820 665 C 820 690, 820 710, 820 720" stroke="#62d0ff" stroke-width="8" fill="none" stroke-dasharray="12 10"/>
+          <path d="M1260 665 C 1260 690, 1260 710, 1260 720" stroke="#62d0ff" stroke-width="8" fill="none" stroke-dasharray="12 10"/>
+          <text x="620" y="395" font-size="24" font-weight="700" fill="#3d5a7d">Shared iNet communications + monitoring ecosystem</text>
+        </g>
+      </svg>
+      <div class="legend">
+        <div class="tag">Click a zone to zoom</div>
+        <div class="tag">Large-format ecosystem concept</div>
+        <div class="tag">iNet branding only in final art</div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+const zones={
+ overview:{title:'Overview',desc:'Full iNet ecosystem map across all major markets.',transform:'translate(0px,0px) scale(1)'},
+ flood:{title:'Flood / Environmental',desc:'River authorities, counties, flood warning, environmental monitoring, telemetry, alerts, cameras.',transform:'translate(250px,170px) scale(1.9)'},
+ water:{title:'Water / Wastewater',desc:'Drinking water, wastewater, lift stations, treatment plants, remote telemetry and control.',transform:'translate(-170px,170px) scale(1.9)'},
+ solar:{title:'Solar / Utilities',desc:'Solar fields, substations, utilities, remote comms, monitoring, secure transport.',transform:'translate(-560px,170px) scale(1.7)'},
+ upstream:{title:'Upstream Drilling',desc:'Drill pads, rigs, remote field communications, crew and asset visibility.',transform:'translate(250px,-170px) scale(1.95)'},
+ midstream:{title:'Midstream',desc:'Pipelines, compressor/pump stations, OT transport, secure remote monitoring.',transform:'translate(-170px,-170px) scale(1.95)'},
+ retail:{title:'Retail',desc:'Distributed store connectivity, network failover, managed WAN.',transform:'translate(-560px,-170px) scale(1.8)'},
+ maritime:{title:'Maritime',desc:'Ports, vessels, remote assets, resilient comms and monitoring.',transform:'translate(280px,-520px) scale(2.1)'},
+ manufacturing:{title:'Manufacturing',desc:'Plant floor connectivity, industrial uptime, secure OT networking.',transform:'translate(-160px,-520px) scale(2.1)'},
+ hospital:{title:'Hospitals',desc:'Critical facility connectivity, alerting, operational resilience.',transform:'translate(-560px,-520px) scale(2.2)'}
+};
+function setZone(name){
+  const z=zones[name];
+  document.getElementById('mapRoot').style.transform=z.transform;
+  document.getElementById('zoneTitle').textContent=z.title;
+  document.getElementById('zoneDesc').textContent=z.desc;
+  document.querySelectorAll('.zone-btn').forEach(b=>b.classList.toggle('active',b.dataset.zone===name));
+}
+window.setZone=setZone;
+document.querySelectorAll('.zone-btn').forEach(btn=>btn.onclick=()=>setZone(btn.dataset.zone));
+document.querySelectorAll('svg g[id]').forEach(g=>{ if(zones[g.id]) g.style.cursor='pointer', g.onclick=()=>setZone(g.id);});
+</script>
+</body>
+</html>

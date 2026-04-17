@@ -1,0 +1,104 @@
+{
+  "account": "Graham Day Trading — Paper Account",
+  "created": "2026-03-23",
+  "portfolioSize": 5000,
+  "cash": 4794.47,
+  "deployed": 485.66,
+  "positions": [
+    {
+      "ticker": "KOD",
+      "company": "Kodiak Sciences Inc.",
+      "type": "LONG",
+      "entryDate": "2026-03-26",
+      "entryTime": "9:43 AM CT",
+      "entryPrice": 34.69,
+      "shares": 14,
+      "positionSize": 485.66,
+      "positionPct": "9.7%",
+      "stopLoss": 34.69,
+      "stopLossPct": "0% (breakeven)",
+      "target1": 38.50,
+      "target2": 42.00,
+      "status": "OPEN",
+      "catalyst": "+71.9% today on 13.2x average volume. Phase 3 GLOW2 POSITIVE results for Zenkuda (tarcocimab tedromer) in diabetic retinopathy — 62.5% vs 3.3% sham, 85% risk reduction in sight-threatening complications. BLA submission being accelerated. Real FDA catalyst, real company, $2.4B market cap.",
+      "trailingStop": true,
+      "currentPrice": 40.37,
+      "currentPnl": 79.52,
+      "currentPnlPct": 16.39,
+      "lastChecked": "2026-03-27T17:17:00Z",
+      "notes": "12:17 PM CT 3/27/26 — KOD $40.37 (+1.53% today). Day range $39.07–$45.60. Pulled back hard from morning high — now $40.37, gave back ~$3.84/share. Still +$79.52 unrealized (+16.39% on remaining 14 shares). Stop at breakeven $34.69 — protected but bleeding gains. ⚠️ Tighten trailing stop to $38.50–$39.00 to protect $50–$63. ~1h40m to EOD rule (3:45 PM CDT). If no bounce in next 2 checks, sell into close."
+    }
+  ],
+  "trades": [
+    {
+      "date": "2026-03-26",
+      "time": "9:43 AM CT",
+      "ticker": "BIAF",
+      "company": "bioAffinity Technologies Inc.",
+      "action": "SELL",
+      "shares": 106,
+      "entryPrice": 4.60,
+      "exitPrice": 4.13,
+      "pnl": -49.82,
+      "pnlPct": -10.22,
+      "note": "STOP HIT — price $4.13 breached stop $4.46. Full exit. Position held 3 days. Catalyst momentum faded."
+    },
+    {
+      "date": "2026-03-26",
+      "time": "9:43 AM CT",
+      "ticker": "SATL",
+      "company": "Satellogic Inc.",
+      "action": "SELL (partial)",
+      "shares": 103,
+      "entryPrice": 4.85,
+      "exitPrice": 6.08,
+      "pnl": 126.69,
+      "pnlPct": 25.36,
+      "note": "TARGET 1 HIT — price $6.08 exceeded T1 at $5.50. Sold half (103 shares). Stop on remaining 103 shares moved to breakeven ($4.85). Let profits run toward T2 at $6.20."
+    },
+    {
+      "date": "2026-03-26",
+      "time": "10:47 AM CT",
+      "ticker": "SATL",
+      "company": "Satellogic Inc.",
+      "action": "SELL (full exit)",
+      "shares": 103,
+      "entryPrice": 4.85,
+      "exitPrice": 6.22,
+      "pnl": 141.11,
+      "pnlPct": 28.25,
+      "note": "TARGET 2 HIT — price $6.22 exceeded T2 at $6.20. Full exit on remaining 103 shares. Clean trade from start to finish. Total SATL position PnL: +$267.80 across both legs."
+    },
+    {
+      "date": "2026-03-26",
+      "time": "12:15 PM CT",
+      "ticker": "KOD",
+      "company": "Kodiak Sciences Inc.",
+      "action": "SELL (partial — T1 hit)",
+      "shares": 14,
+      "entryPrice": 34.69,
+      "exitPrice": 39.115,
+      "pnl": 61.95,
+      "pnlPct": 12.75,
+      "note": "TARGET 1 HIT — price $39.115 exceeded T1 at $38.50. KOD pressing toward 52-week high ($39.198). Sold 14 shares (half). Remaining 14 shares on free ride with breakeven stop ($34.69). T2 at $42.00 still active. Volume 9.58M (13.2x avg)."
+    }
+  ],
+  "rules": {
+    "maxLossPerTrade": "3%",
+    "maxPositionSize": "20%",
+    "style": "momentum/catalyst",
+    "maxOpenPositions": 4,
+    "eodRule": "Must close or set hard stop by 3:45 PM CDT each day",
+    "pyramidingAllowed": false,
+    "leverageAllowed": false
+  },
+  "grahamNote": "GRAHAM'S DAY TRADING STRATEGY — March 23, 2026\n\n--- PHILOSOPHY ---\nThis account runs completely different from the long-term book. Here I'm not investing in a business — I'm renting a stock for hours or days based on momentum, volume, and catalysts. The edge is in the setup quality, not the fundamentals.\n\nI scan the top gainers/losers every morning before 9:30 AM and again at open. The criteria are simple:\n  1. Is there a REAL catalyst? (Earnings beat, FDA approval, contract win, partnership — not just a press release about nothing)\n  2. Is volume abnormally high? (At least 3-5x average, ideally 10x+)\n  3. Is the price range tradeable? (I prefer $1-$50 — wide enough to move, liquid enough to exit)\n  4. Does the market cap make sense? (Under $100M = easy to move but dangerous; over $500M = harder to pump but cleaner trades)\n\n--- RISK MANAGEMENT RULES ---\n• Max 3% loss per position before I'm out. No exceptions.\n• Max 20% of $5,000 per trade ($1,000 hard ceiling)\n• Never hold a day trade overnight without a hard stop in place\n• If I'm down 6% on the account in a day, I stop trading either\n• Profits from day trades stay in the day account — not transferred to long-term book without Nick's say-so\n\n--- EDGE CHECKLIST (run before every trade) ---\n[ ] Real catalyst confirmed?\n[ ] Volume 3x+ average?\n[ ] Entry within 5% of intraday low (not chasing)\n[ ] Stop defined before entry\n[ ] Position size ≤ 20%?\n\nIf any box is unchecked, I pass. Discipline is the whole game at this timeframe.",
+  "lastUpdated": "2026-03-27T14:22:00Z",
+  "sessionPnL": {
+    "date": "2026-03-27",
+    "realizedPnL": 279.93,
+    "unrealizedPnL": 79.52,
+    "totalPnL": 359.45,
+    "totalAccountValue": 5359.45
+  }
+}

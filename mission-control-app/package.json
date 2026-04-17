@@ -1,0 +1,35 @@
+{
+  "name": "mission-control-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "mike:morning": "node ./scripts/mike-morning-flow.js",
+    "mike:morning:dry": "node ./scripts/mike-morning-flow.js --dry-run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@azure/msal-node": "^5.1.1",
+    "@types/d3": "^7.4.3",
+    "d3": "^7.9.0",
+    "framer-motion": "^12.38.0",
+    "next": "16.2.1",
+    "nodemailer": "^8.0.4",
+    "openai": "^6.32.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

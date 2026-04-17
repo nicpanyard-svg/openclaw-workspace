@@ -1,0 +1,75 @@
+# Dependencies
+node_modules/
+
+# Logs and runtime output
+logs/
+*.log
+out/
+
+# Temp and scratch
+tmp/
+tmp-*
+tmp_*
+temp-*
+*.tmp
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local OpenClaw/runtime state
+.openclaw/
+.clawhub/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Secrets / auth / local credentials
+**/*cookies*.json
+**/*cookie*.json
+**/*token*.json
+**/*secret*.json
+**/*secrets*.json
+**/*auth*.json
+**/*ms-graph*.json
+config/ms-graph.json
+mission-control-app/data/vapi-config.json
+mission-control-app/data/linkedin_cookies.json
+mission-control-app/data/zoominfo_cookies.json
+
+# Exclude local/private working data for first push
+config/
+data/
+memory/
+monitoring/
+mission-control-app/data/
+
+# Personal/runtime/generated data
+quote-tool-app/tsconfig.tsbuildinfo
+status.json
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Build/cache artifacts
+.next/
+dist/
+build/
+coverage/
+
+# Local screenshots and disposable exports
+*-screenshot.png
+linkedin-loggedin.png
+linkedin-test-screenshot.png
+
+# Embedded repos
+OpenOutreach/
+inet-world/
+
+# Misc generated files
+*.tsbuildinfo

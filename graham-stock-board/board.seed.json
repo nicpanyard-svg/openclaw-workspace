@@ -1,0 +1,530 @@
+{
+  "boardName": "Graham Stock Board",
+  "owner": "Graham",
+  "version": 2,
+  "purpose": "Standalone growth-stock board for emerging public companies with large upside potential. Expanded mandate: full market scan, daily additions, 40-50 name target.",
+  "lastScan": "2026-03-23",
+  "summaryTiles": {
+    "topPickToday": "APP",
+    "bestSetupNotYetBought": "MELI",
+    "mostAtRisk": "SOUN",
+    "boardChangesSinceYesterday": 6,
+    "newAdds": ["APP", "PLTR", "MELI", "AXON", "CRWD", "NU"]
+  },
+  "columns": [
+    "Pipeline",
+    "Watch / Setup",
+    "Starter Buy",
+    "Add on Proof",
+    "Trim / Exit"
+  ],
+  "scoring": {
+    "name": "Graham Score",
+    "max": 100,
+    "weights": {
+      "revenue_growth": 25,
+      "earnings_beats": 20,
+      "analyst_consensus_upside": 20,
+      "insider_activity": 15,
+      "theme_strength": 10,
+      "technical_setup": 10
+    }
+  },
+  "macroRules": {
+    "description": "Graham's macro overlay — applied at every 5-min cron check-in. Factor these conditions into all trading decisions.",
+    "rules": [
+      {
+        "condition": "SPY down 1%+ on the day",
+        "action": "Increase caution. No new full-size entries. Prefer watching over acting. Tighten any loose stops."
+      },
+      {
+        "condition": "VIX above 25",
+        "action": "Reduce risk. No adds. Trim any extended positions. Hold cash. Fear is elevated — wait for stabilization."
+      },
+      {
+        "condition": "VIX above 35",
+        "action": "Defensive posture. Only hold highest-conviction names. Cash is a position."
+      },
+      {
+        "condition": "10Y yield rising sharply (>10bps in a day)",
+        "action": "Growth stocks reprice lower. Reduce high-multiple names (PLTR, AXON). Prefer value / cash-flow names."
+      },
+      {
+        "condition": "DXY above 106",
+        "action": "EM and LatAm exposure (MELI, NU) under pressure from currency headwinds. Reduce size."
+      },
+      {
+        "condition": "HYG falling while SPY flat/up",
+        "action": "Credit stress signal — divergence is a warning. Reduce risk, especially in speculative names."
+      },
+      {
+        "condition": "TLT rallying while SPY selling off",
+        "action": "Flight to safety. Defensive mode. Bonds confirming equity fear — stay cautious."
+      }
+    ]
+  },
+  "markets": [
+    {
+      "ticker": "SPY",
+      "name": "S&P 500 ETF (SPDR)",
+      "index": "S&P 500",
+      "category": "Index",
+      "whyItMatters": "The benchmark for U.S. equities. Sets the tone for every sector, every day. When SPY moves, everything moves. It's the tide.",
+      "signalWatched": "Trend direction (above/below 50-day and 200-day MA). Key level: 200-day MA. Down 1%+ on the day triggers caution mode. Down 2%+ triggers defensive posture.",
+      "cronRule": "Check at every 5-min interval. If SPY -1%+ intraday: increase caution. If SPY -2%+: defensive."
+    },
+    {
+      "ticker": "QQQ",
+      "name": "Nasdaq 100 ETF (Invesco)",
+      "index": "Nasdaq 100",
+      "category": "Index",
+      "whyItMatters": "Represents the top 100 non-financial Nasdaq stocks — the heart of tech and growth investing. If QQQ is weak, growth stocks are weak.",
+      "signalWatched": "QQQ vs SPY relative strength. When QQQ underperforms, risk appetite is fading. Key: 50-day MA as support/resistance.",
+      "cronRule": "Track vs SPY spread. Underperformance of QQQ signals tech rotation or growth-to-value shift."
+    },
+    {
+      "ticker": "DIA",
+      "name": "Dow Jones Industrial Average ETF (SPDR)",
+      "index": "DJIA",
+      "category": "Index",
+      "whyItMatters": "30 blue-chip industrials. DIA strength without QQQ = rotation to value. Useful for spotting market leadership shifts.",
+      "signalWatched": "DIA vs QQQ spread. When DIA leads, rotation is value/defensive. When QQQ leads, growth is in favor."
+    },
+    {
+      "ticker": "IWM",
+      "name": "Russell 2000 ETF (iShares)",
+      "index": "Russell 2000",
+      "category": "Index",
+      "whyItMatters": "Small-cap gauge. IWM is the 'risk appetite' canary. When small-caps lead, it signals confidence and economic expansion. When they lag, risk appetite is shrinking.",
+      "signalWatched": "IWM vs SPY relative strength. IWM leading = bullish risk-on. IWM lagging = defensive or large-cap flight to safety."
+    },
+    {
+      "ticker": "VIX",
+      "name": "CBOE Volatility Index",
+      "index": "VIX",
+      "category": "Macro",
+      "whyItMatters": "The fear gauge. Measures implied volatility of S&P 500 options. When VIX is elevated, markets are pricing fear. When low, complacency. Both extremes matter.",
+      "signalWatched": "Above 20 = elevated. Above 25 = reduce risk. Above 35 = fear spike, potential capitulation. Below 15 = complacency, watch for reversal.",
+      "cronRule": "Check at every 5-min interval. VIX >25: reduce risk, no new adds. VIX >35: defensive posture only."
+    },
+    {
+      "ticker": "XLE",
+      "name": "Energy Select Sector SPDR ETF",
+      "category": "Sector",
+      "sector": "Energy",
+      "whyItMatters": "Tracks U.S. energy stocks (XOM, CVX, EOG, etc.). Energy sector performance reflects oil/gas demand, geopolitical risk, and inflation regime.",
+      "signalWatched": "XLE trend vs crude oil. Divergence matters. Rising XLE during equity weakness = inflation regime or geopolitical premium. iNet sells to oil & gas midstream — relevant for Nick's customers."
+    },
+    {
+      "ticker": "XLU",
+      "name": "Utilities Select Sector SPDR ETF",
+      "category": "Sector",
+      "sector": "Utilities",
+      "whyItMatters": "Defensive sector. When money flows into XLU, investors are de-risking. Also benefits from AI power demand narrative (data centers need electricity).",
+      "signalWatched": "XLU relative strength during selloffs = defensive rotation signal. XLU rally in bull market = AI power demand or rate-cut play."
+    },
+    {
+      "ticker": "XLK",
+      "name": "Technology Select Sector SPDR ETF",
+      "category": "Sector",
+      "sector": "Technology",
+      "whyItMatters": "The biggest sector in S&P 500. MSFT, AAPL, NVDA dominate. XLK direction = tech sentiment = growth stock environment.",
+      "signalWatched": "Above 50-day MA = healthy tech. XLK weakness = headwind for every growth name on the board. Track vs QQQ to see mega-cap vs broader tech."
+    },
+    {
+      "ticker": "XLF",
+      "name": "Financial Select Sector SPDR ETF",
+      "category": "Sector",
+      "sector": "Financials",
+      "whyItMatters": "Banks, insurance, brokerages. XLF strength typically follows yield curve steepening and economic confidence. XLF weakness during stress = credit concern signal.",
+      "signalWatched": "XLF vs 10Y yield. Banks benefit from steepening curve. Sudden XLF drop = potential credit or banking stress (red flag for whole market)."
+    },
+    {
+      "ticker": "XLV",
+      "name": "Health Care Select Sector SPDR ETF",
+      "category": "Sector",
+      "sector": "Health Care",
+      "whyItMatters": "Defensive sector with growth pockets (biotech, MedTech). Relevant for TEM and biotech holdings. Outperforms in risk-off regimes.",
+      "signalWatched": "XLV leading = defensive rotation. Biotech sub-sector within XLV: watch for breakout patterns that can signal individual stock entry (TEM)."
+    },
+    {
+      "ticker": "XLI",
+      "name": "Industrial Select Sector SPDR ETF",
+      "category": "Sector",
+      "sector": "Industrials",
+      "whyItMatters": "Defense, aerospace, transportation, machinery. Tracks economic cycle. Strong XLI = expansion confidence. Defense-heavy, which matters with Iran/geopolitical tail.",
+      "signalWatched": "XLI trend for economic cycle read. Strength during geopolitical risk = defense spending expectations (tailwind for AXON, PLTR, CRWD)."
+    },
+    {
+      "ticker": "XLB",
+      "name": "Materials Select Sector SPDR ETF",
+      "category": "Sector",
+      "sector": "Materials",
+      "whyItMatters": "Chemicals, metals, mining. Inflation-sensitive and global demand indicator. LatAm commodities exposure is relevant for MELI/NU thesis.",
+      "signalWatched": "XLB strength = commodity/inflation cycle underway. Watch vs DXY — strong dollar hurts materials."
+    },
+    {
+      "ticker": "XLRE",
+      "name": "Real Estate Select Sector SPDR ETF",
+      "category": "Sector",
+      "sector": "Real Estate",
+      "whyItMatters": "Rate-sensitive sector. XLRE inversely correlated with 10Y Treasury yield. Useful as a rate-expectations gauge.",
+      "signalWatched": "XLRE rallying when yields fall = rate-cut trade live. XLRE selling = rates staying higher for longer (bad for growth multiples)."
+    },
+    {
+      "ticker": "XLY",
+      "name": "Consumer Discretionary Select Sector SPDR ETF",
+      "category": "Sector",
+      "sector": "Consumer Discretionary",
+      "whyItMatters": "Amazon, Tesla, Home Depot. Consumer confidence and spending health barometer. When XLY leads, consumer is strong and risk appetite is healthy.",
+      "signalWatched": "XLY vs XLP spread (discretionary vs staples) = consumer risk appetite. XLY > XLP = healthy consumer, bullish backdrop."
+    },
+    {
+      "ticker": "XLP",
+      "name": "Consumer Staples Select Sector SPDR ETF",
+      "category": "Sector",
+      "sector": "Consumer Staples",
+      "whyItMatters": "Defensive haven. Procter & Gamble, Costco, Coca-Cola. When staples outperform, the market is rotating defensive — risk-off signal.",
+      "signalWatched": "XLP outperforming XLY = defensive rotation underway. Increase caution on growth names."
+    },
+    {
+      "ticker": "XLC",
+      "name": "Communication Services Select Sector SPDR ETF",
+      "category": "Sector",
+      "sector": "Communication Services",
+      "whyItMatters": "Meta, Alphabet, Netflix, Disney. Blend of growth (Meta/Google ad tech) and entertainment. APP competes directly in the ad-tech space.",
+      "signalWatched": "XLC direction reflects ad-tech and digital media health. Directly relevant to APP thesis — XLC weakness is a headwind for AppLovin."
+    },
+    {
+      "ticker": "TLT",
+      "name": "iShares 20+ Year Treasury Bond ETF",
+      "category": "Bond",
+      "whyItMatters": "Proxy for long-duration Treasury bonds and 10Y+ interest rate expectations. When TLT falls, long rates rise — headwind for high-multiple growth stocks. When TLT rallies, rate relief supports growth.",
+      "signalWatched": "TLT trending up = rates falling = growth stocks get multiple expansion support. TLT breakdown = rising rates = headwind for PLTR, AXON, APP valuations.",
+      "cronRule": "TLT -1%+ on the day = rate spike, be cautious on high-multiple names."
+    },
+    {
+      "ticker": "HYG",
+      "name": "iShares iBoxx High Yield Corporate Bond ETF",
+      "category": "Bond",
+      "whyItMatters": "High-yield (junk) corporate bonds. HYG is a real-time credit stress indicator. When HYG drops while equities hold, it's a warning sign — credit markets are pricing pain before stocks do.",
+      "signalWatched": "HYG diverging down from SPY = credit stress signal, often precedes equity selling. HYG holding up = credit is fine, market backdrop healthy.",
+      "cronRule": "HYG -0.5%+ while SPY flat/up = credit stress divergence alert. Reduce speculative exposure."
+    },
+    {
+      "ticker": "DXY",
+      "name": "U.S. Dollar Index",
+      "category": "Macro",
+      "whyItMatters": "Dollar strength/weakness affects everything. Strong DXY: headwind for commodities, EM stocks (MELI, NU), and multinationals. Weak DXY: tailwind for commodities, LatAm, and international growth.",
+      "signalWatched": "DXY above 106 = EM headwind, reduce MELI/NU. DXY below 100 = EM tailwind, add LatAm. Direction matters more than level.",
+      "cronRule": "DXY >106: flag EM risk on MELI, NU. DXY <100: flag LatAm opportunity."
+    },
+    {
+      "ticker": "GLD",
+      "name": "SPDR Gold Shares ETF",
+      "category": "Commodity",
+      "whyItMatters": "Gold is the ultimate fear/inflation hedge. GLD rallying = macro uncertainty, inflation fears, or dollar weakness. GLD + VIX both rising = maximum risk-off.",
+      "signalWatched": "GLD trend direction. Strong GLD + rising VIX = defensive mode. GLD breakout to new highs = inflation or geopolitical stress trade live."
+    },
+    {
+      "ticker": "SLV",
+      "name": "iShares Silver Trust ETF",
+      "category": "Commodity",
+      "whyItMatters": "Silver has both safe-haven and industrial demand (solar, EVs, electronics). Amplifies gold moves. Useful for confirming metals trend.",
+      "signalWatched": "GLD/SLV ratio: when silver outperforms gold, it signals industrial demand and risk-on within metals. Confirms or denies gold signal."
+    },
+    {
+      "ticker": "USO",
+      "name": "United States Oil Fund ETF",
+      "category": "Commodity",
+      "whyItMatters": "Crude oil proxy. Oil drives inflation expectations, energy sector performance, and midstream business conditions — all relevant to iNet's customer base.",
+      "signalWatched": "Oil above $90 = energy stocks outperform, inflation expectations rise, Fed stays hawkish. Oil below $65 = deflationary signal, energy sector headwinds. Midstream pipeline business: oil volume matters even when price is volatile."
+    },
+    {
+      "ticker": "CPER",
+      "name": "United States Copper Index Fund",
+      "category": "Commodity",
+      "whyItMatters": "Copper is the economic doctor. 'Dr. Copper' leads global growth expectations. Rising copper = strong global demand, especially China. Relevant for LatAm exposure (MELI's Brazil) and materials cycle.",
+      "signalWatched": "Copper rising = global growth confidence. Copper falling = demand contraction fears. Watch for confirming or diverging signal with XLB and IWM."
+    },
+    {
+      "ticker": "UNG",
+      "name": "United States Natural Gas Fund ETF",
+      "category": "Commodity",
+      "whyItMatters": "Natural gas prices affect midstream pipeline and compression companies — directly relevant to iNet's O&G customers. High NG = more pipeline throughput demand.",
+      "signalWatched": "UNG spike = midstream customers may accelerate capex. UNG collapse = midstream demand destruction risk."
+    },
+    {
+      "ticker": "BITI",
+      "name": "ProShares Short Bitcoin ETF (BTC proxy via inverse)",
+      "category": "Macro",
+      "whyItMatters": "Bitcoin and crypto assets are a real-time risk appetite gauge. When BTC is up big, risk appetite is high globally. When BTC collapses, speculative risk unwind can bleed into growth equities.",
+      "signalWatched": "BTC >$100K = extreme risk-on, growth environment. BTC breakdown -20%+ = speculative unwind, potential growth stock headwind. Track via IBIT (Bitcoin ETF) or BTC price."
+    },
+    {
+      "ticker": "IBIT",
+      "name": "iShares Bitcoin Trust ETF",
+      "category": "Macro",
+      "whyItMatters": "Liquid Bitcoin ETF — tracks crypto risk appetite. Crypto performance leads or confirms speculative growth sentiment. NU (Nubank) and MELI both have crypto exposure in their platforms.",
+      "signalWatched": "IBIT trend: up = risk-on, confirms growth environment. Down 15%+ from recent high = risk-off signal for speculative names."
+    },
+    {
+      "ticker": "SOXX",
+      "name": "iShares Semiconductor ETF",
+      "category": "Sector",
+      "sector": "Semiconductors",
+      "whyItMatters": "Semiconductors lead the tech cycle. NVDA, AMD, AVGO, QCOM. When SOXX is strong, AI infrastructure build-out is confirmed. Weakness here often precedes broader tech weakness.",
+      "signalWatched": "SOXX above 200-day MA = AI infrastructure cycle intact. SOXX breakdown = AI capex story under question. Directly relevant to all AI-theme names: APP, PLTR."
+    },
+    {
+      "ticker": "IBB",
+      "name": "iShares Biotechnology ETF",
+      "category": "Sector",
+      "sector": "Biotechnology",
+      "whyItMatters": "Biotech sector health. Relevant for TEM thesis. IBB breakouts often lead individual biotech/health-AI names.",
+      "signalWatched": "IBB trending up = risk appetite in biotech, TEM setup improves. IBB in downtrend = stay cautious on health-AI names."
+    },
+    {
+      "ticker": "ARKK",
+      "name": "ARK Innovation ETF",
+      "category": "Macro",
+      "whyItMatters": "Cathie Wood's ARKK is a barometer for high-multiple, disruptive growth sentiment. When ARKK is leading, speculative growth is in favor. When ARKK is breaking down, it signals de-rating risk for all high-multiple names on the board.",
+      "signalWatched": "ARKK trending up = growth multiple expansion environment (good for PLTR, AXON, APP). ARKK weak = compression risk for all high-multiple names."
+    },
+    {
+      "ticker": "TNX",
+      "name": "10-Year Treasury Yield (^TNX)",
+      "category": "Macro",
+      "whyItMatters": "The most important number in finance. The 10Y yield is the discount rate for all future cash flows. Rising 10Y = growth stocks reprice lower. Falling 10Y = multiple expansion tailwind.",
+      "signalWatched": "10Y above 4.5%: meaningful headwind for high-multiple growth. 10Y falling below 4%: significant tailwind for PLTR, AXON, APP, MELI. Watch daily direction as much as level.",
+      "cronRule": "10Y rising >10bps in a single session: reduce high-multiple exposure. 10Y falling sharply: consider adding growth."
+    },
+    {
+      "ticker": "IEF",
+      "name": "iShares 7-10 Year Treasury Bond ETF",
+      "category": "Bond",
+      "whyItMatters": "Intermediate duration Treasuries. Complement to TLT — less volatile, better signal for medium-term rate expectations. Useful when TLT is distorted by 30Y dynamics.",
+      "signalWatched": "IEF trend direction as secondary confirmation of TLT signal. IEF + TLT both falling = broad rate rise, caution on growth."
+    },
+    {
+      "ticker": "EEM",
+      "name": "iShares MSCI Emerging Markets ETF",
+      "category": "Index",
+      "whyItMatters": "Emerging markets benchmark. Includes Brazil, Mexico, China, India. When EEM is strong, EM currencies are healthy and global risk appetite is up — tailwind for MELI, NU.",
+      "signalWatched": "EEM strength = EM tailwind for MELI, NU. EEM weakness + strong DXY = dollar squeeze, reduce EM exposure."
+    },
+    {
+      "ticker": "EWZ",
+      "name": "iShares MSCI Brazil ETF",
+      "category": "Index",
+      "whyItMatters": "Brazil-specific ETF. MELI and NU both have massive Brazil exposure. EWZ performance directly reflects Brazilian market conditions — currency, commodities, politics.",
+      "signalWatched": "EWZ up = BRL strong, Brazil market healthy = MELI/NU tailwind. EWZ breaking down = increase caution on all LatAm exposure."
+    }
+  ],
+  "cards": [
+    {
+      "ticker": "ASTS",
+      "company": "AST SpaceMobile",
+      "theme": "Space & Satellites",
+      "stage": "Watch / Setup",
+      "status": "Bullish",
+      "conviction": 3,
+      "grahamScore": 73,
+      "starterBuy": "Only on pullbacks or after clean execution confirmation; starter size only.",
+      "addZone": "Add only if deployment + carrier progress continue to improve.",
+      "trimZone": "Trim into sharp momentum spikes if price outruns milestone progress.",
+      "thesisBreak": "Meaningful execution delays, weak carrier validation, or financing pressure that changes the risk/reward.",
+      "upside": "Could become a category-defining communications platform if deployment scales.",
+      "downside": "High drawdown risk if capital needs or technical delays rise.",
+      "summary": "Massive TAM with asymmetric upside if direct-to-device works at commercial scale.",
+      "commentary": "Carrier partnerships and satellite deployment milestones are the key catalysts to watch.",
+      "catalysts": ["satellite deployment", "carrier partnerships", "funding updates"],
+      "riskTags": ["Speculative", "Capital Intensity", "Execution Risk"],
+      "lastUpdated": "2026-03-21"
+    },
+    {
+      "ticker": "RKLB",
+      "company": "Rocket Lab",
+      "theme": "Space & Satellites",
+      "stage": "Starter Buy",
+      "status": "Bullish",
+      "conviction": 4,
+      "grahamScore": 78,
+      "starterBuy": "Starter acceptable when trend and execution remain intact.",
+      "addZone": "Add on proof from Neutron progress and continued backlog quality.",
+      "trimZone": "Trim partials into euphoric moves disconnected from program milestones.",
+      "thesisBreak": "Major execution setbacks, repeated delays, or deterioration in space-systems demand.",
+      "upside": "Can rerate from launch company to broader space infrastructure platform.",
+      "downside": "Setbacks can create deep multiple compression.",
+      "summary": "Cleaner emerging space name with several ways to win.",
+      "commentary": "Neutron progress and launch cadence are the dials to watch.",
+      "catalysts": ["Neutron updates", "launch cadence", "space systems bookings"],
+      "riskTags": ["High Beta", "Execution Risk"],
+      "lastUpdated": "2026-03-21"
+    },
+    {
+      "ticker": "TEM",
+      "company": "Tempus AI",
+      "theme": "Biotech & Health",
+      "stage": "Pipeline",
+      "status": "Neutral",
+      "conviction": 2,
+      "grahamScore": 67,
+      "starterBuy": "Wait for more public-company proof and better-understood setup.",
+      "addZone": "Add only after stronger operating leverage or cleaner adoption proof.",
+      "trimZone": "Trim if sentiment rerates far ahead of execution.",
+      "thesisBreak": "Weak adoption proof or inability to show durable economics.",
+      "upside": "Could become a core intelligence layer in precision medicine.",
+      "downside": "Young public name with credibility and execution risk.",
+      "summary": "Combines AI narrative with regulated healthcare workflows.",
+      "commentary": "Watching for clinical adoption proof and earnings quality improvement.",
+      "catalysts": ["earnings quality", "clinical adoption", "partnerships"],
+      "riskTags": ["Speculative", "Execution Risk", "Regulatory Risk"],
+      "lastUpdated": "2026-03-21"
+    },
+    {
+      "ticker": "APP",
+      "company": "AppLovin Corporation",
+      "theme": "AI & Data",
+      "stage": "Starter Buy",
+      "status": "Bullish",
+      "conviction": 4,
+      "grahamScore": 83,
+      "price": 461.26,
+      "analystTarget": 703.71,
+      "analystConsensus": "Strong Buy",
+      "analystCount": 17,
+      "starterBuy": "Starter acceptable here at $450-470 range — 37% off peak with multiple analyst upgrades. Risk/reward is favorable post-correction.",
+      "addZone": "Add on continued commercial momentum from AXON AI expansion and proof that e-commerce vertical is taking hold.",
+      "trimZone": "Trim into momentum spikes above $650+, especially if valuation disconnects from near-term growth.",
+      "thesisBreak": "Material loss of market share in mobile ads, Meta/Google competitive wins, or AXON AI accuracy concerns.",
+      "upside": "If e-commerce vertical inflects as expected, can rerate significantly higher. Analysts see $700+ base case.",
+      "downside": "Sentiment-driven stock — can move 30%+ in either direction quickly. Short-seller risk.",
+      "summary": "AI-driven mobile ad platform with 70% revenue growth FY2025 and 100%+ EPS expansion. AXON AI engine creates durable moat. E-commerce is the next frontier.",
+      "commentary": "Added 2026-03-23. Post-correction setup — stock off 37% from peak at $734. Strong Buy consensus with 52% upside to avg target. Q4 2025: revenue $1.66B (+21% QoQ), adj EPS $3.24. FY2025 revenue $5.48B (+70%). Multiple upgrades: Needham, Jefferies, Citigroup, UBS all reiterated Strong Buy at dip. Forward PE of ~29x on $15+ EPS estimate is attractive for this growth rate.",
+      "catalysts": ["e-commerce vertical launch", "Q1 2026 earnings", "AXON AI expansion", "international market entry"],
+      "riskTags": ["High Beta", "Short Seller Risk", "Competition from Meta/Google"],
+      "lastUpdated": "2026-03-23"
+    },
+    {
+      "ticker": "PLTR",
+      "company": "Palantir Technologies",
+      "theme": "AI & Data",
+      "stage": "Starter Buy",
+      "status": "Bullish",
+      "conviction": 4,
+      "grahamScore": 77,
+      "price": 152.00,
+      "analystTarget": 196.32,
+      "analystConsensus": "Moderate Buy",
+      "analystCount": 28,
+      "starterBuy": "Starter acceptable at $135–155. Stock correcting from $207 high on broader tech sell-off — no company-specific issue. Current ~$152 is in the zone.",
+      "addZone": "Add at $165–180 on Q1 2026 earnings beat and continued AIP commercial acceleration (>100% YoY).",
+      "trimZone": "Trim partials at $200–215+ approaching 52-week high at $207. Take profits into parabolic strength.",
+      "thesisBreak": "Below $120 sustained, AIP commercial growth stalls below 80% YoY, or major government contract loss.",
+      "upside": "Wedbush $230, Truist $223, UBS $200 — bull case $230–260 (+50–70%) on 61% revenue guide and AIP inflection.",
+      "downside": "Premium valuation at >80x forward earnings — any miss creates outsized downside. High beta stock that can drop 25%+ on macro fear.",
+      "summary": "AI platform crushing growth: Q4 2025 revenue +70% YoY, U.S. commercial +137% YoY, 2026 guide +61%. Rule of 40 hit 127%. AIP enterprise inflection is real and accelerating.",
+      "commentary": "Updated 2026-03-24. Old $82–95 zones completely stale — never revisited. PLTR rallied $66 → $207 through 2025, now correcting to ~$152 on broad tech sell-off (no company-specific issue). Q4 2025: Revenue $1.407B (+70% YoY), U.S. Commercial $507M (+137% YoY), record TCV $4.262B (+138%), 954 customers (+34%). Rule of 40 = 127% — elite tier globally. 2026 guidance: $7.19B (+61%) obliterated $6.3B consensus; U.S. commercial >$3.14B (+115%). Analysts: 28 analysts, avg target $196, Wedbush $230 (outperform), UBS $200 (raised Mar 18), Truist $223. Support: $147–150 (recent), $128 (Feb low). Resistance: $163–167, then $207 (52-week high). Starter zone is $135–155 — current price qualifies. Next catalyst: Q1 2026 earnings May 4.",
+      "catalysts": ["Q1 2026 earnings May 4", "U.S. commercial acceleration >115% YoY", "AIP enterprise adoption", "Defense/government contract expansion"],
+      "riskTags": ["Premium Valuation", "High Beta", "Government Contract Dependency"],
+      "lastUpdated": "2026-03-24"
+    },
+    {
+      "ticker": "MELI",
+      "company": "MercadoLibre",
+      "theme": "Fintech & Crypto",
+      "stage": "Watch / Setup",
+      "status": "Bullish",
+      "conviction": 4,
+      "grahamScore": 76,
+      "price": 1675.97,
+      "analystTarget": 2733.13,
+      "analystConsensus": "Strong Buy",
+      "analystCount": 16,
+      "starterBuy": "Starter appropriate on any 5-10% pullback. $1,600-1,650 zone is attractive. JP Morgan downgrade to Hold is a potential buying opportunity.",
+      "addZone": "Add on continued LatAm market expansion, Mercado Pago credit growth, and USD strength reversal.",
+      "trimZone": "Trim above $2,400-2,500 if LatAm macro deteriorates or currency headwinds intensify.",
+      "thesisBreak": "Sustained LatAm recession, major Brazilian regulatory action, or Amazon LatAm competitive displacement.",
+      "upside": "Analysts see $2,733 avg target (+63%). If LatAm fintech matures like U.S., massive re-rate potential.",
+      "downside": "EM currency risk (BRL, MXN). Macro sensitivity. Recent JP Morgan downgrade signals near-term risk.",
+      "summary": "The Amazon + PayPal of Latin America. $28.9B revenue in 2025 (+39%). 131M customers on Mercado Pago. Compound growth story with 35%+ expected 2026 growth.",
+      "commentary": "Added 2026-03-23. Latin American stocks leading in 2026 due to commodity surge and shifting trade alliances. MELI: 16 analysts at Strong Buy, avg target $2,733. JP Morgan downgrade to Hold ($2,100) on March 12 is a potential entry catalyst — the divergence from Street consensus creates opportunity. FY2025 earnings growth slowed (4.5%) due to credit provisioning, but revenue up 39%. Nubank stadium deal signals brand ascent. Strong Buy with patience.",
+      "catalysts": ["LatAm trade shift beneficiary", "Mercado Credito credit expansion", "Mexico market growth", "US market entry prep"],
+      "riskTags": ["EM Currency Risk", "Macro Sensitivity", "JP Morgan Downgrade"],
+      "lastUpdated": "2026-03-23"
+    },
+    {
+      "ticker": "AXON",
+      "company": "Axon Enterprise",
+      "theme": "Defense & Security",
+      "stage": "Watch / Setup",
+      "status": "Bullish",
+      "conviction": 4,
+      "grahamScore": 76,
+      "price": 379.95,
+      "analystTarget": 767.85,
+      "analystConsensus": "Strong Buy",
+      "analystCount": 14,
+      "starterBuy": "Starter acceptable at $360-395. Reset 4/14/26 after price broke well below the old $490-520 zone. Let the stock prove support before adding size.",
+      "addZone": "Add on continued ARR growth, Draft One (AI report writing) adoption, and international government wins.",
+      "trimZone": "Trim above $750 if price gets ahead of FY2027 earnings run-rate.",
+      "thesisBreak": "Police budget cuts, major TASER recall, AI writing product failure, or loss of government contract momentum.",
+      "upside": "Strong Buy with $767 avg target (+50%). Baron Opportunity Fund initiated position. $1,000 target from most bullish analyst.",
+      "downside": "Pulled back hard in early 2026 (-29%). Tariff concerns on hardware. Stock can reprice on macro.",
+      "summary": "Dominant public safety platform: TASER + body cameras + cloud evidence + AI Draft One. 33% revenue growth FY2025. Recurring revenue model with strong net retention. Q4 beat drove 16% after-hours pop.",
+      "commentary": "Added 2026-03-23. Q4 2025 earnings beat ended the panic. Revenue $2.78B (+33% FY2025). Strong Buy consensus from 13 of 14 analysts. Iran/geopolitical tensions are a tailwind — domestic security spending increases. Baron Opportunity Fund initiated Q4 2025. Draft One (AI report writing) is the sleeper product — reduces paperwork 80%, officers love it. This is a wide-moat compounder at a 17% discount to recent highs. UBS is the lone Hold.",
+      "catalysts": ["Draft One AI adoption", "international expansion", "Federal contracts", "Q1 2026 earnings"],
+      "riskTags": ["Hardware Tariff Risk", "Police Budget Sensitivity", "High Valuation"],
+      "lastUpdated": "2026-03-23"
+    },
+    {
+      "ticker": "CRWD",
+      "company": "CrowdStrike Holdings",
+      "theme": "Defense & Security",
+      "stage": "Watch / Setup",
+      "status": "Bullish",
+      "conviction": 3,
+      "grahamScore": 69,
+      "price": 416.37,
+      "analystTarget": 507.20,
+      "analystConsensus": "Buy",
+      "analystCount": 44,
+      "starterBuy": "Starter appropriate at $400-420. Morgan Stanley upgraded March 10. ARR reacceleration confirms post-incident recovery is real.",
+      "addZone": "Add when Falcon Flex ARR crosses $2B and net new ARR sustains 40%+ growth.",
+      "trimZone": "Trim above $550-575 if valuation disconnects from ARR trajectory.",
+      "thesisBreak": "Another major outage, sustained customer churn from July 2024 incident, or consolidation loss to Microsoft/Palo Alto.",
+      "upside": "44 analysts, $507 avg target (+22%). Iran war drives urgency for enterprise cybersecurity. ARR $5.25B growing 24%.",
+      "downside": "July 2024 incident still creates customer trust headwinds. High valuation. Competition from MSFT intensifying.",
+      "summary": "Best-in-class AI cybersecurity with $5.25B ARR growing 24% YoY. Net new ARR accelerated 47% in Q4. Falcon Flex at $1.69B ARR (+120% YoY). Morgan Stanley named top pick. Iran war = direct tailwind.",
+      "commentary": "Added 2026-03-23. Morgan Stanley named CRWD top cybersecurity pick with upgrade March 10. RBC reiterated Buy/$550 on March 17. Q4-FY26 strong: ARR $5.25B, net new ARR +47% QoQ. Falcon Flex adoption proves platform stickiness post-incident. Iran conflict driving enterprise urgency to upgrade cyber defenses — CRWD is the premium choice. Citigroup at Strong Buy/$525. The incident is priced in; the recovery is not yet fully priced in.",
+      "catalysts": ["Iran-driven cyber spending surge", "Falcon Flex expansion", "Q1 FY27 earnings", "Federal government wins"],
+      "riskTags": ["Post-Incident Trust", "MSFT Competition", "High Valuation"],
+      "lastUpdated": "2026-03-23"
+    },
+    {
+      "ticker": "NU",
+      "company": "Nu Holdings (Nubank)",
+      "theme": "Fintech & Crypto",
+      "stage": "Pipeline",
+      "status": "Bullish",
+      "conviction": 3,
+      "grahamScore": 68,
+      "price": 14.82,
+      "analystTarget": 17.84,
+      "analystConsensus": "Buy",
+      "analystCount": 9,
+      "starterBuy": "Pipeline — wait for clearer setup. UBS upgrade to Strong Buy on March 19 is promising. Entry at $14-15 if thesis firms.",
+      "addZone": "Add on continued credit portfolio growth, Mexico/Colombia expansion proof, and path to U.S. market entry.",
+      "trimZone": "Trim on sharp runs above $20 or if credit quality deteriorates.",
+      "thesisBreak": "Material credit loss surge, Brazilian regulatory crackdown, or inability to maintain margin on credit expansion.",
+      "upside": "Susquehanna sees $22 (+48%). 131M customers — biggest digital bank in the world. Mexico expansion early innings. U.S. market entry potential.",
+      "downside": "BRL currency exposure. Credit expansion = credit risk. Low analyst coverage (9 analysts only).",
+      "summary": "World's largest digital bank by customers (131M). Q4 2025 profits up 50%, customer growth 15% YoY. UBS just upgraded to Strong Buy. Inter Miami stadium naming rights signals U.S. brand push.",
+      "commentary": "Added 2026-03-23. UBS upgraded from Hold to Strong Buy on March 19, raising target to $18. Nubank scores Inter Miami stadium naming rights — clear signal of U.S. market ambition. Q4 2025: gross profit $1.96B, profits +50% YoY. Credit portfolio is the growth engine — expansion is working. LatAm stocks leading 2026 as trade alliances shift. Low analyst coverage (9) means this is under-followed relative to fundamentals. Pipeline for now — watching for U.S. launch catalyst.",
+      "catalysts": ["U.S. market launch", "Mexico credit expansion", "Q1 2026 earnings", "Inter Miami brand visibility"],
+      "riskTags": ["EM Currency Risk", "Credit Risk", "Low Analyst Coverage"],
+      "lastUpdated": "2026-03-23"
+    }
+  ]
+}

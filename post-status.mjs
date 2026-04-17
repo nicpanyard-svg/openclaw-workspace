@@ -1,0 +1,2 @@
+const body = JSON.stringify({name:"Graham",status:"ACTIVE",currentTask:"Held cash — RKLB $57.945 near $57 alert ($0.95 away), PLTR $141.295 near $140 watch. No alerts fired, no trades. Slow bleed all names."});
+await fetch("http://localhost:3000/api/agent-status",{method:"POST",headers:{"Content-Type":"application/json"},body}).then(r=>r.text()).then(console.log).catch(e=>console.error("status post failed:",e.message));

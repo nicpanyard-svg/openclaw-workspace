@@ -1,0 +1,92 @@
+{
+  "boardName": "Graham Stock Board",
+  "owner": "Graham",
+  "version": 1,
+  "purpose": "Standalone growth-stock board for emerging public companies with large upside potential.",
+  "summaryTiles": {
+    "topPickToday": "ASTS",
+    "bestSetupNotYetBought": "TEM",
+    "mostAtRisk": "SOUN",
+    "boardChangesSinceYesterday": 0
+  },
+  "columns": [
+    "Pipeline",
+    "Watch / Setup",
+    "Starter Buy",
+    "Add on Proof",
+    "Trim / Exit"
+  ],
+  "scoring": {
+    "name": "Graham Score",
+    "max": 100,
+    "weights": {
+      "narrative_tam": 20,
+      "revenue_execution": 20,
+      "business_quality": 15,
+      "balance_sheet": 10,
+      "price_action": 10,
+      "valuation_sanity": 10,
+      "catalyst_quality": 10,
+      "street_sentiment": 5
+    }
+  },
+  "cards": [
+    {
+      "ticker": "ASTS",
+      "company": "AST SpaceMobile",
+      "theme": "Direct-to-device satellite",
+      "stage": "Watch / Setup",
+      "status": "Bullish",
+      "conviction": 3,
+      "grahamScore": 73,
+      "starterBuy": "Only on pullbacks or after clean execution confirmation; starter size only.",
+      "addZone": "Add only if deployment + carrier progress continue to improve.",
+      "trimZone": "Trim into sharp momentum spikes if price outruns milestone progress.",
+      "thesisBreak": "Meaningful execution delays, weak carrier validation, or financing pressure that changes the risk/reward.",
+      "upside": "Could become a category-defining communications platform if deployment scales.",
+      "downside": "High drawdown risk if capital needs or technical delays rise.",
+      "whyItMatters": "Massive TAM with asymmetric upside if direct-to-device works at commercial scale.",
+      "catalysts": ["satellite deployment", "carrier partnerships", "funding updates"],
+      "riskTags": ["Speculative", "Capital Intensity", "Execution Risk"],
+      "lastUpdated": "2026-03-21"
+    },
+    {
+      "ticker": "RKLB",
+      "company": "Rocket Lab",
+      "theme": "Space infrastructure",
+      "stage": "Starter Buy",
+      "status": "Bullish",
+      "conviction": 4,
+      "grahamScore": 78,
+      "starterBuy": "Starter acceptable when trend and execution remain intact.",
+      "addZone": "Add on proof from Neutron progress and continued backlog quality.",
+      "trimZone": "Trim partials into euphoric moves disconnected from program milestones.",
+      "thesisBreak": "Major execution setbacks, repeated delays, or deterioration in space-systems demand.",
+      "upside": "Can rerate from launch company to broader space infrastructure platform.",
+      "downside": "Setbacks can create deep multiple compression.",
+      "whyItMatters": "Cleaner emerging space name with several ways to win.",
+      "catalysts": ["Neutron updates", "launch cadence", "space systems bookings"],
+      "riskTags": ["High Beta", "Execution Risk"],
+      "lastUpdated": "2026-03-21"
+    },
+    {
+      "ticker": "TEM",
+      "company": "Tempus AI",
+      "theme": "AI diagnostics / healthcare data",
+      "stage": "Pipeline",
+      "status": "Neutral",
+      "conviction": 2,
+      "grahamScore": 67,
+      "starterBuy": "Wait for more public-company proof and better-understood setup.",
+      "addZone": "Add only after stronger operating leverage or cleaner adoption proof.",
+      "trimZone": "Trim if sentiment rerates far ahead of execution.",
+      "thesisBreak": "Weak adoption proof or inability to show durable economics.",
+      "upside": "Could become a core intelligence layer in precision medicine.",
+      "downside": "Young public name with credibility and execution risk.",
+      "whyItMatters": "Combines AI narrative with regulated healthcare workflows.",
+      "catalysts": ["earnings quality", "clinical adoption", "partnerships"],
+      "riskTags": ["Speculative", "Execution Risk", "Regulatory Risk"],
+      "lastUpdated": "2026-03-21"
+    }
+  ]
+}
