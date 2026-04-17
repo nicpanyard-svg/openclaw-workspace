@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type {
   PerKitPricingRow,
   PoolPricingRow,
@@ -71,32 +72,61 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
   return (
     <main className="proposal-shell">
       <section className="proposal-page cover-page">
+        <div className="cover-watermark" />
+        <div className="proposal-confidential-mark">CONFIDENTIAL</div>
+        <div className="proposal-corner-watermark" />
         <div className="cover-grid">
           <div className="cover-topbar">
-            <div>
-              <div className="cover-brand">iNet</div>
-              <div className="cover-brand-subtitle">Infrastructure Networks</div>
+            <div className="cover-brand-lockup">
+              <Image
+                src="/inet-logo.png"
+                alt="iNet logo"
+                width={220}
+                height={70}
+                className="cover-brand-logo"
+                priority
+              />
+              <div className="cover-brand-subtitle">Infrastructure Networks, Inc.</div>
             </div>
             <div className="cover-proposal-meta">
               <div className="cover-meta-label">Proposal</div>
-              <div>#{quote.metadata.proposalNumber}</div>
+              <div className="cover-meta-value">#{quote.metadata.proposalNumber}</div>
               <div>{quote.metadata.proposalDate}</div>
               <div className="cover-meta-chip">{quote.metadata.quoteType === "lease" ? "Lease" : "Purchase"}</div>
             </div>
           </div>
 
           <div className="cover-content">
-            <div className="cover-kicker">Customer Proposal</div>
+            <div className="cover-kicker">Managed Services Proposal</div>
             <h1>{quote.metadata.documentTitle}</h1>
             <h2>{quote.metadata.documentSubtitle}</h2>
 
-            <div className="cover-customer-card">
-              <div className="cover-customer-label">Prepared for</div>
-              <div className="cover-customer-name">{quote.customer.name}</div>
-              <div className="cover-customer-lines">
-                {quote.customer.addressLines.map((line) => (
-                  <div key={line}>{line}</div>
-                ))}
+            <div className="cover-customer-grid">
+              <div className="cover-customer-card">
+                <div className="cover-customer-label">Prepared for</div>
+                <div className="cover-customer-brand-row">
+                  {quote.customer.logoDataUrl ? (
+                    <img src={quote.customer.logoDataUrl} alt={`${quote.customer.name} logo`} className="customer-brand-logo" />
+                  ) : (
+                    <div className="customer-brand-fallback">{quote.customer.logoText || quote.customer.name}</div>
+                  )}
+                </div>
+                <div className="cover-customer-name">{quote.customer.name}</div>
+                <div className="cover-customer-lines">
+                  {quote.customer.addressLines.map((line) => (
+                    <div key={line}>{line}</div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="cover-contact-card">
+                <div className="cover-customer-label">Prepared by</div>
+                <div className="cover-contact-name">{quote.inet.contactName}</div>
+                <div className="cover-contact-lines">
+                  <div>{quote.inet.name}</div>
+                  <div>{quote.inet.contactPhone}</div>
+                  <div>{quote.inet.contactEmail}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -116,10 +146,14 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             </div>
           </div>
         </div>
-        <div className="cover-band" />
+        <div className="cover-band">
+          <div className="cover-band-copy">Confidential commercial proposal prepared for review and approval.</div>
+        </div>
       </section>
 
       <section className="proposal-page">
+        <div className="proposal-confidential-mark">CONFIDENTIAL</div>
+        <div className="proposal-corner-watermark" />
         <div className="proposal-header">
           <span>Confidential</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
@@ -135,6 +169,8 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             <div>{quote.metadata.proposalDate}</div>
           </div>
         </div>
+
+        <div className="section-title-rule" />
 
         <div className="proposal-summary-grid">
           <div className="proposal-summary-panel">
@@ -195,13 +231,16 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
       {quote.sections.sectionA.enabled && (
         <section className="proposal-page">
+          <div className="proposal-confidential-mark">CONFIDENTIAL</div>
+          <div className="proposal-corner-watermark" />
           <div className="proposal-header">
             <span>Confidential</span>
             <span>Proposal #{quote.metadata.proposalNumber}</span>
           </div>
 
           <div className="proposal-section-heading keep-with-next">
-            <div className="proposal-overline">Section A</div>
+            <div className="section-heading-badge">Section A</div>
+            <div className="proposal-overline">Recurring services</div>
             <h2 className="proposal-section-title">{quote.sections.sectionA.title}</h2>
             <p className="proposal-intro">
               {quote.sections.sectionA.introText ||
@@ -209,7 +248,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             </p>
           </div>
 
-          <table className="proposal-table">
+          <table className="proposal-table sample-table">
             <thead>
               <tr>
                 <th>Service Description</th>
@@ -260,13 +299,16 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
       {quote.sections.sectionB.enabled && (
         <section className="proposal-page">
+          <div className="proposal-confidential-mark">CONFIDENTIAL</div>
+          <div className="proposal-corner-watermark" />
           <div className="proposal-header">
             <span>Confidential</span>
             <span>Proposal #{quote.metadata.proposalNumber}</span>
           </div>
 
           <div className="proposal-section-heading keep-with-next">
-            <div className="proposal-overline">Section B</div>
+            <div className="section-heading-badge">Section B</div>
+            <div className="proposal-overline">Equipment and accessories</div>
             <h2 className="proposal-section-title">{quote.sections.sectionB.title}</h2>
             <p className="proposal-intro">
               {quote.sections.sectionB.introText ||
@@ -274,7 +316,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             </p>
           </div>
 
-          <table className="proposal-table">
+          <table className="proposal-table sample-table">
             <thead>
               <tr>
                 <th>Equipment Description</th>
@@ -311,13 +353,16 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
       {quote.sections.sectionC.enabled && (
         <section className="proposal-page">
+          <div className="proposal-confidential-mark">CONFIDENTIAL</div>
+          <div className="proposal-corner-watermark" />
           <div className="proposal-header">
             <span>Confidential</span>
             <span>Proposal #{quote.metadata.proposalNumber}</span>
           </div>
 
           <div className="proposal-section-heading keep-with-next">
-            <div className="proposal-overline">Section C</div>
+            <div className="section-heading-badge">Section C</div>
+            <div className="proposal-overline">Optional field services</div>
             <h2 className="proposal-section-title">{quote.sections.sectionC.title}</h2>
             <p className="proposal-intro">
               {quote.sections.sectionC.introText ||
@@ -325,7 +370,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             </p>
           </div>
 
-          <table className="proposal-table">
+          <table className="proposal-table sample-table">
             <thead>
               <tr>
                 <th>Service Description</th>
@@ -359,6 +404,8 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
       )}
 
       <section className="proposal-page proposal-closing-page">
+        <div className="proposal-confidential-mark">CONFIDENTIAL</div>
+        <div className="proposal-corner-watermark" />
         <div className="proposal-header">
           <span>Confidential</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
@@ -366,6 +413,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
         <div className="proposal-overline">Commercial recap</div>
         <h2 className="proposal-section-title">Summary of proposed pricing</h2>
+        <div className="section-title-rule" />
 
         <div className="proposal-grand-totals">
           <div className="grand-total-card">
@@ -392,14 +440,47 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
         <div className="proposal-copy proposal-copy-card closing-copy">
           <p>
-            This proposal is intended to present the commercial structure clearly and in a print-friendly format.
-            Final scope, delivery details, taxes, freight, and any project-specific assumptions can be refined in the
-            next revision.
+            This proposal outlines the current commercial structure for review. Final scope, taxes, freight,
+            installation assumptions, and delivery details may be refined in the next revision.
           </p>
           <p>
-            If you want, the next pass after this can wire the live builder state directly into this print view and add
-            a true export path.
+            Please sign below to indicate acceptance of this proposal and authorization for iNet to proceed with order
+            processing based on the approved scope.
           </p>
+        </div>
+
+        <div className="approval-block keep-together sample-approval-block">
+          <div className="approval-block-header">
+            <div>
+              <div className="proposal-overline">Customer approval</div>
+              <h3 className="approval-title">Authorization to proceed</h3>
+            </div>
+            <div className="approval-status-chip">Order Approval</div>
+          </div>
+
+          <div className="approval-copy">
+            By signing below, the customer confirms review and acceptance of the pricing and scope described in this
+            proposal, subject to any mutually agreed revisions or final contract documents.
+          </div>
+
+          <div className="approval-signature-grid">
+            <div className="signature-field">
+              <div className="signature-line" />
+              <div className="signature-label">Authorized customer signature</div>
+            </div>
+            <div className="signature-field">
+              <div className="signature-line" />
+              <div className="signature-label">Printed name / title</div>
+            </div>
+            <div className="signature-field">
+              <div className="signature-line" />
+              <div className="signature-label">Company</div>
+            </div>
+            <div className="signature-field">
+              <div className="signature-line" />
+              <div className="signature-label">Date</div>
+            </div>
+          </div>
         </div>
       </section>
     </main>

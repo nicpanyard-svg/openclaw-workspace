@@ -6,6 +6,12 @@
   --page-text: #232a31;
   --quote-red: #b00000;
   --quote-red-dark: #850000;
+  --quote-red-soft: #f7e7e7;
+  --quote-red-deep: #7a042e;
+  --quote-ink: #18222c;
+  --quote-slate: #60707f;
+  --quote-line: #dbe2e9;
+  --quote-gold: #caa56a;
 }
 
 @theme inline {
@@ -77,9 +83,21 @@ html {
   margin: 0 auto 24px;
   background: white;
   box-shadow: 0 18px 50px rgba(34, 44, 55, 0.18);
-  padding: 0.75in 0.72in 0.82in;
+  padding: 0.78in 0.74in 0.86in;
   position: relative;
   overflow: hidden;
+}
+
+.proposal-page::before {
+  content: "";
+  position: absolute;
+  top: 0.7in;
+  right: -0.18in;
+  width: 2.42in;
+  height: 2.12in;
+  background: radial-gradient(circle at center, rgba(196, 203, 212, 0.42) 0%, rgba(196, 203, 212, 0.18) 38%, rgba(196, 203, 212, 0) 72%);
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .cover-page {
@@ -94,6 +112,38 @@ html {
   min-height: 100%;
 }
 
+.cover-watermark {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.9) 58%, rgba(255, 255, 255, 0.98) 100%),
+    radial-gradient(circle at 92% 20%, rgba(198, 205, 214, 0.42) 0%, rgba(198, 205, 214, 0.18) 24%, transparent 58%),
+    linear-gradient(145deg, transparent 0%, transparent 72%, rgba(122, 4, 46, 0.08) 72%, rgba(122, 4, 46, 0.14) 100%);
+  pointer-events: none;
+}
+
+.proposal-confidential-mark {
+  position: absolute;
+  top: 0.24in;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #d10000;
+  font-weight: 700;
+}
+
+.proposal-corner-watermark {
+  position: absolute;
+  right: -0.1in;
+  bottom: 0.6in;
+  width: 2.3in;
+  height: 2in;
+  background: radial-gradient(circle at 40% 40%, rgba(203, 210, 218, 0.35) 0%, rgba(203, 210, 218, 0.16) 38%, rgba(203, 210, 218, 0) 74%);
+  pointer-events: none;
+}
+
 .cover-topbar {
   display: flex;
   justify-content: space-between;
@@ -101,26 +151,37 @@ html {
   gap: 18px;
 }
 
-.cover-brand {
-  font-size: 38px;
-  font-weight: 800;
-  color: #b00000;
-  letter-spacing: -0.05em;
+.cover-brand-lockup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cover-brand-logo {
+  width: 220px;
+  height: auto;
+  object-fit: contain;
 }
 
 .cover-brand-subtitle {
   margin-top: 2px;
-  font-size: 13px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #6f7c89;
 }
 
 .cover-proposal-meta {
+  min-width: 1.75in;
   text-align: right;
   font-size: 13px;
   color: #586574;
   line-height: 1.6;
+  padding: 14px 16px;
+  border: 1px solid #e1e6ed;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 20px rgba(40, 51, 63, 0.05);
 }
 
 .cover-meta-label {
@@ -131,11 +192,17 @@ html {
   color: #9aa4af;
 }
 
+.cover-meta-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--quote-ink);
+}
+
 .cover-meta-chip {
   display: inline-block;
   margin-top: 10px;
-  border-radius: 999px;
-  background: #f8eaea;
+  border-radius: 3px;
+  background: #f7eaea;
   color: #8c1212;
   font-size: 12px;
   font-weight: 700;
@@ -143,7 +210,7 @@ html {
 }
 
 .cover-content {
-  padding-top: 1.05in;
+  padding-top: 0.82in;
   position: relative;
   z-index: 1;
 }
@@ -174,14 +241,36 @@ html {
   font-weight: 500;
 }
 
-.cover-customer-card {
+.cover-customer-grid {
   margin-top: 28px;
-  max-width: 4in;
-  border: 1px solid #e3e8ee;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.88);
+  display: grid;
+  grid-template-columns: 1.2fr 0.95fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.cover-customer-card,
+.cover-contact-card {
+  border: 1px solid #d7dde5;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.94);
   padding: 18px 20px;
-  box-shadow: 0 10px 24px rgba(40, 51, 63, 0.07);
+  box-shadow: 0 10px 24px rgba(40, 51, 63, 0.05);
+}
+
+.cover-contact-name {
+  margin-top: 8px;
+  font-size: 21px;
+  line-height: 1.1;
+  font-weight: 700;
+  color: #17202b;
+}
+
+.cover-contact-lines {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #556270;
 }
 
 .cover-customer-label,
@@ -198,8 +287,36 @@ html {
   color: #8a96a3;
 }
 
+.cover-customer-brand-row {
+  margin-top: 10px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+.customer-brand-logo {
+  max-width: 170px;
+  max-height: 54px;
+  object-fit: contain;
+}
+
+.customer-brand-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1px solid #d7dde5;
+  background: #fafbfd;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #24303b;
+}
+
 .cover-customer-name {
-  margin-top: 8px;
+  margin-top: 12px;
   font-size: 24px;
   line-height: 1.1;
   font-weight: 700;
@@ -219,14 +336,14 @@ html {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 2.2in;
+  margin-top: 1.1in;
 }
 
 .cover-summary-card {
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.92);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.95);
   padding: 16px 18px;
-  border: 1px solid rgba(228, 233, 238, 0.95);
+  border: 1px solid rgba(216, 223, 231, 0.95);
 }
 
 .cover-summary-value {
@@ -242,10 +359,23 @@ html {
 }
 
 .cover-band {
-  height: 3.3in;
-  margin: 0 -0.72in -0.82in;
-  background: linear-gradient(135deg, #54070b 0%, #8e1117 24%, #b00000 48%, #d45050 100%);
-  clip-path: polygon(0 20%, 100% 0, 100% 100%, 0 100%);
+  height: 2.05in;
+  margin: 0 -0.74in -0.86in;
+  padding: 1.02in 0.82in 0.34in;
+  background: linear-gradient(135deg, #6a0728 0%, #7a042e 28%, #a4063e 58%, #c46d8f 100%);
+  clip-path: polygon(0 32%, 100% 0, 100% 100%, 0 100%);
+  color: white;
+}
+
+.cover-band-copy {
+  max-width: 4.8in;
+  margin-left: auto;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.95;
 }
 
 .proposal-header {
@@ -270,7 +400,7 @@ html {
 .proposal-date-card {
   min-width: 1.7in;
   border: 1px solid #e0e6ec;
-  border-radius: 18px;
+  border-radius: 4px;
   background: #fafbfd;
   padding: 14px 16px;
   font-size: 14px;
@@ -280,11 +410,18 @@ html {
 
 .proposal-section-title {
   margin-top: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   font-size: 29px;
   line-height: 1.08;
   letter-spacing: -0.035em;
   color: #17202b;
+}
+
+.section-title-rule {
+  width: 100%;
+  height: 3px;
+  margin: 0 0 20px;
+  background: linear-gradient(90deg, var(--quote-red-deep) 0%, rgba(122, 4, 46, 0.36) 36%, transparent 100%);
 }
 
 .proposal-summary-grid,
@@ -304,7 +441,7 @@ html {
 .grand-total-card,
 .proposal-copy-card {
   border: 1px solid #e1e7ed;
-  border-radius: 22px;
+  border-radius: 4px;
   background: #fbfcfd;
 }
 
@@ -381,42 +518,57 @@ html {
   margin-bottom: 18px;
 }
 
+.section-heading-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 88px;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--quote-red-deep) 0%, #a4063e 100%);
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow: 0 8px 18px rgba(122, 4, 46, 0.12);
+}
+
 .proposal-table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
   margin-top: 14px;
   font-size: 14px;
-  border: 1px solid #d9e0e7;
-  border-radius: 20px;
-  overflow: hidden;
+  border: 1px solid #cfd7df;
 }
 
 .proposal-table thead th {
   text-align: left;
-  padding: 14px 12px;
-  border-bottom: 1px solid #d7dee6;
-  background: linear-gradient(180deg, #f7f9fb 0%, #eff3f7 100%);
-  color: #3d4955;
+  padding: 11px 12px;
+  border: 1px solid #cfd7df;
+  background: #f1f4f7;
+  color: #384755;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
 
+.sample-table thead th:first-child {
+  border-left: 5px solid var(--quote-red-deep);
+}
+
 .proposal-table td,
 .proposal-table tfoot td {
-  padding: 14px 12px;
-  border-bottom: 1px solid #e7ebf0;
+  padding: 11px 12px;
+  border: 1px solid #dce3ea;
   color: #22303d;
   vertical-align: top;
+  background: #ffffff;
 }
 
 .proposal-table tbody tr:nth-child(even) td {
-  background: #fcfdff;
-}
-
-.proposal-table tbody tr:last-child td {
-  border-bottom: 1px solid #e3e8ee;
+  background: #fafbfd;
 }
 
 .proposal-cell-title {
@@ -440,9 +592,7 @@ html {
 
 .proposal-total-row td {
   font-weight: 800;
-  border-top: 2px solid #cad3dc;
-  border-bottom: 0;
-  background: #f8fafc;
+  background: #f5f7fa;
 }
 
 .proposal-bullets {
@@ -493,6 +643,81 @@ html {
   margin-top: 18px;
 }
 
+.approval-block {
+  margin-top: 22px;
+  border: 1px solid #cfd7df;
+  border-radius: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+  padding: 22px 24px 26px;
+  box-shadow: 0 12px 24px rgba(31, 42, 52, 0.04);
+}
+
+.sample-approval-block {
+  border-top: 4px solid var(--quote-red-deep);
+}
+
+.approval-block-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.approval-title {
+  margin-top: 8px;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--quote-ink);
+}
+
+.approval-status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 3px;
+  background: var(--quote-red-soft);
+  color: #8c1212;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.approval-copy {
+  margin-top: 14px;
+  max-width: 6.3in;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #44515f;
+}
+
+.approval-signature-grid {
+  margin-top: 26px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 28px;
+}
+
+.signature-field {
+  min-height: 72px;
+}
+
+.signature-line {
+  width: 100%;
+  height: 40px;
+  border-bottom: 1.5px solid #667684;
+}
+
+.signature-label {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7c8896;
+}
+
 .keep-with-next,
 .keep-together {
   break-inside: avoid;
@@ -539,7 +764,8 @@ html {
   .proposal-callout,
   .proposal-summary-panel,
   .grand-total-card,
-  .proposal-copy-card {
+  .proposal-copy-card,
+  .approval-block {
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -548,7 +774,8 @@ html {
 @media (max-width: 980px) {
   .proposal-toolbar,
   .proposal-title-block,
-  .cover-topbar {
+  .cover-topbar,
+  .approval-block-header {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -556,18 +783,11 @@ html {
   .proposal-summary-grid,
   .proposal-grand-totals,
   .cover-summary-strip,
-  .proposal-callout-grid {
+  .proposal-callout-grid,
+  .cover-customer-grid,
+  .approval-signature-grid {
     grid-template-columns: 1fr;
   }
-}
-
-body {
-  min-height: 100vh;
-  color: var(--page-text);
-  font-family: var(--font-sans);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(220, 226, 235, 0.75)),
-    radial-gradient(circle at top, #f8fafc 0%, #e6ebf1 55%, #d6dce5 100%);
 }
 
 body {
@@ -634,7 +854,8 @@ body {
 .builder-field input,
 .builder-field select,
 .builder-field textarea,
-.builder-inline-select select {
+.builder-inline-select select,
+.builder-inline-select input {
   width: 100%;
   border-radius: 16px;
   border: 1px solid #d4dbe3;
@@ -650,7 +871,8 @@ body {
 .builder-field input:focus,
 .builder-field select:focus,
 .builder-field textarea:focus,
-.builder-inline-select select:focus {
+.builder-inline-select select:focus,
+.builder-inline-select input:focus {
   border-color: #b00000;
   box-shadow: 0 0 0 3px rgba(176, 0, 0, 0.1);
 }
@@ -747,6 +969,26 @@ body {
   background: #b00000 !important;
   color: #ffffff !important;
   box-shadow: 0 10px 18px rgba(176, 0, 0, 0.18);
+}
+
+.customer-logo-dropzone {
+  display: block;
+  border: 1.5px dashed #c8d0d9;
+  border-radius: 18px;
+  background: #fff;
+  padding: 14px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.customer-logo-dropzone:hover {
+  border-color: #b00000;
+  box-shadow: 0 0 0 3px rgba(176, 0, 0, 0.06);
+}
+
+.customer-logo-preview {
+  max-width: 180px;
+  max-height: 72px;
+  object-fit: contain;
 }
 
 .summary-block {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
 import {
   type EquipmentPricingRow,
@@ -274,6 +274,7 @@ export default function QuotePreview() {
   const [customSectionFields, setCustomSectionFields] = useState<CustomSectionField[]>([]);
   const [dataQuickAddValue, setDataQuickAddValue] = useState("1");
   const [dataQuickAddUnit, setDataQuickAddUnit] = useState<DataQuickAddUnit>("TB");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currencyCode = quote.metadata.currencyCode || "USD";
   const activeSectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
@@ -634,6 +635,20 @@ export default function QuotePreview() {
 
   const addCustomSectionField = () => setCustomSectionFields((current) => [...current, { id: `field_${Date.now()}`, label: `Section ${current.length + 1} label`, value: "" }]);
 
+  const onCustomerLogoSelected = (file?: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : undefined;
+      if (!result) return;
+      updateQuote((draft) => {
+        draft.customer.logoDataUrl = result;
+        return draft;
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <main className="min-h-screen px-4 py-6 text-[#232a31] md:px-6 md:py-8">
       <div className="mx-auto max-w-[1380px] space-y-6">
@@ -643,7 +658,7 @@ export default function QuotePreview() {
               <div className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[#8b96a3]">Quote Tool App</div>
               <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Fillable quote builder</h1>
               <p className="mt-2 text-[15px] leading-[1.55] text-[#5a6572]">
-                This pass keeps the builder-first direction. The toggles, row controls, quick-add tools, and service pricing states are now wired so the builder behaves like a working quote tool.
+                This pass shifts the builder closer to the source proposal style while keeping the quote tool practical. Section controls, provider selection, customer branding, and pricing rows are ready for quote assembly.
               </p>
             </div>
 
@@ -675,6 +690,20 @@ export default function QuotePreview() {
                 ] as { key: QuoteType; label: string; description: string }[]).map((option) => (
                   <ToggleCard key={option.key} label={option.label} description={option.description} active={quote.metadata.quoteType === option.key} onClick={() => updateQuote((draft) => { draft.metadata.quoteType = option.key; return draft; })} />
                 ))}
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <label className="builder-field"><span>Section A provider option</span><select value={quote.metadata.customerProvider} onChange={(e) => updateQuote((draft) => { draft.metadata.customerProvider = e.target.value as QuoteRecord["metadata"]["customerProvider"]; return draft; })}><option value="Starlink">Starlink</option><option value="UniSIM">UniSIM</option><option value="T-Mobile">T-Mobile</option></select></label>
+                <div className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                  <div className="builder-eyebrow">Customer branding</div>
+                  <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Customer logo upload</div>
+                  <button type="button" className="customer-logo-dropzone mt-3 w-full text-left" onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); onCustomerLogoSelected(e.dataTransfer.files?.[0]); }}>
+                    <div className="text-[14px] font-semibold text-[#17212c]">Drag and drop logo here</div>
+                    <div className="mt-1 text-[13px] text-[#63707d]">Or click to browse. PNG, JPG, or SVG exported as image works best.</div>
+                    {quote.customer.logoDataUrl && <img src={quote.customer.logoDataUrl} alt="Customer logo preview" className="customer-logo-preview mt-4" />}
+                  </button>
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onCustomerLogoSelected(e.target.files?.[0])} />
+                </div>
               </div>
             </section>
 
@@ -812,6 +841,7 @@ export default function QuotePreview() {
                   <label className="builder-field"><span>Section intro / note</span><textarea rows={3} value={quote.sections.sectionC.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.introText = e.target.value; return draft; })} /></label>
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{servicePresetTemplates.map((preset) => <button key={preset.key} type="button" className="pill-button" onClick={() => addPresetServiceRow(preset.key)}>{preset.label}</button>)}</div>
+
                 <div className="mt-5 space-y-3">{quote.sections.sectionC.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Service row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">Optional field service</div></div><RowActions rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(targetPosition) => moveServiceRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} /></div><div className="grid gap-3 lg:grid-cols-[2fr_.7fr_.8fr_1fr]"><label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateServiceRow(row.id, "description", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateServiceRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateServiceRow(row.id, "unitPrice", e.target.value)} /></label><label className="builder-field compact"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(e) => updateServiceRow(row.id, "pricingStage", e.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label></div><label className="builder-field compact mt-3"><span>Notes</span><input value={row.notes ?? ""} onChange={(e) => updateServiceRow(row.id, "notes", e.target.value)} /></label><div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.serviceCategory === "site_inspection" ? "Site inspection" : row.serviceCategory === "installation" ? "Installation" : "Custom service"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div>)}</div>
               </section>
             )}
@@ -823,6 +853,7 @@ export default function QuotePreview() {
               <div className="space-y-5 text-[14px] text-[#32404c]">
                 <div className="summary-block"><div className="summary-label">Customer</div><div className="summary-value">{quote.customer.name}</div><div className="summary-subvalue">{quote.metadata.proposalNumber} • {quote.metadata.proposalDate}</div></div>
                 <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : `Estimated monthly blended total over ${quote.sections.sectionA.termMonths} months`}</div></div>
+                <div className="summary-block"><div className="summary-label">Section A provider</div><div className="summary-value">{quote.metadata.customerProvider}</div><div className="summary-subvalue">Builder-only provider option for the recurring services section</div></div>
                 <div className="summary-block"><div className="summary-label">Enabled sections</div><ul className="list-disc pl-5 text-[#56616d]">{quote.sections.sectionA.enabled && <li>Monthly service pricing</li>}{quote.sections.sectionB.enabled && <li>Hardware and accessories</li>}{quote.sections.sectionC.enabled && <li>Optional field services</li>}</ul></div>
                 {customSectionFields.length > 0 && <div className="summary-block"><div className="summary-label">Extra section fields</div><div className="space-y-1 text-[#56616d]">{customSectionFields.map((field) => <div key={field.id}><strong>{field.label}:</strong> {field.value || "—"}</div>)}</div></div>}
                 <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{activeSectionARows.length} row(s) ready for template mapping</div></div>

@@ -11,6 +11,7 @@ export type QuoteTextBlock = {
 export type QuoteParty = {
   name: string;
   logoText?: string;
+  logoDataUrl?: string;
   contactName: string;
   contactPhone: string;
   contactEmail: string;
@@ -91,6 +92,7 @@ export type QuoteMetadata = {
   documentTitle: string;
   documentSubtitle: string;
   customerShortName: string;
+  customerProvider: "Starlink" | "UniSIM" | "T-Mobile";
   currencyCode: CurrencyCode;
   status: QuoteStatus;
   quoteType: QuoteType;

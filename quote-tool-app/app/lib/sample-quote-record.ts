@@ -8,6 +8,7 @@ export const sampleQuoteRecord: QuoteRecord = {
     documentTitle: "Managed Communications Services",
     documentSubtitle: "Budgetary Estimate Builder",
     customerShortName: "CZ USA",
+    customerProvider: "Starlink",
     currencyCode: "USD",
     status: "draft",
     quoteType: "purchase",
