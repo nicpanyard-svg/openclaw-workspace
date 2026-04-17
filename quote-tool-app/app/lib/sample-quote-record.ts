@@ -82,12 +82,11 @@ export const sampleQuoteRecord: QuoteRecord = {
       allowReorder: true,
       builderLabel: "Monthly service pricing",
       mode: "pool",
-      title: "U.S POOL STARLINK PRICING SCHEDULE (Section A)",
+      title: "U.S POOL STARLINK PRICING SCHEDULE",
       introText: "The pricing provided in the following table is based upon 12 Month Term.",
       explanatoryParagraphs: [
         "Pool for Starlink Service: The Pool is a monthly service for all selected Starlink Kits, serviced and monitored by iNet, with a fixed data allotment. The Kits will share the pool and consume data as required by each individual site. The Kits will not be constrained by an individual (per-site) data allotment.",
         "The data pool is reset at the end of the month; unused data does not carry over into the next month.",
-        "Based on current equipment, iNet recommends a 3-5TB data pool. Higher data packages are available upon request. Pool Packages can be adjusted upon request.",
         "Overage: Cost per 1.0 GB of usage more than the pool data allotment. The total overage fee is invoiced the following month in which they are incurred.",
         "Terminal Access Fee: Starlink monthly fee per Active Starlink kit in the pool.",
       ],
