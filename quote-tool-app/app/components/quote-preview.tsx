@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
+import { PROPOSAL_STORAGE_KEY, serializeQuoteRecord } from "@/app/lib/proposal-state";
 import {
   type EquipmentPricingRow,
   type PerKitPricingRow,
@@ -649,6 +651,11 @@ export default function QuotePreview() {
     reader.readAsDataURL(file);
   };
 
+  const persistProposalState = () => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(quote));
+  };
+
   return (
     <main className="min-h-screen px-4 py-6 text-[#232a31] md:px-6 md:py-8">
       <div className="mx-auto max-w-[1380px] space-y-6">
@@ -668,6 +675,15 @@ export default function QuotePreview() {
               <div className="builder-stat-card"><div className="builder-stat-label">Optional services</div><div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div><div className="builder-stat-note">Inspection and install pricing</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">Lease rollup</div><div className="builder-stat-value">{quote.metadata.quoteType === "lease" ? formatCurrency(leaseMonthly, currencyCode) : "Off"}</div><div className="builder-stat-note">Equipment amortized across term</div></div>
             </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link href="/proposal" className="pill-button pill-button-active" onClick={persistProposalState}>
+              Preview Proposal
+            </Link>
+            <Link href="/proposal" className="pill-button" target="_blank" rel="noreferrer" onClick={persistProposalState}>
+              Open Proposal in New Tab
+            </Link>
           </div>
         </section>
 
