@@ -18,9 +18,9 @@ Font.registerHyphenationCallback((word) => [word]);
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 40,
-    paddingBottom: 44,
-    paddingHorizontal: 42,
+    paddingTop: 30,
+    paddingBottom: 34,
+    paddingHorizontal: 28,
     fontSize: 10,
     color: "#232a31",
     fontFamily: "Helvetica",
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 26,
+    marginBottom: 22,
   },
   logo: {
     width: 130,
@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     objectFit: "contain",
   },
   coverMeta: {
-    width: 150,
+    width: 166,
     alignItems: "flex-end",
     gap: 4,
   },
@@ -81,22 +81,24 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: "#16202b",
     marginBottom: 6,
+    maxWidth: 420,
   },
   coverSubtitle: {
     fontSize: 14,
     color: "#5a6572",
     marginBottom: 18,
+    maxWidth: 380,
   },
   twoColumn: {
     flexDirection: "row",
-    gap: 14,
+    gap: 12,
   },
   card: {
     flex: 1,
     borderWidth: 1,
     borderColor: "#dde3e8",
     borderRadius: 12,
-    padding: 14,
+    padding: 12,
     backgroundColor: "#fbfcfe",
   },
   cardTitle: {
@@ -119,8 +121,8 @@ const styles = StyleSheet.create({
   },
   summaryStrip: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 24,
+    gap: 10,
+    marginTop: 20,
   },
   summaryCard: {
     flex: 1,
@@ -128,7 +130,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8fafc",
     borderWidth: 1,
     borderColor: "#e1e6ec",
-    padding: 12,
+    padding: 10,
   },
   summaryLabel: {
     fontSize: 8,
@@ -226,8 +228,8 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: "#16202b",
   },
-  colWide: { width: "52%" },
-  colNarrow: { width: "16%" },
+  colWide: { width: "55%" },
+  colNarrow: { width: "13%" },
   colMid: { width: "16%" },
   bullet: {
     fontSize: 8.5,
@@ -300,7 +302,7 @@ function renderTextLines(lines: string[]) {
 }
 
 function getPricingLabel(row: ServicePricingRow) {
-  return row.pricingStage === "final" ? "Final pricing" : "Budgetary pricing";
+  return row.pricingStage === "final" ? "Final" : "Budgetary";
 }
 
 function TableRow({ children, header = false }: { children: React.ReactNode; header?: boolean }) {
@@ -381,7 +383,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Title</Text>
             <Text style={styles.cardStrong}>{model.documentation.proposalTitle}</Text>
-            <Text style={styles.cardLine}>Proposal Number {model.documentation.proposalNumberLabel}</Text>
+            <Text style={styles.cardLine}>#{model.documentation.proposalNumberLabel}</Text>
           </View>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Prepared</Text>
@@ -440,7 +442,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             <Text style={styles.smallMuted}>Proposal #{model.proposalNumber}</Text>
           </View>
           <View style={styles.sectionHeader}>
-            <Text style={styles.eyebrow}>Section A</Text>
+            <Text style={styles.eyebrow}>Services</Text>
             <Text style={styles.sectionTitle}>{model.sectionATitle}</Text>
             <Text style={styles.introText}>{model.sectionAIntro}</Text>
             <View style={styles.sectionRule} />
@@ -467,7 +469,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
                 <Cell style={styles.colWide}>
                   <Text style={styles.tdStrong}>{row.description}</Text>
                   {row.unitLabel && row.rowType !== "support" && row.rowType !== "terminal_fee" ? (
-                    <Text style={styles.tdSub}>Unit: {row.unitLabel}</Text>
+                    <Text style={styles.tdSub}>{row.unitLabel}</Text>
                   ) : null}
                   {row.rowType === "support" && row.includedText?.length
                     ? row.includedText.map((item) => (
@@ -510,7 +512,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             <Text style={styles.smallMuted}>Proposal #{model.proposalNumber}</Text>
           </View>
           <View style={styles.sectionHeader}>
-            <Text style={styles.eyebrow}>Section B</Text>
+            <Text style={styles.eyebrow}>Equipment</Text>
             <Text style={styles.sectionTitle}>{model.sectionBTitle}</Text>
             <Text style={styles.introText}>{model.sectionBIntro}</Text>
             <View style={styles.sectionRule} />
@@ -558,7 +560,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             <Text style={styles.smallMuted}>Proposal #{model.proposalNumber}</Text>
           </View>
           <View style={styles.sectionHeader}>
-            <Text style={styles.eyebrow}>Section C</Text>
+            <Text style={styles.eyebrow}>Services</Text>
             <Text style={styles.sectionTitle}>{model.sectionCTitle}</Text>
             <Text style={styles.introText}>{model.sectionCIntro}</Text>
             <View style={styles.sectionRule} />

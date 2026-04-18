@@ -52,8 +52,8 @@ function getLeaseMonthly(quote: QuoteRecord, recurringMonthlyTotal: number, equi
 }
 
 function getPricingLabel(row: ServicePricingRow) {
-  if (row.pricingStage === "final") return "Final pricing";
-  return "Budgetary pricing";
+  if (row.pricingStage === "final") return "Final";
+  return "Budgetary";
 }
 
 function cleanLines(lines: string[]) {
@@ -204,7 +204,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           <div className="proposal-summary-panel">
             <div className="summary-panel-label">Title</div>
             <div className="summary-panel-value">{quote.documentation.proposalTitle}</div>
-            <div className="summary-panel-copy">Proposal Number {quote.documentation.proposalNumberLabel}</div>
+            <div className="summary-panel-copy">#{quote.documentation.proposalNumberLabel}</div>
           </div>
           <div className="proposal-summary-panel">
             <div className="summary-panel-label">Date</div>
@@ -220,7 +220,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
         <div className="proposal-detail-grid">
           <div className="proposal-copy proposal-copy-card">
-            <div className="proposal-mini-heading">Customer Information</div>
+            <div className="proposal-mini-heading">Customer</div>
             <p><strong>Customer Contact</strong> {quote.customer.contactName}</p>
             <p><strong>Contact Phone</strong> {quote.customer.contactPhone}</p>
             <p><strong>Contact Email</strong> {quote.customer.contactEmail}</p>
@@ -230,7 +230,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             ))}
           </div>
           <div className="proposal-copy proposal-copy-card">
-            <div className="proposal-mini-heading">{quote.documentation.inetSalesHeading ?? "iNet Sales"}</div>
+            <div className="proposal-mini-heading">{quote.documentation.inetSalesHeading ?? "iNet"}</div>
             <p><strong>{quote.documentation.preparedByLabel ?? "Prepared By"}</strong> {quote.inet.contactName}</p>
             <p><strong>Contact Phone</strong> {quote.inet.contactPhone}</p>
             <p><strong>Contact Email</strong> {quote.inet.contactEmail}</p>
@@ -291,7 +291,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
 
           <div className="proposal-section-heading keep-with-next">
-            <div className="section-heading-badge">Section A</div>
+            <div className="section-heading-badge">Services</div>
             <div className="proposal-overline">Recurring services</div>
             <h2 className="proposal-section-title">{quote.sections.sectionA.title}</h2>
             <p className="proposal-intro">
@@ -323,7 +323,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
                   <td>
                     <div className="proposal-cell-title">{row.description}</div>
                     {row.unitLabel && row.rowType !== "support" && row.rowType !== "terminal_fee" && (
-                      <div className="proposal-cell-subtitle">Unit: {row.unitLabel}</div>
+                      <div className="proposal-cell-subtitle">{row.unitLabel}</div>
                     )}
                     {row.rowType === "support" && row.includedText && (
                       <ul className="proposal-bullets inline-bullets">
@@ -365,7 +365,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
 
           <div className="proposal-section-heading keep-with-next">
-            <div className="section-heading-badge">Section B</div>
+            <div className="section-heading-badge">Equipment</div>
             <div className="proposal-overline">Equipment and accessories</div>
             <h2 className="proposal-section-title">{quote.sections.sectionB.title}</h2>
             <p className="proposal-intro">
@@ -417,7 +417,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
 
           <div className="proposal-section-heading keep-with-next">
-            <div className="section-heading-badge">Section C</div>
+            <div className="section-heading-badge">Services</div>
             <div className="proposal-overline">Optional field services</div>
             <h2 className="proposal-section-title">{quote.sections.sectionC.title}</h2>
             <p className="proposal-intro">
@@ -538,7 +538,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
               <div className="proposal-overline">{quote.approval.heading}</div>
               <h3 className="approval-title">Authorization to proceed</h3>
             </div>
-            <div className="approval-status-chip">Order Approval</div>
+            <div className="approval-status-chip">Approval</div>
           </div>
 
           <div className="approval-copy">
