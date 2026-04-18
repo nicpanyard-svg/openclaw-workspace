@@ -19,11 +19,10 @@ export async function POST(request: Request) {
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `${body.download ? "attachment" : "inline"}; filename=\"${fileName}\"`,
+        "Content-Disposition": `${body.download ? "attachment" : "inline"}; filename="${fileName}"`,
         "Cache-Control": "no-store",
       },
     });
-
   } catch (error) {
     console.error("Failed to generate proposal PDF", error);
     return NextResponse.json({ error: "Failed to generate proposal PDF" }, { status: 500 });
