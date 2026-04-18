@@ -65,32 +65,32 @@ function ProposalPage() {
 
       const blob = await response.blob();
       const nextUrl = URL.createObjectURL(blob);
-      const printFrame = document.createElement("iframe");
-      printFrame.style.position = "fixed";
-      printFrame.style.right = "0";
-      printFrame.style.bottom = "0";
-      printFrame.style.width = "0";
-      printFrame.style.height = "0";
-      printFrame.style.border = "0";
-      printFrame.src = nextUrl;
-      printFrame.onload = () => {
-        const cleanup = () => {
-          window.setTimeout(() => {
-            URL.revokeObjectURL(nextUrl);
-            printFrame.remove();
-          }, 1000);
-        };
+      const printWindow = window.open(nextUrl, "_blank", "noopener,noreferrer");
 
+      if (!printWindow) {
+        URL.revokeObjectURL(nextUrl);
+        throw new Error("Popup blocked while opening PDF print window");
+      }
+
+      const cleanup = () => {
         window.setTimeout(() => {
-          printFrame.contentWindow?.focus();
-          printFrame.contentWindow?.print();
-          cleanup();
-        }, 250);
+          URL.revokeObjectURL(nextUrl);
+        }, 60_000);
       };
-      document.body.appendChild(printFrame);
+
+      cleanup();
+
+      window.setTimeout(() => {
+        try {
+          printWindow.focus();
+          printWindow.print();
+        } catch (printError) {
+          console.error("Failed to trigger PDF print dialog", printError);
+        }
+      }, 750);
     } catch (error) {
       console.error(error);
-      window.alert("Unable to generate the PDF right now.");
+      window.alert("Unable to generate the PDF right now. If a popup blocker is on, allow popups for this site and try again.");
     } finally {
       setPdfBusy(false);
     }
