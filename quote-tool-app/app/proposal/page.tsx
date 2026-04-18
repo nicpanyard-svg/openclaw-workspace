@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { PdfSigningPocPanel } from "@/app/components/pdf-signing-poc-panel";
+import { useEffect, useState } from "react";
 import { ProposalDocument } from "@/app/components/proposal-document";
-import { buildPdfSigningPlan } from "@/app/lib/pdf-signing-plan";
 import { deserializeQuoteRecord, PROPOSAL_STORAGE_KEY } from "@/app/lib/proposal-state";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
@@ -12,7 +10,6 @@ import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 function ProposalPage() {
   const [quote, setQuote] = useState<QuoteRecord>(sampleQuoteRecord);
   const [usingSavedData, setUsingSavedData] = useState(false);
-  const signingPlan = useMemo(() => buildPdfSigningPlan(quote), [quote]);
 
   useEffect(() => {
     const savedQuote = deserializeQuoteRecord(window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY));
@@ -42,7 +39,6 @@ function ProposalPage() {
         </div>
       </div>
 
-      <PdfSigningPocPanel plan={signingPlan} />
       <ProposalDocument quote={quote} />
     </div>
   );

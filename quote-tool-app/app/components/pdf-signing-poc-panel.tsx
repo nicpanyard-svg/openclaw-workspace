@@ -1,7 +1,9 @@
+import type { PdfExportContract } from "@/app/lib/pdf-signing-export";
 import type { PdfSigningPlan } from "@/app/lib/pdf-signing-plan";
 
 type PdfSigningPocPanelProps = {
   plan: PdfSigningPlan;
+  exportContract: PdfExportContract;
 };
 
 function formatFieldType(type: string) {
@@ -11,7 +13,7 @@ function formatFieldType(type: string) {
   return type;
 }
 
-export function PdfSigningPocPanel({ plan }: PdfSigningPocPanelProps) {
+export function PdfSigningPocPanel({ plan, exportContract }: PdfSigningPocPanelProps) {
   return (
     <section className="pdf-signing-poc-panel no-print" aria-label="PDF signing proof of concept panel">
       <div className="pdf-signing-poc-header">
@@ -82,6 +84,16 @@ export function PdfSigningPocPanel({ plan }: PdfSigningPocPanelProps) {
             ))}
           </ul>
         </div>
+      </div>
+
+      <div className="pdf-signing-poc-card">
+        <div className="pdf-signing-poc-section-title">Export contract snapshot</div>
+        <ul className="pdf-signing-poc-list compact">
+          <li>Source proposal URL: {exportContract.sourceDocumentUrl}</li>
+          <li>Resolved final page index: {exportContract.finalPageIndex}</li>
+          <li>Interactive pages: {exportContract.interactivePageIndexes.join(", ")}</li>
+          <li>Locked document: {exportContract.lockedDocument ? "Yes" : "No"}</li>
+        </ul>
       </div>
     </section>
   );
