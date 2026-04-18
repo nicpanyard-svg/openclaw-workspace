@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ProposalDocument } from "@/app/components/proposal-document";
 import { deserializeQuoteRecord, PROPOSAL_STORAGE_KEY } from "@/app/lib/proposal-state";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore } from "@/app/lib/proposal-store";
@@ -12,8 +12,8 @@ function ProposalPage() {
   const [quote, setQuote] = useState<QuoteRecord>(sampleQuoteRecord);
   const [usingSavedData, setUsingSavedData] = useState(false);
   const [activeProposalId, setActiveProposalId] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const proposalPdfFileName = useMemo(() => `${quote.metadata.proposalNumber || "proposal"}.pdf`, [quote.metadata.proposalNumber]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -48,48 +48,53 @@ function ProposalPage() {
     }
   }, []);
 
-  useEffect(() => {
-    let revokedUrl: string | null = null;
+  const handlePrintPdf = async () => {
+    setPdfBusy(true);
+    try {
+      const response = await fetch("/api/proposal-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ quote }),
+      });
 
-    const buildPdfPreview = async () => {
-      setPdfBusy(true);
-      try {
-        const response = await fetch("/api/proposal-pdf", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ quote }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to generate PDF preview");
-        }
-
-        const blob = await response.blob();
-        const nextUrl = URL.createObjectURL(blob);
-        revokedUrl = nextUrl;
-        setPdfUrl((current) => {
-          if (current) URL.revokeObjectURL(current);
-          return nextUrl;
-        });
-      } catch (error) {
-        console.error(error);
-        setPdfUrl((current) => {
-          if (current) URL.revokeObjectURL(current);
-          return null;
-        });
-      } finally {
-        setPdfBusy(false);
+      if (!response.ok) {
+        throw new Error("Failed to generate proposal PDF");
       }
-    };
 
-    buildPdfPreview();
+      const blob = await response.blob();
+      const nextUrl = URL.createObjectURL(blob);
+      const printFrame = document.createElement("iframe");
+      printFrame.style.position = "fixed";
+      printFrame.style.right = "0";
+      printFrame.style.bottom = "0";
+      printFrame.style.width = "0";
+      printFrame.style.height = "0";
+      printFrame.style.border = "0";
+      printFrame.src = nextUrl;
+      printFrame.onload = () => {
+        const cleanup = () => {
+          window.setTimeout(() => {
+            URL.revokeObjectURL(nextUrl);
+            printFrame.remove();
+          }, 1000);
+        };
 
-    return () => {
-      if (revokedUrl) URL.revokeObjectURL(revokedUrl);
-    };
-  }, [quote]);
+        window.setTimeout(() => {
+          printFrame.contentWindow?.focus();
+          printFrame.contentWindow?.print();
+          cleanup();
+        }, 250);
+      };
+      document.body.appendChild(printFrame);
+    } catch (error) {
+      console.error(error);
+      window.alert("Unable to generate the PDF right now.");
+    } finally {
+      setPdfBusy(false);
+    }
+  };
 
   return (
     <div className="proposal-route-shell">
@@ -113,45 +118,58 @@ function ProposalPage() {
           <Link href="/new" className="proposal-secondary-button">
             Open Editor
           </Link>
-          {pdfUrl ? (
-            <a href={pdfUrl} download={`${quote.metadata.proposalNumber || "proposal"}.pdf`} className="proposal-print-button">
-              Download PDF
-            </a>
-          ) : (
-            <button type="button" className="proposal-print-button" disabled>
-              {pdfBusy ? "Building PDF…" : "PDF unavailable"}
-            </button>
-          )}
-          <button type="button" className="proposal-secondary-button" onClick={() => window.print()}>
-            Print PDF
+          <button
+            type="button"
+            className="proposal-print-button"
+            disabled={pdfBusy}
+            onClick={() => {
+              void (async () => {
+                setPdfBusy(true);
+                try {
+                  const response = await fetch("/api/proposal-pdf", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ quote, download: true }),
+                  });
+
+                  if (!response.ok) {
+                    throw new Error("Failed to download proposal PDF");
+                  }
+
+                  const blob = await response.blob();
+                  const nextUrl = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = nextUrl;
+                  link.download = proposalPdfFileName;
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  window.setTimeout(() => URL.revokeObjectURL(nextUrl), 1000);
+                } catch (error) {
+                  console.error(error);
+                  window.alert("Unable to download the PDF right now.");
+                } finally {
+                  setPdfBusy(false);
+                }
+              })();
+            }}
+          >
+            {pdfBusy ? "Building PDF…" : "Download PDF"}
+          </button>
+          <button type="button" className="proposal-secondary-button" onClick={() => void handlePrintPdf()} disabled={pdfBusy}>
+            {pdfBusy ? "Building PDF…" : "Print PDF"}
           </button>
         </div>
       </div>
 
-      <div className="proposal-preview-layout">
-        <div className="proposal-preview-pane">
-          <div className="proposal-preview-pane-header no-print">
-            <div className="proposal-toolbar-title proposal-preview-pane-title">PDF preview</div>
-            <div className="proposal-toolbar-subtitle">
-              Best check for what will be downloaded or printed.
-            </div>
-          </div>
-          <div className="proposal-pdf-frame-shell">
-            {pdfUrl ? (
-              <iframe title="Proposal PDF preview" src={pdfUrl} className="proposal-pdf-frame" />
-            ) : (
-              <div className="proposal-pdf-frame-empty">{pdfBusy ? "Rendering PDF preview…" : "PDF preview unavailable."}</div>
-            )}
-          </div>
+      <div className="proposal-preview-shell">
+        <div className="proposal-preview-pane-header no-print">
+          <div className="proposal-toolbar-title proposal-preview-pane-title">HTML preview</div>
+          <div className="proposal-toolbar-subtitle">This is the single on-screen proposal surface. Print PDF uses the same proposal data for export.</div>
         </div>
-
-        <div className="proposal-html-pane">
-          <div className="proposal-preview-pane-header no-print">
-            <div className="proposal-toolbar-title proposal-preview-pane-title">HTML preview</div>
-            <div className="proposal-toolbar-subtitle">Live browser rendering of the same proposal content.</div>
-          </div>
-          <ProposalDocument quote={quote} />
-        </div>
+        <ProposalDocument quote={quote} />
       </div>
     </div>
   );
