@@ -773,6 +773,12 @@ body {
   background: transparent;
 }
 
+.proposal-print-shell {
+  min-height: auto;
+  padding: 0;
+  background: white;
+}
+
 .proposal-page {
   width: 8.5in;
   min-height: 11in;
@@ -1007,12 +1013,33 @@ body {
   color: #16202b;
 }
 
-.cover-band {
+.cover-band,
+.page-bottom-band {
   position: relative;
   z-index: 1;
   margin: 0.22in -0.36in -0.4in;
   padding: 18px 0.36in 22px;
   background: linear-gradient(90deg, #7f0f13 0%, #a70a10 50%, #7f0f13 100%);
+}
+
+.page-bottom-band {
+  margin-top: 0.18in;
+}
+
+.proposal-page-with-band {
+  display: flex;
+  flex-direction: column;
+}
+
+.cover-band::before,
+.page-bottom-band::before {
+  content: "";
+  position: absolute;
+  left: 0.36in;
+  right: 0.36in;
+  top: 10px;
+  height: 2px;
+  background: rgba(216, 110, 110, 0.9);
 }
 
 .cover-band-copy {
@@ -1472,7 +1499,8 @@ body {
     min-height: 9.9in;
   }
 
-  .cover-band {
+  .cover-band,
+  .page-bottom-band {
     margin-bottom: -0.4in;
   }
 

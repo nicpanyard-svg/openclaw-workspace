@@ -96,6 +96,9 @@ function ProposalPage() {
         <div className="proposal-preview-pane">
           <div className="proposal-preview-pane-header no-print">
             <div className="proposal-toolbar-title proposal-preview-pane-title">PDF preview</div>
+            <div className="proposal-toolbar-subtitle">
+              Generated from the HTML proposal layout for closer visual match.
+            </div>
           </div>
           <div className="proposal-pdf-frame-shell">
             {pdfUrl ? (
