@@ -273,7 +273,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
           </div>
           <div className="workspace-actions">
             <span className={statusTone(proposal.status)}>{proposal.stageLabel}</span>
-            <Link href="/" className="workspace-secondary-button">Back to My Proposals</Link>
+            <Link href="/" className="workspace-secondary-button">My Proposals</Link>
             <Link href="/proposal" className="workspace-secondary-button">Preview Proposal</Link>
             <Link href="/new" className="workspace-primary-button">Open Editor</Link>
           </div>
@@ -283,10 +283,10 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
           <div className="workspace-panel-topbar workspace-panel-topbar-stack">
             <div>
               <div className="workspace-eyebrow">Page purpose</div>
-              <h2 className="workspace-section-title">This is the internal record page</h2>
+              <h2 className="workspace-section-title">Internal proposal workspace</h2>
               <p className="workspace-panel-copy">
-                It shows ownership, status, totals, and history for the proposal record. It is not the customer document.
-                When you want to see what the customer sees, use <strong>Preview Proposal</strong>. When you want to make changes, use <strong>Open Editor</strong>.
+                It shows ownership, status, totals, and history for the saved proposal. It is not the customer document.
+                Keep the flow simple: start in <strong>My Proposals</strong>, use <strong>Open Editor</strong> to make changes, move to <strong>Preview Proposal</strong> to review the customer-facing document, then use <strong>Print PDF</strong> from the preview screen.
               </p>
             </div>
             <div className="workspace-focus-actions">
