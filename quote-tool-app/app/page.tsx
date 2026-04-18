@@ -1,5 +1,5 @@
-import QuotePreview from "@/app/components/quote-preview";
+import { ProposalWorkspace } from "@/app/components/proposal-workspace";
 
 export default function Home() {
-  return <QuotePreview />;
+  return <ProposalWorkspace />;
 }

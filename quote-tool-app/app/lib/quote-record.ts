@@ -107,6 +107,11 @@ export type QuoteMetadata = {
   currencyCode: CurrencyCode;
   status: QuoteStatus;
   quoteType: QuoteType;
+  ownerUserId?: string;
+  ownerName?: string;
+  accountId?: string;
+  accountName?: string;
+  lastTouchedAt?: string;
 };
 
 export type QuoteInternalMeta = {
@@ -115,6 +120,9 @@ export type QuoteInternalMeta = {
   internalNotes?: string;
   crmOwnerLabel?: string;
   crmSyncReady?: boolean;
+  savedProposalId?: string;
+  workspaceOwnerId?: string;
+  workspaceOwnerName?: string;
 };
 
 export type QuoteDocumentationDetails = {

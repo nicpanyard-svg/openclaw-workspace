@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Quote Tool App",
-  description: "Internal quote template shell preview",
+  title: "RapidQuote",
+  description: "Proposal workspace and quote builder for creating polished customer-ready proposals",
 };
 
 export default function RootLayout({

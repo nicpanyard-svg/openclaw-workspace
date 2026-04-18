@@ -34,6 +34,9 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
       internal: {
         crmOwnerLabel: parsed.internal?.crmOwnerLabel,
         crmSyncReady: parsed.internal?.crmSyncReady,
+        savedProposalId: parsed.internal?.savedProposalId,
+        workspaceOwnerId: parsed.internal?.workspaceOwnerId,
+        workspaceOwnerName: parsed.internal?.workspaceOwnerName,
         ...parsed.internal,
       },
       integrations: parsed.integrations ?? createDefaultIntegrationState(),

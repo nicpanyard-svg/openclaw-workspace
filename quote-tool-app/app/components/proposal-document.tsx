@@ -459,7 +459,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </section>
       )}
 
-      <section className="proposal-page">
+      <section className="proposal-page proposal-terms-page">
         <div className="proposal-header">
           <span>Terms and conditions</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
@@ -488,7 +488,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </div>
       </section>
 
-      <section className="proposal-page proposal-closing-page">
+      <section className="proposal-page proposal-closing-page keep-together-page">
         <div className="proposal-header">
           <span>Commercial recap</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>

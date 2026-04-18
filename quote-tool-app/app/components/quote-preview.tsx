@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, mockUsers, serializeProposalStore, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { PROPOSAL_STORAGE_KEY, serializeQuoteRecord } from "@/app/lib/proposal-state";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
 import {
@@ -413,6 +414,7 @@ function AddressEditor({
 
 export default function QuotePreview() {
   const [quote, setQuote] = useState<QuoteRecord>(() => cloneQuote(sampleQuoteRecord));
+  const [activeProposal, setActiveProposal] = useState<SavedProposalRecord | null>(null);
   const [equipmentSearch, setEquipmentSearch] = useState("");
   const [equipmentCategoryFilter, setEquipmentCategoryFilter] = useState("All");
   const [customEquipmentDraft, setCustomEquipmentDraft] = useState<EquipmentDraft>(emptyEquipmentDraft);
@@ -420,6 +422,28 @@ export default function QuotePreview() {
   const [dataQuickAddValue, setDataQuickAddValue] = useState("1");
   const [dataQuickAddUnit, setDataQuickAddUnit] = useState<DataQuickAddUnit>("TB");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const activeProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
+    const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
+    const fallbackStore = getDefaultProposalStore(createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }));
+    const store = savedStore ?? fallbackStore;
+
+    if (savedStore === null) {
+      window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(store));
+    }
+
+    const matchedProposal = activeProposalId
+      ? store.proposals.find((proposal) => proposal.id === activeProposalId) ?? null
+      : store.proposals[0] ?? null;
+
+    if (matchedProposal) {
+      setActiveProposal(matchedProposal);
+      setQuote(cloneQuote(matchedProposal.quote));
+    }
+  }, []);
 
   const currencyCode = quote.metadata.currencyCode || "USD";
   const activeSectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
@@ -775,7 +799,70 @@ export default function QuotePreview() {
 
   const persistProposalState = () => {
     if (typeof window === "undefined") return;
-    window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(quote));
+
+    const nextQuote = {
+      ...quote,
+      metadata: {
+        ...quote.metadata,
+        lastTouchedAt: new Date().toISOString(),
+      },
+      internal: {
+        ...quote.internal,
+        savedProposalId: activeProposal?.id ?? quote.internal.savedProposalId ?? quote.internal.quoteId,
+      },
+    };
+
+    window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(nextQuote));
+
+    const currentStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY)) ?? getDefaultProposalStore(
+      createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }),
+    );
+
+    const proposalId = activeProposal?.id ?? nextQuote.internal.savedProposalId ?? nextQuote.internal.quoteId;
+    const owner = currentStore.users.find((user) => user.id === (nextQuote.metadata.ownerUserId ?? activeProposal?.owner.id)) ?? currentStore.currentUser;
+    const now = new Date().toISOString();
+    const updatedProposal = createProposalFromQuote({ quote: nextQuote, owner, currentUser: currentStore.currentUser });
+    updatedProposal.id = proposalId;
+    updatedProposal.createdAt = activeProposal?.createdAt ?? now;
+    updatedProposal.updatedAt = now;
+    updatedProposal.status = nextQuote.metadata.status;
+    updatedProposal.stageLabel = activeProposal?.stageLabel ?? updatedProposal.stageLabel;
+    updatedProposal.owner = owner;
+    updatedProposal.createdBy = activeProposal?.createdBy ?? currentStore.currentUser;
+    updatedProposal.activity = [
+      ...(activeProposal?.activity ?? []),
+      {
+        id: `activity_updated_${Date.now()}`,
+        type: "updated",
+        message: "Proposal saved from builder",
+        at: now,
+        by: { id: currentStore.currentUser.id, name: currentStore.currentUser.name },
+      },
+    ];
+    updatedProposal.quote.internal.savedProposalId = proposalId;
+    updatedProposal.quote.internal.workspaceOwnerId = owner.id;
+    updatedProposal.quote.internal.workspaceOwnerName = owner.name;
+    updatedProposal.quote.metadata.ownerUserId = owner.id;
+    updatedProposal.quote.metadata.ownerName = owner.name;
+
+    const existingIndex = currentStore.proposals.findIndex((proposal) => proposal.id === proposalId);
+    const nextProposals = [...currentStore.proposals];
+
+    if (existingIndex >= 0) {
+      nextProposals[existingIndex] = updatedProposal;
+    } else {
+      nextProposals.unshift(updatedProposal);
+    }
+
+    const nextStore = {
+      ...currentStore,
+      proposals: nextProposals,
+    };
+
+    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
+    window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, proposalId);
+    setActiveProposal(updatedProposal);
+    setQuote(nextQuote);
   };
 
   return (
@@ -789,36 +876,39 @@ export default function QuotePreview() {
               </div>
               <div>
                 <div className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[#8b96a3]">RapidQuote</div>
-                <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Quote builder</h1>
+                <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">New Proposal</h1>
                 <p className="mt-2 max-w-[680px] text-[15px] leading-[1.55] text-[#5a6572]">
-                  Build polished iNet proposal drafts fast, with live pricing totals and a clean handoff into the proposal view.
+                  Build a polished proposal with live pricing, clear ownership, and a smooth handoff into preview and final output.
                 </p>
               </div>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <div className="builder-stat-card"><div className="builder-stat-label">Recurring monthly</div><div className="builder-stat-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div><div className="builder-stat-note">Live from Section A</div></div>
-              <div className="builder-stat-card"><div className="builder-stat-label">One-time equipment</div><div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div><div className="builder-stat-note">Live from Section B</div></div>
-              <div className="builder-stat-card"><div className="builder-stat-label">Optional services</div><div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div><div className="builder-stat-note">Inspection and install pricing</div></div>
-              <div className="builder-stat-card"><div className="builder-stat-label">Pricing status</div><div className="builder-stat-value">Live</div><div className="builder-stat-note">Builder totals are active and ready for proposal review</div></div>
+              <div className="builder-stat-card"><div className="builder-stat-label">Recurring monthly</div><div className="builder-stat-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section A</div></div>
+              <div className="builder-stat-card"><div className="builder-stat-label">One-time equipment</div><div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section B</div></div>
+              <div className="builder-stat-card"><div className="builder-stat-label">Optional services</div><div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div><div className="builder-stat-note">Inspection and install totals</div></div>
+              <div className="builder-stat-card"><div className="builder-stat-label">Pricing status</div><div className="builder-stat-value">Ready</div><div className="builder-stat-note">Totals are current and ready to review</div></div>
             </div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
+            <Link href="/" className="pill-button">
+              My Proposals
+            </Link>
             <Link href="/proposal" className="pill-button pill-button-active" onClick={persistProposalState}>
               Preview Proposal
             </Link>
             <Link href="/proposal" className="pill-button" target="_blank" rel="noreferrer" onClick={persistProposalState}>
               Open Proposal in New Tab
             </Link>
-            <button type="button" className="pill-button" onClick={persistProposalState}>Save Draft</button>
+            <button type="button" className="pill-button" onClick={persistProposalState}>Save Proposal</button>
           </div>
         </section>
 
         <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
           <div className="space-y-6">
             <section className="builder-panel">
-              <div className="builder-panel-header"><div><div className="builder-eyebrow">Quote setup</div><h2 className="builder-title">Core quote details</h2></div></div>
+              <div className="builder-panel-header"><div><div className="builder-eyebrow">Quote setup</div><h2 className="builder-title">Quote details</h2></div></div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <label className="builder-field"><span>Proposal #</span><input value={quote.metadata.proposalNumber} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalNumber = e.target.value; draft.documentation.proposalNumberLabel = e.target.value; return draft; })} /></label>
@@ -827,15 +917,22 @@ export default function QuotePreview() {
                 <label className="builder-field"><span>Status</span><select value={quote.metadata.status} onChange={(e) => updateQuote((draft) => { draft.metadata.status = e.target.value as QuoteRecord["metadata"]["status"]; draft.internal.quoteStatus = e.target.value as QuoteRecord["metadata"]["status"]; return draft; })}>{["draft", "sent", "open", "negotiating", "approved", "closed"].map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
               </div>
 
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <label className="builder-field"><span>Proposal owner</span><select value={quote.metadata.ownerUserId ?? activeProposal?.owner.id ?? mockUsers[0].id} onChange={(e) => updateQuote((draft) => { const owner = mockUsers.find((user) => user.id === e.target.value) ?? mockUsers[0]; draft.metadata.ownerUserId = owner.id; draft.metadata.ownerName = owner.name; draft.internal.workspaceOwnerId = owner.id; draft.internal.workspaceOwnerName = owner.name; draft.internal.crmOwnerLabel = owner.name; return draft; })}>{mockUsers.map((user) => <option key={user.id} value={user.id}>{user.name} — {user.role}</option>)}</select></label>
+                <label className="builder-field"><span>Owner display name</span><input value={quote.metadata.ownerName ?? activeProposal?.owner.name ?? ""} onChange={(e) => updateQuote((draft) => { draft.metadata.ownerName = e.target.value; draft.internal.workspaceOwnerName = e.target.value; draft.internal.crmOwnerLabel = e.target.value; return draft; })} /></label>
+                <label className="builder-field"><span>Account ID</span><input value={quote.metadata.accountId ?? ""} onChange={(e) => updateQuote((draft) => { draft.metadata.accountId = e.target.value; return draft; })} /></label>
+                <label className="builder-field"><span>Account name</span><input value={quote.metadata.accountName ?? quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.metadata.accountName = e.target.value; return draft; })} /></label>
+              </div>
+
               <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-2">
                 <label className="builder-field"><span>Proposal subtitle</span><input value={quote.metadata.documentSubtitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentSubtitle = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Customer short name</span><input value={quote.metadata.customerShortName} onChange={(e) => updateQuote((draft) => { draft.metadata.customerShortName = e.target.value; draft.customer.logoText = e.target.value; return draft; })} /></label>
               </div>
 
               <div className="mt-5 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
-                <div className="builder-eyebrow">Proposal contacts</div>
+                <div className="builder-eyebrow">Contacts</div>
                 <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal and address details</h3>
-                <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Everything here feeds the proposal output directly so the cover page and info page match what gets edited in the builder.</p>
+                <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Update these details once and they carry through to the proposal cover and contact pages.</p>
 
                 <div className="mt-4 grid gap-4 xl:grid-cols-2">
                   <div className="space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
@@ -860,8 +957,8 @@ export default function QuotePreview() {
                       <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Sales contact and address</div>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
-                      <label className="builder-field compact"><span>Prepared by / salesman</span><input value={quote.inet.contactName} onChange={(e) => updateQuote((draft) => { draft.inet.contactName = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact"><span>iNet sales name</span><input value={quote.inet.name} onChange={(e) => updateQuote((draft) => { draft.inet.name = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact"><span>Prepared by</span><input value={quote.inet.contactName} onChange={(e) => updateQuote((draft) => { draft.inet.contactName = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact"><span>Sales team name</span><input value={quote.inet.name} onChange={(e) => updateQuote((draft) => { draft.inet.name = e.target.value; return draft; })} /></label>
                       <label className="builder-field compact"><span>Sales phone</span><input value={quote.inet.contactPhone} onChange={(e) => updateQuote((draft) => { draft.inet.contactPhone = e.target.value; return draft; })} /></label>
                       <label className="builder-field compact"><span>Sales email</span><input value={quote.inet.contactEmail} onChange={(e) => updateQuote((draft) => { draft.inet.contactEmail = e.target.value; return draft; })} /></label>
                       <label className="builder-field compact md:col-span-2"><span>iNet address line 1</span><input value={quote.inet.addressLines[0] ?? ""} onChange={(e) => updateQuote((draft) => { draft.inet.addressLines[0] = e.target.value; return draft; })} /></label>
@@ -895,7 +992,7 @@ export default function QuotePreview() {
                           return draft;
                         })}
                       />
-                      Ship To same as Bill To
+                      Ship to same as bill to
                     </label>
 
                     <AddressEditor
@@ -945,7 +1042,7 @@ export default function QuotePreview() {
                   <SectionToggle label="Section C — Site inspection and install" enabled={quote.sections.sectionC.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionC.enabled = next; return draft; })} />
                 </div>
               </div>
-              <p className="text-[14px] leading-[1.5] text-[#5c6772]">Clear section labels stay front and center so the builder reads like a quote tool a human can use, not a schema editor.</p>
+              <p className="text-[14px] leading-[1.5] text-[#5c6772]">Keep section names clear so the quote is easy to scan and easy to explain.</p>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 <label className="builder-field"><span>Section A label</span><input value={quote.sections.sectionA.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.builderLabel = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Section B label</span><input value={quote.sections.sectionB.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.builderLabel = e.target.value; return draft; })} /></label>
@@ -954,7 +1051,7 @@ export default function QuotePreview() {
               <div className="mt-4 space-y-3">
                 {customSectionFields.map((field, index) => (
                   <div key={field.id} className="grid gap-3 md:grid-cols-[.9fr_1.4fr_auto]">
-                    <label className="builder-field compact"><span>New section field {index + 1}</span><input value={field.label} onChange={(e) => setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, label: e.target.value } : item))} /></label>
+                    <label className="builder-field compact"><span>Custom field {index + 1}</span><input value={field.label} onChange={(e) => setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, label: e.target.value } : item))} /></label>
                     <label className="builder-field compact"><span>Value</span><input value={field.value} onChange={(e) => setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, value: e.target.value } : item))} /></label>
                     <button type="button" className="danger-button self-end" onClick={() => setCustomSectionFields((current) => current.filter((item) => item.id !== field.id))}>Remove field</button>
                   </div>
@@ -971,10 +1068,10 @@ export default function QuotePreview() {
                   <button type="button" className="pill-button pill-button-active" onClick={generateExecutiveSummary}>Generate draft summary</button>
                 </div>
               </div>
-              <p className="text-[14px] leading-[1.5] text-[#5c6772]">Give the proposal a usable front-end summary. Generate a draft from the current builder selections, then edit it however you want.</p>
+              <p className="text-[14px] leading-[1.5] text-[#5c6772]">Create a strong opening summary, then fine-tune it to match the customer conversation.</p>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <label className="builder-field"><span>Summary heading</span><input value={quote.executiveSummary.heading ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.heading = e.target.value; return draft; })} /></label>
-                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#5e6974]">Uses customer name, provider, pricing mode, selected equipment, quantities, and optional services to build a practical first draft.</div>
+                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#5e6974]">Builds a first draft from the customer, provider, pricing, equipment, and service selections above.</div>
               </div>
               <div className="mt-4 grid gap-4">
                 <label className="builder-field"><span>Customer context</span><textarea rows={3} value={quote.executiveSummary.customerContext ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.customerContext = e.target.value; syncExecutiveSummaryParagraphs(draft); return draft; })} /></label>
@@ -995,7 +1092,7 @@ export default function QuotePreview() {
                 <div className="grid gap-4 md:grid-cols-3">
                   <label className="builder-field"><span>Section title</span><input value={quote.sections.sectionA.title} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.title = e.target.value; return draft; })} /></label>
                   <label className="builder-field"><span>Term (months)</span><input type="number" value={quote.sections.sectionA.termMonths} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.termMonths = parseNumber(e.target.value); return draft; })} /></label>
-                  <label className="builder-field"><span>Quick add source row</span><select defaultValue="" onChange={(e) => { if (e.target.value) { addSectionARowFromCatalog(e.target.value); e.target.value = ""; } }}><option value="">Choose source item…</option>{filteredSectionACatalog.map((item) => <option key={item.id} value={item.id}>{item.label} — {formatCurrency(item.defaultUnitPrice, currencyCode)}</option>)}</select></label>
+                  <label className="builder-field"><span>Quick add service row</span><select defaultValue="" onChange={(e) => { if (e.target.value) { addSectionARowFromCatalog(e.target.value); e.target.value = ""; } }}><option value="">Choose an item…</option>{filteredSectionACatalog.map((item) => <option key={item.id} value={item.id}>{item.label} — {formatCurrency(item.defaultUnitPrice, currencyCode)}</option>)}</select></label>
                 </div>
 
                 <div className="mt-4 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
@@ -1009,7 +1106,7 @@ export default function QuotePreview() {
                   </div>
                 </div>
 
-                <label className="builder-field mt-4"><span>Builder notes / intro</span><textarea value={quote.sections.sectionA.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.introText = e.target.value; return draft; })} rows={3} /></label>
+                <label className="builder-field mt-4"><span>Section intro</span><textarea value={quote.sections.sectionA.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.introText = e.target.value; return draft; })} rows={3} /></label>
 
                 <div className="mt-5 space-y-3">
                   {activeSectionARows.map((row, index) => (
@@ -1036,7 +1133,7 @@ export default function QuotePreview() {
               <section className="builder-panel">
                 <div className="builder-panel-header">
                   <div><div className="builder-eyebrow">Section B</div><h2 className="builder-title">{quote.sections.sectionB.builderLabel}</h2></div>
-                  <div className="rounded-[18px] border border-[#ead9db] bg-[#fff7f7] px-4 py-3 text-[13px] text-[#6d4950]">Builder focus: pick from source-backed defaults, add custom hardware, or adjust the current line items without clutter.</div>
+                  <div className="rounded-[18px] border border-[#ead9db] bg-[#fff7f7] px-4 py-3 text-[13px] text-[#6d4950]">Pick from recommended hardware, add a custom item, or fine-tune the current list without clutter.</div>
                 </div>
 
                 <label className="builder-field"><span>Section note</span><textarea rows={3} value={quote.sections.sectionB.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.introText = e.target.value; return draft; })} /></label>
@@ -1060,14 +1157,14 @@ export default function QuotePreview() {
 
                 <div className="mt-5 grid gap-4 xl:grid-cols-[1.3fr_.9fr]">
                   <div className="rounded-[24px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="builder-eyebrow">Source items</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Clean picker</h3></div><div className="text-[13px] text-[#66717d]">{filteredEquipmentCatalog.length} match(es)</div></div>
+                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="builder-eyebrow">Recommended items</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Hardware picker</h3></div><div className="text-[13px] text-[#66717d]">{filteredEquipmentCatalog.length} match(es)</div></div>
                     <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_.8fr]"><label className="builder-field compact"><span>Search hardware</span><input placeholder="mini, mount, cable..." value={equipmentSearch} onChange={(e) => setEquipmentSearch(e.target.value)} /></label><label className="builder-field compact"><span>Category</span><select value={equipmentCategoryFilter} onChange={(e) => setEquipmentCategoryFilter(e.target.value)}>{equipmentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label></div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">{filteredEquipmentCatalog.map((item) => <div key={item.id} className="rounded-[20px] border border-[#d9e0e7] bg-white p-4 shadow-[0_8px_20px_rgba(31,42,52,0.05)]"><div className="flex items-start justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{item.category}</div><h4 className="mt-1 text-[16px] font-semibold text-[#16202b]">{item.label}</h4></div><div className="rounded-full bg-[#f3f6fa] px-3 py-1 text-[12px] font-semibold text-[#465361]">{formatCurrency(item.defaultUnitPrice, currencyCode)}</div></div><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">{item.description ?? "Source-backed equipment item."}</p><div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[#66717d]">{item.terminalType && <span className="rounded-full bg-[#f6f8fb] px-3 py-1">Type: {item.terminalType}</span>}<span className="rounded-full bg-[#f6f8fb] px-3 py-1">Source-backed</span></div><button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={() => addEquipmentRow(item.id)}>Add to hardware rows</button></div>)}</div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">{filteredEquipmentCatalog.map((item) => <div key={item.id} className="rounded-[20px] border border-[#d9e0e7] bg-white p-4 shadow-[0_8px_20px_rgba(31,42,52,0.05)]"><div className="flex items-start justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{item.category}</div><h4 className="mt-1 text-[16px] font-semibold text-[#16202b]">{item.label}</h4></div><div className="rounded-full bg-[#f3f6fa] px-3 py-1 text-[12px] font-semibold text-[#465361]">{formatCurrency(item.defaultUnitPrice, currencyCode)}</div></div><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">{item.description ?? "Recommended equipment item."}</p><div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[#66717d]">{item.terminalType && <span className="rounded-full bg-[#f6f8fb] px-3 py-1">Type: {item.terminalType}</span>}<span className="rounded-full bg-[#f6f8fb] px-3 py-1">Recommended</span></div><button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={() => addEquipmentRow(item.id)}>Add to hardware rows</button></div>)}</div>
                   </div>
 
                   <div className="space-y-4">
                     <div className="rounded-[24px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                      <div className="builder-eyebrow">Custom item flow</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Manual hardware row</h3><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Use this when the source set does not have the part yet, or when you are quoting a placeholder from a live customer call.</p>
+                      <div className="builder-eyebrow">Custom item</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Manual hardware row</h3><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Use this when the exact part is missing or you need to quote a placeholder during a live call.</p>
                       <div className="mt-4 grid gap-3 md:grid-cols-2"><label className="builder-field compact"><span>Item name</span><input value={customEquipmentDraft.itemName} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, itemName: e.target.value }))} /></label><label className="builder-field compact"><span>Category</span><input value={customEquipmentDraft.itemCategory} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, itemCategory: e.target.value }))} /></label><label className="builder-field compact"><span>Terminal type</span><input value={customEquipmentDraft.terminalType} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, terminalType: e.target.value }))} /></label><label className="builder-field compact"><span>Article / part #</span><input value={customEquipmentDraft.partNumber} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, partNumber: e.target.value }))} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={customEquipmentDraft.quantity} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, quantity: e.target.value }))} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={customEquipmentDraft.unitPrice} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, unitPrice: e.target.value }))} /></label></div>
                       <label className="builder-field compact mt-3"><span>Description / notes</span><textarea rows={3} value={customEquipmentDraft.description} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, description: e.target.value }))} /></label>
                       <button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={addCustomEquipmentRow}>Add custom hardware row</button>
@@ -1096,21 +1193,21 @@ export default function QuotePreview() {
 
           <aside className="space-y-6">
             <section className="builder-panel sticky top-6">
-              <div className="builder-panel-header"><div><div className="builder-eyebrow">Output model</div><h2 className="builder-title">PDF-ready summary</h2></div></div>
+              <div className="builder-panel-header"><div><div className="builder-eyebrow">Proposal summary</div><h2 className="builder-title">PDF-ready summary</h2></div></div>
               <div className="space-y-5 text-[14px] text-[#32404c]">
                 <div className="summary-block"><div className="summary-label">Customer</div><div className="summary-value">{quote.customer.name}</div><div className="summary-subvalue">{quote.customer.contactName} • {quote.metadata.proposalNumber} • {quote.metadata.proposalDate}</div></div>
                 <div className="summary-block"><div className="summary-label">Proposal info</div><div className="summary-value">{quote.metadata.documentTitle}</div><div className="summary-subvalue">Prepared by {quote.inet.contactName} • {quote.inet.contactPhone}</div></div>
                 <div className="summary-block"><div className="summary-label">Bill To / Ship To</div><div className="summary-value">{quote.billTo.companyName || quote.customer.name}</div><div className="summary-subvalue">{quote.shippingSameAsBillTo ? "Ship To matches Bill To" : `${quote.shipTo.companyName || "Custom Ship To"} configured separately`}</div></div>
                 <div className="summary-block"><div className="summary-label">Executive Summary</div><div className="summary-value">{quote.executiveSummary.enabled ? (quote.executiveSummary.heading?.trim() || "Executive Summary") : "Hidden"}</div><div className="summary-subvalue">{quote.executiveSummary.enabled ? `${compactList([quote.executiveSummary.customerContext, quote.executiveSummary.body]).length} editable text block(s) ready for output` : "Not included in proposal output"}</div></div>
                 <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : `Estimated monthly blended total over ${quote.sections.sectionA.termMonths} months`}</div></div>
-                <div className="summary-block"><div className="summary-label">Pricing source</div><div className="summary-value">Live builder data</div><div className="summary-subvalue">Source-backed defaults with no catalog admin dependency in the shipped path</div></div>
+                <div className="summary-block"><div className="summary-label">Pricing source</div><div className="summary-value">Current quote data</div><div className="summary-subvalue">Recommended defaults plus any edits you made in this quote</div></div>
                 <div className="summary-block"><div className="summary-label">Enabled sections</div><ul className="list-disc pl-5 text-[#56616d]">{quote.sections.sectionA.enabled && <li>Monthly service pricing</li>}{quote.sections.sectionB.enabled && <li>Hardware and accessories</li>}{quote.sections.sectionC.enabled && <li>Optional field services</li>}</ul></div>
                 {customSectionFields.length > 0 && <div className="summary-block"><div className="summary-label">Extra section fields</div><div className="space-y-1 text-[#56616d]">{customSectionFields.map((field) => <div key={field.id}><strong>{field.label}:</strong> {field.value || "—"}</div>)}</div></div>}
-                <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{activeSectionARows.length} row(s) ready for template mapping</div></div>
+                <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{activeSectionARows.length} row(s) ready for the proposal</div></div>
                 <div className="summary-block"><div className="summary-label">Section B output</div><div className="summary-value">{quote.sections.sectionB.lineItems.length} hardware row(s)</div><div className="summary-subvalue">{suggestedAccessories.length > 0 ? `${suggestedAccessories.length} accessory suggestion(s) available` : "All current accessory suggestions already added"}</div></div>
                 <div className="summary-block"><div className="summary-label">Section C output</div><div className="summary-value">{quote.sections.sectionC.title}</div><div className="summary-subvalue">{quote.sections.sectionC.lineItems.length} service row(s) • {quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "budgetary").length} budgetary / {quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "final").length} final</div></div>
                 <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>Recurring monthly</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div><div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div><div className="flex justify-between gap-3"><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>{quote.metadata.quoteType === "lease" && <div className="flex justify-between gap-3 text-[#b00000]"><span>Blended lease monthly</span><strong>{formatCurrency(leaseMonthly, currencyCode)}</strong></div>}</div></div>
-                <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">This stays simple for the live path: builder + proposal now, deeper systems later.</div>
+                <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">Keep it simple: build the quote, review the proposal, and send it with confidence.</div>
               </div>
             </section>
           </aside>
