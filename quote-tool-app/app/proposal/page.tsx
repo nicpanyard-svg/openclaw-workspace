@@ -10,6 +10,8 @@ import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 function ProposalPage() {
   const [quote, setQuote] = useState<QuoteRecord>(sampleQuoteRecord);
   const [usingSavedData, setUsingSavedData] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
     const savedQuote = deserializeQuoteRecord(window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY));
@@ -18,6 +20,49 @@ function ProposalPage() {
       setUsingSavedData(true);
     }
   }, []);
+
+  useEffect(() => {
+    let revokedUrl: string | null = null;
+
+    const buildPdfPreview = async () => {
+      setPdfBusy(true);
+      try {
+        const response = await fetch("/api/proposal-pdf", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ quote }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to generate PDF preview");
+        }
+
+        const blob = await response.blob();
+        const nextUrl = URL.createObjectURL(blob);
+        revokedUrl = nextUrl;
+        setPdfUrl((current) => {
+          if (current) URL.revokeObjectURL(current);
+          return nextUrl;
+        });
+      } catch (error) {
+        console.error(error);
+        setPdfUrl((current) => {
+          if (current) URL.revokeObjectURL(current);
+          return null;
+        });
+      } finally {
+        setPdfBusy(false);
+      }
+    };
+
+    buildPdfPreview();
+
+    return () => {
+      if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+    };
+  }, [quote]);
 
   return (
     <div className="proposal-route-shell">
@@ -33,13 +78,50 @@ function ProposalPage() {
           <Link href="/new" className="proposal-secondary-button">
             Back to Quote
           </Link>
-          <button type="button" className="proposal-print-button" onClick={() => window.print()}>
-            Print / Save PDF
+          {pdfUrl ? (
+            <a href={pdfUrl} download={`${quote.metadata.proposalNumber || "proposal"}.pdf`} className="proposal-print-button">
+              Download PDF
+            </a>
+          ) : (
+            <button type="button" className="proposal-print-button" disabled>
+              {pdfBusy ? "Building PDF…" : "PDF unavailable"}
+            </button>
+          )}
+          <button type="button" className="proposal-secondary-button" onClick={() => window.print()}>
+            Browser Print
           </button>
         </div>
       </div>
 
-      <ProposalDocument quote={quote} />
+      <div className="proposal-preview-layout">
+        <div className="proposal-preview-pane">
+          <div className="proposal-preview-pane-header no-print">
+            <div>
+              <div className="proposal-toolbar-label">Controlled PDF preview</div>
+              <div className="proposal-toolbar-subtitle">
+                {pdfBusy ? "Rendering the source-of-truth PDF…" : "This PDF is generated from the new server-side document path."}
+              </div>
+            </div>
+          </div>
+          <div className="proposal-pdf-frame-shell">
+            {pdfUrl ? (
+              <iframe title="Proposal PDF preview" src={pdfUrl} className="proposal-pdf-frame" />
+            ) : (
+              <div className="proposal-pdf-frame-empty">{pdfBusy ? "Rendering PDF preview…" : "PDF preview unavailable."}</div>
+            )}
+          </div>
+        </div>
+
+        <div className="proposal-html-pane">
+          <div className="proposal-preview-pane-header no-print">
+            <div>
+              <div className="proposal-toolbar-label">HTML comparison preview</div>
+              <div className="proposal-toolbar-subtitle">Kept for editing/reference while we move toward PDF-first parity.</div>
+            </div>
+          </div>
+          <ProposalDocument quote={quote} />
+        </div>
+      </div>
     </div>
   );
 }
