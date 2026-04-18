@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ProposalDocument } from "@/app/components/proposal-document";
-import { buildProposalPayload, deserializeQuoteRecord, PROPOSAL_CATALOG_STORAGE_KEY, PROPOSAL_STORAGE_KEY } from "@/app/lib/proposal-state";
+import { deserializeQuoteRecord, PROPOSAL_STORAGE_KEY } from "@/app/lib/proposal-state";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
@@ -14,8 +14,7 @@ function ProposalPage() {
   useEffect(() => {
     const savedQuote = deserializeQuoteRecord(window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY));
     if (savedQuote) {
-      const payload = buildProposalPayload(savedQuote, window.sessionStorage.getItem(PROPOSAL_CATALOG_STORAGE_KEY));
-      setQuote(payload.quote);
+      setQuote(savedQuote);
       setUsingSavedData(true);
     }
   }, []);
