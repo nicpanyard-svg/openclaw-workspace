@@ -212,10 +212,10 @@ export function ProposalWorkspace() {
                     <div className="proposal-list-note">Proposal details and quote edits stay in sync</div>
                     <div className="proposal-list-actions">
                       <Link href={`/proposals/${proposal.id}`} className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
-                        View Proposal
+                        View Details
                       </Link>
                       <Link href="/new" className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
-                        Edit Proposal
+                        Open Editor
                       </Link>
                     </div>
                   </div>
@@ -244,7 +244,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
           <div className="workspace-actions">
             <span className={statusTone(proposal.status)}>{proposal.stageLabel}</span>
             <Link href="/" className="workspace-secondary-button">Back to My Proposals</Link>
-            <Link href="/new" className="workspace-primary-button">Edit Proposal</Link>
+            <Link href="/new" className="workspace-primary-button">Open Editor</Link>
           </div>
         </section>
 
@@ -260,14 +260,14 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
             <div className="detail-card-grid">
               <div className="detail-card"><span>Owner</span><strong>{proposal.owner.name}</strong><em>{proposal.owner.role}</em></div>
               <div className="detail-card"><span>Created by</span><strong>{proposal.createdBy.name}</strong><em>{formatDate(proposal.createdAt)}</em></div>
-              <div className="detail-card"><span>Status</span><strong>{proposal.stageLabel}</strong><em>{proposal.status}</em></div>
-              <div className="detail-card"><span>Workspace</span><strong>{proposal.workspace.accountSegment}</strong><em>{proposal.workspace.branchLabel}</em></div>
+              <div className="detail-card"><span>Status</span><strong>{proposal.stageLabel}</strong><em>{statusToStageLabel(proposal.status)}</em></div>
+              <div className="detail-card"><span>Account Segment</span><strong>{proposal.workspace.accountSegment}</strong><em>{proposal.workspace.branchLabel}</em></div>
             </div>
 
             <div className="detail-table">
               <div><span>Account</span><strong>{proposal.quote.metadata.accountName ?? proposal.quote.customer.name}</strong></div>
               <div><span>Proposal date</span><strong>{proposal.quote.metadata.proposalDate}</strong></div>
-              <div><span>Owner id</span><strong>{proposal.quote.metadata.ownerUserId ?? proposal.owner.id}</strong></div>
+              <div><span>Owner</span><strong>{proposal.quote.metadata.ownerName ?? proposal.owner.name}</strong></div>
               <div><span>Last touched</span><strong>{proposal.quote.metadata.lastTouchedAt ? formatDate(proposal.quote.metadata.lastTouchedAt) : formatDate(proposal.updatedAt)}</strong></div>
             </div>
           </section>
@@ -291,8 +291,8 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
           <section className="workspace-panel">
             <div className="workspace-panel-topbar">
               <div>
-                <div className="workspace-eyebrow">Team routing</div>
-                <h2 className="workspace-section-title">Available owners</h2>
+                <div className="workspace-eyebrow">Team</div>
+                <h2 className="workspace-section-title">Available Owners</h2>
               </div>
             </div>
             <div className="owner-list">

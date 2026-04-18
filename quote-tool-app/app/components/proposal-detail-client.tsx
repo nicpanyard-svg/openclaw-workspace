@@ -24,7 +24,7 @@ export default function ProposalDetailClient({ proposalId }: { proposalId: strin
   }, [proposalId]);
 
   if (!store) {
-    return <main className="workspace-shell"><div className="workspace-empty">Loading proposal…</div></main>;
+    return <main className="workspace-shell"><div className="workspace-empty">Loading proposal details…</div></main>;
   }
 
   const proposal = store.proposals.find((entry) => entry.id === proposalId) ?? store.proposals[0];
