@@ -110,6 +110,31 @@ body {
   justify-content: flex-end;
 }
 
+.workspace-brand-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.workspace-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 148px;
+  min-height: 62px;
+  padding: 12px 16px;
+  border-radius: 20px;
+  border: 1px solid #dde3e8;
+  background: white;
+  box-shadow: 0 10px 24px rgba(40, 51, 63, 0.06);
+}
+
+.workspace-brand-logo {
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
 .workspace-current-user {
   min-width: 220px;
   border-radius: 20px;
@@ -171,9 +196,10 @@ body {
 .workspace-primary-button,
 .pill-button-active,
 .proposal-print-button {
-  background: linear-gradient(180deg, #b00000 0%, #850000 100%);
+  background: linear-gradient(180deg, #c81414 0%, #8f0000 100%);
   color: white;
-  box-shadow: 0 12px 24px rgba(176, 0, 0, 0.22);
+  border-color: rgba(143, 0, 0, 0.9);
+  box-shadow: 0 14px 28px rgba(176, 0, 0, 0.24);
 }
 
 .workspace-secondary-button,
@@ -185,8 +211,65 @@ body {
   box-shadow: 0 8px 18px rgba(40, 51, 63, 0.08);
 }
 
+.workspace-primary-button:hover,
+.pill-button-active:hover,
+.proposal-print-button:hover,
+.danger-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(176, 0, 0, 0.28);
+}
+
+.workspace-secondary-button:hover,
+.pill-button:hover,
+.proposal-secondary-button:hover {
+  border-color: #c4ced9;
+  background: #fffdfd;
+}
+
+.workspace-primary-button:focus-visible,
+.workspace-secondary-button:focus-visible,
+.pill-button:focus-visible,
+.proposal-secondary-button:focus-visible,
+.proposal-print-button:focus-visible,
+.danger-button:focus-visible {
+  outline: 3px solid rgba(176, 0, 0, 0.18);
+  outline-offset: 2px;
+}
+
 .workspace-primary-button-small {
   padding: 10px 16px;
+}
+
+.danger-button {
+  background: linear-gradient(180deg, #c81414 0%, #8f0000 100%);
+  color: white;
+  border-color: rgba(143, 0, 0, 0.9);
+  box-shadow: 0 12px 24px rgba(176, 0, 0, 0.2);
+}
+
+.summary-block ul li,
+.activity-item p,
+.proposal-list-note,
+.workspace-subtitle,
+.builder-stat-note,
+.workspace-stat-note,
+.summary-subvalue,
+.proposal-toolbar-subtitle,
+.proposal-intro,
+.proposal-copy p,
+.approval-copy,
+.proposal-cell-subtitle,
+.proposal-cell-note,
+.cover-contact-lines,
+.cover-customer-lines {
+  text-wrap: pretty;
+}
+
+.proposal-section-title,
+.workspace-title,
+.builder-title,
+.workspace-section-title {
+  text-wrap: balance;
 }
 
 .workspace-stat-grid {
@@ -642,7 +725,7 @@ body {
   margin: 0 auto 24px;
   background: white;
   box-shadow: 0 18px 50px rgba(34, 44, 55, 0.18);
-  padding: 0.68in 0.62in 0.74in;
+  padding: 0.62in 0.58in 0.68in;
   position: relative;
   overflow: hidden;
 }
@@ -659,7 +742,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 0.6in 0.58in 0.58in;
+  padding: 0.54in 0.55in 0.54in;
 }
 
 .cover-page::before {
@@ -669,7 +752,7 @@ body {
 .cover-grid {
   position: relative;
   z-index: 1;
-  min-height: 9.5in;
+  min-height: 9.62in;
   display: flex;
   flex-direction: column;
 }
@@ -748,7 +831,7 @@ body {
 }
 
 .cover-content {
-  padding-top: 0.68in;
+  padding-top: 0.58in;
   position: relative;
   z-index: 1;
   flex: 1 1 auto;
@@ -781,7 +864,7 @@ body {
 }
 
 .cover-customer-grid {
-  margin-top: 24px;
+  margin-top: 20px;
   display: grid;
   grid-template-columns: 1.15fr 0.95fr;
   gap: 14px;
@@ -852,7 +935,7 @@ body {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  padding-top: 28px;
+  padding-top: 22px;
 }
 
 .cover-summary-card {
@@ -891,8 +974,8 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding-bottom: 14px;
-  margin-bottom: 20px;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
   border-bottom: 1px solid #e5eaef;
   font-size: 10px;
   font-weight: 800;
@@ -982,7 +1065,7 @@ body {
 .proposal-address-grid,
 .proposal-callout-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .proposal-mini-heading {
@@ -1040,11 +1123,11 @@ body {
 
 .proposal-table {
   width: 100%;
-  margin-top: 14px;
+  margin-top: 12px;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.42;
   border: 1px solid #d9e0e7;
   border-radius: 14px;
   overflow: hidden;
@@ -1058,13 +1141,13 @@ body {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   text-align: left;
-  padding: 10px 12px;
+  padding: 9px 11px;
   border-bottom: 1px solid #dfe5ec;
 }
 
 .proposal-table tbody td,
 .proposal-table tfoot td {
-  padding: 10px 12px;
+  padding: 9px 11px;
   vertical-align: top;
   border-bottom: 1px solid #ebeff4;
 }
@@ -1157,11 +1240,11 @@ body {
 }
 
 .approval-copy {
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .approval-signature-grid {
-  margin-top: 24px;
+  margin-top: 18px;
 }
 
 .approval-signature-grid-three-up {
@@ -1236,7 +1319,8 @@ body {
   .detail-card-grid,
   .workspace-stat-grid,
   .detail-grid,
-  .pdf-signing-poc-header {
+  .pdf-signing-poc-header,
+  .workspace-brand-block {
     grid-template-columns: 1fr;
     flex-direction: column;
   }
@@ -1303,6 +1387,7 @@ body {
     page-break-after: always;
     break-after: page;
     overflow: visible;
+    padding: 0.56in 0.52in 0.62in;
   }
 
   .proposal-page:last-child {
@@ -1317,10 +1402,11 @@ body {
 
   .cover-page {
     min-height: 10.5in;
+    padding: 0.5in 0.5in 0.5in;
   }
 
   .cover-grid {
-    min-height: 9.35in;
+    min-height: 9.42in;
   }
 
   .cover-band {

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
@@ -96,12 +97,17 @@ export function ProposalWorkspace() {
     <main className="workspace-shell">
       <div className="workspace-container">
         <section className="workspace-hero">
-          <div>
-            <div className="workspace-eyebrow">RapidQuote</div>
-            <h1 className="workspace-title">My Proposals</h1>
-            <p className="workspace-subtitle">
-              A clear proposal workspace with ownership, status, and the right next step for every quote.
-            </p>
+          <div className="workspace-brand-block">
+            <div className="workspace-brand-mark">
+              <Image src="/inet-logo.png" alt="iNet logo" width={126} height={38} className="workspace-brand-logo" priority />
+            </div>
+            <div>
+              <div className="workspace-eyebrow">RapidQuote</div>
+              <h1 className="workspace-title">My Proposals</h1>
+              <p className="workspace-subtitle">
+                A clear proposal workspace with ownership, status, and the right next step for every quote.
+              </p>
+            </div>
           </div>
           <div className="workspace-actions">
             <div className="workspace-current-user">
@@ -171,7 +177,7 @@ export function ProposalWorkspace() {
                   </div>
 
                   <div className="proposal-list-footer">
-                    <div className="proposal-list-note">Proposal detail and quote editor stay in sync</div>
+                    <div className="proposal-list-note">Proposal details and quote edits stay in sync</div>
                     <div className="proposal-list-actions">
                       <Link href={`/proposals/${proposal.id}`} className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
                         Open Detail
