@@ -26,6 +26,7 @@ const links: NavLink[] = [
   { href: "/outreach", label: "Outreach", svgIcon: <IconTarget /> },
 
   { href: "/projects", label: "Projects", icon: "🗂️" },
+  { href: "/rapidquote", label: "RapidQuote", icon: "⚡" },
   { href: "/stocks", label: "Graham", icon: "📈" },
   { href: "/portfolio", label: "Portfolio", icon: "📊" },
   { href: "/backtest", label: "Backtest", icon: "🔬" },
