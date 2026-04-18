@@ -18,13 +18,13 @@ Font.registerHyphenationCallback((word) => [word]);
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 30,
-    paddingBottom: 34,
-    paddingHorizontal: 28,
-    fontSize: 10,
+    paddingTop: 22,
+    paddingBottom: 24,
+    paddingHorizontal: 18,
+    fontSize: 9.5,
     color: "#232a31",
     fontFamily: "Helvetica",
-    lineHeight: 1.45,
+    lineHeight: 1.42,
   },
   coverPage: {
     backgroundColor: "#ffffff",
@@ -33,15 +33,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 22,
+    marginBottom: 18,
+  },
+  brandLockup: {
+    gap: 4,
+    maxWidth: 260,
   },
   logo: {
-    width: 130,
-    height: 42,
+    width: 150,
+    height: 48,
     objectFit: "contain",
   },
+  brandSubtitle: {
+    fontSize: 9,
+    color: "#6a7581",
+  },
   coverMeta: {
-    width: 166,
+    width: 180,
     alignItems: "flex-end",
     gap: 4,
   },
@@ -77,28 +85,30 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   coverTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: 700,
     color: "#16202b",
     marginBottom: 6,
-    maxWidth: 420,
+    maxWidth: 500,
+    lineHeight: 1.15,
   },
   coverSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#5a6572",
-    marginBottom: 18,
-    maxWidth: 380,
+    marginBottom: 16,
+    maxWidth: 430,
+    lineHeight: 1.35,
   },
   twoColumn: {
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
   },
   card: {
     flex: 1,
     borderWidth: 1,
     borderColor: "#dde3e8",
     borderRadius: 12,
-    padding: 12,
+    padding: 11,
     backgroundColor: "#fbfcfe",
   },
   cardTitle: {
@@ -110,7 +120,7 @@ const styles = StyleSheet.create({
     fontWeight: 700,
   },
   cardStrong: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: 700,
     color: "#16202b",
     marginBottom: 6,
@@ -121,8 +131,8 @@ const styles = StyleSheet.create({
   },
   summaryStrip: {
     flexDirection: "row",
-    gap: 10,
-    marginTop: 20,
+    gap: 8,
+    marginTop: 16,
   },
   summaryCard: {
     flex: 1,
@@ -130,7 +140,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8fafc",
     borderWidth: 1,
     borderColor: "#e1e6ec",
-    padding: 10,
+    padding: 9,
   },
   summaryLabel: {
     fontSize: 8,
@@ -146,13 +156,14 @@ const styles = StyleSheet.create({
     color: "#16202b",
   },
   sectionHeader: {
-    marginBottom: 14,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 700,
     color: "#16202b",
     marginTop: 3,
+    lineHeight: 1.2,
   },
   sectionRule: {
     height: 1,
@@ -160,17 +171,17 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   introText: {
-    marginTop: 10,
+    marginTop: 8,
     color: "#5a6572",
-    lineHeight: 1.5,
+    lineHeight: 1.45,
   },
   paragraphCard: {
     borderWidth: 1,
     borderColor: "#e1e6ec",
     borderRadius: 12,
-    padding: 12,
+    padding: 11,
     backgroundColor: "#fcfdff",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   paragraph: {
     marginBottom: 8,
@@ -186,7 +197,7 @@ const styles = StyleSheet.create({
     borderColor: "#dbe2e9",
     borderRadius: 8,
     overflow: "hidden",
-    marginTop: 12,
+    marginTop: 10,
   },
   tableHead: {
     backgroundColor: "#f3f6fa",
@@ -194,28 +205,29 @@ const styles = StyleSheet.create({
     borderBottomColor: "#dbe2e9",
   },
   th: {
-    fontSize: 8.5,
+    fontSize: 8,
     fontWeight: 700,
     color: "#4c5965",
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 7,
     textTransform: "uppercase",
   },
   td: {
-    fontSize: 9.5,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    fontSize: 9,
+    paddingVertical: 7,
+    paddingHorizontal: 7,
     color: "#2e3944",
   },
   tdStrong: {
-    fontSize: 9.5,
+    fontSize: 9,
     fontWeight: 700,
     color: "#16202b",
     marginBottom: 2,
   },
   tdSub: {
-    fontSize: 8.5,
+    fontSize: 8,
     color: "#66717d",
+    lineHeight: 1.35,
   },
   tableRowBorder: {
     borderBottomWidth: 1,
@@ -228,9 +240,31 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: "#16202b",
   },
-  colWide: { width: "55%" },
-  colNarrow: { width: "13%" },
+  colWide: { width: "58%" },
+  colNarrow: { width: "10%" },
   colMid: { width: "16%" },
+  supportCard: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#dbe2e9",
+    borderRadius: 10,
+    backgroundColor: "#fbfcfe",
+    padding: 10,
+  },
+  supportTitle: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#16202b",
+    marginBottom: 4,
+  },
+  supportLabel: {
+    fontSize: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.9,
+    color: "#8b96a3",
+    marginBottom: 6,
+    fontWeight: 700,
+  },
   bullet: {
     fontSize: 8.5,
     color: "#60707f",
@@ -318,7 +352,10 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
     <>
       <Page size="LETTER" style={[styles.page, styles.coverPage]}>
         <View style={styles.coverTop}>
-          <Image src="/inet-logo.png" style={styles.logo} />
+          <View style={styles.brandLockup}>
+            <Image src="/inet-logo.png" style={styles.logo} />
+            <Text style={styles.brandSubtitle}>Infrastructure Networks, Inc.</Text>
+          </View>
           <View style={styles.coverMeta}>
             <Text style={styles.eyebrow}>Proposal</Text>
             <Text style={styles.coverMetaValue}>#{model.proposalNumber}</Text>
@@ -334,6 +371,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
         <View style={styles.twoColumn}>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Prepared for</Text>
+            {model.customerLogoDataUrl ? <Image src={model.customerLogoDataUrl} style={styles.logo} /> : null}
             <Text style={styles.cardStrong}>{model.customerName}</Text>
             <Text style={styles.cardLine}>{model.customerContactName}</Text>
             <Text style={styles.cardLine}>{model.customerContactPhone}</Text>
@@ -464,29 +502,20 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
               <Cell style={styles.colMid}><Text style={styles.th}>Total Monthly</Text></Cell>
             </TableRow>
 
-            {model.sectionARows.map((row) => (
+            {model.sectionARows.filter((row) => row.rowType !== "support").map((row) => (
               <TableRow key={row.id}>
                 <Cell style={styles.colWide}>
                   <Text style={styles.tdStrong}>{row.description}</Text>
-                  {row.unitLabel && row.rowType !== "support" && row.rowType !== "terminal_fee" ? (
+                  {row.unitLabel && row.rowType !== "terminal_fee" ? (
                     <Text style={styles.tdSub}>{row.unitLabel}</Text>
                   ) : null}
-                  {row.rowType === "support" && row.includedText?.length
-                    ? row.includedText.map((item) => (
-                        <Text key={item} style={styles.bullet}>• {item}</Text>
-                      ))
-                    : null}
                 </Cell>
-                <Cell style={styles.colNarrow}><Text style={styles.td}>{row.quantity ?? (row.rowType === "support" ? "Included" : "—")}</Text></Cell>
+                <Cell style={styles.colNarrow}><Text style={styles.td}>{row.quantity ?? "—"}</Text></Cell>
                 <Cell style={styles.colMid}>
-                  <Text style={styles.td}>
-                    {row.rowType === "support" ? "Included" : formatCurrency(row.monthlyRate ?? row.unitPrice ?? 0, model.currencyCode)}
-                  </Text>
+                  <Text style={styles.td}>{formatCurrency(row.monthlyRate ?? row.unitPrice ?? 0, model.currencyCode)}</Text>
                 </Cell>
                 <Cell style={styles.colMid}>
-                  <Text style={styles.td}>
-                    {row.rowType === "support" ? "Included" : formatCurrency(row.totalMonthlyRate ?? 0, model.currencyCode)}
-                  </Text>
+                  <Text style={styles.td}>{formatCurrency(row.totalMonthlyRate ?? 0, model.currencyCode)}</Text>
                 </Cell>
               </TableRow>
             ))}
@@ -502,6 +531,24 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
               </Cell>
             </TableRow>
           </View>
+
+          {model.sectionARows.some((row) => row.rowType === "support") ? (
+            <View style={styles.supportCard}>
+              <Text style={styles.supportLabel}>Included support</Text>
+              {model.sectionARows
+                .filter((row) => row.rowType === "support")
+                .map((row) => (
+                  <View key={row.id} style={{ marginBottom: 6 }}>
+                    <Text style={styles.supportTitle}>{row.description}</Text>
+                    {row.includedText?.length
+                      ? row.includedText.map((item) => (
+                          <Text key={item} style={styles.bullet}>• {item}</Text>
+                        ))
+                      : <Text style={styles.tdSub}>Included in recurring service.</Text>}
+                  </View>
+                ))}
+            </View>
+          ) : null}
         </Page>
       ) : null}
 
