@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
@@ -39,6 +39,33 @@ function statusTone(status: SavedProposalRecord["status"]) {
   }
 }
 
+function StatFilterCard({
+  label,
+  value,
+  note,
+  active,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  note: ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`workspace-stat-card text-left transition ${active ? "ring-2 ring-[#b00000] bg-[#fff7f7]" : "hover:border-[#d8b7b7]"}`}
+      aria-pressed={active}
+    >
+      <div className="workspace-stat-label">{label}</div>
+      <div className="workspace-stat-value">{value}</div>
+      <div className="workspace-stat-note">{note}</div>
+    </button>
+  );
+}
+
 export function ProposalWorkspace() {
   const [store, setStore] = useState<ProposalStoreData | null>(null);
   const [ownerFilter, setOwnerFilter] = useState<string>("mine");
@@ -68,7 +95,11 @@ export function ProposalWorkspace() {
 
     return store.proposals.filter((proposal) => {
       const ownerMatch = ownerFilter === "all" ? true : proposal.owner.id === store.currentUser.id;
-      const statusMatch = statusFilter === "all" ? true : proposal.status === statusFilter;
+      const statusMatch = statusFilter === "all"
+        ? true
+        : statusFilter === "active"
+          ? ["draft", "open", "negotiating"].includes(proposal.status)
+          : proposal.status === statusFilter;
       return ownerMatch && statusMatch;
     });
   }, [ownerFilter, statusFilter, store]);
@@ -120,10 +151,10 @@ export function ProposalWorkspace() {
         </section>
 
         <section className="workspace-stat-grid">
-          <div className="workspace-stat-card"><div className="workspace-stat-label">Total proposals</div><div className="workspace-stat-value">{stats.total}</div><div className="workspace-stat-note">Saved in this workspace</div></div>
-          <div className="workspace-stat-card"><div className="workspace-stat-label">Assigned to me</div><div className="workspace-stat-value">{stats.mine}</div><div className="workspace-stat-note">Quotes currently in your lane</div></div>
-          <div className="workspace-stat-card"><div className="workspace-stat-label">Active work</div><div className="workspace-stat-value">{stats.active}</div><div className="workspace-stat-note">Drafts and live negotiations in progress</div></div>
-          <div className="workspace-stat-card"><div className="workspace-stat-label">Sent out</div><div className="workspace-stat-value">{stats.sent}</div><div className="workspace-stat-note">Waiting on customer review or follow-up</div></div>
+          <StatFilterCard label="All proposals" value={stats.total} note="Show every saved proposal" active={ownerFilter === "all" && statusFilter === "all"} onClick={() => { setOwnerFilter("all"); setStatusFilter("all"); }} />
+          <StatFilterCard label="Assigned to me" value={stats.mine} note="Show only proposals in your lane" active={ownerFilter === "mine" && statusFilter === "all"} onClick={() => { setOwnerFilter("mine"); setStatusFilter("all"); }} />
+          <StatFilterCard label="Active work" value={stats.active} note={<>Show drafts, open deals, and<br />negotiations in progress</>} active={ownerFilter === "all" && statusFilter === "active"} onClick={() => { setOwnerFilter("all"); setStatusFilter("active"); }} />
+          <StatFilterCard label="Sent out" value={stats.sent} note="Show proposals waiting on review" active={ownerFilter === "all" && statusFilter === "sent"} onClick={() => { setOwnerFilter("all"); setStatusFilter("sent"); }} />
         </section>
 
         <section className="workspace-panel">
@@ -144,6 +175,7 @@ export function ProposalWorkspace() {
                 <span>Status</span>
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                   <option value="all">All statuses</option>
+                  <option value="active">Active</option>
                   <option value="draft">Draft</option>
                   <option value="sent">Sent</option>
                   <option value="open">Open</option>
@@ -180,7 +212,7 @@ export function ProposalWorkspace() {
                     <div className="proposal-list-note">Proposal details and quote edits stay in sync</div>
                     <div className="proposal-list-actions">
                       <Link href={`/proposals/${proposal.id}`} className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
-                        Open Detail
+                        View Proposal
                       </Link>
                       <Link href="/new" className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
                         Edit Proposal
@@ -205,14 +237,14 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
       <div className="workspace-container detail-layout">
         <section className="workspace-hero detail-hero">
           <div>
-            <div className="workspace-eyebrow">Proposal Detail</div>
+            <div className="workspace-eyebrow">Proposal Details</div>
             <h1 className="workspace-title">{summary.title}</h1>
             <p className="workspace-subtitle">{summary.customerName} • {summary.proposalNumber}</p>
           </div>
           <div className="workspace-actions">
             <span className={statusTone(proposal.status)}>{proposal.stageLabel}</span>
             <Link href="/" className="workspace-secondary-button">Back to My Proposals</Link>
-            <Link href="/new" className="workspace-primary-button">Open in Quote</Link>
+            <Link href="/new" className="workspace-primary-button">Edit Proposal</Link>
           </div>
         </section>
 

@@ -99,7 +99,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
                 className="cover-brand-logo"
                 priority
               />
-              <div className="cover-brand-subtitle">Infrastructure Networks, Inc.</div>
+              <div className="cover-brand-subtitle">iNet Communications Proposal</div>
             </div>
             <div className="cover-proposal-meta">
               <div className="cover-meta-label">Proposal</div>
@@ -202,9 +202,9 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
         <div className="proposal-summary-grid">
           <div className="proposal-summary-panel">
-            <div className="summary-panel-label">Title</div>
-            <div className="summary-panel-value">{quote.documentation.proposalTitle}</div>
-            <div className="summary-panel-copy">#{quote.documentation.proposalNumberLabel}</div>
+            <div className="summary-panel-label">Proposal</div>
+            <div className="summary-panel-value">#{quote.documentation.proposalNumberLabel}</div>
+            <div className="summary-panel-copy">{quote.documentation.proposalTitle}</div>
           </div>
           <div className="proposal-summary-panel">
             <div className="summary-panel-label">Date</div>
@@ -333,10 +333,10 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
                       </ul>
                     )}
                   </td>
-                  <td>{row.quantity ?? (row.rowType === "support" ? "Included" : "—")}</td>
+                  <td>{row.quantity ?? (row.rowType === "support" ? "—" : "—")}</td>
                   <td>
                     {row.rowType === "support"
-                      ? "Included"
+                      ? "Included with service"
                       : formatCurrency(row.monthlyRate ?? row.unitPrice ?? 0, currencyCode)}
                   </td>
                   <td>

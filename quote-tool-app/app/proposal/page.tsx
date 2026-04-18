@@ -70,7 +70,7 @@ function ProposalPage() {
         <div>
           <div className="proposal-toolbar-title">Proposal</div>
           <div className="proposal-toolbar-subtitle">
-            {usingSavedData ? "Using your latest quote details" : "Sample proposal"}
+            {usingSavedData ? "Using your latest quote details" : "Proposal preview"}
           </div>
         </div>
         <div className="proposal-toolbar-actions">
@@ -87,7 +87,7 @@ function ProposalPage() {
             </button>
           )}
           <button type="button" className="proposal-secondary-button" onClick={() => window.print()}>
-            Browser Print
+            Print PDF
           </button>
         </div>
       </div>
@@ -108,7 +108,7 @@ function ProposalPage() {
 
         <div className="proposal-html-pane">
           <div className="proposal-preview-pane-header no-print">
-            <div className="proposal-toolbar-title proposal-preview-pane-title">Proposal</div>
+            <div className="proposal-toolbar-title proposal-preview-pane-title">HTML Preview</div>
           </div>
           <ProposalDocument quote={quote} />
         </div>

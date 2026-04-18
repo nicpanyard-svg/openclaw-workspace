@@ -26,7 +26,7 @@ export const sampleQuoteRecord: QuoteRecord = {
     customerAddressHeading: "Customer Address",
     inetAddressHeading: "iNet Address",
     preparedByLabel: "Prepared By",
-    inetSalesHeading: "iNet Sales",
+    inetSalesHeading: "iNet",
     billToHeading: "Bill To",
     shipToHeading: "Ship To",
   },
@@ -71,7 +71,7 @@ export const sampleQuoteRecord: QuoteRecord = {
     addressLines: ["PO Box 171073", "Kansas City, Kansas 66117", "United States"],
   },
   inet: {
-    name: "iNet Sales",
+    name: "iNet",
     contactName: "Nick Panyard",
     contactPhone: "919-864-5912",
     contactEmail: "nick.panyard@inetlte.com",
@@ -91,10 +91,10 @@ export const sampleQuoteRecord: QuoteRecord = {
   executiveSummary: {
     enabled: true,
     heading: "Executive Summary",
-    customerContext: "Prepared for CZ USA to review Starlink managed communications services, hardware, and any supporting field services needed for deployment.",
+    customerContext: "Prepared for CZ USA to review Starlink managed communications services, hardware, and field services needed for deployment.",
     body: "This budgetary estimate outlines the proposed commercial structure for Starlink managed communications services and related equipment. Section A captures the Starlink service schedule, while Section B covers hardware and accessories. Additional terms and approval details are included at the end of this estimate.",
     paragraphs: [
-      "Prepared for CZ USA to review Starlink managed communications services, hardware, and any supporting field services needed for deployment.",
+      "Prepared for CZ USA to review Starlink managed communications services, hardware, and field services needed for deployment.",
       "This budgetary estimate outlines the proposed commercial structure for Starlink managed communications services and related equipment. Section A captures the Starlink service schedule, while Section B covers hardware and accessories. Additional terms and approval details are included at the end of this estimate.",
     ],
   },
@@ -106,7 +106,7 @@ export const sampleQuoteRecord: QuoteRecord = {
       allowReorder: true,
       builderLabel: "Monthly service pricing",
       mode: "pool",
-      title: "U.S POOL STARLINK PRICING SCHEDULE",
+      title: "U.S Pool Starlink Pricing Schedule",
       introText: "The pricing provided in the following table is based upon 12 Month Term.",
       explanatoryParagraphs: [
         "Pool for Starlink Service: The Pool is a monthly service for all selected Starlink Kits, serviced and monitored by iNet, with a fixed data allotment. The Kits will share the pool and consume data as required by each individual site. The Kits will not be constrained by an individual (per-site) data allotment.",
@@ -125,7 +125,7 @@ export const sampleQuoteRecord: QuoteRecord = {
           unitPrice: 1200,
           monthlyRate: 1200,
           totalMonthlyRate: 1200,
-          sourceLabel: "Sample quote record",
+          sourceLabel: "Standard pricing",
         },
         {
           id: "a_terminal_fee",
@@ -136,7 +136,7 @@ export const sampleQuoteRecord: QuoteRecord = {
           unitPrice: 45,
           monthlyRate: 45,
           totalMonthlyRate: 90,
-          sourceLabel: "Confirmed default",
+          sourceLabel: "Default pricing",
         },
         {
           id: "a_overage",
@@ -147,18 +147,18 @@ export const sampleQuoteRecord: QuoteRecord = {
           unitPrice: 0.55,
           monthlyRate: 0.55,
           totalMonthlyRate: 0.55,
-          sourceLabel: "Source proposal",
+          sourceLabel: "Standard pricing",
         },
         {
           id: "a_support",
           rowType: "support",
-          description: "iNet Customer Support",
+          description: "iNet Support & Portal Access",
           includedText: [
-            "NOC 24/7/365 Support",
-            "Customer Portal Access",
-            "Reports & Metrics via iNView Portal",
+            "24/7/365 support",
+            "Customer portal access",
+            "Usage and performance reporting",
           ],
-          sourceLabel: "Source proposal",
+          sourceLabel: "Standard pricing",
         },
       ],
       perKitRows: [
@@ -171,7 +171,7 @@ export const sampleQuoteRecord: QuoteRecord = {
           unitPrice: 30,
           monthlyRate: 30,
           totalMonthlyRate: 360,
-          sourceLabel: "Sample quote record",
+          sourceLabel: "Standard pricing",
         },
         {
           id: "a_perkit_500gb",
@@ -182,7 +182,7 @@ export const sampleQuoteRecord: QuoteRecord = {
           unitPrice: 132,
           monthlyRate: 132,
           totalMonthlyRate: 264,
-          sourceLabel: "Sample quote record",
+          sourceLabel: "Standard pricing",
         },
         {
           id: "a_perkit_terminal",
@@ -193,14 +193,14 @@ export const sampleQuoteRecord: QuoteRecord = {
           unitPrice: 45,
           monthlyRate: 45,
           totalMonthlyRate: 450,
-          sourceLabel: "Confirmed default",
+          sourceLabel: "Default pricing",
         },
         {
           id: "a_perkit_support",
           rowType: "support",
-          description: "iNet Customer Support",
-          includedText: ["Included", "24/7/365 monitoring support"],
-          sourceLabel: "Source proposal",
+          description: "iNet Support & Portal Access",
+          includedText: ["24/7/365 support", "Monitoring and portal access"],
+          sourceLabel: "Standard pricing",
         },
       ],
       computed: {
@@ -228,7 +228,7 @@ export const sampleQuoteRecord: QuoteRecord = {
           quantity: 2,
           unitPrice: 1999,
           totalPrice: 3998,
-          sourceLabel: "Starlink hardware notes + sample proposal",
+          sourceLabel: "Starlink hardware pricing",
         },
         {
           id: "b_pipe_adapter",
@@ -238,7 +238,7 @@ export const sampleQuoteRecord: QuoteRecord = {
           quantity: 2,
           unitPrice: 75,
           totalPrice: 150,
-          sourceLabel: "Sample proposal / mount guide stub",
+          sourceLabel: "Mounting accessories",
         },
         {
           id: "b_50m_cable",
@@ -248,7 +248,7 @@ export const sampleQuoteRecord: QuoteRecord = {
           quantity: 2,
           unitPrice: 150,
           totalPrice: 300,
-          sourceLabel: "Sample proposal / accessories workbook stub",
+          sourceLabel: "Accessory catalog",
         },
         {
           id: "b_non_pen_mount",
@@ -258,8 +258,8 @@ export const sampleQuoteRecord: QuoteRecord = {
           quantity: 2,
           unitPrice: 500,
           totalPrice: 1000,
-          description: "Placeholder mount row until exact mount source extraction is completed.",
-          sourceLabel: "Mount guide stub",
+          description: "Non-penetrating mount option for fixed-site deployments.",
+          sourceLabel: "Mounting accessories",
         },
       ],
       computed: {
@@ -273,7 +273,7 @@ export const sampleQuoteRecord: QuoteRecord = {
       allowReorder: true,
       builderLabel: "Optional field services",
       title: "Optional field services",
-      introText: "Keep this section as a later expansion area for travel, inspections, and install support.",
+      introText: "Use this section for travel, inspections, and installation pricing when needed.",
       lineItems: [
         {
           id: "c_site_ny",
@@ -285,7 +285,7 @@ export const sampleQuoteRecord: QuoteRecord = {
           pricingStage: "budgetary",
           serviceCategory: "site_inspection",
           notes: "Budgetary allowance before site visit is completed.",
-          sourceLabel: "Sample proposal",
+          sourceLabel: "Standard pricing",
         },
       ],
       computed: {
@@ -302,7 +302,7 @@ export const sampleQuoteRecord: QuoteRecord = {
   internal: {
     quoteId: "quote_cz_usa_rct001",
     quoteStatus: "draft",
-    internalNotes: "Source-driven catalog is still partly stubbed until workbook/doc extraction is completed.",
+    internalNotes: "Catalog and defaults loaded for builder use.",
     crmOwnerLabel: "Nick Panyard",
     crmSyncReady: false,
     savedProposalId: "quote_cz_usa_rct001",
@@ -316,17 +316,17 @@ export const sampleQuoteRecord: QuoteRecord = {
         provider: "salesforce",
         entityType: "account",
         externalId: "001-demo-account",
-        externalLabel: "CZ USA (sample mapping)",
+        externalLabel: "CZ USA",
         lastSyncedAt: "2026-04-02T14:10:00Z",
       },
       contact: {
         provider: "hubspot",
         entityType: "contact",
         externalId: "201-demo-contact",
-        externalLabel: "Scott Duncan (sample mapping)",
+        externalLabel: "Scott Duncan",
       },
     },
-    lastSyncSummary: "Demo references included to show CRM-neutral linkage without affecting standalone quote behavior.",
+    lastSyncSummary: "CRM references included for standalone proposal workflow.",
   },
   documentRules: {
     preserveTemplateLook: true,
