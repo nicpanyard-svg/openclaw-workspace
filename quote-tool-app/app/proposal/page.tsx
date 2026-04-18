@@ -68,10 +68,9 @@ function ProposalPage() {
     <div className="proposal-route-shell">
       <div className="proposal-toolbar no-print">
         <div>
-          <div className="proposal-toolbar-label">Proposal preview</div>
-          <div className="proposal-toolbar-title">Proposal view</div>
+          <div className="proposal-toolbar-title">Proposal</div>
           <div className="proposal-toolbar-subtitle">
-            {usingSavedData ? "Using your latest quote details" : "Showing the sample proposal"}
+            {usingSavedData ? "Using your latest quote details" : "Sample proposal"}
           </div>
         </div>
         <div className="proposal-toolbar-actions">
@@ -96,12 +95,7 @@ function ProposalPage() {
       <div className="proposal-preview-layout">
         <div className="proposal-preview-pane">
           <div className="proposal-preview-pane-header no-print">
-            <div>
-              <div className="proposal-toolbar-label">Controlled PDF preview</div>
-              <div className="proposal-toolbar-subtitle">
-                {pdfBusy ? "Rendering the source-of-truth PDF…" : "This PDF is generated from the new server-side document path."}
-              </div>
-            </div>
+            <div className="proposal-toolbar-title proposal-preview-pane-title">PDF preview</div>
           </div>
           <div className="proposal-pdf-frame-shell">
             {pdfUrl ? (
@@ -114,10 +108,7 @@ function ProposalPage() {
 
         <div className="proposal-html-pane">
           <div className="proposal-preview-pane-header no-print">
-            <div>
-              <div className="proposal-toolbar-label">HTML comparison preview</div>
-              <div className="proposal-toolbar-subtitle">Kept for editing/reference while we move toward PDF-first parity.</div>
-            </div>
+            <div className="proposal-toolbar-title proposal-preview-pane-title">Proposal</div>
           </div>
           <ProposalDocument quote={quote} />
         </div>
