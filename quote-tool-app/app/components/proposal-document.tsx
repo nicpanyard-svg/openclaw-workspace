@@ -533,7 +533,6 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </div>
 
         <div className="approval-block keep-together sample-approval-block">
-          <div className="page-bottom-band" aria-hidden="true" />
           <div className="approval-block-header">
             <div>
               <div className="proposal-overline">{quote.approval.heading}</div>
@@ -561,6 +560,10 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
               <div className="signature-label">{quote.approval.dateLabel}</div>
             </div>
           </div>
+        </div>
+
+        <div className="page-bottom-band" aria-hidden="true">
+          <div className="cover-band-copy">Confidential commercial proposal prepared for review and approval.</div>
         </div>
       </section>
     </main>

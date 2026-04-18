@@ -1053,12 +1053,13 @@ body {
 }
 
 .page-bottom-band {
-  margin-top: 0.18in;
+  margin-top: auto;
 }
 
 .proposal-page-with-band {
   display: flex;
   flex-direction: column;
+  gap: 0.18in;
 }
 
 .cover-band::before,
@@ -1319,7 +1320,7 @@ body {
 }
 
 .approval-block {
-  margin-top: auto;
+  margin-top: 0;
 }
 
 .approval-block-header {
@@ -1523,6 +1524,10 @@ body {
   .cover-band,
   .page-bottom-band {
     margin-bottom: -0.4in;
+  }
+
+  .proposal-page-with-band {
+    gap: 0.16in;
   }
 
   .proposal-copy-card,
