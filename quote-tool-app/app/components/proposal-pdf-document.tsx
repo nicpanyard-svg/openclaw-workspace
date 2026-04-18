@@ -16,6 +16,8 @@ import type { QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
 Font.registerHyphenationCallback((word) => [word]);
 
+const INET_LOGO_SRC = `${process.cwd()}\\public\\inet-logo.png`;
+
 const styles = StyleSheet.create({
   page: {
     paddingTop: 22,
@@ -28,6 +30,42 @@ const styles = StyleSheet.create({
   },
   coverPage: {
     backgroundColor: "#ffffff",
+    position: "relative",
+  },
+  pageWithBand: {
+    position: "relative",
+    paddingBottom: 54,
+  },
+  coverBody: {
+    flex: 1,
+  },
+  bottomBand: {
+    position: "absolute",
+    left: -8,
+    right: -8,
+    bottom: -6,
+    height: 44,
+    backgroundColor: "#a70a10",
+  },
+  bottomBandInner: {
+    position: "absolute",
+    left: 18,
+    right: 18,
+    top: 10,
+    height: 2,
+    backgroundColor: "#d86e6e",
+    opacity: 0.9,
+  },
+  bottomBandText: {
+    position: "absolute",
+    left: 18,
+    right: 18,
+    top: 18,
+    fontSize: 8,
+    fontWeight: 700,
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+    color: "rgba(255,255,255,0.92)",
   },
   coverTop: {
     flexDirection: "row",
@@ -350,11 +388,12 @@ function Cell({ children, style }: { children?: React.ReactNode; style?: any }) 
 function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
   return (
     <>
-      <Page size="LETTER" style={[styles.page, styles.coverPage]}>
-        <View style={styles.coverTop}>
+      <Page size="LETTER" style={[styles.page, styles.coverPage, styles.pageWithBand]}>
+        <View style={styles.coverBody}>
+          <View style={styles.coverTop}>
           <View style={styles.brandLockup}>
-            <Image src="/inet-logo.png" style={styles.logo} />
-            <Text style={styles.brandSubtitle}>Infrastructure Networks, Inc.</Text>
+            <Image src={INET_LOGO_SRC} style={styles.logo} />
+            <Text style={styles.brandSubtitle}>iNet Communications Proposal</Text>
           </View>
           <View style={styles.coverMeta}>
             <Text style={styles.eyebrow}>Proposal</Text>
@@ -388,21 +427,26 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
           </View>
         </View>
 
-        <View style={styles.summaryStrip}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Monthly recurring</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(model.recurringMonthlyTotal, model.currencyCode)}</Text>
+          <View style={styles.summaryStrip}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>Monthly recurring</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(model.recurringMonthlyTotal, model.currencyCode)}</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>One-time equipment</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(model.equipmentTotal, model.currencyCode)}</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>{model.quoteType === "lease" ? "Estimated lease monthly" : "Optional services"}</Text>
+              <Text style={styles.summaryValue}>
+                {formatCurrency(model.quoteType === "lease" ? model.leaseMonthly : model.serviceTotal, model.currencyCode)}
+              </Text>
+            </View>
           </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>One-time equipment</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(model.equipmentTotal, model.currencyCode)}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>{model.quoteType === "lease" ? "Estimated lease monthly" : "Optional services"}</Text>
-            <Text style={styles.summaryValue}>
-              {formatCurrency(model.quoteType === "lease" ? model.leaseMonthly : model.serviceTotal, model.currencyCode)}
-            </Text>
-          </View>
+        </View>
+        <View style={styles.bottomBand}>
+          <View style={styles.bottomBandInner} />
+          <Text style={styles.bottomBandText}>Confidential commercial proposal prepared for review and approval.</Text>
         </View>
       </Page>
 
@@ -676,7 +720,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
         </View>
       </Page>
 
-      <Page size="LETTER" style={styles.page}>
+      <Page size="LETTER" style={[styles.page, styles.pageWithBand]}>
         <View style={styles.footerHeader}>
           <Text style={styles.eyebrow}>Commercial recap</Text>
           <Text style={styles.smallMuted}>Proposal #{model.proposalNumber}</Text>
@@ -743,6 +787,10 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
               <Text style={styles.signatureLabel}>{model.approval.dateLabel}</Text>
             </View>
           </View>
+        </View>
+        <View style={styles.bottomBand}>
+          <View style={styles.bottomBandInner} />
+          <Text style={styles.bottomBandText}>Confidential commercial proposal prepared for review and approval.</Text>
         </View>
       </Page>
     </>
