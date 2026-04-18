@@ -87,7 +87,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
   return (
     <main className="proposal-shell">
-      <section className="proposal-page cover-page">
+      <section className="proposal-page cover-page proposal-page-with-band">
         <div className="cover-grid">
           <div className="cover-topbar">
             <div className="cover-brand-lockup">
@@ -488,7 +488,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </div>
       </section>
 
-      <section className="proposal-page proposal-closing-page keep-together-page">
+      <section className="proposal-page proposal-closing-page proposal-page-with-band keep-together-page">
         <div className="proposal-header">
           <span>Commercial recap</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
@@ -533,6 +533,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </div>
 
         <div className="approval-block keep-together sample-approval-block">
+          <div className="page-bottom-band" aria-hidden="true" />
           <div className="approval-block-header">
             <div>
               <div className="proposal-overline">{quote.approval.heading}</div>
