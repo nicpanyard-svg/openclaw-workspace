@@ -815,7 +815,7 @@ body {
   margin: 0 auto 24px;
   background: white;
   box-shadow: 0 18px 50px rgba(34, 44, 55, 0.18);
-  padding: 0.42in 0.34in 0.48in;
+  padding: 0.44in 0.5in 0.52in;
   position: relative;
   overflow: hidden;
 }
@@ -823,7 +823,7 @@ body {
 .proposal-page::before {
   content: "";
   position: absolute;
-  inset: 0.18in 0.12in 0.18in 0.12in;
+  inset: 0.16in 0.18in 0.16in 0.18in;
   border: 1px solid rgba(219, 226, 233, 0.7);
   pointer-events: none;
 }
@@ -832,11 +832,11 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 0.4in 0.36in 0.4in;
+  padding: 0.42in 0.52in 0.42in;
 }
 
 .cover-page::before {
-  inset: 0.16in 0.12in 0.16in 0.12in;
+  inset: 0.14in 0.18in 0.14in 0.18in;
 }
 
 .cover-grid {
@@ -861,7 +861,7 @@ body {
 }
 
 .cover-brand-logo {
-  width: 220px;
+  width: 208px;
   height: auto;
   object-fit: contain;
 }
@@ -875,15 +875,15 @@ body {
 }
 
 .cover-proposal-meta {
-  min-width: 1.9in;
+  min-width: 2.1in;
   text-align: right;
   font-size: 12px;
   color: #586574;
   line-height: 1.55;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: 1px solid #e1e6ed;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 10px 20px rgba(40, 51, 63, 0.05);
 }
 
@@ -921,7 +921,7 @@ body {
 }
 
 .cover-content {
-  padding-top: 0.58in;
+  padding-top: 0.7in;
   position: relative;
   z-index: 1;
   flex: 1 1 auto;
@@ -938,26 +938,26 @@ body {
 .cover-content h1 {
   margin-top: 14px;
   max-width: 6.1in;
-  font-size: 34px;
-  line-height: 1.04;
-  letter-spacing: -0.045em;
+  font-size: 36px;
+  line-height: 1.02;
+  letter-spacing: -0.05em;
   color: #1a2430;
 }
 
 .cover-content h2 {
-  margin-top: 10px;
-  max-width: 5.25in;
-  font-size: 20px;
+  margin-top: 12px;
+  max-width: 5.4in;
+  font-size: 21px;
   line-height: 1.22;
   color: #56616d;
   font-weight: 500;
 }
 
 .cover-customer-grid {
-  margin-top: 20px;
+  margin-top: 24px;
   display: grid;
-  grid-template-columns: 1.15fr 0.95fr;
-  gap: 14px;
+  grid-template-columns: 1.16fr 0.94fr;
+  gap: 16px;
   align-items: stretch;
 }
 
@@ -1024,8 +1024,8 @@ body {
   margin-top: auto;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  padding-top: 22px;
+  gap: 14px;
+  padding-top: 26px;
 }
 
 .cover-summary-card {
@@ -1047,8 +1047,8 @@ body {
 .page-bottom-band {
   position: relative;
   z-index: 1;
-  margin: 0.22in -0.36in -0.4in;
-  padding: 18px 0.36in 22px;
+  margin: 0.18in -0.52in -0.42in;
+  padding: 18px 0.52in 22px;
   background: linear-gradient(90deg, #7f0f13 0%, #a70a10 50%, #7f0f13 100%);
 }
 
@@ -1066,8 +1066,8 @@ body {
 .page-bottom-band::before {
   content: "";
   position: absolute;
-  left: 0.36in;
-  right: 0.36in;
+  left: 0.52in;
+  right: 0.52in;
   top: 10px;
   height: 2px;
   background: rgba(216, 110, 110, 0.9);
@@ -1101,13 +1101,13 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 18px;
+  gap: 20px;
 }
 
 .proposal-section-heading {
   flex-direction: column;
   align-items: flex-start;
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 .proposal-section-title {
@@ -1177,7 +1177,7 @@ body {
 .proposal-address-grid,
 .proposal-callout-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 .proposal-mini-heading {
@@ -1235,11 +1235,11 @@ body {
 
 .proposal-table {
   width: 100%;
-  margin-top: 12px;
+  margin-top: 14px;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 12px;
-  line-height: 1.42;
+  line-height: 1.46;
   border: 1px solid #d9e0e7;
   border-radius: 14px;
   overflow: hidden;
@@ -1253,13 +1253,13 @@ body {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   text-align: left;
-  padding: 9px 11px;
+  padding: 10px 12px;
   border-bottom: 1px solid #dfe5ec;
 }
 
 .proposal-table tbody td,
 .proposal-table tfoot td {
-  padding: 9px 11px;
+  padding: 10px 12px;
   vertical-align: top;
   border-bottom: 1px solid #ebeff4;
 }
@@ -1499,7 +1499,7 @@ body {
     page-break-after: always;
     break-after: page;
     overflow: visible;
-    padding: 0.28in 0.24in 0.34in;
+    padding: 0.3in 0.34in 0.36in;
   }
 
   .proposal-page:last-child {
@@ -1508,13 +1508,13 @@ body {
   }
 
   .proposal-page::before {
-    inset: 0.1in 0.08in 0.1in 0.08in;
+    inset: 0.1in 0.12in 0.1in 0.12in;
     border-color: rgba(219, 226, 233, 0.9);
   }
 
   .cover-page {
     min-height: 10.84in;
-    padding: 0.28in 0.24in 0.3in;
+    padding: 0.3in 0.36in 0.32in;
   }
 
   .cover-grid {
@@ -1523,7 +1523,7 @@ body {
 
   .cover-band,
   .page-bottom-band {
-    margin-bottom: -0.4in;
+    margin-bottom: -0.42in;
   }
 
   .proposal-page-with-band {
