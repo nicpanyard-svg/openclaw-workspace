@@ -112,9 +112,6 @@ function ProposalPage() {
           <Link href="/" className="proposal-secondary-button">
             My Proposals
           </Link>
-          <Link href={activeProposalId ? `/proposals/${activeProposalId}` : "/"} className="proposal-secondary-button">
-            View Details
-          </Link>
           <Link href="/new" className="proposal-secondary-button">
             Open Editor
           </Link>

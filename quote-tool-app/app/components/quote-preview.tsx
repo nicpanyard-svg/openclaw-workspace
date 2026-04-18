@@ -884,9 +884,6 @@ export default function QuotePreview() {
             <Link href="/proposal" className="pill-button pill-button-active" onClick={persistProposalState}>
               Preview Proposal
             </Link>
-            <Link href={activeProposal ? `/proposals/${activeProposal.id}` : "/"} className="pill-button" onClick={persistProposalState}>
-              View Details
-            </Link>
             <button type="button" className="pill-button" onClick={persistProposalState}>Save Draft</button>
           </div>
         </section>

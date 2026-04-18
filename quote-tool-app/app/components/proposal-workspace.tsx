@@ -162,7 +162,7 @@ export function ProposalWorkspace() {
               <div className="workspace-eyebrow">RapidQuote</div>
               <h1 className="workspace-title">My Proposals</h1>
               <p className="workspace-subtitle">
-                This is the internal list view. Pick a proposal, then choose whether you want the record page, the customer preview, or the editor.
+                This is the internal list view. Pick a proposal, then open the editor to make changes or preview the customer-facing document when you are ready to review output.
               </p>
             </div>
           </div>
@@ -182,33 +182,6 @@ export function ProposalWorkspace() {
           <StatFilterCard label="Active work" value={stats.active} note={<>Show drafts, open deals, and<br />negotiations in progress</>} active={ownerFilter === "all" && statusFilter === "active"} onClick={() => { setOwnerFilter("all"); setStatusFilter("active"); }} />
           <StatFilterCard label="Sent out" value={stats.sent} note="Show proposals waiting on review" active={ownerFilter === "all" && statusFilter === "sent"} onClick={() => { setOwnerFilter("all"); setStatusFilter("sent"); }} />
         </section>
-
-        {activeProposal && (
-          <section className="workspace-panel workspace-focus-panel">
-            <div className="workspace-panel-topbar workspace-panel-topbar-stack">
-              <div>
-                <div className="workspace-eyebrow">Selected proposal</div>
-                <h2 className="workspace-section-title">What this page is for</h2>
-                <p className="workspace-panel-copy">
-                  <strong>{activeProposal.quote.metadata.documentTitle}</strong> for <strong>{activeProposal.quote.customer.name}</strong> is selected.
-                  Use <strong>View Details</strong> for the internal record, <strong>Preview Proposal</strong> for the customer-facing document,
-                  and <strong>Open Editor</strong> when you need to change the content.
-                </p>
-              </div>
-              <div className="workspace-focus-actions">
-                <Link href={`/proposals/${activeProposal.id}`} className="workspace-secondary-button" onClick={() => setActiveProposal(activeProposal.id)}>
-                  View Details
-                </Link>
-                <Link href="/proposal" className="workspace-secondary-button" onClick={() => setActiveProposal(activeProposal.id)}>
-                  Preview Proposal
-                </Link>
-                <Link href="/new" className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(activeProposal.id)}>
-                  Open Editor
-                </Link>
-              </div>
-            </div>
-          </section>
-        )}
 
         <section className="workspace-panel">
           <div className="workspace-panel-topbar">
@@ -264,14 +237,8 @@ export function ProposalWorkspace() {
                   </div>
 
                   <div className="proposal-list-footer proposal-list-footer-stack">
-                    <div className="proposal-list-note">{isActive ? "Selected proposal" : "Select this proposal to work on it"}</div>
+                    <div className="proposal-list-note">{isActive ? "Ready to edit or preview" : "Choose edit or preview from this proposal"}</div>
                     <div className="proposal-list-actions">
-                      <button type="button" className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
-                        Select
-                      </button>
-                      <Link href={`/proposals/${proposal.id}`} className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
-                        View Details
-                      </Link>
                       <Link href="/proposal" className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
                         Preview Proposal
                       </Link>
