@@ -118,47 +118,7 @@ function ProposalPage() {
           <Link href="/new" className="proposal-secondary-button">
             Open Editor
           </Link>
-          <button
-            type="button"
-            className="proposal-print-button"
-            disabled={pdfBusy}
-            onClick={() => {
-              void (async () => {
-                setPdfBusy(true);
-                try {
-                  const response = await fetch("/api/proposal-pdf", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ quote, download: true }),
-                  });
-
-                  if (!response.ok) {
-                    throw new Error("Failed to download proposal PDF");
-                  }
-
-                  const blob = await response.blob();
-                  const nextUrl = URL.createObjectURL(blob);
-                  const link = document.createElement("a");
-                  link.href = nextUrl;
-                  link.download = proposalPdfFileName;
-                  document.body.appendChild(link);
-                  link.click();
-                  link.remove();
-                  window.setTimeout(() => URL.revokeObjectURL(nextUrl), 1000);
-                } catch (error) {
-                  console.error(error);
-                  window.alert("Unable to download the PDF right now.");
-                } finally {
-                  setPdfBusy(false);
-                }
-              })();
-            }}
-          >
-            {pdfBusy ? "Building PDF…" : "Download PDF"}
-          </button>
-          <button type="button" className="proposal-secondary-button" onClick={() => void handlePrintPdf()} disabled={pdfBusy}>
+          <button type="button" className="proposal-print-button" onClick={() => void handlePrintPdf()} disabled={pdfBusy}>
             {pdfBusy ? "Building PDF…" : "Print PDF"}
           </button>
         </div>
@@ -166,8 +126,8 @@ function ProposalPage() {
 
       <div className="proposal-preview-shell">
         <div className="proposal-preview-pane-header no-print">
-          <div className="proposal-toolbar-title proposal-preview-pane-title">HTML preview</div>
-          <div className="proposal-toolbar-subtitle">This is the single on-screen proposal surface. Print PDF uses the same proposal data for export.</div>
+          <div className="proposal-toolbar-title proposal-preview-pane-title">Proposal document preview</div>
+          <div className="proposal-toolbar-subtitle">This is the customer-facing proposal document. Use Print PDF to create the output from this proposal data.</div>
         </div>
         <ProposalDocument quote={quote} />
       </div>
