@@ -138,6 +138,14 @@ export function createProposalFromQuote(params: {
         quoteId: id,
         quoteStatus: params.quote.metadata.status,
         crmOwnerLabel: owner.name,
+        savedProposalId: id,
+        workspaceOwnerId: owner.id,
+        workspaceOwnerName: owner.name,
+      },
+      metadata: {
+        ...params.quote.metadata,
+        ownerUserId: owner.id,
+        ownerName: params.quote.metadata.ownerName ?? owner.name,
       },
     },
     owner,
@@ -200,6 +208,36 @@ export function deserializeProposalStore(value: string | null | undefined): Prop
   }
 }
 
+export function getProposalById(store: ProposalStoreData, proposalId: string | null | undefined) {
+  if (!proposalId) return null;
+  return store.proposals.find((proposal) => proposal.id === proposalId) ?? null;
+}
+
+export function getActiveProposalId(store: ProposalStoreData, preferredId?: string | null) {
+  return getProposalById(store, preferredId)?.id ?? store.proposals[0]?.id ?? null;
+}
+
+export function getActiveProposal(store: ProposalStoreData, preferredId?: string | null) {
+  const activeId = getActiveProposalId(store, preferredId);
+  return getProposalById(store, activeId);
+}
+
+export function upsertProposal(store: ProposalStoreData, proposal: SavedProposalRecord): ProposalStoreData {
+  const existingIndex = store.proposals.findIndex((entry) => entry.id === proposal.id);
+  const proposals = [...store.proposals];
+
+  if (existingIndex >= 0) {
+    proposals[existingIndex] = proposal;
+  } else {
+    proposals.unshift(proposal);
+  }
+
+  return {
+    ...store,
+    proposals,
+  };
+}
+
 export function getDefaultProposalStore(seedProposal: SavedProposalRecord): ProposalStoreData {
   const proposals: SavedProposalRecord[] = [
     seedProposal,
@@ -219,6 +257,8 @@ export function getDefaultProposalStore(seedProposal: SavedProposalRecord): Prop
           documentTitle: "ACME Terminal Refresh",
           customerShortName: "ACME",
           status: "sent",
+          ownerUserId: mockUsers[1].id,
+          ownerName: mockUsers[1].name,
         },
         customer: {
           ...seedProposal.quote.customer,
@@ -230,8 +270,11 @@ export function getDefaultProposalStore(seedProposal: SavedProposalRecord): Prop
         internal: {
           ...seedProposal.quote.internal,
           quoteId: "proposal_acme_terminal_refresh",
+          savedProposalId: "proposal_acme_terminal_refresh",
           quoteStatus: "sent",
           crmOwnerLabel: mockUsers[1].name,
+          workspaceOwnerId: mockUsers[1].id,
+          workspaceOwnerName: mockUsers[1].name,
         },
       },
       activity: [
@@ -267,6 +310,8 @@ export function getDefaultProposalStore(seedProposal: SavedProposalRecord): Prop
           documentTitle: "Riverline Field Upgrade",
           customerShortName: "Riverline",
           status: "negotiating",
+          ownerUserId: mockUsers[2].id,
+          ownerName: mockUsers[2].name,
         },
         customer: {
           ...seedProposal.quote.customer,
@@ -278,8 +323,11 @@ export function getDefaultProposalStore(seedProposal: SavedProposalRecord): Prop
         internal: {
           ...seedProposal.quote.internal,
           quoteId: "proposal_riverline_upgrade",
+          savedProposalId: "proposal_riverline_upgrade",
           quoteStatus: "negotiating",
           crmOwnerLabel: mockUsers[2].name,
+          workspaceOwnerId: mockUsers[2].id,
+          workspaceOwnerName: mockUsers[2].name,
         },
       },
       activity: [

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 function formatCurrency(value: number) {
@@ -20,6 +20,16 @@ function formatDate(value: string) {
     month: "short",
     day: "numeric",
     year: "numeric",
+  }).format(new Date(value));
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   }).format(new Date(value));
 }
 
@@ -70,6 +80,7 @@ export function ProposalWorkspace() {
   const [store, setStore] = useState<ProposalStoreData | null>(null);
   const [ownerFilter, setOwnerFilter] = useState<string>("mine");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [activeProposalId, setActiveProposalId] = useState<string | null>(null);
 
   useEffect(() => {
     const seed = createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] });
@@ -77,17 +88,25 @@ export function ProposalWorkspace() {
 
     if (typeof window === "undefined") {
       setStore(fallbackStore);
+      setActiveProposalId(fallbackStore.proposals[0]?.id ?? null);
       return;
     }
 
     const saved = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
-    if (saved) {
-      setStore(saved);
-      return;
+    const nextStore = saved ?? fallbackStore;
+    const savedActiveProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
+    const resolvedActiveProposalId = getActiveProposalId(nextStore, savedActiveProposalId);
+
+    if (!saved) {
+      window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
     }
 
-    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(fallbackStore));
-    setStore(fallbackStore);
+    if (resolvedActiveProposalId) {
+      window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, resolvedActiveProposalId);
+    }
+
+    setStore(nextStore);
+    setActiveProposalId(resolvedActiveProposalId);
   }, []);
 
   const proposals = useMemo(() => {
@@ -115,9 +134,16 @@ export function ProposalWorkspace() {
     };
   }, [store]);
 
+  const activeProposal = useMemo(() => {
+    if (!store) return null;
+    return getProposalById(store, activeProposalId) ?? proposals[0] ?? store.proposals[0] ?? null;
+  }, [activeProposalId, proposals, store]);
+
   const setActiveProposal = (proposalId: string) => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, proposalId);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, proposalId);
+    }
+    setActiveProposalId(proposalId);
   };
 
   if (!store) {
@@ -136,7 +162,7 @@ export function ProposalWorkspace() {
               <div className="workspace-eyebrow">RapidQuote</div>
               <h1 className="workspace-title">My Proposals</h1>
               <p className="workspace-subtitle">
-                A clear proposal workspace with ownership, status, and the right next step for every quote.
+                This is the internal list view. Pick a proposal, then choose whether you want the record page, the customer preview, or the editor.
               </p>
             </div>
           </div>
@@ -156,6 +182,33 @@ export function ProposalWorkspace() {
           <StatFilterCard label="Active work" value={stats.active} note={<>Show drafts, open deals, and<br />negotiations in progress</>} active={ownerFilter === "all" && statusFilter === "active"} onClick={() => { setOwnerFilter("all"); setStatusFilter("active"); }} />
           <StatFilterCard label="Sent out" value={stats.sent} note="Show proposals waiting on review" active={ownerFilter === "all" && statusFilter === "sent"} onClick={() => { setOwnerFilter("all"); setStatusFilter("sent"); }} />
         </section>
+
+        {activeProposal && (
+          <section className="workspace-panel workspace-focus-panel">
+            <div className="workspace-panel-topbar workspace-panel-topbar-stack">
+              <div>
+                <div className="workspace-eyebrow">Selected proposal</div>
+                <h2 className="workspace-section-title">What this page is for</h2>
+                <p className="workspace-panel-copy">
+                  <strong>{activeProposal.quote.metadata.documentTitle}</strong> for <strong>{activeProposal.quote.customer.name}</strong> is selected.
+                  Use <strong>View Details</strong> for the internal record, <strong>Preview Proposal</strong> for the customer-facing document,
+                  and <strong>Open Editor</strong> when you need to change the content.
+                </p>
+              </div>
+              <div className="workspace-focus-actions">
+                <Link href={`/proposals/${activeProposal.id}`} className="workspace-secondary-button" onClick={() => setActiveProposal(activeProposal.id)}>
+                  View Details
+                </Link>
+                <Link href="/proposal" className="workspace-secondary-button" onClick={() => setActiveProposal(activeProposal.id)}>
+                  Preview Proposal
+                </Link>
+                <Link href="/new" className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(activeProposal.id)}>
+                  Open Editor
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="workspace-panel">
           <div className="workspace-panel-topbar">
@@ -190,8 +243,10 @@ export function ProposalWorkspace() {
           <div className="workspace-list">
             {proposals.map((proposal) => {
               const summary = buildProposalSummary(proposal);
+              const isActive = proposal.id === activeProposal?.id;
+
               return (
-                <article key={proposal.id} className="proposal-list-card">
+                <article key={proposal.id} className={`proposal-list-card ${isActive ? "proposal-list-card-active" : ""}`}>
                   <div className="proposal-list-head">
                     <div>
                       <div className="proposal-list-kicker">{summary.proposalNumber}</div>
@@ -208,11 +263,17 @@ export function ProposalWorkspace() {
                     <div><span>Updated</span><strong>{formatDate(summary.updatedAt)}</strong></div>
                   </div>
 
-                  <div className="proposal-list-footer">
-                    <div className="proposal-list-note">Proposal details and quote edits stay in sync</div>
+                  <div className="proposal-list-footer proposal-list-footer-stack">
+                    <div className="proposal-list-note">{isActive ? "Selected proposal" : "Select this proposal to work on it"}</div>
                     <div className="proposal-list-actions">
+                      <button type="button" className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
+                        Select
+                      </button>
                       <Link href={`/proposals/${proposal.id}`} className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
                         View Details
+                      </Link>
+                      <Link href="/proposal" className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
+                        Preview Proposal
                       </Link>
                       <Link href="/new" className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
                         Open Editor
@@ -231,44 +292,64 @@ export function ProposalWorkspace() {
 
 export function ProposalDetailView({ proposal, users }: { proposal: SavedProposalRecord; users: ProposalOwner[] }) {
   const summary = buildProposalSummary(proposal);
+  const latestActivity = proposal.activity[proposal.activity.length - 1] ?? null;
+  const lastTouched = proposal.quote.metadata.lastTouchedAt ? formatDateTime(proposal.quote.metadata.lastTouchedAt) : formatDateTime(proposal.updatedAt);
 
   return (
     <main className="workspace-shell">
       <div className="workspace-container detail-layout">
         <section className="workspace-hero detail-hero">
           <div>
-            <div className="workspace-eyebrow">Proposal Details</div>
+            <div className="workspace-eyebrow">Internal proposal record</div>
             <h1 className="workspace-title">{summary.title}</h1>
             <p className="workspace-subtitle">{summary.customerName} • {summary.proposalNumber}</p>
           </div>
           <div className="workspace-actions">
             <span className={statusTone(proposal.status)}>{proposal.stageLabel}</span>
             <Link href="/" className="workspace-secondary-button">Back to My Proposals</Link>
+            <Link href="/proposal" className="workspace-secondary-button">Preview Proposal</Link>
             <Link href="/new" className="workspace-primary-button">Open Editor</Link>
           </div>
         </section>
 
-        <div className="detail-grid">
+        <section className="workspace-panel workspace-focus-panel">
+          <div className="workspace-panel-topbar workspace-panel-topbar-stack">
+            <div>
+              <div className="workspace-eyebrow">Page purpose</div>
+              <h2 className="workspace-section-title">This is the internal record page</h2>
+              <p className="workspace-panel-copy">
+                It shows ownership, status, totals, and history for the proposal record. It is not the customer document.
+                When you want to see what the customer sees, use <strong>Preview Proposal</strong>. When you want to make changes, use <strong>Open Editor</strong>.
+              </p>
+            </div>
+            <div className="workspace-focus-actions">
+              <Link href="/proposal" className="workspace-secondary-button">Preview Proposal</Link>
+              <Link href="/new" className="workspace-primary-button workspace-primary-button-small">Open Editor</Link>
+            </div>
+          </div>
+        </section>
+
+        <div className="detail-grid detail-grid-wide">
           <section className="workspace-panel">
             <div className="workspace-panel-topbar">
               <div>
-                <div className="workspace-eyebrow">Ownership</div>
-                <h2 className="workspace-section-title">Proposal record</h2>
+                <div className="workspace-eyebrow">At a glance</div>
+                <h2 className="workspace-section-title">Proposal snapshot</h2>
               </div>
             </div>
 
             <div className="detail-card-grid">
-              <div className="detail-card"><span>Owner</span><strong>{proposal.owner.name}</strong><em>{proposal.owner.role}</em></div>
-              <div className="detail-card"><span>Created by</span><strong>{proposal.createdBy.name}</strong><em>{formatDate(proposal.createdAt)}</em></div>
               <div className="detail-card"><span>Status</span><strong>{proposal.stageLabel}</strong><em>{statusToStageLabel(proposal.status)}</em></div>
+              <div className="detail-card"><span>Owner</span><strong>{proposal.owner.name}</strong><em>{proposal.owner.role}</em></div>
+              <div className="detail-card"><span>Last touched</span><strong>{lastTouched}</strong><em>{latestActivity ? latestActivity.message : "No recent activity"}</em></div>
               <div className="detail-card"><span>Account Segment</span><strong>{proposal.workspace.accountSegment}</strong><em>{proposal.workspace.branchLabel}</em></div>
             </div>
 
             <div className="detail-table">
               <div><span>Account</span><strong>{proposal.quote.metadata.accountName ?? proposal.quote.customer.name}</strong></div>
               <div><span>Proposal date</span><strong>{proposal.quote.metadata.proposalDate}</strong></div>
-              <div><span>Owner</span><strong>{proposal.quote.metadata.ownerName ?? proposal.owner.name}</strong></div>
-              <div><span>Last touched</span><strong>{proposal.quote.metadata.lastTouchedAt ? formatDate(proposal.quote.metadata.lastTouchedAt) : formatDate(proposal.updatedAt)}</strong></div>
+              <div><span>Quote type</span><strong>{proposal.quote.metadata.quoteType}</strong></div>
+              <div><span>Provider</span><strong>{proposal.quote.metadata.customerProvider}</strong></div>
             </div>
           </section>
 
@@ -276,7 +357,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
             <div className="workspace-panel-topbar">
               <div>
                 <div className="workspace-eyebrow">Commercial snapshot</div>
-                <h2 className="workspace-section-title">Proposal totals</h2>
+                <h2 className="workspace-section-title">Current totals</h2>
               </div>
             </div>
 
@@ -284,7 +365,41 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
               <div className="detail-card"><span>Monthly recurring</span><strong>{formatCurrency(summary.totalMonthly)}</strong><em>Section A</em></div>
               <div className="detail-card"><span>Equipment</span><strong>{formatCurrency(summary.equipmentTotal)}</strong><em>Section B</em></div>
               <div className="detail-card"><span>Optional services</span><strong>{formatCurrency(summary.optionalServicesTotal)}</strong><em>Section C</em></div>
-              <div className="detail-card"><span>Quote type</span><strong>{proposal.quote.metadata.quoteType}</strong><em>{proposal.quote.metadata.customerProvider}</em></div>
+              <div className="detail-card"><span>Prepared by</span><strong>{proposal.quote.inet.contactName}</strong><em>{proposal.quote.inet.contactEmail}</em></div>
+            </div>
+          </section>
+
+          <section className="workspace-panel">
+            <div className="workspace-panel-topbar">
+              <div>
+                <div className="workspace-eyebrow">Customer</div>
+                <h2 className="workspace-section-title">Customer and delivery context</h2>
+              </div>
+            </div>
+
+            <div className="detail-table">
+              <div><span>Customer</span><strong>{proposal.quote.customer.name}</strong></div>
+              <div><span>Contact</span><strong>{proposal.quote.customer.contactName}</strong></div>
+              <div><span>Email</span><strong>{proposal.quote.customer.contactEmail}</strong></div>
+              <div><span>Phone</span><strong>{proposal.quote.customer.contactPhone}</strong></div>
+              <div><span>Bill to</span><strong>{proposal.quote.billTo.companyName}</strong></div>
+              <div><span>Ship to</span><strong>{proposal.quote.shipTo.companyName}</strong></div>
+            </div>
+          </section>
+
+          <section className="workspace-panel">
+            <div className="workspace-panel-topbar">
+              <div>
+                <div className="workspace-eyebrow">Record integrity</div>
+                <h2 className="workspace-section-title">Workflow checkpoints</h2>
+              </div>
+            </div>
+
+            <div className="detail-card-grid">
+              <div className="detail-card"><span>Proposal ID</span><strong>{proposal.id}</strong><em>Internal saved record</em></div>
+              <div className="detail-card"><span>Record version</span><strong>v{proposal.recordVersion}</strong><em>Local workspace data</em></div>
+              <div className="detail-card"><span>Created by</span><strong>{proposal.createdBy.name}</strong><em>{formatDateTime(proposal.createdAt)}</em></div>
+              <div className="detail-card"><span>Current owner label</span><strong>{proposal.quote.metadata.ownerName ?? proposal.owner.name}</strong><em>Shown in editor and preview</em></div>
             </div>
           </section>
 
@@ -292,7 +407,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
             <div className="workspace-panel-topbar">
               <div>
                 <div className="workspace-eyebrow">Team</div>
-                <h2 className="workspace-section-title">Available Owners</h2>
+                <h2 className="workspace-section-title">Available owners</h2>
               </div>
             </div>
             <div className="owner-list">
@@ -314,12 +429,12 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
               </div>
             </div>
             <div className="activity-list">
-              {proposal.activity.map((entry) => (
+              {[...proposal.activity].slice().reverse().map((entry) => (
                 <div key={entry.id} className="activity-item">
                   <div className="activity-dot" />
                   <div>
                     <strong>{entry.message}</strong>
-                    <p>{entry.by.name} • {formatDate(entry.at)}</p>
+                    <p>{entry.by.name} • {formatDateTime(entry.at)}</p>
                   </div>
                 </div>
               ))}

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, mockUsers, serializeProposalStore, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { PROPOSAL_STORAGE_KEY, serializeQuoteRecord } from "@/app/lib/proposal-state";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
 import {
@@ -435,9 +435,7 @@ export default function QuotePreview() {
       window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(store));
     }
 
-    const matchedProposal = activeProposalId
-      ? store.proposals.find((proposal) => proposal.id === activeProposalId) ?? null
-      : store.proposals[0] ?? null;
+    const matchedProposal = getActiveProposal(store, activeProposalId);
 
     if (matchedProposal) {
       setActiveProposal(matchedProposal);
@@ -845,19 +843,7 @@ export default function QuotePreview() {
     updatedProposal.quote.metadata.ownerUserId = owner.id;
     updatedProposal.quote.metadata.ownerName = owner.name;
 
-    const existingIndex = currentStore.proposals.findIndex((proposal) => proposal.id === proposalId);
-    const nextProposals = [...currentStore.proposals];
-
-    if (existingIndex >= 0) {
-      nextProposals[existingIndex] = updatedProposal;
-    } else {
-      nextProposals.unshift(updatedProposal);
-    }
-
-    const nextStore = {
-      ...currentStore,
-      proposals: nextProposals,
-    };
+    const nextStore = upsertProposal(currentStore, updatedProposal);
 
     window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, proposalId);
@@ -876,9 +862,9 @@ export default function QuotePreview() {
               </div>
               <div>
                 <div className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[#8b96a3]">RapidQuote</div>
-                <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">New Proposal</h1>
+                <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal Editor</h1>
                 <p className="mt-2 max-w-[680px] text-[15px] leading-[1.55] text-[#5a6572]">
-                  Build a polished proposal with live pricing, clear ownership, and a smooth handoff into preview and final output.
+                  This is the builder/editor. Make content changes here, then move to Preview Proposal when you want the customer-facing document.
                 </p>
               </div>
             </div>
@@ -897,6 +883,9 @@ export default function QuotePreview() {
             </Link>
             <Link href="/proposal" className="pill-button pill-button-active" onClick={persistProposalState}>
               Preview Proposal
+            </Link>
+            <Link href={activeProposal ? `/proposals/${activeProposal.id}` : "/"} className="pill-button" onClick={persistProposalState}>
+              View Details
             </Link>
             <button type="button" className="pill-button" onClick={persistProposalState}>Save Draft</button>
           </div>
