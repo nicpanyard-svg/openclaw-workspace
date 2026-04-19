@@ -555,10 +555,19 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </div>
 
         <div className="approval-block sample-approval-block">
-          <div className="approval-block-header">
+          <div className="approval-block-header approval-block-header-with-logo">
             <div>
               <div className="proposal-overline">{quote.approval.heading}</div>
               <h3 className="approval-title">Authorization to proceed</h3>
+            </div>
+            <div className="approval-brand-mark" aria-hidden="true">
+              <Image
+                src="/inet-logo.png"
+                alt=""
+                width={96}
+                height={30}
+                className="approval-brand-logo"
+              />
             </div>
           </div>
 

@@ -1515,6 +1515,29 @@ body {
   gap: 14px;
 }
 
+.approval-block-header-with-logo {
+  align-items: center;
+}
+
+.approval-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 118px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 1px solid #e1e6ed;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+}
+
+.approval-brand-logo {
+  width: auto;
+  height: auto;
+  max-width: 96px;
+  opacity: 0.9;
+}
+
 .approval-title {
   margin-top: 4px;
   font-size: 21px;
@@ -1949,6 +1972,16 @@ body {
   .proposal-closing-page .approval-action-item,
   .proposal-closing-page .approval-block {
     padding: 10px 12px;
+  }
+
+  .proposal-closing-page .approval-brand-mark {
+    min-width: 100px;
+    min-height: 36px;
+    padding: 6px 10px;
+  }
+
+  .proposal-closing-page .approval-brand-logo {
+    max-width: 82px;
   }
 
   .proposal-closing-page .proposal-grand-totals,

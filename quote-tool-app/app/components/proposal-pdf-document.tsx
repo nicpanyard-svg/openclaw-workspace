@@ -541,8 +541,26 @@ const styles = StyleSheet.create({
   approvalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 12,
+  },
+  approvalBrandMark: {
+    minWidth: 96,
+    minHeight: 34,
+    borderWidth: 1,
+    borderColor: "#dfe5ec",
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.98)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  approvalBrandLogo: {
+    width: 78,
+    height: 24,
+    objectFit: "contain",
+    opacity: 0.9,
   },
   approvalTitle: {
     marginTop: 4,
@@ -1091,7 +1109,9 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
               <Text style={styles.overline}>{model.approval.heading}</Text>
               <Text style={styles.approvalTitle}>Authorization to proceed</Text>
             </View>
-            <Text style={styles.approvalChip}>Approval</Text>
+            <View style={styles.approvalBrandMark}>
+              <Image src={INET_LOGO_SRC} style={styles.approvalBrandLogo} />
+            </View>
           </View>
 
           <Text style={styles.approvalCopy}>
