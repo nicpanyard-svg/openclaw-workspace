@@ -34,6 +34,18 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function formatRelativeTime(value: string) {
+  const deltaMs = new Date(value).getTime() - Date.now();
+  const deltaHours = Math.round(deltaMs / (1000 * 60 * 60));
+  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+  if (Math.abs(deltaHours) < 24) {
+    return formatter.format(deltaHours, "hour");
+  }
+
+  return formatter.format(Math.round(deltaHours / 24), "day");
+}
+
 function statusTone(status: SavedProposalRecord["status"]) {
   switch (status) {
     case "approved":
@@ -64,6 +76,31 @@ function statusAccentClass(status: SavedProposalRecord["status"]) {
     default:
       return "proposal-state-accent";
   }
+}
+
+function getNextStepLabel(proposal: SavedProposalRecord) {
+  switch (proposal.status) {
+    case "draft":
+      return "Finish pricing and prep customer review";
+    case "sent":
+      return "Follow up on customer review";
+    case "open":
+      return "Tighten scope and confirm feedback";
+    case "negotiating":
+      return "Work commercial terms and approvals";
+    case "approved":
+      return "Move into closeout and handoff";
+    case "closed":
+      return "Reference for renewals or reuse";
+    default:
+      return "Keep proposal moving";
+  }
+}
+
+function getPriorityBucket(proposal: SavedProposalRecord) {
+  if (proposal.status === "negotiating" || proposal.status === "open") return "next";
+  if (proposal.status === "sent" || proposal.status === "draft") return "watch";
+  return "done";
 }
 
 function StatFilterCard({
@@ -99,6 +136,7 @@ export function ProposalWorkspace() {
   const [ownerFilter, setOwnerFilter] = useState<string>("mine");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [activeProposalId, setActiveProposalId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const seed = createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] });
@@ -145,19 +183,50 @@ export function ProposalWorkspace() {
     setActiveProposalId(resolvedActiveProposalId);
   }, [user]);
 
+  const proposalSummaries = useMemo(() => {
+    if (!store) return [];
+
+    return store.proposals.map((proposal) => ({
+      proposal,
+      summary: buildProposalSummary(proposal),
+      nextStep: getNextStepLabel(proposal),
+      priorityBucket: getPriorityBucket(proposal),
+    }));
+  }, [store]);
+
   const proposals = useMemo(() => {
     if (!store) return [];
 
-    return store.proposals.filter((proposal) => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+
+    return proposalSummaries.filter(({ proposal, summary, nextStep }) => {
       const ownerMatch = ownerFilter === "all" ? true : proposal.owner.id === store.currentUser.id;
       const statusMatch = statusFilter === "all"
         ? true
         : statusFilter === "active"
           ? ["draft", "open", "negotiating"].includes(proposal.status)
           : proposal.status === statusFilter;
-      return ownerMatch && statusMatch;
+
+      const searchMatch = !normalizedSearch
+        ? true
+        : [
+            summary.customerName,
+            summary.title,
+            summary.proposalNumber,
+            summary.ownerName,
+            proposal.stageLabel,
+            nextStep,
+          ].some((value) => value.toLowerCase().includes(normalizedSearch));
+
+      return ownerMatch && statusMatch && searchMatch;
     });
-  }, [ownerFilter, statusFilter, store]);
+  }, [ownerFilter, proposalSummaries, searchQuery, statusFilter, store]);
+
+  const groupedProposals = useMemo(() => ({
+    next: proposals.filter((entry) => entry.priorityBucket === "next"),
+    watch: proposals.filter((entry) => entry.priorityBucket === "watch"),
+    done: proposals.filter((entry) => entry.priorityBucket === "done"),
+  }), [proposals]);
 
   const stats = useMemo(() => {
     if (!store) return { total: 0, mine: 0, active: 0, sent: 0 };
@@ -170,10 +239,36 @@ export function ProposalWorkspace() {
     };
   }, [store]);
 
+  const launchpadStats = useMemo(() => {
+    if (!store) {
+      return {
+        teamCount: 0,
+        activeOwners: 0,
+        nextUp: 0,
+        approvals: 0,
+      };
+    }
+
+    return {
+      teamCount: store.users.length,
+      activeOwners: new Set(
+        store.proposals
+          .filter((proposal) => ["draft", "open", "negotiating", "sent"].includes(proposal.status))
+          .map((proposal) => proposal.owner.id),
+      ).size,
+      nextUp: store.proposals.filter((proposal) => ["open", "negotiating"].includes(proposal.status)).length,
+      approvals: store.proposals.filter((proposal) => proposal.status === "approved").length,
+    };
+  }, [store]);
+
   const activeProposal = useMemo(() => {
     if (!store) return null;
-    return getProposalById(store, activeProposalId) ?? proposals[0] ?? store.proposals[0] ?? null;
+    return getProposalById(store, activeProposalId) ?? proposals[0]?.proposal ?? store.proposals[0] ?? null;
   }, [activeProposalId, proposals, store]);
+
+  const currentOwner = store?.currentUser;
+  const myOpenCount = store ? store.proposals.filter((proposal) => proposal.owner.id === store.currentUser.id && ["draft", "open", "negotiating"].includes(proposal.status)).length : 0;
+  const searchHasResults = proposals.length > 0;
 
   const setActiveProposal = (proposalId: string) => {
     if (typeof window !== "undefined") {
@@ -182,39 +277,56 @@ export function ProposalWorkspace() {
     setActiveProposalId(proposalId);
   };
 
-  if (!store) {
-    return <main className="workspace-shell"><div className="workspace-empty">Loading proposal workspace…</div></main>;
+  if (!store || !currentOwner) {
+    return <main className="workspace-shell"><div className="workspace-empty">Loading dashboard…</div></main>;
   }
 
   return (
     <main className="workspace-shell">
       <div className="workspace-container">
-        <section className="workspace-hero">
-          <div className="workspace-brand-block">
-            <ProductLogo width={188} height={54} className="workspace-brand-logo product-logo workspace-queue-logo" priority />
-            <div className="workspace-brand-heading-row">
-              <h1 className="workspace-title">Proposal Editor</h1>
+        <section className="workspace-hero workspace-dashboard-hero">
+          <div className="workspace-dashboard-hero-copy">
+            <div className="workspace-brand-block workspace-dashboard-brand-block">
+              <ProductLogo width={188} height={54} className="workspace-brand-logo product-logo workspace-queue-logo" priority />
+              <div className="workspace-brand-heading-row workspace-dashboard-heading-row">
+                <div>
+                  <div className="workspace-eyebrow">RapidQuote dashboard</div>
+                  <h1 className="workspace-title">Welcome back, {currentOwner.name.split(" ")[0]}.</h1>
+                </div>
+                <span className="workspace-user-chip">{currentOwner.team} • {currentOwner.role}</span>
+              </div>
             </div>
+            <p className="workspace-subtitle">
+              Your launchpad for what needs attention next. Search proposals fast, scan team activity, and jump straight into the work without turning this into a CRM admin screen.
+            </p>
           </div>
-          <div className="workspace-actions">
+          <div className="workspace-actions workspace-dashboard-actions">
             <Link href="/signup" className="workspace-secondary-button">Manage access</Link>
             <Link href="/new" className="workspace-primary-button">+ New Proposal</Link>
           </div>
         </section>
 
-        <section className="workspace-panel workspace-hero-support">
-          <div className="workspace-support-grid">
-            <div>
-              <div className="workspace-support-label">About this view</div>
-              <p className="workspace-support-copy">
-                This is the internal RapidQuote queue for iNet teams. Pick a proposal, open the editor to make changes, then preview the customer-facing document when you are ready to review output.
-              </p>
+        <section className="workspace-panel workspace-launchpad-panel">
+          <div className="workspace-launchpad-grid">
+            <div className="workspace-launchpad-card workspace-launchpad-card-primary">
+              <div className="workspace-support-label">Your lane</div>
+              <strong>{myOpenCount} active proposals</strong>
+              <p className="workspace-support-copy">Drafts, open deals, and negotiations assigned to you right now.</p>
             </div>
-            <div>
-              <div className="workspace-support-label">Workflow direction</div>
-              <p className="workspace-support-copy">
-                The queue is session-aware so RapidQuote can support cleaner ownership and shared team handoff without crowding the top bar.
-              </p>
+            <div className="workspace-launchpad-card">
+              <div className="workspace-support-label">Team in motion</div>
+              <strong>{launchpadStats.activeOwners} teammates active</strong>
+              <p className="workspace-support-copy">Across {launchpadStats.teamCount} workspace users, without cluttering the page.</p>
+            </div>
+            <div className="workspace-launchpad-card">
+              <div className="workspace-support-label">What matters next</div>
+              <strong>{launchpadStats.nextUp} proposals need push</strong>
+              <p className="workspace-support-copy">Open reviews and commercial work that should stay in front of the team.</p>
+            </div>
+            <div className="workspace-launchpad-card">
+              <div className="workspace-support-label">Ready wins</div>
+              <strong>{launchpadStats.approvals} approved</strong>
+              <p className="workspace-support-copy">Closed-loop visibility on what is ready for handoff or final closeout.</p>
             </div>
           </div>
         </section>
@@ -226,104 +338,199 @@ export function ProposalWorkspace() {
           <StatFilterCard label="Sent out" value={stats.sent} note="Show proposals waiting on review" active={ownerFilter === "all" && statusFilter === "sent"} onClick={() => { setOwnerFilter("all"); setStatusFilter("sent"); }} />
         </section>
 
-        <section className="workspace-panel">
-          <div className="workspace-panel-topbar">
+        <section className="workspace-panel workspace-dashboard-panel">
+          <div className="workspace-panel-topbar workspace-dashboard-topbar">
             <div>
               <div className="workspace-eyebrow">Dashboard</div>
-              <h2 className="workspace-section-title">Proposal queue</h2>
+              <h2 className="workspace-section-title">Proposal launchpad</h2>
+              <p className="workspace-panel-copy">
+                Search by customer, title, or proposal number. Then use the sections below to focus on what needs a push, what should be watched, and what is already done.
+              </p>
             </div>
-            <div className="workspace-filter-row">
-              <label className="workspace-field compact">
-                <span>Owner</span>
-                <select value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
-                  <option value="mine">My proposals</option>
-                  <option value="all">All owners</option>
-                </select>
+            <div className="workspace-filter-stack">
+              <label className="workspace-field workspace-search-field">
+                <span>Search</span>
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Customer, title, or proposal #"
+                  aria-label="Search proposals by customer, title, or proposal number"
+                />
               </label>
-              <label className="workspace-field compact">
-                <span>Status</span>
-                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                  <option value="all">All statuses</option>
-                  <option value="active">Active</option>
-                  <option value="draft">Draft</option>
-                  <option value="sent">Sent</option>
-                  <option value="open">Open</option>
-                  <option value="negotiating">Negotiating</option>
-                  <option value="approved">Approved</option>
-                  <option value="closed">Closed</option>
-                </select>
-              </label>
+              <div className="workspace-filter-row">
+                <label className="workspace-field compact">
+                  <span>Owner</span>
+                  <select value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+                    <option value="mine">My proposals</option>
+                    <option value="all">All owners</option>
+                  </select>
+                </label>
+                <label className="workspace-field compact">
+                  <span>Status</span>
+                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                    <option value="all">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="draft">Draft</option>
+                    <option value="sent">Sent</option>
+                    <option value="open">Open</option>
+                    <option value="negotiating">Negotiating</option>
+                    <option value="approved">Approved</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </label>
+              </div>
             </div>
           </div>
 
-          <div className="workspace-list">
-            {proposals.map((proposal) => {
-              const summary = buildProposalSummary(proposal);
-              const isActive = proposal.id === activeProposal?.id;
-              const hasOptionalServices = summary.optionalServicesTotal > 0;
-
-              return (
-                <article key={proposal.id} className={`proposal-list-card proposal-list-card-visual ${isActive ? "proposal-list-card-active" : ""}`}>
-                  <div className={statusAccentClass(proposal.status)} aria-hidden="true" />
-
-                  <div className="proposal-list-topline">
-                    <div className="proposal-list-topline-meta">
-                      <div className="proposal-list-kicker">{summary.proposalNumber}</div>
-                      <div className="proposal-list-updated">Updated {formatDate(summary.updatedAt)}</div>
-                    </div>
-                    <div className="proposal-list-status-cluster">
-                      <span className={statusTone(proposal.status)}>{proposal.stageLabel || statusToStageLabel(proposal.status)}</span>
-                      {isActive ? <span className="proposal-list-selected-pill">Open now</span> : null}
-                    </div>
-                  </div>
-
-                  <div className="proposal-list-head proposal-list-head-visual">
-                    <div className="proposal-list-title-block">
-                      <p className="proposal-list-customer">{summary.customerName}</p>
-                      <h3>{summary.title}</h3>
-                      <p className="proposal-list-subtitle">Owner {summary.ownerName}</p>
-                    </div>
-                  </div>
-
-                  <div className="proposal-commercial-grid">
-                    <div className="proposal-commercial-card proposal-commercial-card-primary">
-                      <span>Monthly recurring</span>
-                      <strong>{formatCurrency(summary.totalMonthly)}</strong>
-                      <em>Primary recurring revenue</em>
-                    </div>
-                    <div className="proposal-commercial-card">
-                      <span>One-time total</span>
-                      <strong>{formatCurrency(summary.equipmentTotal)}</strong>
-                      <em>Equipment and install scope</em>
-                    </div>
-                    <div className={`proposal-commercial-card ${hasOptionalServices ? "proposal-commercial-card-optional" : "proposal-commercial-card-muted"}`}>
-                      <span>Optional services</span>
-                      <strong>{formatCurrency(summary.optionalServicesTotal)}</strong>
-                      <em>{hasOptionalServices ? "Upsell value included" : "No optional services added"}</em>
-                    </div>
-                  </div>
-
-                  <div className="proposal-list-footer proposal-list-footer-visual">
-                    <div className="proposal-list-note-block">
-                      <div className="proposal-list-note-label">Next step</div>
-                      <div className="proposal-list-note">{isActive ? "Continue editing this proposal or preview the customer copy." : "Open the editor to work the deal, or preview the customer-facing proposal."}</div>
-                    </div>
-                    <div className="proposal-list-actions proposal-list-actions-priority">
-                      <Link href="/new" className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
-                        Open Editor
-                      </Link>
-                      <Link href="/proposal" className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
-                        Preview Proposal
-                      </Link>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+          <div className="workspace-section-stack">
+            <DashboardGroup
+              title="What needs attention next"
+              subtitle="Open reviews and commercial conversations that deserve the front seat."
+              emptyLabel="Nothing urgent in this slice right now."
+              proposals={groupedProposals.next}
+              activeProposalId={activeProposal?.id ?? null}
+              setActiveProposal={setActiveProposal}
+            />
+            <DashboardGroup
+              title="Keep moving"
+              subtitle="Drafts and sent proposals that need follow-through, but not full fire-drill energy."
+              emptyLabel="No draft or sent proposals match the current filters."
+              proposals={groupedProposals.watch}
+              activeProposalId={activeProposal?.id ?? null}
+              setActiveProposal={setActiveProposal}
+            />
+            <DashboardGroup
+              title="Approved or closed"
+              subtitle="Useful for quick reference, handoff, and pattern reuse without burying active work."
+              emptyLabel="No approved or closed proposals match the current filters."
+              proposals={groupedProposals.done}
+              activeProposalId={activeProposal?.id ?? null}
+              setActiveProposal={setActiveProposal}
+            />
           </div>
+
+          {!searchHasResults ? (
+            <div className="workspace-search-empty">
+              <strong>No proposals matched that search.</strong>
+              <p>Try a customer name, proposal title, proposal number, or loosen the filters.</p>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>
+  );
+}
+
+function DashboardGroup({
+  title,
+  subtitle,
+  emptyLabel,
+  proposals,
+  activeProposalId,
+  setActiveProposal,
+}: {
+  title: string;
+  subtitle: string;
+  emptyLabel: string;
+  proposals: Array<{
+    proposal: SavedProposalRecord;
+    summary: ReturnType<typeof buildProposalSummary>;
+    nextStep: string;
+    priorityBucket: string;
+  }>;
+  activeProposalId: string | null;
+  setActiveProposal: (proposalId: string) => void;
+}) {
+  return (
+    <section className="workspace-dashboard-group">
+      <div className="workspace-dashboard-group-head">
+        <div>
+          <h3 className="workspace-dashboard-group-title">{title}</h3>
+          <p className="workspace-dashboard-group-copy">{subtitle}</p>
+        </div>
+        <span className="workspace-dashboard-group-count">{proposals.length}</span>
+      </div>
+
+      {proposals.length ? (
+        <div className="workspace-list">
+          {proposals.map(({ proposal, summary, nextStep }) => {
+            const isActive = proposal.id === activeProposalId;
+            const hasOptionalServices = summary.optionalServicesTotal > 0;
+
+            return (
+              <article key={proposal.id} className={`proposal-list-card proposal-list-card-visual ${isActive ? "proposal-list-card-active" : ""}`}>
+                <div className={statusAccentClass(proposal.status)} aria-hidden="true" />
+
+                <div className="proposal-list-topline">
+                  <div className="proposal-list-topline-meta">
+                    <div className="proposal-list-kicker">{summary.proposalNumber}</div>
+                    <div className="proposal-list-updated">Updated {formatDate(summary.updatedAt)} • {formatRelativeTime(summary.updatedAt)}</div>
+                  </div>
+                  <div className="proposal-list-status-cluster">
+                    <span className={statusTone(proposal.status)}>{proposal.stageLabel || statusToStageLabel(proposal.status)}</span>
+                    {isActive ? <span className="proposal-list-selected-pill">Open now</span> : null}
+                  </div>
+                </div>
+
+                <div className="proposal-list-head proposal-list-head-visual">
+                  <div className="proposal-list-title-block">
+                    <p className="proposal-list-customer">{summary.customerName}</p>
+                    <h3>{summary.title}</h3>
+                    <div className="proposal-list-meta-row">
+                      <p className="proposal-list-subtitle">Owner {summary.ownerName}</p>
+                      <span className="proposal-owner-chip">{proposal.owner.team ?? "Team"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="proposal-next-step-banner">
+                  <span>Next step</span>
+                  <strong>{nextStep}</strong>
+                </div>
+
+                <div className="proposal-commercial-grid">
+                  <div className="proposal-commercial-card proposal-commercial-card-primary">
+                    <span>Monthly recurring</span>
+                    <strong>{formatCurrency(summary.totalMonthly)}</strong>
+                    <em>Primary recurring revenue</em>
+                  </div>
+                  <div className="proposal-commercial-card">
+                    <span>One-time total</span>
+                    <strong>{formatCurrency(summary.equipmentTotal)}</strong>
+                    <em>Equipment and install scope</em>
+                  </div>
+                  <div className={`proposal-commercial-card ${hasOptionalServices ? "proposal-commercial-card-optional" : "proposal-commercial-card-muted"}`}>
+                    <span>Optional services</span>
+                    <strong>{formatCurrency(summary.optionalServicesTotal)}</strong>
+                    <em>{hasOptionalServices ? "Upsell value included" : "No optional services added"}</em>
+                  </div>
+                </div>
+
+                <div className="proposal-list-footer proposal-list-footer-visual">
+                  <div className="proposal-list-note-block">
+                    <div className="proposal-list-note-label">Team context</div>
+                    <div className="proposal-list-note">
+                      Created {formatDate(proposal.createdAt)} • Last touch {formatDateTime(proposal.updatedAt)}
+                    </div>
+                  </div>
+                  <div className="proposal-list-actions proposal-list-actions-priority">
+                    <Link href="/new" className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
+                      Open Editor
+                    </Link>
+                    <Link href="/proposal" className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
+                      Preview Proposal
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="workspace-group-empty">{emptyLabel}</div>
+      )}
+    </section>
   );
 }
 
@@ -343,7 +550,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
           </div>
           <div className="workspace-actions">
             <span className={statusTone(proposal.status)}>{proposal.stageLabel}</span>
-            <Link href="/" className="workspace-secondary-button">My Proposals</Link>
+            <Link href="/" className="workspace-secondary-button">Dashboard</Link>
             <Link href="/proposal" className="workspace-secondary-button">Preview Proposal</Link>
             <Link href="/new" className="workspace-primary-button">Open Editor</Link>
           </div>
@@ -356,7 +563,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
               <h2 className="workspace-section-title">Internal proposal workspace</h2>
               <p className="workspace-panel-copy">
                 It shows ownership, status, totals, and history for the saved proposal. It is not the customer document.
-                Keep the flow simple: start in <strong>My Proposals</strong>, use <strong>Open Editor</strong> to make changes, move to <strong>Preview Proposal</strong> to review the customer-facing document, then use <strong>Print PDF</strong> to open the print-ready page and launch the browser print dialog.
+                Keep the flow simple: start in <strong>Dashboard</strong>, use <strong>Open Editor</strong> to make changes, move to <strong>Preview Proposal</strong> to review the customer-facing document, then use <strong>Print PDF</strong> to open the print-ready page and launch the browser print dialog.
               </p>
             </div>
             <div className="workspace-focus-actions">

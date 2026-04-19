@@ -148,7 +148,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
             </div>
           </div>
           <nav className="app-shell-nav" aria-label="Workspace navigation">
-            <Link href="/">Queue</Link>
+            <Link href="/">Dashboard</Link>
             <Link href="/new">Builder</Link>
             <Link href="/proposal">Preview</Link>
           </nav>
