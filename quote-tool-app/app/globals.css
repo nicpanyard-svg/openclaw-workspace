@@ -927,6 +927,15 @@ body {
   flex: 1 1 auto;
 }
 
+.cover-customer-grid,
+.cover-customer-card,
+.cover-contact-card,
+.cover-summary-strip,
+.cover-summary-card {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 .cover-kicker {
   text-transform: uppercase;
   letter-spacing: 0.24em;
@@ -1673,20 +1682,20 @@ body {
 
   .cover-page {
     min-height: 10.84in;
-    padding: 0.22in 0.26in 0.28in;
+    padding: 0.18in 0.24in 0.22in;
   }
 
   .cover-grid {
-    min-height: 9.9in;
+    min-height: 9.72in;
   }
 
   .cover-band,
   .page-bottom-band {
-    margin-bottom: -0.42in;
+    margin-bottom: -0.32in;
   }
 
   .proposal-page-with-band {
-    gap: 0.16in;
+    gap: 0.1in;
   }
 
   .proposal-copy-card,
@@ -1703,6 +1712,84 @@ body {
   .proposal-highlight-card,
   .proposal-closing-hero {
     box-shadow: none;
+  }
+
+  .cover-topbar {
+    gap: 14px;
+  }
+
+  .cover-proposal-meta {
+    min-width: 1.95in;
+    padding: 10px 12px;
+    line-height: 1.42;
+  }
+
+  .cover-content {
+    padding-top: 0.48in;
+  }
+
+  .cover-content h1 {
+    margin-top: 10px;
+    font-size: 31px;
+    line-height: 1;
+  }
+
+  .cover-content h2 {
+    margin-top: 10px;
+    font-size: 18px;
+    line-height: 1.16;
+  }
+
+  .cover-customer-grid {
+    margin-top: 18px;
+    gap: 12px;
+  }
+
+  .cover-customer-card,
+  .cover-contact-card {
+    padding: 13px 14px;
+  }
+
+  .cover-contact-name,
+  .cover-customer-name {
+    margin-top: 6px;
+    font-size: 18px;
+  }
+
+  .cover-contact-lines,
+  .cover-customer-lines {
+    margin-top: 6px;
+    font-size: 11.5px;
+    line-height: 1.42;
+  }
+
+  .cover-customer-brand-row {
+    margin-top: 8px;
+    min-height: 38px;
+  }
+
+  .customer-brand-logo {
+    max-width: 150px;
+    max-height: 44px;
+  }
+
+  .cover-summary-strip {
+    gap: 10px;
+    padding-top: 18px;
+  }
+
+  .cover-summary-card {
+    padding: 11px 12px;
+  }
+
+  .cover-summary-value {
+    margin-top: 6px;
+    font-size: 21px;
+  }
+
+  .cover-band,
+  .page-bottom-band {
+    padding: 14px 0.4in 16px;
   }
 
   .proposal-header {
