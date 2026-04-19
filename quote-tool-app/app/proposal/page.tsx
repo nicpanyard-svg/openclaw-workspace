@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AuthGate } from "@/app/components/auth-shell";
 import { ProposalDocument } from "@/app/components/proposal-document";
@@ -40,33 +39,23 @@ function ProposalPage() {
     <AuthGate>
       <div className="proposal-route-shell">
         <div className="proposal-toolbar no-print">
-        <div>
-          <div className="proposal-toolbar-label">Customer-facing document</div>
-          <div className="proposal-toolbar-title">Preview Proposal</div>
-          <div className="proposal-toolbar-subtitle">
-            {usingSavedData
-              ? "This is the actual proposal document generated from your saved proposal data."
-              : "Previewing the current proposal document."}
+          <div>
+            <div className="proposal-toolbar-label">Customer-facing document</div>
+            <div className="proposal-toolbar-title">Preview Proposal</div>
+            <div className="proposal-toolbar-subtitle">
+              {usingSavedData
+                ? "This is the actual proposal document generated from your saved proposal data."
+                : "Previewing the current proposal document."}
+            </div>
+          </div>
+          <div className="proposal-toolbar-actions">
+            <button type="button" className="proposal-print-button" onClick={handlePrintPdf}>
+              Print PDF
+            </button>
           </div>
         </div>
-        <div className="proposal-toolbar-actions">
-          <Link href="/" className="proposal-secondary-button">
-            My Proposals
-          </Link>
-          <Link href="/new" className="proposal-secondary-button">
-            Open Editor
-          </Link>
-          <button type="button" className="proposal-print-button" onClick={handlePrintPdf}>
-            Print PDF
-          </button>
-        </div>
-      </div>
 
         <div className="proposal-preview-shell">
-          <div className="proposal-preview-pane-header no-print">
-            <div className="proposal-toolbar-title proposal-preview-pane-title">Proposal document preview</div>
-            <div className="proposal-toolbar-subtitle">This is the customer-facing proposal document. Use Print PDF to open the print-ready version and launch the browser print dialog right away.</div>
-          </div>
           <ProposalDocument quote={quote} />
         </div>
       </div>
