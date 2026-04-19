@@ -138,11 +138,6 @@ export function AppFrame({ children }: { children: ReactNode }) {
               priority
             />
           </div>
-          <div className="app-shell-brand-copy">
-            <div className="app-shell-title-row">
-              <div className="app-shell-title">RapidQuote Workspace</div>
-            </div>
-          </div>
         </div>
         <div className="app-shell-userbar">
           <div className="app-shell-usercard">

@@ -482,6 +482,11 @@ body {
   gap: 16px;
 }
 
+.workspace-brand-stack {
+  display: grid;
+  gap: 12px;
+}
+
 .workspace-brand-heading-row {
   margin-bottom: 10px;
 }
@@ -490,6 +495,10 @@ body {
   width: auto;
   height: auto;
   object-fit: contain;
+}
+
+.workspace-queue-logo {
+  max-width: min(100%, 188px);
 }
 
 .workspace-logo-inline {
