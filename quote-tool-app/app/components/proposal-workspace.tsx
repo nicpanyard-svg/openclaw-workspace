@@ -191,21 +191,12 @@ export function ProposalWorkspace() {
       <div className="workspace-container">
         <section className="workspace-hero">
           <div className="workspace-brand-block">
-            <div className="workspace-brand-stack">
-              <ProductLogo width={188} height={54} className="workspace-brand-logo product-logo workspace-queue-logo" priority />
-              <div>
-                <div className="workspace-brand-heading-row">
-                  <h1 className="workspace-title">My Proposals</h1>
-                </div>
-              </div>
+            <ProductLogo width={188} height={54} className="workspace-brand-logo product-logo workspace-queue-logo" priority />
+            <div className="workspace-brand-heading-row">
+              <h1 className="workspace-title">Proposal Editor</h1>
             </div>
           </div>
           <div className="workspace-actions">
-            <div className="workspace-current-user">
-              <div className="workspace-user-label">Signed in as</div>
-              <div className="workspace-user-name">{store.currentUser.name}</div>
-              <div className="workspace-user-meta">{store.currentUser.role} • {store.currentUser.team}</div>
-            </div>
             <Link href="/signup" className="workspace-secondary-button">Manage access</Link>
             <Link href="/new" className="workspace-primary-button">+ New Proposal</Link>
           </div>

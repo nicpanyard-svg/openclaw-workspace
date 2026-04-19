@@ -478,17 +478,13 @@ body {
 
 .workspace-brand-block {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
-}
-
-.workspace-brand-stack {
-  display: grid;
-  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .workspace-brand-heading-row {
-  margin-bottom: 10px;
+  margin: 0;
 }
 
 .workspace-brand-logo {
