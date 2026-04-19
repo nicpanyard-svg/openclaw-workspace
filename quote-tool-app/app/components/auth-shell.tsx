@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ProductLogo } from "@/app/components/product-logo";
 import {
   AUTH_STORAGE_KEY,
   authenticateWithPassword,
@@ -124,9 +125,14 @@ export function AppFrame({ children }: { children: ReactNode }) {
   return (
     <div>
       <header className="app-shell-header">
-        <div>
-          <div className="app-shell-eyebrow">RapidQuote Workspace</div>
-          <div className="app-shell-title">Enterprise quote builder</div>
+        <div className="app-shell-brand-lockup">
+          <div className="workspace-brand-mark app-shell-brand-mark">
+            <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
+          </div>
+          <div>
+            <div className="app-shell-eyebrow">RapidQuote Workspace</div>
+            <div className="app-shell-title">Enterprise quote builder</div>
+          </div>
         </div>
         <div className="app-shell-userbar">
           <div className="app-shell-usercard">
@@ -153,7 +159,9 @@ export function AppFrame({ children }: { children: ReactNode }) {
 export function AuthMarketingPanel() {
   return (
     <section className="auth-marketing-panel">
-      <div className="auth-marketing-kicker">RapidQuote</div>
+      <div className="workspace-brand-mark auth-marketing-brand-mark">
+        <ProductLogo width={168} height={48} className="workspace-brand-logo product-logo" priority />
+      </div>
       <h1 className="auth-marketing-title">Quote and proposal workflow built for enterprise sales teams.</h1>
       <p className="auth-marketing-copy">
         RapidQuote gives your team one secure place to build pricing, manage proposal activity, and move customer-ready documents forward with confidence.

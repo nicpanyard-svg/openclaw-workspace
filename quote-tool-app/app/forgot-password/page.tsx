@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ProductLogo } from "@/app/components/product-logo";
 import { canSelfServeSignUp } from "@/app/lib/auth";
 
 export default function ForgotPasswordPage() {
@@ -12,6 +13,9 @@ export default function ForgotPasswordPage() {
   return (
     <main className="auth-shell auth-shell-simple">
       <div className="auth-simple-card">
+        <div className="workspace-brand-mark auth-brand-mark auth-simple-brand-mark">
+          <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
+        </div>
         <div className="workspace-eyebrow">Password recovery</div>
         <h1 className="auth-form-title">Reset your RapidQuote password</h1>
         <p className="auth-form-copy">

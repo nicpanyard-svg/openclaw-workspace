@@ -420,6 +420,24 @@ body {
   object-fit: contain;
 }
 
+.product-logo {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.app-shell-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.app-shell-brand-mark,
+.auth-marketing-brand-mark,
+.auth-simple-brand-mark {
+  min-width: 176px;
+}
+
 .workspace-current-user {
   min-width: 220px;
   border-radius: 20px;

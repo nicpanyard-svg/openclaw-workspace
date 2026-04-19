@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { ProductLogo } from "@/app/components/product-logo";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AuthHelpLinks, AuthMarketingPanel, useAuth } from "@/app/components/auth-shell";
@@ -36,7 +36,7 @@ function LoginForm() {
     <section className="auth-form-panel">
       <div className="auth-form-header">
         <div className="workspace-brand-mark auth-brand-mark">
-          <Image src="/inet-logo.png" alt="iNet logo" width={122} height={38} className="workspace-brand-logo" priority />
+          <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
         </div>
         <div className="workspace-eyebrow">Secure access</div>
         <h2 className="auth-form-title">Sign in to RapidQuote</h2>
