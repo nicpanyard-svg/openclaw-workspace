@@ -1,10 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AuthHelpLinks, AuthMarketingPanel, useAuth } from "@/app/components/auth-shell";
-import { RapidQuoteLogo } from "@/app/components/rapidquote-logo";
 
 function LoginForm() {
   const router = useRouter();
@@ -35,7 +35,10 @@ function LoginForm() {
   return (
     <section className="auth-form-panel">
       <div className="auth-form-header">
-        <RapidQuoteLogo size="lg" subtitle="SECURE ACCESS" className="auth-brand-mark" />
+        <div className="workspace-brand-mark auth-brand-mark">
+          <Image src="/inet-logo.png" alt="iNet logo" width={122} height={38} className="workspace-brand-logo" priority />
+        </div>
+        <div className="workspace-eyebrow">Secure access</div>
         <h2 className="auth-form-title">Sign in to RapidQuote</h2>
         <p className="auth-form-copy">Sign in to access RapidQuote and continue working on quotes, proposals, and customer-ready documents.</p>
       </div>

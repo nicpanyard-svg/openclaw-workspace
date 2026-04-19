@@ -1,9 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
-import { RapidQuoteLogo } from "@/app/components/rapidquote-logo";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
@@ -191,8 +191,11 @@ export function ProposalWorkspace() {
       <div className="workspace-container">
         <section className="workspace-hero">
           <div className="workspace-brand-block">
-            <RapidQuoteLogo size="lg" subtitle="PROPOSAL WORKSPACE" className="workspace-brand-mark" />
+            <div className="workspace-brand-mark">
+              <Image src="/inet-logo.png" alt="iNet logo" width={126} height={38} className="workspace-brand-logo" priority />
+            </div>
             <div>
+              <div className="workspace-eyebrow">RapidQuote</div>
               <h1 className="workspace-title">My Proposals</h1>
               <p className="workspace-subtitle">
                 This is the internal list view. Pick a proposal, then open the editor to make changes or preview the customer-facing document when you are ready to review output. The queue is now session-aware so RapidQuote can move toward real shared ownership instead of a single-user demo.
