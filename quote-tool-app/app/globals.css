@@ -1478,8 +1478,20 @@ body {
   flex-direction: column;
 }
 
+.proposal-closing-page .proposal-header,
+.proposal-closing-page .proposal-overline,
+.proposal-closing-page .proposal-section-title,
+.proposal-closing-page .section-title-rule,
+.proposal-closing-page .proposal-closing-hero,
+.proposal-closing-page .proposal-grand-totals,
+.proposal-closing-page .closing-copy,
+.proposal-closing-page .approval-block {
+  position: relative;
+  z-index: 1;
+}
+
 .closing-copy {
-  margin-top: 18px;
+  margin-top: 12px;
 }
 
 .approval-block {
@@ -1685,7 +1697,6 @@ body {
   .proposal-page-with-band {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     gap: 0;
     min-height: 10.84in;
   }
@@ -1794,15 +1805,20 @@ body {
 
   .proposal-closing-page {
     min-height: 10.84in;
-    padding: 0.22in 0.24in 0;
+    padding: 0.2in 0.24in 0;
+    position: relative;
+    padding-bottom: 0.92in;
   }
 
   .proposal-closing-page .page-bottom-band {
-    margin-top: 0;
-  }
-
-  .proposal-closing-page > :not(.page-bottom-band) {
-    flex-shrink: 0;
+    position: absolute;
+    left: 0.24in;
+    right: 0.24in;
+    bottom: 0;
+    margin: 0;
+    padding-left: 0.4in;
+    padding-right: 0.4in;
+    padding-bottom: 14px;
   }
 
   .proposal-closing-page .approval-block {
@@ -1826,15 +1842,29 @@ body {
   }
 
   .proposal-header {
-    margin-bottom: 12px;
-    padding-bottom: 9px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
     font-size: 9px;
+  }
+
+  .proposal-closing-page .proposal-overline {
+    margin-bottom: 2px;
   }
 
   .proposal-section-title,
   .proposal-callout-title,
   .proposal-closing-hero-title {
     font-size: 20px;
+  }
+
+  .proposal-closing-page .proposal-section-title {
+    margin-top: 4px;
+    line-height: 1.06;
+  }
+
+  .proposal-closing-page .section-title-rule {
+    margin-top: 11px;
+    margin-bottom: 12px;
   }
 
   .proposal-intro,
@@ -1846,12 +1876,29 @@ body {
     line-height: 1.48;
   }
 
+  .proposal-closing-page .proposal-copy p,
+  .proposal-closing-page .approval-copy {
+    line-height: 1.4;
+  }
+
   .proposal-section-summary-card,
   .proposal-terms-intro-card,
   .proposal-highlight-card,
   .proposal-closing-hero,
   .approval-action-item {
     padding: 12px 14px;
+  }
+
+  .proposal-closing-page .proposal-closing-hero,
+  .proposal-closing-page .approval-action-item,
+  .proposal-closing-page .approval-block {
+    padding: 10px 12px;
+  }
+
+  .proposal-closing-page .proposal-grand-totals,
+  .proposal-closing-page .approval-action-row,
+  .proposal-closing-page .approval-signature-grid {
+    gap: 8px;
   }
 
   .proposal-highlight-grid,
@@ -1864,6 +1911,41 @@ body {
   .proposal-highlight-card strong,
   .grand-total-value {
     font-size: 20px;
+  }
+
+  .proposal-closing-page .grand-total-card {
+    padding: 10px 12px;
+  }
+
+  .proposal-closing-page .grand-total-label,
+  .proposal-closing-page .approval-action-item span,
+  .proposal-closing-page .signature-label {
+    font-size: 9px;
+  }
+
+  .proposal-closing-page .grand-total-value,
+  .proposal-closing-page .approval-action-item strong {
+    font-size: 17px;
+  }
+
+  .proposal-closing-page .approval-title {
+    font-size: 18px;
+  }
+
+  .proposal-closing-page .approval-copy {
+    margin-top: 8px;
+  }
+
+  .proposal-closing-page .approval-signature-grid {
+    margin-top: 12px;
+  }
+
+  .proposal-closing-page .signature-field {
+    min-height: 58px;
+  }
+
+  .proposal-closing-page .signature-line {
+    margin-bottom: 8px;
   }
 
   .proposal-table {
@@ -1905,5 +1987,25 @@ body {
   .grand-total-card {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .proposal-closing-page,
+  .proposal-closing-page .proposal-closing-hero,
+  .proposal-closing-page .proposal-grand-totals,
+  .proposal-closing-page .closing-copy,
+  .proposal-closing-page .approval-block,
+  .proposal-closing-page .grand-total-card,
+  .proposal-closing-page .signature-field,
+  .proposal-closing-page .approval-action-item,
+  .proposal-closing-page .proposal-copy-card {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .proposal-closing-page .proposal-closing-hero,
+  .proposal-closing-page .approval-block-header,
+  .proposal-closing-page .approval-status-chip {
+    break-after: avoid;
+    page-break-after: avoid;
   }
 }

@@ -539,7 +539,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </div>
       </section>
 
-      <section className="proposal-page proposal-closing-page proposal-page-with-band keep-together-page">
+      <section className="proposal-page proposal-closing-page proposal-page-with-band">
         <div className="proposal-header">
           <span>Commercial recap</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
@@ -549,7 +549,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         <h2 className="proposal-section-title">Summary of proposed pricing</h2>
         <div className="section-title-rule" />
 
-        <div className="proposal-closing-hero keep-with-next">
+        <div className="proposal-closing-hero">
           <div>
             <div className="proposal-callout-label">Approval summary</div>
             <div className="proposal-closing-hero-title">Ready for commercial approval</div>
@@ -591,7 +591,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </p>
         </div>
 
-        <div className="approval-block keep-together sample-approval-block">
+        <div className="approval-block sample-approval-block">
           <div className="approval-block-header">
             <div>
               <div className="proposal-overline">{quote.approval.heading}</div>
