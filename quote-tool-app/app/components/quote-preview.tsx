@@ -966,7 +966,7 @@ export default function QuotePreview() {
 
                   <div className="space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                     <div className="flex items-start gap-3">
-                      <ProductLogo width={120} height={34} className="h-auto w-auto object-contain product-logo" />
+                      <Image src="/inet-logo.png" alt="iNet logo" width={120} height={34} className="h-auto w-auto object-contain" />
                       <div>
                         <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">iNet</div>
                         <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Sales contact and address</div>

@@ -116,7 +116,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
 export function AppFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, signOut, isReady } = useAuth();
-  const showChrome = isReady && user && !authRoutes.includes(pathname);
+  const isChromeFreeRoute = pathname.startsWith("/proposal/print");
+  const showChrome = isReady && user && !authRoutes.includes(pathname) && !isChromeFreeRoute;
 
   if (!showChrome) {
     return <>{children}</>;
