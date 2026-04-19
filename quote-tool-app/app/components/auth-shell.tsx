@@ -137,9 +137,6 @@ export function AppFrame({ children }: { children: ReactNode }) {
               className="app-shell-parent-brand-logo"
               priority
             />
-            <div className="workspace-brand-mark app-shell-brand-mark">
-              <ProductLogo width={148} height={42} className="workspace-brand-logo product-logo" priority />
-            </div>
           </div>
           <div className="app-shell-brand-copy">
             <div className="app-shell-title-row">

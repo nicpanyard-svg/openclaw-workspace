@@ -191,9 +191,8 @@ export function ProposalWorkspace() {
       <div className="workspace-container">
         <section className="workspace-hero">
           <div className="workspace-brand-block">
-            <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo workspace-logo-inline" priority />
             <div>
-              <div className="workspace-eyebrow">iNet sales workspace</div>
+              <div className="workspace-eyebrow">RapidQuote Workspace</div>
               <div className="workspace-brand-heading-row">
                 <h1 className="workspace-title">My Proposals</h1>
               </div>
