@@ -1063,6 +1063,8 @@ body {
 
 .page-bottom-band {
   margin-top: auto;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .proposal-page-with-band {
@@ -1691,11 +1693,30 @@ body {
 
   .cover-band,
   .page-bottom-band {
-    margin-bottom: -0.32in;
+    margin-bottom: -0.2in;
   }
 
   .proposal-page-with-band {
-    gap: 0.1in;
+    gap: 0.08in;
+  }
+
+  .proposal-closing-page {
+    min-height: 10.84in;
+    padding-bottom: 0.18in;
+  }
+
+  .proposal-closing-page .proposal-grand-totals,
+  .proposal-closing-page .closing-copy,
+  .proposal-closing-page .approval-block {
+    margin-top: 10px;
+  }
+
+  .proposal-closing-page .approval-block {
+    margin-bottom: 0;
+  }
+
+  .proposal-closing-page .page-bottom-band {
+    margin-top: 0.08in;
   }
 
   .proposal-copy-card,
