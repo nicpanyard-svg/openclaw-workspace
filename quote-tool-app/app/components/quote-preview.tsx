@@ -888,9 +888,7 @@ export default function QuotePreview() {
         <section className="rounded-[28px] border border-white/60 bg-[var(--workspace-panel)] p-6 shadow-[0_16px_40px_rgba(75,88,106,0.12)] backdrop-blur">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex max-w-[820px] items-start gap-4">
-              <div className="workspace-brand-mark flex min-w-0 shrink-0 items-center justify-center px-4 py-3">
-                <ProductLogo width={156} height={44} className="workspace-brand-logo product-logo" priority />
-              </div>
+              <ProductLogo width={156} height={44} className="workspace-brand-logo product-logo workspace-logo-inline shrink-0" priority />
               <div>
                 <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal Editor</h1>
                 <p className="mt-2 max-w-[680px] text-[15px] leading-[1.55] text-[#5a6572]">
@@ -966,7 +964,7 @@ export default function QuotePreview() {
 
                   <div className="space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                     <div className="flex items-start gap-3">
-                      <Image src="/inet-logo.png" alt="iNet logo" width={120} height={34} className="h-auto w-auto object-contain" />
+                      <Image src="/inet-logo.png" alt="iNet logo" width={120} height={34} className="workspace-logo-inline h-auto w-auto object-contain" />
                       <div>
                         <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">iNet</div>
                         <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Sales contact and address</div>

@@ -401,23 +401,15 @@ body {
   gap: 16px;
 }
 
-.workspace-brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 148px;
-  min-height: 62px;
-  padding: 12px 16px;
-  border-radius: 20px;
-  border: 1px solid #dde3e8;
-  background: white;
-  box-shadow: 0 10px 24px rgba(40, 51, 63, 0.06);
-}
-
 .workspace-brand-logo {
   width: auto;
   height: auto;
   object-fit: contain;
+}
+
+.workspace-logo-inline {
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .product-logo {
