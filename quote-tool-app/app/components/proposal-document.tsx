@@ -84,6 +84,9 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
     shipToSource.attention ?? "",
     ...shipToSource.lines,
   ]);
+  const customerVisibleCustomFields = (quote.customFields ?? []).filter(
+    (field) => field.visibility === "customer" && (field.label.trim().length > 0 || field.value.trim().length > 0),
+  );
   const pricingSnapshotItems = [
     {
       label: "Recurring monthly",
@@ -286,17 +289,15 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
         )}
 
-        {quote.customFields?.length ? (
+        {customerVisibleCustomFields.length ? (
           <div className="proposal-copy proposal-copy-card">
             <div className="proposal-mini-heading">Additional Proposal Details</div>
-            {quote.customFields
-              .filter((field) => field.label.trim().length > 0 || field.value.trim().length > 0)
-              .map((field) => (
-                <p key={field.id}>
-                  <strong>{field.label || "Detail"}</strong>
-                  {field.value ? ` ${field.value}` : ""}
-                </p>
-              ))}
+            {customerVisibleCustomFields.map((field) => (
+              <p key={field.id}>
+                <strong>{field.label || "Detail"}</strong>
+                {field.value ? ` ${field.value}` : ""}
+              </p>
+            ))}
           </div>
         ) : null}
 

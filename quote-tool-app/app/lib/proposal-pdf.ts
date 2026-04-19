@@ -7,6 +7,7 @@ import type {
 
 export type ProposalPdfViewModel = {
   proposalNumber: string;
+  customerVisibleCustomFields: QuoteRecord["customFields"];
   proposalDate: string;
   documentTitle: string;
   documentSubtitle: string;
@@ -97,6 +98,9 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
   const executiveSummaryBlocks = [quote.executiveSummary.customerContext, quote.executiveSummary.body]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value?.length));
+  const customerVisibleCustomFields = (quote.customFields ?? []).filter(
+    (field) => field.visibility === "customer" && (field.label.trim().length > 0 || field.value.trim().length > 0),
+  );
   const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => paragraph.trim().length > 0);
   const executiveSummaryParagraphs = executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary;
 
@@ -115,6 +119,7 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
 
   return {
     proposalNumber: quote.metadata.proposalNumber,
+    customerVisibleCustomFields,
     proposalDate: quote.metadata.proposalDate,
     documentTitle: quote.metadata.documentTitle,
     documentSubtitle: quote.metadata.documentSubtitle,

@@ -791,6 +791,18 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
           </View>
         ) : null}
 
+        {model.customerVisibleCustomFields?.length ? (
+          <View style={styles.paragraphCard}>
+            <Text style={styles.miniHeading}>Additional Proposal Details</Text>
+            {model.customerVisibleCustomFields.map((field) => (
+              <Text key={field.id} style={styles.paragraph}>
+                <Text style={{ fontWeight: 700 }}>{field.label || "Detail"}</Text>
+                {field.value ? ` ${field.value}` : ""}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
         <View style={styles.calloutGrid}>
           <View style={styles.calloutSpacer} />
           <View style={styles.calloutCard}>

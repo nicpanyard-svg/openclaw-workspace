@@ -13,10 +13,13 @@ export type QuoteTextBlock = {
   paragraphs: string[];
 };
 
+export type QuoteCustomFieldVisibility = "customer" | "internal";
+
 export type QuoteCustomField = {
   id: string;
   label: string;
   value: string;
+  visibility: QuoteCustomFieldVisibility;
 };
 
 export type AddressBlock = {

@@ -57,7 +57,10 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
           ? executiveSummaryParagraphs
           : [executiveSummaryCustomerContext, executiveSummaryBody].filter((entry) => entry.trim().length > 0),
       },
-      customFields: parsed.customFields ?? [],
+      customFields: (parsed.customFields ?? []).map((field) => ({
+        ...field,
+        visibility: field.visibility === "internal" ? "internal" : "customer",
+      })),
     };
   } catch {
     return null;

@@ -777,8 +777,13 @@ export default function QuotePreview() {
     return draft;
   });
 
-  const addCustomSectionField = () => {
-    const nextField = { id: `field_${Date.now()}`, label: `Section ${customSectionFields.length + 1} label`, value: "" };
+  const addCustomSectionField = (visibility: QuoteCustomField["visibility"] = "customer") => {
+    const nextField = {
+      id: `field_${Date.now()}`,
+      label: visibility === "customer" ? `Customer detail ${customSectionFields.length + 1}` : `Internal note ${customSectionFields.length + 1}`,
+      value: "",
+      visibility,
+    };
     setCustomSectionFields((current) => [...current, nextField]);
     updateQuote((draft) => {
       draft.customFields = [...(draft.customFields ?? []), nextField];
@@ -1034,6 +1039,9 @@ export default function QuotePreview() {
                 </div>
               </div>
               <p className="text-[14px] leading-[1.5] text-[#5c6772]">Keep section names clear so the proposal is easy to scan and easy to explain.</p>
+              <div className="mt-3 rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] leading-[1.5] text-[#5e6974]">
+                Customer details appear in the proposal document. Internal notes stay in the builder/workspace only.
+              </div>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 <label className="builder-field"><span>Section A label</span><input value={quote.sections.sectionA.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.builderLabel = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Section B label</span><input value={quote.sections.sectionB.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.builderLabel = e.target.value; return draft; })} /></label>
@@ -1041,33 +1049,54 @@ export default function QuotePreview() {
               </div>
               <div className="mt-4 space-y-3">
                 {customSectionFields.map((field, index) => (
-                  <div key={field.id} className="grid gap-3 md:grid-cols-[.9fr_1.4fr_auto]">
-                    <label className="builder-field compact"><span>Custom field {index + 1}</span><input value={field.label} onChange={(e) => {
-                      const nextValue = e.target.value;
-                      setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, label: nextValue } : item));
-                      updateQuote((draft) => {
-                        draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, label: nextValue } : item);
-                        return draft;
-                      });
-                    }} /></label>
-                    <label className="builder-field compact"><span>Value</span><input value={field.value} onChange={(e) => {
-                      const nextValue = e.target.value;
-                      setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, value: nextValue } : item));
-                      updateQuote((draft) => {
-                        draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, value: nextValue } : item);
-                        return draft;
-                      });
-                    }} /></label>
-                    <button type="button" className="danger-button self-end" onClick={() => {
-                      setCustomSectionFields((current) => current.filter((item) => item.id !== field.id));
-                      updateQuote((draft) => {
-                        draft.customFields = (draft.customFields ?? []).filter((item) => item.id !== field.id);
-                        return draft;
-                      });
-                    }}>Remove field</button>
+                  <div key={field.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-[13px] font-semibold text-[#16202b]">
+                        {field.visibility === "customer" ? `Customer detail ${index + 1}` : `Internal note ${index + 1}`}
+                      </div>
+                      <div className={`rounded-full px-3 py-1 text-[12px] font-semibold ${field.visibility === "customer" ? "bg-[#ecf7ee] text-[#25643b]" : "bg-[#eef2f7] text-[#51606f]"}`}>
+                        {field.visibility === "customer" ? "Appears in proposal" : "Builder only"}
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-[1fr_1.2fr_.8fr_auto]">
+                      <label className="builder-field compact"><span>{field.visibility === "customer" ? "Customer-facing label" : "Internal label"}</span><input value={field.label} onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, label: nextValue } : item));
+                        updateQuote((draft) => {
+                          draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, label: nextValue } : item);
+                          return draft;
+                        });
+                      }} /></label>
+                      <label className="builder-field compact"><span>{field.visibility === "customer" ? "Customer-facing value" : "Internal note"}</span><input value={field.value} onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, value: nextValue } : item));
+                        updateQuote((draft) => {
+                          draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, value: nextValue } : item);
+                          return draft;
+                        });
+                      }} /></label>
+                      <label className="builder-field compact"><span>Visibility</span><select value={field.visibility} onChange={(e) => {
+                        const nextVisibility = e.target.value as QuoteCustomField["visibility"];
+                        setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, visibility: nextVisibility } : item));
+                        updateQuote((draft) => {
+                          draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, visibility: nextVisibility } : item);
+                          return draft;
+                        });
+                      }}><option value="customer">Customer detail</option><option value="internal">Internal only</option></select></label>
+                      <button type="button" className="danger-button self-end" onClick={() => {
+                        setCustomSectionFields((current) => current.filter((item) => item.id !== field.id));
+                        updateQuote((draft) => {
+                          draft.customFields = (draft.customFields ?? []).filter((item) => item.id !== field.id);
+                          return draft;
+                        });
+                      }}>Remove</button>
+                    </div>
                   </div>
                 ))}
-                <button type="button" className="pill-button pill-button-active" onClick={addCustomSectionField}>Add section field</button>
+                <div className="flex flex-wrap gap-3">
+                  <button type="button" className="pill-button pill-button-active" onClick={() => addCustomSectionField("customer")}>Add customer detail</button>
+                  <button type="button" className="pill-button" onClick={() => addCustomSectionField("internal")}>Add internal note</button>
+                </div>
               </div>
             </section>
 
@@ -1213,7 +1242,7 @@ export default function QuotePreview() {
                 <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : `Estimated monthly blended total over ${quote.sections.sectionA.termMonths} months`}</div></div>
                 <div className="summary-block"><div className="summary-label">Current pricing</div><div className="summary-value">Current proposal data</div><div className="summary-subvalue">Recommended defaults plus any edits you made in this proposal</div></div>
                 <div className="summary-block"><div className="summary-label">Enabled sections</div><ul className="list-disc pl-5 text-[#56616d]">{quote.executiveSummary.enabled && <li>Executive Summary</li>}{quote.sections.sectionA.enabled && <li>Monthly Service</li>}{quote.sections.sectionB.enabled && <li>Hardware</li>}{quote.sections.sectionC.enabled && <li>Field Services</li>}</ul></div>
-                {customSectionFields.length > 0 && <div className="summary-block"><div className="summary-label">Extra section fields</div><div className="space-y-1 text-[#56616d]">{customSectionFields.map((field) => <div key={field.id}><strong>{field.label}:</strong> {field.value || "—"}</div>)}</div></div>}
+                {customSectionFields.length > 0 && <div className="summary-block"><div className="summary-label">Extra section fields</div><div className="space-y-1 text-[#56616d]">{customSectionFields.map((field) => <div key={field.id}><strong>{field.label}:</strong> {field.value || "—"} <span className="text-[#8b96a3]">({field.visibility === "customer" ? "proposal" : "internal"})</span></div>)}</div></div>}
                 <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{activeSectionARows.length} row(s) ready for the proposal</div></div>
                 <div className="summary-block"><div className="summary-label">Section B output</div><div className="summary-value">{quote.sections.sectionB.lineItems.length} hardware row(s)</div><div className="summary-subvalue">{suggestedAccessories.length > 0 ? `${suggestedAccessories.length} accessory suggestion(s) available` : "All suggested accessories are already added"}</div></div>
                 <div className="summary-block"><div className="summary-label">Section C output</div><div className="summary-value">{quote.sections.sectionC.title}</div><div className="summary-subvalue">{quote.sections.sectionC.lineItems.length} service row(s) • {quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "budgetary").length} budgetary / {quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "final").length} final</div></div>
