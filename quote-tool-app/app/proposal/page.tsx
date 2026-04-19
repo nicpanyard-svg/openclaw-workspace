@@ -20,15 +20,19 @@ function ProposalPage() {
   }, []);
 
   const handlePrintPdf = () => {
-    try {
-      persistPreviewQuote(quote);
-      const opened = window.open("/proposal/print", "_blank", "noopener,noreferrer");
+    persistPreviewQuote(quote);
 
-      if (!opened) {
-        window.alert("Unable to open the print tab right now. If your browser blocked the new tab, allow popups/new tabs for this site and try again.");
-      }
-    } catch {
+    const opened = window.open("/proposal/print", "_blank");
+
+    if (!opened) {
       window.alert("Unable to open the print tab right now. If your browser blocked the new tab, allow popups/new tabs for this site and try again.");
+      return;
+    }
+
+    try {
+      opened.opener = null;
+    } catch {
+      // Ignore cross-browser noopener assignment issues once the tab is already open.
     }
   };
 

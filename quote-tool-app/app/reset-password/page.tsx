@@ -24,14 +24,18 @@ function ResetPasswordForm() {
       return;
     }
 
-    setMessage("Password reset accepted for this stage. Next production step is wiring this to a real identity provider or email-token workflow.");
+    setMessage("Password reset accepted for this stage for RapidQuote by iNet. Next production step is wiring this to a real identity provider or email-token workflow.");
   };
 
   return (
     <div className="auth-simple-card">
       <div className="workspace-eyebrow">Reset confirmation</div>
       <h1 className="auth-form-title">Choose a new password</h1>
-      <p className="auth-form-copy">{email ? `Resetting access for ${email}.` : "Use this stage page to complete the reset flow."}</p>
+      <div className="brand-signature-stack auth-inline-brand-note">
+        <span className="brand-signature-pill">by iNet</span>
+        <div className="brand-trust-note">Internal credential reset</div>
+      </div>
+      <p className="auth-form-copy">{email ? `Resetting RapidQuote by iNet access for ${email}.` : "Use this stage page to complete the RapidQuote by iNet reset flow."}</p>
 
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="auth-field">

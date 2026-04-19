@@ -72,14 +72,6 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           <div className="cover-topbar">
             <div className="cover-brand-row">
               <div className="cover-brand-lockup">
-                <Image
-                  src="/inet-logo.png"
-                  alt="iNet logo"
-                  width={220}
-                  height={70}
-                  className="cover-brand-logo"
-                  priority
-                />
                 <div className="cover-brand-subtitle">iNet Communications Proposal</div>
               </div>
               <div className="cover-proposal-meta">

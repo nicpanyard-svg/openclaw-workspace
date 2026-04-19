@@ -15,13 +15,19 @@ export default function SignupPage() {
   return (
     <main className="auth-shell auth-shell-simple">
       <div className="auth-simple-card">
-        <div className="workspace-brand-mark auth-brand-mark auth-simple-brand-mark">
-          <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
+        <div className="auth-brand-header auth-brand-header-compact">
+          <div className="workspace-brand-mark auth-brand-mark auth-simple-brand-mark">
+            <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
+          </div>
+          <div className="brand-signature-stack">
+            <span className="brand-signature-pill">by iNet</span>
+            <div className="brand-trust-note">Internal access workflow</div>
+          </div>
         </div>
         <div className="workspace-eyebrow">Access management</div>
         <h1 className="auth-form-title">Request RapidQuote access</h1>
         <p className="auth-form-copy">
-          This is the first real step toward multi-user RapidQuote. Internal iNet teammates can request access here, and the
+          This is the first real step toward multi-user RapidQuote by iNet. Internal iNet teammates can request access here, and the
           product should eventually route this into admin approval, SSO, and role-based provisioning.
         </p>
 
@@ -29,7 +35,7 @@ export default function SignupPage() {
           <div className="auth-roadmap-title">What this page does today</div>
           <ul>
             <li>Confirms whether the email is eligible for internal onboarding.</li>
-            <li>Sets the product expectation that RapidQuote is an internal iNet tool right now.</li>
+            <li>Sets the product expectation that RapidQuote by iNet is an internal iNet tool right now.</li>
             <li>Points to the next enterprise-grade step: approval workflow + directory-backed account creation.</li>
           </ul>
         </div>
@@ -57,7 +63,7 @@ export default function SignupPage() {
           <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
             {eligible
               ? `Access request captured for ${email}. Next step should be admin approval + account provisioning, not a fake instant signup.`
-              : `RapidQuote is internal-only today. ${email} is outside the current onboarding rule.`}
+              : `RapidQuote by iNet is internal-only today. ${email} is outside the current onboarding rule.`}
           </div>
         ) : null}
 

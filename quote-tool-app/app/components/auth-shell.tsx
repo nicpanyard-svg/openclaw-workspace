@@ -129,27 +129,22 @@ export function AppFrame({ children }: { children: ReactNode }) {
       <header className="app-shell-header">
         <div className="app-shell-brand-lockup">
           <div className="app-shell-brand-family">
-            <div className="app-shell-parent-brand" aria-label="iNet parent brand">
-              <Image
-                src="/inet-logo.png"
-                alt="iNet logo"
-                width={112}
-                height={32}
-                className="app-shell-parent-brand-logo"
-                priority
-              />
-            </div>
-            <div className="app-shell-divider" aria-hidden="true" />
+            <Image
+              src="/inet-logo.png"
+              alt="iNet logo"
+              width={112}
+              height={32}
+              className="app-shell-parent-brand-logo"
+              priority
+            />
             <div className="workspace-brand-mark app-shell-brand-mark">
               <ProductLogo width={148} height={42} className="workspace-brand-logo product-logo" priority />
             </div>
           </div>
           <div className="app-shell-brand-copy">
-            <div className="app-shell-eyebrow">iNet sales application</div>
             <div className="app-shell-title-row">
               <div className="app-shell-title">RapidQuote Workspace</div>
             </div>
-            <div className="brand-trust-note">Enterprise quote builder and proposal workflow for iNet teams</div>
           </div>
         </div>
         <div className="app-shell-userbar">

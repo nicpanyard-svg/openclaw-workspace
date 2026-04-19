@@ -193,10 +193,10 @@ export function ProposalWorkspace() {
           <div className="workspace-brand-block">
             <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo workspace-logo-inline" priority />
             <div>
-              <h1 className="workspace-title">My Proposals</h1>
-              <p className="workspace-subtitle">
-                This is the internal list view. Pick a proposal, then open the editor to make changes or preview the customer-facing document when you are ready to review output. The queue is now session-aware so RapidQuote can move toward real shared ownership instead of a single-user demo.
-              </p>
+              <div className="workspace-eyebrow">iNet sales workspace</div>
+              <div className="workspace-brand-heading-row">
+                <h1 className="workspace-title">My Proposals</h1>
+              </div>
             </div>
           </div>
           <div className="workspace-actions">
@@ -207,6 +207,23 @@ export function ProposalWorkspace() {
             </div>
             <Link href="/signup" className="workspace-secondary-button">Manage access</Link>
             <Link href="/new" className="workspace-primary-button">+ New Proposal</Link>
+          </div>
+        </section>
+
+        <section className="workspace-panel workspace-hero-support">
+          <div className="workspace-support-grid">
+            <div>
+              <div className="workspace-support-label">About this view</div>
+              <p className="workspace-support-copy">
+                This is the internal RapidQuote queue for iNet teams. Pick a proposal, open the editor to make changes, then preview the customer-facing document when you are ready to review output.
+              </p>
+            </div>
+            <div>
+              <div className="workspace-support-label">Workflow direction</div>
+              <p className="workspace-support-copy">
+                The queue is session-aware so RapidQuote can support cleaner ownership and shared team handoff without crowding the top bar.
+              </p>
+            </div>
           </div>
         </section>
 

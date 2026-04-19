@@ -64,19 +64,8 @@ body {
 .app-shell-brand-family {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
   flex-wrap: wrap;
-}
-
-.app-shell-parent-brand {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 8px 14px;
-  border-radius: 16px;
-  border: 1px solid #dbe2e9;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(244, 247, 250, 0.96) 100%);
 }
 
 .app-shell-parent-brand-logo {
@@ -85,15 +74,14 @@ body {
   object-fit: contain;
 }
 
-.app-shell-divider {
-  width: 1px;
-  min-height: 34px;
-  background: linear-gradient(180deg, rgba(205, 213, 223, 0) 0%, rgba(205, 213, 223, 0.95) 50%, rgba(205, 213, 223, 0) 100%);
+.app-shell-brand-mark {
+  display: inline-flex;
+  align-items: center;
 }
 
 .app-shell-brand-copy {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .app-shell-title-row,
@@ -1006,6 +994,50 @@ body {
 .workspace-focus-panel {
   border-color: #e3cbcb;
   background: linear-gradient(180deg, rgba(255, 250, 250, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
+}
+
+.workspace-hero-support {
+  padding: 18px 24px;
+}
+
+.workspace-support-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workspace-support-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8b96a3;
+}
+
+.workspace-support-copy {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #5a6572;
+}
+
+.cover-brand-lockup {
+  gap: 0;
+}
+
+.cover-brand-subtitle {
+  margin-top: 0;
+}
+
+.proposal-print-shell .proposal-page:first-of-type .cover-brand-subtitle {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+}
+
+@media print {
+  .proposal-print-shell .proposal-page:first-of-type .cover-brand-subtitle {
+    font-size: 10px;
+  }
 }
 
 .workspace-panel-topbar-stack {
@@ -2200,7 +2232,8 @@ body {
   .workspace-stat-grid,
   .detail-grid,
   .pdf-signing-poc-header,
-  .workspace-brand-block {
+  .workspace-brand-block,
+  .workspace-support-grid {
     grid-template-columns: 1fr;
     flex-direction: column;
   }

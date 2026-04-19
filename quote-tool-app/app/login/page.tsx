@@ -35,12 +35,18 @@ function LoginForm() {
   return (
     <section className="auth-form-panel">
       <div className="auth-form-header">
-        <div className="workspace-brand-mark auth-brand-mark">
-          <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
+        <div className="auth-brand-header auth-brand-header-compact">
+          <div className="workspace-brand-mark auth-brand-mark">
+            <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
+          </div>
+          <div className="brand-signature-stack">
+            <span className="brand-signature-pill">by iNet</span>
+            <div className="brand-trust-note">Internal product access</div>
+          </div>
         </div>
         <div className="workspace-eyebrow">Secure access</div>
         <h2 className="auth-form-title">Sign in to RapidQuote</h2>
-        <p className="auth-form-copy">Sign in to access RapidQuote and continue working on quotes, proposals, and customer-ready documents.</p>
+        <p className="auth-form-copy">Sign in to access RapidQuote by iNet and continue working on quotes, proposals, and customer-ready documents.</p>
       </div>
 
       <form className="auth-form" onSubmit={handleSubmit}>

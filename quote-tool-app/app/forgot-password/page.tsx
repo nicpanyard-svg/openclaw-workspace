@@ -13,13 +13,19 @@ export default function ForgotPasswordPage() {
   return (
     <main className="auth-shell auth-shell-simple">
       <div className="auth-simple-card">
-        <div className="workspace-brand-mark auth-brand-mark auth-simple-brand-mark">
-          <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
+        <div className="auth-brand-header auth-brand-header-compact">
+          <div className="workspace-brand-mark auth-brand-mark auth-simple-brand-mark">
+            <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
+          </div>
+          <div className="brand-signature-stack">
+            <span className="brand-signature-pill">by iNet</span>
+            <div className="brand-trust-note">Internal recovery flow</div>
+          </div>
         </div>
         <div className="workspace-eyebrow">Password recovery</div>
         <h1 className="auth-form-title">Reset your RapidQuote password</h1>
         <p className="auth-form-copy">
-          This gives the app a believable recovery path now. Next production step should swap this page over to directory-backed email reset or SSO recovery.
+          This gives the app a believable recovery path now for RapidQuote by iNet. Next production step should swap this page over to directory-backed email reset or SSO recovery.
         </p>
 
         <form
@@ -41,7 +47,7 @@ export default function ForgotPasswordPage() {
           <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
             {eligible
               ? `Reset instructions prepared for ${email}. For this stage, continue to the simulated reset page and wire in real email delivery next.`
-              : `RapidQuote recovery is limited to internal iNet accounts. Use an @inetlte.com address.`}
+              : `RapidQuote by iNet recovery is limited to internal iNet accounts. Use an @inetlte.com address.`}
           </div>
         ) : null}
 
