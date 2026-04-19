@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AuthGate } from "@/app/components/auth-shell";
 import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
 import type { QuoteRecord } from "@/app/lib/quote-record";
@@ -32,8 +33,9 @@ function ProposalPage() {
   };
 
   return (
-    <div className="proposal-route-shell">
-      <div className="proposal-toolbar no-print">
+    <AuthGate>
+      <div className="proposal-route-shell">
+        <div className="proposal-toolbar no-print">
         <div>
           <div className="proposal-toolbar-label">Customer-facing document</div>
           <div className="proposal-toolbar-title">Preview Proposal</div>
@@ -56,14 +58,15 @@ function ProposalPage() {
         </div>
       </div>
 
-      <div className="proposal-preview-shell">
-        <div className="proposal-preview-pane-header no-print">
-          <div className="proposal-toolbar-title proposal-preview-pane-title">Proposal document preview</div>
-          <div className="proposal-toolbar-subtitle">This is the customer-facing proposal document. Use Print PDF to open the print-ready version and launch the browser print dialog right away.</div>
+        <div className="proposal-preview-shell">
+          <div className="proposal-preview-pane-header no-print">
+            <div className="proposal-toolbar-title proposal-preview-pane-title">Proposal document preview</div>
+            <div className="proposal-toolbar-subtitle">This is the customer-facing proposal document. Use Print PDF to open the print-ready version and launch the browser print dialog right away.</div>
+          </div>
+          <ProposalDocument quote={quote} />
         </div>
-        <ProposalDocument quote={quote} />
       </div>
-    </div>
+    </AuthGate>
   );
 }
 

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/app/components/auth-shell";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { PROPOSAL_STORAGE_KEY, serializeQuoteRecord } from "@/app/lib/proposal-state";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
@@ -410,6 +411,7 @@ function AddressEditor({
 }
 
 export default function QuotePreview() {
+  const { user } = useAuth();
   const [quote, setQuote] = useState<QuoteRecord>(() => cloneQuote(sampleQuoteRecord));
   const [activeProposal, setActiveProposal] = useState<SavedProposalRecord | null>(null);
   const [equipmentSearch, setEquipmentSearch] = useState("");
@@ -426,7 +428,25 @@ export default function QuotePreview() {
     const activeProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
     const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
     const fallbackStore = getDefaultProposalStore(createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }));
-    const store = savedStore ?? fallbackStore;
+    const sessionUser = user
+      ? {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.title,
+          team: user.team,
+        }
+      : fallbackStore.currentUser;
+
+    const store = savedStore
+      ? {
+          ...savedStore,
+          currentUser: sessionUser,
+        }
+      : {
+          ...fallbackStore,
+          currentUser: sessionUser,
+        };
 
     if (savedStore === null) {
       window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(store));
@@ -439,7 +459,7 @@ export default function QuotePreview() {
       setQuote(cloneQuote(matchedProposal.quote));
       setCustomSectionFields(matchedProposal.quote.customFields ?? []);
     }
-  }, []);
+  }, [user]);
 
   const currencyCode = quote.metadata.currencyCode || "USD";
   const activeSectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
@@ -874,7 +894,7 @@ export default function QuotePreview() {
                 <div className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[#8b96a3]">RapidQuote</div>
                 <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal Editor</h1>
                 <p className="mt-2 max-w-[680px] text-[15px] leading-[1.55] text-[#5a6572]">
-                  This is the builder/editor. Make content changes here, then move to Preview Proposal when you want the customer-facing document.
+                  This is the builder/editor. Make content changes here, then move to Preview Proposal when you want the customer-facing document. Session-aware ownership is now part of the editing flow so the product can grow into real collaboration.
                 </p>
               </div>
             </div>
@@ -883,7 +903,7 @@ export default function QuotePreview() {
               <div className="builder-stat-card"><div className="builder-stat-label">Recurring monthly</div><div className="builder-stat-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section A</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">One-time equipment</div><div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section B</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">Optional services</div><div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div><div className="builder-stat-note">Inspection and install totals</div></div>
-              <div className="builder-stat-card"><div className="builder-stat-label">Proposal status</div><div className="builder-stat-value">In Progress</div><div className="builder-stat-note">Totals are current and ready to review</div></div>
+              <div className="builder-stat-card"><div className="builder-stat-label">Editor owner</div><div className="builder-stat-value">{user?.initials ?? "RQ"}</div><div className="builder-stat-note">{user ? `${user.name} • ${user.title}` : "Signed-in user context"}</div></div>
             </div>
           </div>
 

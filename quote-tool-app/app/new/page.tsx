@@ -1,5 +1,10 @@
+import { AuthGate } from "@/app/components/auth-shell";
 import QuotePreview from "@/app/components/quote-preview";
 
 export default function NewProposalPage() {
-  return <QuotePreview />;
+  return (
+    <AuthGate>
+      <QuotePreview />
+    </AuthGate>
+  );
 }

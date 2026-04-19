@@ -1,5 +1,10 @@
+import { AuthGate } from "@/app/components/auth-shell";
 import { ProposalWorkspace } from "@/app/components/proposal-workspace";
 
 export default function Home() {
-  return <ProposalWorkspace />;
+  return (
+    <AuthGate>
+      <ProposalWorkspace />
+    </AuthGate>
+  );
 }

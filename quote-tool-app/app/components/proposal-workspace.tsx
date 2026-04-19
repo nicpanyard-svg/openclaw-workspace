@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useAuth } from "@/app/components/auth-shell";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
@@ -93,6 +94,7 @@ function StatFilterCard({
 }
 
 export function ProposalWorkspace() {
+  const { user } = useAuth();
   const [store, setStore] = useState<ProposalStoreData | null>(null);
   const [ownerFilter, setOwnerFilter] = useState<string>("mine");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -109,7 +111,25 @@ export function ProposalWorkspace() {
     }
 
     const saved = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
-    const nextStore = saved ?? fallbackStore;
+    const sessionUser = user
+      ? {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.title,
+          team: user.team,
+        }
+      : fallbackStore.currentUser;
+
+    const nextStore = saved
+      ? {
+          ...saved,
+          currentUser: sessionUser,
+        }
+      : {
+          ...fallbackStore,
+          currentUser: sessionUser,
+        };
     const savedActiveProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
     const resolvedActiveProposalId = getActiveProposalId(nextStore, savedActiveProposalId);
 
@@ -123,7 +143,7 @@ export function ProposalWorkspace() {
 
     setStore(nextStore);
     setActiveProposalId(resolvedActiveProposalId);
-  }, []);
+  }, [user]);
 
   const proposals = useMemo(() => {
     if (!store) return [];
@@ -178,7 +198,7 @@ export function ProposalWorkspace() {
               <div className="workspace-eyebrow">RapidQuote</div>
               <h1 className="workspace-title">My Proposals</h1>
               <p className="workspace-subtitle">
-                This is the internal list view. Pick a proposal, then open the editor to make changes or preview the customer-facing document when you are ready to review output.
+                This is the internal list view. Pick a proposal, then open the editor to make changes or preview the customer-facing document when you are ready to review output. The queue is now session-aware so RapidQuote can move toward real shared ownership instead of a single-user demo.
               </p>
             </div>
           </div>
@@ -188,6 +208,7 @@ export function ProposalWorkspace() {
               <div className="workspace-user-name">{store.currentUser.name}</div>
               <div className="workspace-user-meta">{store.currentUser.role} • {store.currentUser.team}</div>
             </div>
+            <Link href="/signup" className="workspace-secondary-button">Manage access</Link>
             <Link href="/new" className="workspace-primary-button">+ New Proposal</Link>
           </div>
         </section>
