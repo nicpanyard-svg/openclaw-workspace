@@ -7,16 +7,14 @@ export const dynamic = "force-dynamic";
 type ProposalPrintPageProps = {
   searchParams: {
     quote?: string;
-    mode?: string;
   };
 };
 
 export default function ProposalPrintPage({ searchParams }: ProposalPrintPageProps) {
   const quote = deserializeQuoteRecord(searchParams.quote ? decodeURIComponent(searchParams.quote) : null) ?? sampleQuoteRecord;
-  const isPdfMode = searchParams.mode === "pdf";
 
   return (
-    <div className={isPdfMode ? "proposal-route-shell proposal-print-shell" : "proposal-route-shell"}>
+    <div className="proposal-route-shell proposal-print-shell">
       <ProposalDocument quote={quote} />
     </div>
   );

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ProposalDocument } from "@/app/components/proposal-document";
-import { deserializeQuoteRecord, PROPOSAL_STORAGE_KEY } from "@/app/lib/proposal-state";
+import { deserializeQuoteRecord, PROPOSAL_STORAGE_KEY, serializeQuoteRecord } from "@/app/lib/proposal-state";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore } from "@/app/lib/proposal-store";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
@@ -12,8 +12,6 @@ function ProposalPage() {
   const [quote, setQuote] = useState<QuoteRecord>(sampleQuoteRecord);
   const [usingSavedData, setUsingSavedData] = useState(false);
   const [activeProposalId, setActiveProposalId] = useState<string | null>(null);
-  const [pdfBusy, setPdfBusy] = useState(false);
-  const proposalPdfFileName = useMemo(() => `${quote.metadata.proposalNumber || "proposal"}.pdf`, [quote.metadata.proposalNumber]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -48,51 +46,16 @@ function ProposalPage() {
     }
   }, []);
 
-  const handlePrintPdf = async () => {
-    setPdfBusy(true);
-    try {
-      const response = await fetch("/api/proposal-pdf", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ quote }),
-      });
+  const printUrl = useMemo(() => {
+    const payload = encodeURIComponent(serializeQuoteRecord(quote));
+    return `/proposal/print?quote=${payload}`;
+  }, [quote]);
 
-      if (!response.ok) {
-        throw new Error("Failed to generate proposal PDF");
-      }
+  const handlePrintPdf = () => {
+    const opened = window.open(printUrl, "_blank", "noopener,noreferrer");
 
-      const blob = await response.blob();
-      const nextUrl = URL.createObjectURL(blob);
-      const printWindow = window.open(nextUrl, "_blank", "noopener,noreferrer");
-
-      if (!printWindow) {
-        URL.revokeObjectURL(nextUrl);
-        throw new Error("Popup blocked while opening PDF print window");
-      }
-
-      const cleanup = () => {
-        window.setTimeout(() => {
-          URL.revokeObjectURL(nextUrl);
-        }, 60_000);
-      };
-
-      cleanup();
-
-      window.setTimeout(() => {
-        try {
-          printWindow.focus();
-          printWindow.print();
-        } catch (printError) {
-          console.error("Failed to trigger PDF print dialog", printError);
-        }
-      }, 750);
-    } catch (error) {
-      console.error(error);
-      window.alert("Unable to generate the PDF right now. If a popup blocker is on, allow popups for this site and try again.");
-    } finally {
-      setPdfBusy(false);
+    if (!opened) {
+      window.alert("Unable to open the print tab right now. If your browser blocked the new tab, allow popups/new tabs for this site and try again.");
     }
   };
 
@@ -115,8 +78,8 @@ function ProposalPage() {
           <Link href="/new" className="proposal-secondary-button">
             Open Editor
           </Link>
-          <button type="button" className="proposal-print-button" onClick={() => void handlePrintPdf()} disabled={pdfBusy}>
-            {pdfBusy ? "Building PDF…" : "Print PDF"}
+          <button type="button" className="proposal-print-button" onClick={handlePrintPdf}>
+            Print PDF
           </button>
         </div>
       </div>
@@ -124,7 +87,7 @@ function ProposalPage() {
       <div className="proposal-preview-shell">
         <div className="proposal-preview-pane-header no-print">
           <div className="proposal-toolbar-title proposal-preview-pane-title">Proposal document preview</div>
-          <div className="proposal-toolbar-subtitle">This is the customer-facing proposal document. Use Print PDF to create the output from this proposal data.</div>
+          <div className="proposal-toolbar-subtitle">This is the customer-facing proposal document. Use Print PDF to open the printable version in a new tab, then save it as PDF from the browser print dialog.</div>
         </div>
         <ProposalDocument quote={quote} />
       </div>

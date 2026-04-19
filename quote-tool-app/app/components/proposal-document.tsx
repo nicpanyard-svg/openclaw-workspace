@@ -84,6 +84,24 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
     shipToSource.attention ?? "",
     ...shipToSource.lines,
   ]);
+  const pricingSnapshotItems = [
+    {
+      label: "Recurring monthly",
+      value: formatCurrency(recurringMonthlyTotal, currencyCode),
+      tone: "default" as const,
+    },
+    {
+      label: "One-time equipment",
+      value: formatCurrency(equipmentTotal, currencyCode),
+      tone: "default" as const,
+    },
+    ...(quote.sections.sectionC.enabled
+      ? [{ label: "Optional services", value: formatCurrency(sectionCTotal, currencyCode), tone: "default" as const }]
+      : []),
+    ...(quote.metadata.quoteType === "lease"
+      ? [{ label: "Estimated lease monthly", value: formatCurrency(leaseMonthly, currencyCode), tone: "accent" as const }]
+      : []),
+  ];
 
   return (
     <main className="proposal-shell">
@@ -266,18 +284,25 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
         )}
 
-        <div className="proposal-callout-grid">
-          <div className="proposal-callout totals-callout">
-            <div className="proposal-callout-label">Commercial snapshot</div>
-            <div className="totals-stack">
-              <div><span>Recurring monthly</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>
-              <div><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>
-              {quote.sections.sectionC.enabled && (
-                <div><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>
-              )}
-              {quote.metadata.quoteType === "lease" && (
-                <div className="accent-row"><span>Estimated lease monthly</span><strong>{formatCurrency(leaseMonthly, currencyCode)}</strong></div>
-              )}
+        <div className="proposal-callout-grid proposal-callout-grid-full">
+          <div className="proposal-callout proposal-callout-feature totals-callout">
+            <div className="proposal-callout-header">
+              <div>
+                <div className="proposal-callout-label">Commercial snapshot</div>
+                <div className="proposal-callout-title">Pricing at a glance</div>
+              </div>
+              <div className="proposal-callout-chip">Customer view</div>
+            </div>
+            <div className="proposal-highlight-grid">
+              {pricingSnapshotItems.map((item) => (
+                <div
+                  key={item.label}
+                  className={`proposal-highlight-card ${item.tone === "accent" ? "proposal-highlight-card-accent" : ""}`}
+                >
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -307,6 +332,12 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
               ))}
             </div>
           ) : null}
+
+          <div className="proposal-section-summary-card keep-with-next">
+            <div className="proposal-section-summary-label">Section summary</div>
+            <div className="proposal-section-summary-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
+            <div className="proposal-section-summary-copy">Total monthly recurring for the proposed service scope.</div>
+          </div>
 
           <table className="proposal-table sample-table">
             <thead>
@@ -374,6 +405,12 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             </p>
           </div>
 
+          <div className="proposal-section-summary-card keep-with-next">
+            <div className="proposal-section-summary-label">Section summary</div>
+            <div className="proposal-section-summary-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
+            <div className="proposal-section-summary-copy">One-time hardware, accessories, and related material pricing.</div>
+          </div>
+
           <table className="proposal-table sample-table">
             <thead>
               <tr>
@@ -426,6 +463,12 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             </p>
           </div>
 
+          <div className="proposal-section-summary-card keep-with-next">
+            <div className="proposal-section-summary-label">Section summary</div>
+            <div className="proposal-section-summary-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
+            <div className="proposal-section-summary-copy">Optional field services available to add to the proposal.</div>
+          </div>
+
           <table className="proposal-table sample-table">
             <thead>
               <tr>
@@ -465,6 +508,14 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           <span>Proposal #{quote.metadata.proposalNumber}</span>
         </div>
 
+        <div className="proposal-terms-intro-card keep-with-next">
+          <div className="proposal-section-summary-label">Review notes</div>
+          <div className="proposal-terms-intro-title">Terms that support this commercial proposal</div>
+          <div className="proposal-section-summary-copy">
+            The items below stay with the printed proposal so the commercial pages and approval page are backed by the same terms package.
+          </div>
+        </div>
+
         <div className="proposal-overline">Terms and conditions</div>
         <h2 className="proposal-section-title">{quote.terms.generalStarlinkServiceTermsTitle}</h2>
         <div className="section-title-rule" />
@@ -498,6 +549,14 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         <h2 className="proposal-section-title">Summary of proposed pricing</h2>
         <div className="section-title-rule" />
 
+        <div className="proposal-closing-hero keep-with-next">
+          <div>
+            <div className="proposal-callout-label">Approval summary</div>
+            <div className="proposal-closing-hero-title">Ready for commercial approval</div>
+          </div>
+          <div className="proposal-closing-hero-chip">Final review</div>
+        </div>
+
         <div className="proposal-grand-totals">
           <div className="grand-total-card">
             <div className="grand-total-label">Recurring monthly</div>
@@ -521,7 +580,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           )}
         </div>
 
-        <div className="proposal-copy proposal-copy-card closing-copy">
+        <div className="proposal-copy proposal-copy-card closing-copy closing-copy-strong">
           <p>
             This proposal outlines the current commercial structure for review. Final scope, taxes, freight,
             installation assumptions, and delivery details may be refined in the next revision.
@@ -544,6 +603,21 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           <div className="approval-copy">
             By signing below, the customer confirms review and acceptance of the pricing and scope described in this
             proposal, subject to any mutually agreed revisions or final contract documents.
+          </div>
+
+          <div className="approval-action-row">
+            <div className="approval-action-item">
+              <span>Scope</span>
+              <strong>Reviewed and accepted</strong>
+            </div>
+            <div className="approval-action-item">
+              <span>Commercials</span>
+              <strong>Approved to proceed</strong>
+            </div>
+            <div className="approval-action-item">
+              <span>Next step</span>
+              <strong>Release for order processing</strong>
+            </div>
           </div>
 
           <div className="approval-signature-grid approval-signature-grid-three-up">
