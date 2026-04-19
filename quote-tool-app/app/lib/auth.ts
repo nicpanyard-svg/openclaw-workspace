@@ -127,7 +127,7 @@ export function authenticateWithPassword(email: string, password: string): SignI
   if (!match || match.password !== normalizedPassword) {
     return {
       ok: false,
-      error: "Email or password did not match. Use your @inetlte.com account or the seeded demo login for this stage.",
+      error: "Email or password did not match. Please try again or contact your administrator for access.",
     };
   }
 

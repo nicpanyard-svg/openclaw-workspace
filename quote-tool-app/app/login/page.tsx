@@ -5,14 +5,13 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AuthHelpLinks, AuthMarketingPanel, useAuth } from "@/app/components/auth-shell";
-import { demoCredentials } from "@/app/lib/auth";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signIn } = useAuth();
-  const [email, setEmail] = useState(demoCredentials.email);
-  const [password, setPassword] = useState(demoCredentials.password);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -41,7 +40,7 @@ function LoginForm() {
         </div>
         <div className="workspace-eyebrow">Secure access</div>
         <h2 className="auth-form-title">Sign in to RapidQuote</h2>
-        <p className="auth-form-copy">Use your internal iNet account to open the proposal queue, builder, and customer-facing preview tools.</p>
+        <p className="auth-form-copy">Sign in to access RapidQuote and continue working on quotes, proposals, and customer-ready documents.</p>
       </div>
 
       <form className="auth-form" onSubmit={handleSubmit}>
@@ -65,7 +64,7 @@ function LoginForm() {
       <AuthHelpLinks />
 
       <div className="auth-footer-note">
-        New teammate? <Link href="/signup">Request access</Link>. Need to reset a password? <Link href="/forgot-password">Start reset flow</Link>.
+        Need access? <Link href="/signup">Request an account</Link>. Need to reset your password? <Link href="/forgot-password">Reset it here</Link>.
       </div>
     </section>
   );

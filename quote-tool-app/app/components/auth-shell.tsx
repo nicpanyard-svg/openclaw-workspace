@@ -7,9 +7,7 @@ import {
   AUTH_STORAGE_KEY,
   authenticateWithPassword,
   canSelfServeSignUp,
-  demoCredentials,
   deserializeAuthSession,
-  getDirectoryUsers,
   isSessionExpired,
   type AuthSession,
   type AuthUser,
@@ -153,52 +151,30 @@ export function AppFrame({ children }: { children: ReactNode }) {
 }
 
 export function AuthMarketingPanel() {
-  const directoryUsers = getDirectoryUsers();
-
   return (
     <section className="auth-marketing-panel">
       <div className="auth-marketing-kicker">RapidQuote</div>
-      <h1 className="auth-marketing-title">Proposal access built for a real multi-user sales team.</h1>
+      <h1 className="auth-marketing-title">Quote and proposal workflow built for enterprise sales teams.</h1>
       <p className="auth-marketing-copy">
-        This pass gives RapidQuote a proper front door: named users, session gating, sign-in, self-serve direction for
-        <strong> @inetlte.com</strong> teammates, and a clearer path toward enterprise-grade permissions.
+        RapidQuote gives your team one secure place to build pricing, manage proposal activity, and move customer-ready documents forward with confidence.
       </p>
 
       <div className="auth-marketing-grid">
         <div className="auth-marketing-card">
-          <span>What’s live now</span>
-          <strong>Session-gated builder</strong>
-          <p>Queue, builder, preview, and proposal detail routes now sit behind authenticated access instead of opening straight to the editor.</p>
+          <span>Secure workspace</span>
+          <strong>Protected account access</strong>
+          <p>Keep quotes, pricing activity, and proposal details inside a controlled workspace for approved team members.</p>
         </div>
         <div className="auth-marketing-card">
-          <span>User direction</span>
-          <strong>iNet self-serve onboarding</strong>
-          <p>Teammates with an @inetlte.com email are clearly routed into a request-access flow instead of fake public signup scaffolding.</p>
+          <span>Faster execution</span>
+          <strong>Built for daily selling</strong>
+          <p>Create, review, and refine customer-ready proposals without jumping between disconnected tools.</p>
         </div>
         <div className="auth-marketing-card">
-          <span>Enterprise path</span>
-          <strong>Roles and account states</strong>
-          <p>Users now carry role, team, status, and admin capability metadata so the builder can grow into approvals and shared ownership next.</p>
+          <span>Operational clarity</span>
+          <strong>Shared team visibility</strong>
+          <p>Give sales, operations, and technical teams a consistent view of active quote work and proposal progress.</p>
         </div>
-      </div>
-
-      <div className="auth-directory-card">
-        <div className="auth-directory-heading">Seeded internal users for this stage</div>
-        <div className="auth-directory-list">
-          {directoryUsers.map((user) => (
-            <div key={user.id} className="auth-directory-item">
-              <div className="auth-directory-avatar">{user.initials}</div>
-              <div>
-                <div className="auth-directory-name">{user.name}</div>
-                <div className="auth-directory-meta">{user.title} • {user.email}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="auth-demo-hint">
-        Demo sign-in for build validation: <strong>{demoCredentials.email}</strong> / <strong>{demoCredentials.password}</strong>
       </div>
     </section>
   );
