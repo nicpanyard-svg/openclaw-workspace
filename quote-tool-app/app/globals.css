@@ -396,9 +396,43 @@ body {
   padding: 20px;
 }
 
+.proposal-list-card-visual {
+  position: relative;
+  overflow: hidden;
+  padding: 22px 22px 20px;
+  border-color: rgba(221, 227, 232, 0.95);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(249, 251, 253, 0.96) 100%);
+}
+
 .proposal-list-card-active {
   border-color: #d78f8f;
   box-shadow: 0 18px 36px rgba(125, 23, 23, 0.12);
+}
+
+.proposal-state-accent {
+  position: absolute;
+  left: 0;
+  top: 18px;
+  bottom: 18px;
+  width: 5px;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(180deg, #d6dde5 0%, #aab5c1 100%);
+}
+
+.proposal-state-accent-success {
+  background: linear-gradient(180deg, #5bc887 0%, #1d7e47 100%);
+}
+
+.proposal-state-accent-warn {
+  background: linear-gradient(180deg, #ffce78 0%, #c97d00 100%);
+}
+
+.proposal-state-accent-info {
+  background: linear-gradient(180deg, #77b8ff 0%, #2d69b3 100%);
+}
+
+.proposal-state-accent-muted {
+  background: linear-gradient(180deg, #ccd4dd 0%, #7f8b98 100%);
 }
 
 .proposal-list-head,
@@ -410,6 +444,27 @@ body {
   flex-wrap: wrap;
 }
 
+.proposal-list-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding-left: 16px;
+}
+
+.proposal-list-topline-meta,
+.proposal-list-status-cluster,
+.proposal-list-title-block,
+.proposal-list-note-block {
+  display: grid;
+  gap: 6px;
+}
+
+.proposal-list-status-cluster {
+  justify-items: end;
+}
+
 .proposal-list-kicker {
   font-size: 12px;
   font-weight: 800;
@@ -418,31 +473,71 @@ body {
   color: #8b96a3;
 }
 
-.proposal-list-head h3 {
-  margin-top: 6px;
-  font-size: 22px;
-  font-weight: 700;
-  color: #16202b;
-}
-
-.proposal-list-head p,
+.proposal-list-updated,
+.proposal-list-subtitle,
 .proposal-list-note {
-  margin-top: 6px;
   font-size: 14px;
   color: #60707f;
 }
 
-.proposal-list-metrics {
-  margin-top: 18px;
+.proposal-list-selected-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff3f3;
+  color: #981818;
+  border: 1px solid #f0caca;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.proposal-list-metrics div {
-  min-width: 130px;
+.proposal-list-head-visual {
+  margin-top: 14px;
+  padding-left: 16px;
+}
+
+.proposal-list-title-block {
+  gap: 8px;
+}
+
+.proposal-list-customer {
+  font-size: 30px;
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+  color: #15202a;
+}
+
+.proposal-list-head h3 {
+  font-size: 20px;
+  line-height: 1.08;
+  font-weight: 700;
+  color: #2f3d4a;
+}
+
+.proposal-commercial-grid {
+  margin-top: 20px;
+  padding-left: 16px;
   display: grid;
-  gap: 4px;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.proposal-list-metrics span,
+.proposal-commercial-card {
+  border-radius: 20px;
+  border: 1px solid #dde4eb;
+  background: #fbfcfe;
+  padding: 16px 16px 15px;
+  display: grid;
+  gap: 8px;
+}
+
+.proposal-commercial-card span,
 .detail-card span,
 .detail-table span {
   font-size: 12px;
@@ -452,11 +547,36 @@ body {
   letter-spacing: 0.08em;
 }
 
-.proposal-list-metrics strong,
+.proposal-commercial-card strong,
 .detail-card strong,
 .detail-table strong {
-  font-size: 16px;
+  font-size: 28px;
+  line-height: 1;
   color: #16202b;
+}
+
+.proposal-commercial-card em {
+  font-size: 13px;
+  color: #63707d;
+  font-style: normal;
+}
+
+.proposal-commercial-card-primary {
+  border-color: #f0caca;
+  background: linear-gradient(180deg, #fff8f8 0%, #fdf0f0 100%);
+}
+
+.proposal-commercial-card-primary strong {
+  color: #8f0000;
+}
+
+.proposal-commercial-card-optional {
+  border-color: #d8e4d8;
+  background: linear-gradient(180deg, #fbfffb 0%, #f2fbf3 100%);
+}
+
+.proposal-commercial-card-muted {
+  background: #f7f9fb;
 }
 
 .proposal-list-actions {
@@ -465,9 +585,29 @@ body {
   flex-wrap: wrap;
 }
 
-.proposal-list-footer-stack {
+.proposal-list-actions-priority {
+  justify-content: flex-end;
+}
+
+.proposal-list-footer-stack,
+.proposal-list-footer-visual {
   align-items: flex-start;
   gap: 14px;
+}
+
+.proposal-list-footer-visual {
+  margin-top: 18px;
+  padding-top: 18px;
+  padding-left: 16px;
+  border-top: 1px solid #e7ebf0;
+}
+
+.proposal-list-note-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8b96a3;
 }
 
 .workspace-focus-panel {
@@ -1466,6 +1606,39 @@ body {
   background: linear-gradient(135deg, rgba(127, 15, 19, 0.06) 0%, rgba(255, 255, 255, 0.98) 70%);
 }
 
+.proposal-closing-hero-branded {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.proposal-closing-hero-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.proposal-recap-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 102px;
+  min-height: 38px;
+  padding: 7px 11px;
+  border-radius: 14px;
+  border: 1px solid #e1e6ed;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.92) 100%);
+}
+
+.proposal-recap-brand-logo {
+  width: auto;
+  height: auto;
+  max-width: 84px;
+  opacity: 0.78;
+}
+
 .approval-action-row {
   margin-top: 16px;
 }
@@ -1515,28 +1688,6 @@ body {
   gap: 14px;
 }
 
-.approval-block-header-with-logo {
-  align-items: center;
-}
-
-.approval-brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 118px;
-  min-height: 42px;
-  padding: 8px 12px;
-  border-radius: 14px;
-  border: 1px solid #e1e6ed;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
-}
-
-.approval-brand-logo {
-  width: auto;
-  height: auto;
-  max-width: 96px;
-  opacity: 0.9;
-}
 
 .approval-title {
   margin-top: 4px;
@@ -1654,8 +1805,17 @@ body {
   .approval-signature-grid-three-up,
   .cover-summary-strip,
   .pdf-signing-poc-grid,
-  .pdf-signing-poc-two-up {
+  .pdf-signing-poc-two-up,
+  .proposal-commercial-grid {
     grid-template-columns: 1fr;
+  }
+
+  .proposal-list-status-cluster {
+    justify-items: start;
+  }
+
+  .proposal-list-actions-priority {
+    justify-content: flex-start;
   }
 
   .proposal-callout-header,
@@ -1974,14 +2134,18 @@ body {
     padding: 10px 12px;
   }
 
-  .proposal-closing-page .approval-brand-mark {
-    min-width: 100px;
-    min-height: 36px;
+  .proposal-closing-page .proposal-closing-hero-brand-lockup {
+    gap: 8px;
+  }
+
+  .proposal-closing-page .proposal-recap-brand-mark {
+    min-width: 92px;
+    min-height: 34px;
     padding: 6px 10px;
   }
 
-  .proposal-closing-page .approval-brand-logo {
-    max-width: 82px;
+  .proposal-closing-page .proposal-recap-brand-logo {
+    max-width: 76px;
   }
 
   .proposal-closing-page .proposal-grand-totals,

@@ -66,6 +66,13 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: "#8a96a3",
   },
+  calloutLabel: {
+    fontSize: 8.5,
+    fontWeight: 700,
+    letterSpacing: 1.6,
+    textTransform: "uppercase",
+    color: "#8c1212",
+  },
   titleBlock: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -508,10 +515,67 @@ const styles = StyleSheet.create({
     color: "#485564",
     marginTop: 4,
   },
+  closingHero: {
+    marginTop: 2,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: "#d8e0e8",
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.98)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+  },
+  closingHeroTitle: {
+    marginTop: 4,
+    fontSize: 17,
+    lineHeight: 1.12,
+    fontWeight: 700,
+    color: "#18222c",
+  },
+  closingHeroChip: {
+    borderRadius: 999,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: "#f6f8fb",
+    borderWidth: 1,
+    borderColor: "#d9e0e7",
+    fontSize: 8.5,
+    fontWeight: 800,
+    letterSpacing: 1.3,
+    textTransform: "uppercase",
+    color: "#5f6f7d",
+  },
+  closingHeroBrandLockup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flexShrink: 0,
+  },
+  recapBrandMark: {
+    minWidth: 96,
+    minHeight: 34,
+    borderWidth: 1,
+    borderColor: "#dfe5ec",
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.94)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  recapBrandLogo: {
+    width: 78,
+    height: 24,
+    objectFit: "contain",
+    opacity: 0.8,
+  },
   closingTotals: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 2,
+    marginTop: 12,
   },
   grandTotalCard: {
     flex: 1,
@@ -541,26 +605,8 @@ const styles = StyleSheet.create({
   approvalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
-  },
-  approvalBrandMark: {
-    minWidth: 96,
-    minHeight: 34,
-    borderWidth: 1,
-    borderColor: "#dfe5ec",
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.98)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  approvalBrandLogo: {
-    width: 78,
-    height: 24,
-    objectFit: "contain",
-    opacity: 0.9,
   },
   approvalTitle: {
     marginTop: 4,
@@ -1069,6 +1115,19 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
         <Text style={styles.sectionTitle}>Summary of proposed pricing</Text>
         <View style={styles.sectionRule} />
 
+        <View style={styles.closingHero}>
+          <View>
+            <Text style={styles.calloutLabel}>Approval summary</Text>
+            <Text style={styles.closingHeroTitle}>Ready for commercial approval</Text>
+          </View>
+          <View style={styles.closingHeroBrandLockup}>
+            <Text style={styles.closingHeroChip}>Final review</Text>
+            <View style={styles.recapBrandMark}>
+              <Image src={INET_LOGO_SRC} style={styles.recapBrandLogo} />
+            </View>
+          </View>
+        </View>
+
         <View style={styles.closingTotals}>
           <View style={styles.grandTotalCard}>
             <Text style={styles.summaryLabel}>Recurring monthly</Text>
@@ -1108,9 +1167,6 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             <View>
               <Text style={styles.overline}>{model.approval.heading}</Text>
               <Text style={styles.approvalTitle}>Authorization to proceed</Text>
-            </View>
-            <View style={styles.approvalBrandMark}>
-              <Image src={INET_LOGO_SRC} style={styles.approvalBrandLogo} />
             </View>
           </View>
 

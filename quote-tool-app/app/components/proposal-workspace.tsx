@@ -49,6 +49,22 @@ function statusTone(status: SavedProposalRecord["status"]) {
   }
 }
 
+function statusAccentClass(status: SavedProposalRecord["status"]) {
+  switch (status) {
+    case "approved":
+      return "proposal-state-accent proposal-state-accent-success";
+    case "negotiating":
+      return "proposal-state-accent proposal-state-accent-warn";
+    case "sent":
+    case "open":
+      return "proposal-state-accent proposal-state-accent-info";
+    case "closed":
+      return "proposal-state-accent proposal-state-accent-muted";
+    default:
+      return "proposal-state-accent";
+  }
+}
+
 function StatFilterCard({
   label,
   value,
@@ -217,33 +233,60 @@ export function ProposalWorkspace() {
             {proposals.map((proposal) => {
               const summary = buildProposalSummary(proposal);
               const isActive = proposal.id === activeProposal?.id;
+              const hasOptionalServices = summary.optionalServicesTotal > 0;
 
               return (
-                <article key={proposal.id} className={`proposal-list-card ${isActive ? "proposal-list-card-active" : ""}`}>
-                  <div className="proposal-list-head">
-                    <div>
+                <article key={proposal.id} className={`proposal-list-card proposal-list-card-visual ${isActive ? "proposal-list-card-active" : ""}`}>
+                  <div className={statusAccentClass(proposal.status)} aria-hidden="true" />
+
+                  <div className="proposal-list-topline">
+                    <div className="proposal-list-topline-meta">
                       <div className="proposal-list-kicker">{summary.proposalNumber}</div>
-                      <h3>{summary.title}</h3>
-                      <p>{summary.customerName}</p>
+                      <div className="proposal-list-updated">Updated {formatDate(summary.updatedAt)}</div>
                     </div>
-                    <span className={statusTone(proposal.status)}>{proposal.stageLabel || statusToStageLabel(proposal.status)}</span>
+                    <div className="proposal-list-status-cluster">
+                      <span className={statusTone(proposal.status)}>{proposal.stageLabel || statusToStageLabel(proposal.status)}</span>
+                      {isActive ? <span className="proposal-list-selected-pill">Open now</span> : null}
+                    </div>
                   </div>
 
-                  <div className="proposal-list-metrics">
-                    <div><span>Owner</span><strong>{summary.ownerName}</strong></div>
-                    <div><span>Monthly</span><strong>{formatCurrency(summary.totalMonthly)}</strong></div>
-                    <div><span>Equipment</span><strong>{formatCurrency(summary.equipmentTotal)}</strong></div>
-                    <div><span>Updated</span><strong>{formatDate(summary.updatedAt)}</strong></div>
+                  <div className="proposal-list-head proposal-list-head-visual">
+                    <div className="proposal-list-title-block">
+                      <p className="proposal-list-customer">{summary.customerName}</p>
+                      <h3>{summary.title}</h3>
+                      <p className="proposal-list-subtitle">Owner {summary.ownerName}</p>
+                    </div>
                   </div>
 
-                  <div className="proposal-list-footer proposal-list-footer-stack">
-                    <div className="proposal-list-note">{isActive ? "Ready to edit or preview" : "Choose edit or preview from this proposal"}</div>
-                    <div className="proposal-list-actions">
-                      <Link href="/proposal" className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
-                        Preview Proposal
-                      </Link>
+                  <div className="proposal-commercial-grid">
+                    <div className="proposal-commercial-card proposal-commercial-card-primary">
+                      <span>Monthly recurring</span>
+                      <strong>{formatCurrency(summary.totalMonthly)}</strong>
+                      <em>Primary recurring revenue</em>
+                    </div>
+                    <div className="proposal-commercial-card">
+                      <span>One-time total</span>
+                      <strong>{formatCurrency(summary.equipmentTotal)}</strong>
+                      <em>Equipment and install scope</em>
+                    </div>
+                    <div className={`proposal-commercial-card ${hasOptionalServices ? "proposal-commercial-card-optional" : "proposal-commercial-card-muted"}`}>
+                      <span>Optional services</span>
+                      <strong>{formatCurrency(summary.optionalServicesTotal)}</strong>
+                      <em>{hasOptionalServices ? "Upsell value included" : "No optional services added"}</em>
+                    </div>
+                  </div>
+
+                  <div className="proposal-list-footer proposal-list-footer-visual">
+                    <div className="proposal-list-note-block">
+                      <div className="proposal-list-note-label">Next step</div>
+                      <div className="proposal-list-note">{isActive ? "Continue editing this proposal or preview the customer copy." : "Open the editor to work the deal, or preview the customer-facing proposal."}</div>
+                    </div>
+                    <div className="proposal-list-actions proposal-list-actions-priority">
                       <Link href="/new" className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
                         Open Editor
+                      </Link>
+                      <Link href="/proposal" className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
+                        Preview Proposal
                       </Link>
                     </div>
                   </div>

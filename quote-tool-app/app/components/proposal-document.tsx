@@ -512,12 +512,23 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         <h2 className="proposal-section-title">Summary of proposed pricing</h2>
         <div className="section-title-rule" />
 
-        <div className="proposal-closing-hero">
+        <div className="proposal-closing-hero proposal-closing-hero-branded">
           <div>
             <div className="proposal-callout-label">Approval summary</div>
             <div className="proposal-closing-hero-title">Ready for commercial approval</div>
           </div>
-          <div className="proposal-closing-hero-chip">Final review</div>
+          <div className="proposal-closing-hero-brand-lockup" aria-hidden="true">
+            <div className="proposal-closing-hero-chip">Final review</div>
+            <div className="proposal-recap-brand-mark">
+              <Image
+                src="/inet-logo.png"
+                alt=""
+                width={96}
+                height={30}
+                className="proposal-recap-brand-logo"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="proposal-grand-totals">
@@ -555,19 +566,10 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </div>
 
         <div className="approval-block sample-approval-block">
-          <div className="approval-block-header approval-block-header-with-logo">
+          <div className="approval-block-header">
             <div>
               <div className="proposal-overline">{quote.approval.heading}</div>
               <h3 className="approval-title">Authorization to proceed</h3>
-            </div>
-            <div className="approval-brand-mark" aria-hidden="true">
-              <Image
-                src="/inet-logo.png"
-                alt=""
-                width={96}
-                height={30}
-                className="approval-brand-logo"
-              />
             </div>
           </div>
 
