@@ -818,6 +818,7 @@ body {
   padding: 0.44in 0.5in 0.52in;
   position: relative;
   overflow: hidden;
+  counter-increment: proposal-page;
 }
 
 .proposal-page::before {
@@ -1649,6 +1650,10 @@ body {
     margin: 0.08in;
   }
 
+  .proposal-shell {
+    counter-reset: proposal-page;
+  }
+
   .no-print,
   .proposal-toolbar,
   .workspace-shell {
@@ -1692,6 +1697,30 @@ body {
   .proposal-page::before {
     inset: 0.06in 0.08in 0.06in 0.08in;
     border-color: rgba(219, 226, 233, 0.9);
+  }
+
+  .proposal-page::after {
+    content: attr(data-page-label);
+    position: absolute;
+    right: 0.18in;
+    bottom: 0.14in;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0.72in;
+    padding: 0.05in 0.12in;
+    border-radius: 999px;
+    border: 1px solid rgba(137, 149, 163, 0.38);
+    background: rgba(255, 255, 255, 0.92);
+    color: #556270;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1;
+    box-shadow: 0 0.03in 0.08in rgba(40, 51, 63, 0.08);
+    pointer-events: none;
   }
 
   .proposal-page-with-band {
