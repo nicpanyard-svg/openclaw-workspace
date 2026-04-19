@@ -412,24 +412,24 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
       {quote.sections.sectionC.enabled && (
         <section className="proposal-page" data-page-label="Page 5">
           <div className="proposal-header">
-            <span>Optional field services</span>
+            <span>Field services</span>
             <span>Proposal #{quote.metadata.proposalNumber}</span>
           </div>
 
           <div className="proposal-section-heading keep-with-next">
             <div className="section-heading-badge">Services</div>
-            <div className="proposal-overline">Optional field services</div>
+            <div className="proposal-overline">Field services</div>
             <h2 className="proposal-section-title">{quote.sections.sectionC.title}</h2>
             <p className="proposal-intro">
               {quote.sections.sectionC.introText ||
-                "Optional field services can be included as budgetary or final pricing."}
+                "Field services can be included as budgetary or final pricing."}
             </p>
           </div>
 
           <div className="proposal-section-summary-card keep-with-next">
             <div className="proposal-section-summary-label">Section summary</div>
             <div className="proposal-section-summary-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
-            <div className="proposal-section-summary-copy">Optional field services available to add to the proposal.</div>
+            <div className="proposal-section-summary-copy">Field services included in the proposed scope.</div>
           </div>
 
           <table className="proposal-table sample-table">
@@ -457,7 +457,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             </tbody>
             <tfoot>
               <tr className="proposal-total-row">
-                <td colSpan={3}>Optional services total</td>
+                <td colSpan={3}>Field services total</td>
                 <td>{formatCurrency(sectionCTotal, currencyCode)}</td>
               </tr>
             </tfoot>
@@ -512,23 +512,12 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         <h2 className="proposal-section-title">Summary of proposed pricing</h2>
         <div className="section-title-rule" />
 
-        <div className="proposal-closing-hero proposal-closing-hero-branded">
+        <div className="proposal-closing-hero">
           <div>
             <div className="proposal-callout-label">Approval summary</div>
             <div className="proposal-closing-hero-title">Ready for commercial approval</div>
           </div>
-          <div className="proposal-closing-hero-brand-lockup" aria-hidden="true">
-            <div className="proposal-closing-hero-chip">Final review</div>
-            <div className="proposal-recap-brand-mark">
-              <Image
-                src="/inet-logo.png"
-                alt=""
-                width={96}
-                height={30}
-                className="proposal-recap-brand-logo"
-              />
-            </div>
-          </div>
+          <div className="proposal-closing-hero-chip">Final review</div>
         </div>
 
         <div className="proposal-grand-totals">
@@ -541,10 +530,16 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             <div className="grand-total-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
           </div>
           {quote.sections.sectionC.enabled && (
-            <div className="grand-total-card">
-              <div className="grand-total-label">Optional services</div>
-              <div className="grand-total-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
-            </div>
+            <>
+              <div className="grand-total-card">
+                <div className="grand-total-label">Field services</div>
+                <div className="grand-total-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
+              </div>
+              <div className="grand-total-card accent-card">
+                <div className="grand-total-label">One-time total</div>
+                <div className="grand-total-value">{formatCurrency(equipmentTotal + sectionCTotal, currencyCode)}</div>
+              </div>
+            </>
           )}
           {quote.metadata.quoteType === "lease" && (
             <div className="grand-total-card accent-card">
@@ -574,8 +569,23 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
 
           <div className="approval-copy">
-            By signing below, the customer confirms acceptance of this proposal and authorizes iNet to proceed,
-            subject to any mutually agreed revisions or final contract documents.
+            By signing below, the customer confirms review and acceptance of the pricing and scope described in this
+            proposal, subject to any mutually agreed revisions or final contract documents.
+          </div>
+
+          <div className="approval-action-row">
+            <div className="approval-action-item">
+              <span>Scope</span>
+              <strong>Reviewed and accepted</strong>
+            </div>
+            <div className="approval-action-item">
+              <span>Commercials</span>
+              <strong>Approved to proceed</strong>
+            </div>
+            <div className="approval-action-item">
+              <span>Next step</span>
+              <strong>Release for order processing</strong>
+            </div>
           </div>
 
           <div className="approval-signature-grid approval-signature-grid-three-up">

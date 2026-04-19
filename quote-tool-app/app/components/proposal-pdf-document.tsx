@@ -634,6 +634,34 @@ const styles = StyleSheet.create({
     lineHeight: 1.52,
     color: "#485564",
   },
+  approvalActionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+  },
+  approvalActionItem: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#d8e0e8",
+    borderRadius: 12,
+    backgroundColor: "#f8fafc",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  approvalActionLabel: {
+    fontSize: 8.5,
+    fontWeight: 700,
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+    color: "#8a96a3",
+  },
+  approvalActionValue: {
+    marginTop: 4,
+    fontSize: 10.5,
+    fontWeight: 700,
+    color: "#1c2732",
+    lineHeight: 1.35,
+  },
   signatureGrid: {
     flexDirection: "row",
     gap: 12,
@@ -706,7 +734,10 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
     ...(model.quoteType === "lease"
       ? [{ label: "Estimated lease monthly", value: formatCurrency(model.leaseMonthly, model.currencyCode) }]
       : model.sectionCEnabled
-        ? [{ label: "Optional services", value: formatCurrency(model.serviceTotal, model.currencyCode) }]
+        ? [
+            { label: "Field services", value: formatCurrency(model.serviceTotal, model.currencyCode) },
+            { label: "One-time total", value: formatCurrency(model.equipmentTotal + model.serviceTotal, model.currencyCode) },
+          ]
         : []),
   ];
 
@@ -1026,13 +1057,13 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
           <View style={styles.pageFrame} fixed />
 
           <View style={styles.headerBar}>
-            <Text style={styles.headerBarText}>Optional field services</Text>
+            <Text style={styles.headerBarText}>Field services</Text>
             <Text style={styles.headerBarText}>Proposal #{model.proposalNumber}</Text>
           </View>
 
           <View style={styles.sectionHeading}>
             <Text style={styles.sectionBadge}>Services</Text>
-            <Text style={styles.overline}>Optional field services</Text>
+            <Text style={styles.overline}>Field services</Text>
             <Text style={styles.sectionTitle}>{model.sectionCTitle}</Text>
             <Text style={styles.introText}>{model.sectionCIntro}</Text>
           </View>
@@ -1061,7 +1092,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             ))}
 
             <TableRow style={styles.totalRow}>
-              <Cell style={styles.colWide}><Text style={styles.td}>Optional services total</Text></Cell>
+              <Cell style={styles.colWide}><Text style={styles.td}>Field services total</Text></Cell>
               <Cell style={styles.colNarrow} />
               <Cell style={styles.colMid} />
               <Cell style={styles.colMid}><Text style={styles.td}>{formatCurrency(model.serviceTotal, model.currencyCode)}</Text></Cell>
@@ -1120,12 +1151,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             <Text style={styles.calloutLabel}>Approval summary</Text>
             <Text style={styles.closingHeroTitle}>Ready for commercial approval</Text>
           </View>
-          <View style={styles.closingHeroBrandLockup}>
-            <Text style={styles.closingHeroChip}>Final review</Text>
-            <View style={styles.recapBrandMark}>
-              <Image src={INET_LOGO_SRC} style={styles.recapBrandLogo} />
-            </View>
-          </View>
+          <Text style={styles.closingHeroChip}>Final review</Text>
         </View>
 
         <View style={styles.closingTotals}>
@@ -1138,10 +1164,16 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             <Text style={styles.grandTotalValue}>{formatCurrency(model.equipmentTotal, model.currencyCode)}</Text>
           </View>
           {model.sectionCEnabled ? (
-            <View style={styles.grandTotalCard}>
-              <Text style={styles.summaryLabel}>Optional services</Text>
-              <Text style={styles.grandTotalValue}>{formatCurrency(model.serviceTotal, model.currencyCode)}</Text>
-            </View>
+            <>
+              <View style={styles.grandTotalCard}>
+                <Text style={styles.summaryLabel}>Field services</Text>
+                <Text style={styles.grandTotalValue}>{formatCurrency(model.serviceTotal, model.currencyCode)}</Text>
+              </View>
+              <View style={[styles.grandTotalCard, { borderColor: "#f0cbcb", backgroundColor: "#fff8f8" }]}>
+                <Text style={styles.summaryLabel}>One-time total</Text>
+                <Text style={styles.grandTotalValue}>{formatCurrency(model.equipmentTotal + model.serviceTotal, model.currencyCode)}</Text>
+              </View>
+            </>
           ) : null}
           {model.quoteType === "lease" ? (
             <View style={[styles.grandTotalCard, { borderColor: "#f0cbcb", backgroundColor: "#fff8f8" }]}>
@@ -1174,6 +1206,21 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             By signing below, the customer confirms review and acceptance of the pricing and scope described in this
             proposal, subject to any mutually agreed revisions or final contract documents.
           </Text>
+
+          <View style={styles.approvalActionRow}>
+            <View style={styles.approvalActionItem}>
+              <Text style={styles.approvalActionLabel}>Scope</Text>
+              <Text style={styles.approvalActionValue}>Reviewed and accepted</Text>
+            </View>
+            <View style={styles.approvalActionItem}>
+              <Text style={styles.approvalActionLabel}>Commercials</Text>
+              <Text style={styles.approvalActionValue}>Approved to proceed</Text>
+            </View>
+            <View style={styles.approvalActionItem}>
+              <Text style={styles.approvalActionLabel}>Next step</Text>
+              <Text style={styles.approvalActionValue}>Release for order processing</Text>
+            </View>
+          </View>
 
           <View style={styles.signatureGrid}>
             <View style={styles.signatureField}>
