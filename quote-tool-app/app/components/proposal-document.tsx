@@ -108,22 +108,24 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
       <section className="proposal-page cover-page proposal-page-with-band" data-page-label="Page 1">
         <div className="cover-grid">
           <div className="cover-topbar">
-            <div className="cover-brand-lockup">
-              <Image
-                src="/inet-logo.png"
-                alt="iNet logo"
-                width={220}
-                height={70}
-                className="cover-brand-logo"
-                priority
-              />
-              <div className="cover-brand-subtitle">iNet Communications Proposal</div>
-            </div>
-            <div className="cover-proposal-meta">
-              <div className="cover-meta-label">Proposal</div>
-              <div className="cover-meta-value">#{quote.metadata.proposalNumber}</div>
-              <div>{quote.metadata.proposalDate}</div>
-              <div className="cover-meta-chip">Budgetary Estimate</div>
+            <div className="cover-brand-row">
+              <div className="cover-brand-lockup">
+                <Image
+                  src="/inet-logo.png"
+                  alt="iNet logo"
+                  width={220}
+                  height={70}
+                  className="cover-brand-logo"
+                  priority
+                />
+                <div className="cover-brand-subtitle">iNet Communications Proposal</div>
+              </div>
+              <div className="cover-proposal-meta">
+                <div className="cover-meta-label">Proposal</div>
+                <div className="cover-meta-value">#{quote.metadata.proposalNumber}</div>
+                <div>{quote.metadata.proposalDate}</div>
+                <div className="cover-meta-chip">Budgetary Estimate</div>
+              </div>
             </div>
           </div>
 

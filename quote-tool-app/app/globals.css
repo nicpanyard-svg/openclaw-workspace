@@ -850,6 +850,12 @@ body {
 
 .cover-topbar {
   display: flex;
+  align-items: flex-start;
+}
+
+.cover-brand-row {
+  width: 100%;
+  display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 18px;
@@ -859,6 +865,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 0 1 auto;
 }
 
 .cover-brand-logo {
@@ -877,6 +884,8 @@ body {
 
 .cover-proposal-meta {
   min-width: 2.1in;
+  margin-left: auto;
+  flex: 0 0 2.1in;
   text-align: right;
   font-size: 12px;
   color: #586574;
@@ -1743,11 +1752,20 @@ body {
   }
 
   .cover-topbar {
+    gap: 0;
+  }
+
+  .cover-brand-row {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
     gap: 14px;
   }
 
   .cover-proposal-meta {
     min-width: 1.95in;
+    flex-basis: 1.95in;
     padding: 10px 12px;
     line-height: 1.42;
   }
