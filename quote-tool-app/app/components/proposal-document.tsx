@@ -560,27 +560,11 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
               <div className="proposal-overline">{quote.approval.heading}</div>
               <h3 className="approval-title">Authorization to proceed</h3>
             </div>
-            <div className="approval-status-chip">Approval</div>
           </div>
 
           <div className="approval-copy">
-            By signing below, the customer confirms review and acceptance of the pricing and scope described in this
-            proposal, subject to any mutually agreed revisions or final contract documents.
-          </div>
-
-          <div className="approval-action-row">
-            <div className="approval-action-item">
-              <span>Scope</span>
-              <strong>Reviewed and accepted</strong>
-            </div>
-            <div className="approval-action-item">
-              <span>Commercials</span>
-              <strong>Approved to proceed</strong>
-            </div>
-            <div className="approval-action-item">
-              <span>Next step</span>
-              <strong>Release for order processing</strong>
-            </div>
+            By signing below, the customer confirms acceptance of this proposal and authorizes iNet to proceed,
+            subject to any mutually agreed revisions or final contract documents.
           </div>
 
           <div className="approval-signature-grid approval-signature-grid-three-up">
