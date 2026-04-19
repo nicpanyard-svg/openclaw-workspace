@@ -1,10 +1,12 @@
 import Image from "next/image";
-import type {
-  PerKitPricingRow,
-  PoolPricingRow,
-  QuoteRecord,
-  ServicePricingRow,
-} from "@/app/lib/quote-record";
+import {
+  buildProposalCommercialSummary,
+  getEquipmentTotal,
+  getLeaseMonthlyTotal,
+  getOptionalServicesTotal,
+  getRecurringMonthlyTotal,
+} from "@/app/lib/proposal-commercial-summary";
+import type { QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
 type ProposalDocumentProps = {
   quote: QuoteRecord;
@@ -19,37 +21,6 @@ function formatCurrency(value: number, currencyCode = "USD") {
   }).format(value);
 }
 
-function getSectionARows(sectionA: QuoteRecord["sections"]["sectionA"]) {
-  return sectionA.mode === "pool" ? sectionA.poolRows : sectionA.perKitRows;
-}
-
-function getSectionATotal(rows: Array<PoolPricingRow | PerKitPricingRow>) {
-  return Number(
-    rows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2),
-  );
-}
-
-function getSectionBTotal(quote: QuoteRecord) {
-  return Number(
-    quote.sections.sectionB.lineItems
-      .reduce((sum, row) => sum + row.totalPrice, 0)
-      .toFixed(2),
-  );
-}
-
-function getSectionCTotal(quote: QuoteRecord) {
-  return Number(
-    quote.sections.sectionC.lineItems
-      .reduce((sum, row) => sum + row.totalPrice, 0)
-      .toFixed(2),
-  );
-}
-
-function getLeaseMonthly(quote: QuoteRecord, recurringMonthlyTotal: number, equipmentTotal: number) {
-  if (quote.metadata.quoteType !== "lease") return 0;
-  const term = Math.max(quote.sections.sectionA.termMonths || 1, 1);
-  return Number((recurringMonthlyTotal + equipmentTotal / term).toFixed(2));
-}
 
 function getPricingLabel(row: ServicePricingRow) {
   if (row.pricingStage === "final") return "Final";
@@ -62,11 +33,11 @@ function cleanLines(lines: string[]) {
 
 export function ProposalDocument({ quote }: ProposalDocumentProps) {
   const currencyCode = quote.metadata.currencyCode || "USD";
-  const sectionARows = getSectionARows(quote.sections.sectionA);
-  const recurringMonthlyTotal = getSectionATotal(sectionARows);
-  const equipmentTotal = getSectionBTotal(quote);
-  const sectionCTotal = getSectionCTotal(quote);
-  const leaseMonthly = getLeaseMonthly(quote, recurringMonthlyTotal, equipmentTotal);
+  const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
+  const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
+  const equipmentTotal = getEquipmentTotal(quote);
+  const sectionCTotal = getOptionalServicesTotal(quote);
+  const leaseMonthly = getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
   const executiveSummaryBlocks = [quote.executiveSummary.customerContext, quote.executiveSummary.body]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value?.length));
@@ -87,24 +58,12 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
   const customerVisibleCustomFields = (quote.customFields ?? []).filter(
     (field) => field.visibility === "customer" && (field.label.trim().length > 0 || field.value.trim().length > 0),
   );
-  const pricingSnapshotItems = [
-    {
-      label: "Recurring monthly",
-      value: formatCurrency(recurringMonthlyTotal, currencyCode),
-      tone: "default" as const,
-    },
-    {
-      label: "One-time equipment",
-      value: formatCurrency(equipmentTotal, currencyCode),
-      tone: "default" as const,
-    },
-    ...(quote.sections.sectionC.enabled
-      ? [{ label: "Optional services", value: formatCurrency(sectionCTotal, currencyCode), tone: "default" as const }]
-      : []),
-    ...(quote.metadata.quoteType === "lease"
-      ? [{ label: "Estimated lease monthly", value: formatCurrency(leaseMonthly, currencyCode), tone: "accent" as const }]
-      : []),
-  ];
+  const commercialSummaryItems = buildProposalCommercialSummary(quote);
+  const pricingSnapshotItems = commercialSummaryItems.map((item) => ({
+    ...item,
+    value: formatCurrency(item.value, currencyCode),
+    tone: item.tone ?? "default",
+  }));
 
   return (
     <main className="proposal-shell">
@@ -178,25 +137,12 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
 
           <div className="cover-summary-strip">
-            <div className="cover-summary-card">
-              <div className="cover-summary-label">Monthly recurring</div>
-              <div className="cover-summary-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
-            </div>
-            <div className="cover-summary-card">
-              <div className="cover-summary-label">One-time equipment</div>
-              <div className="cover-summary-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
-            </div>
-            {quote.metadata.quoteType === "lease" ? (
-              <div className="cover-summary-card">
-                <div className="cover-summary-label">Estimated lease monthly</div>
-                <div className="cover-summary-value">{formatCurrency(leaseMonthly, currencyCode)}</div>
+            {pricingSnapshotItems.map((item) => (
+              <div key={item.key} className="cover-summary-card">
+                <div className="cover-summary-label">{item.label}</div>
+                <div className="cover-summary-value">{item.value}</div>
               </div>
-            ) : quote.sections.sectionC.enabled ? (
-              <div className="cover-summary-card">
-                <div className="cover-summary-label">Optional services</div>
-                <div className="cover-summary-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
-              </div>
-            ) : null}
+            ))}
           </div>
         </div>
         <div className="cover-band">
