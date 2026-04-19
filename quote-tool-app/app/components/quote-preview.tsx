@@ -11,6 +11,7 @@ import {
   type EquipmentPricingRow,
   type PerKitPricingRow,
   type PoolPricingRow,
+  type QuoteCustomField,
   type QuoteRecord,
   type QuoteType,
   type ServicePricingRow,
@@ -27,11 +28,7 @@ type EquipmentDraft = {
   description: string;
 };
 
-type CustomSectionField = {
-  id: string;
-  label: string;
-  value: string;
-};
+type CustomSectionField = QuoteCustomField;
 
 type DataQuickAddUnit = "GB" | "TB";
 type ServiceStage = "budgetary" | "final";
@@ -418,7 +415,7 @@ export default function QuotePreview() {
   const [equipmentSearch, setEquipmentSearch] = useState("");
   const [equipmentCategoryFilter, setEquipmentCategoryFilter] = useState("All");
   const [customEquipmentDraft, setCustomEquipmentDraft] = useState<EquipmentDraft>(emptyEquipmentDraft);
-  const [customSectionFields, setCustomSectionFields] = useState<CustomSectionField[]>([]);
+  const [customSectionFields, setCustomSectionFields] = useState<CustomSectionField[]>(() => cloneQuote(sampleQuoteRecord).customFields ?? []);
   const [dataQuickAddValue, setDataQuickAddValue] = useState("1");
   const [dataQuickAddUnit, setDataQuickAddUnit] = useState<DataQuickAddUnit>("TB");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -440,6 +437,7 @@ export default function QuotePreview() {
     if (matchedProposal) {
       setActiveProposal(matchedProposal);
       setQuote(cloneQuote(matchedProposal.quote));
+      setCustomSectionFields(matchedProposal.quote.customFields ?? []);
     }
   }, []);
 
@@ -779,7 +777,14 @@ export default function QuotePreview() {
     return draft;
   });
 
-  const addCustomSectionField = () => setCustomSectionFields((current) => [...current, { id: `field_${Date.now()}`, label: `Section ${current.length + 1} label`, value: "" }]);
+  const addCustomSectionField = () => {
+    const nextField = { id: `field_${Date.now()}`, label: `Section ${customSectionFields.length + 1} label`, value: "" };
+    setCustomSectionFields((current) => [...current, nextField]);
+    updateQuote((draft) => {
+      draft.customFields = [...(draft.customFields ?? []), nextField];
+      return draft;
+    });
+  };
 
   const onCustomerLogoSelected = (file?: File | null) => {
     if (!file) return;
@@ -1037,9 +1042,29 @@ export default function QuotePreview() {
               <div className="mt-4 space-y-3">
                 {customSectionFields.map((field, index) => (
                   <div key={field.id} className="grid gap-3 md:grid-cols-[.9fr_1.4fr_auto]">
-                    <label className="builder-field compact"><span>Custom field {index + 1}</span><input value={field.label} onChange={(e) => setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, label: e.target.value } : item))} /></label>
-                    <label className="builder-field compact"><span>Value</span><input value={field.value} onChange={(e) => setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, value: e.target.value } : item))} /></label>
-                    <button type="button" className="danger-button self-end" onClick={() => setCustomSectionFields((current) => current.filter((item) => item.id !== field.id))}>Remove field</button>
+                    <label className="builder-field compact"><span>Custom field {index + 1}</span><input value={field.label} onChange={(e) => {
+                      const nextValue = e.target.value;
+                      setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, label: nextValue } : item));
+                      updateQuote((draft) => {
+                        draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, label: nextValue } : item);
+                        return draft;
+                      });
+                    }} /></label>
+                    <label className="builder-field compact"><span>Value</span><input value={field.value} onChange={(e) => {
+                      const nextValue = e.target.value;
+                      setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, value: nextValue } : item));
+                      updateQuote((draft) => {
+                        draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, value: nextValue } : item);
+                        return draft;
+                      });
+                    }} /></label>
+                    <button type="button" className="danger-button self-end" onClick={() => {
+                      setCustomSectionFields((current) => current.filter((item) => item.id !== field.id));
+                      updateQuote((draft) => {
+                        draft.customFields = (draft.customFields ?? []).filter((item) => item.id !== field.id);
+                        return draft;
+                      });
+                    }}>Remove field</button>
                   </div>
                 ))}
                 <button type="button" className="pill-button pill-button-active" onClick={addCustomSectionField}>Add section field</button>

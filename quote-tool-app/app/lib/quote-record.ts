@@ -13,6 +13,12 @@ export type QuoteTextBlock = {
   paragraphs: string[];
 };
 
+export type QuoteCustomField = {
+  id: string;
+  label: string;
+  value: string;
+};
+
 export type AddressBlock = {
   companyName?: string;
   attention?: string;
@@ -205,6 +211,7 @@ export type QuoteRecord = {
   shipTo: AddressBlock;
   shippingSameAsBillTo: boolean;
   executiveSummary: QuoteTextBlock;
+  customFields?: QuoteCustomField[];
   sections: {
     sectionA: QuoteSectionA;
     sectionB: QuoteSectionB;

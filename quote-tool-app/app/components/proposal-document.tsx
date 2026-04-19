@@ -286,6 +286,20 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
         )}
 
+        {quote.customFields?.length ? (
+          <div className="proposal-copy proposal-copy-card">
+            <div className="proposal-mini-heading">Additional Proposal Details</div>
+            {quote.customFields
+              .filter((field) => field.label.trim().length > 0 || field.value.trim().length > 0)
+              .map((field) => (
+                <p key={field.id}>
+                  <strong>{field.label || "Detail"}</strong>
+                  {field.value ? ` ${field.value}` : ""}
+                </p>
+              ))}
+          </div>
+        ) : null}
+
         <div className="proposal-callout-grid proposal-callout-grid-full">
           <div className="proposal-callout proposal-callout-feature totals-callout">
             <div className="proposal-callout-header">
