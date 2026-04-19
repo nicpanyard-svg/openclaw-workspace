@@ -286,7 +286,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
               <h2 className="workspace-section-title">Internal proposal workspace</h2>
               <p className="workspace-panel-copy">
                 It shows ownership, status, totals, and history for the saved proposal. It is not the customer document.
-                Keep the flow simple: start in <strong>My Proposals</strong>, use <strong>Open Editor</strong> to make changes, move to <strong>Preview Proposal</strong> to review the customer-facing document, then use <strong>Print PDF</strong> to open the printable page in a new tab and save it as PDF from the browser print dialog.
+                Keep the flow simple: start in <strong>My Proposals</strong>, use <strong>Open Editor</strong> to make changes, move to <strong>Preview Proposal</strong> to review the customer-facing document, then use <strong>Print PDF</strong> to open the print-ready page and launch the browser print dialog.
               </p>
             </div>
             <div className="workspace-focus-actions">

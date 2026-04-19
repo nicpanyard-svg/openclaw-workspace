@@ -87,7 +87,7 @@ function ProposalPage() {
       <div className="proposal-preview-shell">
         <div className="proposal-preview-pane-header no-print">
           <div className="proposal-toolbar-title proposal-preview-pane-title">Proposal document preview</div>
-          <div className="proposal-toolbar-subtitle">This is the customer-facing proposal document. Use Print PDF to open the printable version in a new tab, then save it as PDF from the browser print dialog.</div>
+          <div className="proposal-toolbar-subtitle">This is the customer-facing proposal document. Use Print PDF to open the print-ready version and launch the browser print dialog right away.</div>
         </div>
         <ProposalDocument quote={quote} />
       </div>
