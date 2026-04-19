@@ -60,7 +60,12 @@ function ProposalPage() {
         return;
       }
 
-      opened.opener = null;
+      try {
+        opened.opener = null;
+        opened.focus();
+      } catch {
+        // Ignore cross-browser focus/opener restrictions.
+      }
     } catch {
       window.alert("Unable to open the print tab right now. If your browser blocked the new tab, allow popups/new tabs for this site and try again.");
     }
