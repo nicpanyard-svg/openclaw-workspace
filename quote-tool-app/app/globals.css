@@ -1778,12 +1778,21 @@ body {
   }
 
   .cover-summary-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     padding-top: 18px;
     margin-top: auto;
+    align-items: stretch;
+  }
+
+  .cover-summary-strip > .cover-summary-card:nth-child(3):last-child {
+    grid-column: 1 / -1;
   }
 
   .cover-summary-card {
+    min-width: 0;
+    width: 100%;
     padding: 11px 12px;
   }
 
