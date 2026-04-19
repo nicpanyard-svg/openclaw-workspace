@@ -13,7 +13,7 @@ export function ProductLogo({
 }) {
   return (
     <Image
-      src="/rapidquote-logo.svg"
+      src="/rapidquote-logo.jpg"
       alt="RapidQuote logo"
       width={width}
       height={height}
