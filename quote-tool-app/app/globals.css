@@ -53,11 +53,66 @@ body {
   color: #8b96a3;
 }
 
+.app-shell-brand-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.app-shell-title-row,
+.auth-brand-header,
+.workspace-brand-heading-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .app-shell-title {
   margin-top: 4px;
   font-size: 20px;
   font-weight: 700;
   color: #16202b;
+}
+
+.brand-signature-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #d7dde4;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8fb 100%);
+  color: #46515d;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.brand-signature-stack {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.brand-trust-note {
+  font-size: 12px;
+  color: #62707d;
+}
+
+.auth-brand-header {
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.auth-brand-header-compact {
+  margin-bottom: 16px;
+}
+
+.auth-inline-brand-note {
+  margin-top: 14px;
 }
 
 .app-shell-userbar,
@@ -399,6 +454,10 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 16px;
+}
+
+.workspace-brand-heading-row {
+  margin-bottom: 10px;
 }
 
 .workspace-brand-logo {
@@ -2386,6 +2445,32 @@ body {
     box-shadow: none;
   }
 
+  .print-keep-group {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-keep-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .proposal-page .print-keep-group > .print-keep-block {
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  .proposal-detail-grid.print-keep-group,
+  .proposal-address-grid.print-keep-group,
+  .cover-customer-grid.print-keep-group,
+  .proposal-grand-totals.print-keep-group,
+  .approval-action-row.print-keep-group,
+  .approval-signature-grid.print-keep-group,
+  .proposal-highlight-grid.print-keep-group {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .proposal-header {
     margin-bottom: 10px;
     padding-bottom: 8px;
@@ -2548,15 +2633,7 @@ body {
     page-break-inside: avoid;
   }
 
-  .proposal-closing-page,
-  .proposal-closing-page .proposal-closing-hero,
-  .proposal-closing-page .proposal-grand-totals,
-  .proposal-closing-page .closing-copy,
-  .proposal-closing-page .approval-block,
-  .proposal-closing-page .grand-total-card,
-  .proposal-closing-page .signature-field,
-  .proposal-closing-page .approval-action-item,
-  .proposal-closing-page .proposal-copy-card {
+  .proposal-closing-page {
     break-inside: auto;
     page-break-inside: auto;
   }

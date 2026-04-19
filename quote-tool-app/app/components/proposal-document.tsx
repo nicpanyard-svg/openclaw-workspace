@@ -96,8 +96,8 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             <h1>{quote.metadata.documentTitle}</h1>
             <h2>{quote.metadata.documentSubtitle}</h2>
 
-            <div className="cover-customer-grid">
-              <div className="cover-customer-card">
+            <div className="cover-customer-grid print-keep-group">
+              <div className="cover-customer-card print-keep-block">
                 <div className="cover-customer-label">Prepared for</div>
                 <div className="cover-customer-brand-row">
                   {quote.customer.logoDataUrl ? (
@@ -119,7 +119,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
                 </div>
               </div>
 
-              <div className="cover-contact-card">
+              <div className="cover-contact-card print-keep-block">
                 <div className="cover-customer-label">{quote.documentation.preparedByLabel ?? "Prepared by"}</div>
                 <div className="cover-contact-name">{quote.inet.contactName}</div>
                 <div className="cover-contact-lines">
@@ -187,8 +187,8 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
         </div>
 
-        <div className="proposal-detail-grid">
-          <div className="proposal-copy proposal-copy-card">
+        <div className="proposal-detail-grid print-keep-group">
+          <div className="proposal-copy proposal-copy-card print-keep-block">
             <div className="proposal-mini-heading">Customer</div>
             <p><strong>Customer Contact</strong> {quote.customer.contactName}</p>
             <p><strong>Contact Phone</strong> {quote.customer.contactPhone}</p>
@@ -198,7 +198,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
               <p key={`${line}-${index}`}>{line}</p>
             ))}
           </div>
-          <div className="proposal-copy proposal-copy-card">
+          <div className="proposal-copy proposal-copy-card print-keep-block">
             <div className="proposal-mini-heading">{quote.documentation.inetSalesHeading ?? "iNet"}</div>
             <p><strong>{quote.documentation.preparedByLabel ?? "Prepared By"}</strong> {quote.inet.contactName}</p>
             <p><strong>Contact Phone</strong> {quote.inet.contactPhone}</p>
@@ -210,14 +210,14 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
         </div>
 
-        <div className="proposal-address-grid">
-          <div className="proposal-copy proposal-copy-card">
+        <div className="proposal-address-grid print-keep-group">
+          <div className="proposal-copy proposal-copy-card print-keep-block">
             <div className="proposal-mini-heading">{quote.documentation.billToHeading ?? "Bill To"}</div>
             {billToLines.map((line, index) => (
               <p key={`bill-${line}-${index}`}>{line}</p>
             ))}
           </div>
-          <div className="proposal-copy proposal-copy-card">
+          <div className="proposal-copy proposal-copy-card print-keep-block">
             <div className="proposal-mini-heading">{quote.documentation.shipToHeading ?? "Ship To"}</div>
             {shipToLines.map((line, index) => (
               <p key={`ship-${line}-${index}`}>{line}</p>
@@ -248,7 +248,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         ) : null}
 
         <div className="proposal-callout-grid proposal-callout-grid-full">
-          <div className="proposal-callout proposal-callout-feature totals-callout">
+          <div className="proposal-callout proposal-callout-feature totals-callout print-keep-block">
             <div className="proposal-callout-header">
               <div>
                 <div className="proposal-callout-label">Commercial snapshot</div>
@@ -256,11 +256,11 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
               </div>
               <div className="proposal-callout-chip">Customer view</div>
             </div>
-            <div className="proposal-highlight-grid">
+            <div className="proposal-highlight-grid print-keep-group">
               {pricingSnapshotItems.map((item) => (
                 <div
                   key={item.label}
-                  className={`proposal-highlight-card ${item.tone === "accent" ? "proposal-highlight-card-accent" : ""}`}
+                  className={`proposal-highlight-card print-keep-block ${item.tone === "accent" ? "proposal-highlight-card-accent" : ""}`}
                 >
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
@@ -471,7 +471,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           <span>Proposal #{quote.metadata.proposalNumber}</span>
         </div>
 
-        <div className="proposal-terms-intro-card keep-with-next">
+        <div className="proposal-terms-intro-card keep-with-next print-keep-block">
           <div className="proposal-section-summary-label">Review notes</div>
           <div className="proposal-terms-intro-title">Terms that support this commercial proposal</div>
           <div className="proposal-section-summary-copy">
@@ -483,7 +483,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         <h2 className="proposal-section-title">{quote.terms.generalStarlinkServiceTermsTitle}</h2>
         <div className="section-title-rule" />
 
-        <div className="proposal-copy proposal-copy-card section-copy-block">
+        <div className="proposal-copy proposal-copy-card section-copy-block print-keep-block">
           <ol className="proposal-numbered-list">
             {quote.terms.generalStarlinkServiceTerms.map((term, index) => (
               <li key={`${term}-${index}`}>{term}</li>
@@ -493,7 +493,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
 
         <div className="proposal-overline">Commercial terms</div>
         <h2 className="proposal-section-title">{quote.terms.pricingTermsTitle}</h2>
-        <div className="proposal-copy proposal-copy-card section-copy-block">
+        <div className="proposal-copy proposal-copy-card section-copy-block print-keep-block">
           <ul className="proposal-bullets compact">
             {quote.terms.pricingTerms.map((term) => (
               <li key={term}>{term}</li>
@@ -512,7 +512,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         <h2 className="proposal-section-title">Summary of proposed pricing</h2>
         <div className="section-title-rule" />
 
-        <div className="proposal-closing-hero">
+        <div className="proposal-closing-hero print-keep-block">
           <div>
             <div className="proposal-callout-label">Approval summary</div>
             <div className="proposal-closing-hero-title">Ready for commercial approval</div>
@@ -520,36 +520,36 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           <div className="proposal-closing-hero-chip">Final review</div>
         </div>
 
-        <div className="proposal-grand-totals">
-          <div className="grand-total-card">
+        <div className="proposal-grand-totals print-keep-group">
+          <div className="grand-total-card print-keep-block">
             <div className="grand-total-label">Recurring monthly</div>
             <div className="grand-total-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
           </div>
-          <div className="grand-total-card">
+          <div className="grand-total-card print-keep-block">
             <div className="grand-total-label">One-time equipment</div>
             <div className="grand-total-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
           </div>
           {quote.sections.sectionC.enabled && (
             <>
-              <div className="grand-total-card">
+              <div className="grand-total-card print-keep-block">
                 <div className="grand-total-label">Field services</div>
                 <div className="grand-total-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
               </div>
-              <div className="grand-total-card accent-card">
+              <div className="grand-total-card accent-card print-keep-block">
                 <div className="grand-total-label">One-time total</div>
                 <div className="grand-total-value">{formatCurrency(equipmentTotal + sectionCTotal, currencyCode)}</div>
               </div>
             </>
           )}
           {quote.metadata.quoteType === "lease" && (
-            <div className="grand-total-card accent-card">
+            <div className="grand-total-card accent-card print-keep-block">
               <div className="grand-total-label">Estimated lease monthly</div>
               <div className="grand-total-value">{formatCurrency(leaseMonthly, currencyCode)}</div>
             </div>
           )}
         </div>
 
-        <div className="proposal-copy proposal-copy-card closing-copy closing-copy-strong">
+        <div className="proposal-copy proposal-copy-card closing-copy closing-copy-strong print-keep-block">
           <p>
             This proposal outlines the current commercial structure for review. Final scope, taxes, freight,
             installation assumptions, and delivery details may be refined in the next revision.
@@ -560,7 +560,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </p>
         </div>
 
-        <div className="approval-block sample-approval-block">
+        <div className="approval-block sample-approval-block print-keep-block">
           <div className="approval-block-header">
             <div>
               <div className="proposal-overline">{quote.approval.heading}</div>
@@ -573,31 +573,31 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             proposal, subject to any mutually agreed revisions or final contract documents.
           </div>
 
-          <div className="approval-action-row">
-            <div className="approval-action-item">
+          <div className="approval-action-row print-keep-group">
+            <div className="approval-action-item print-keep-block">
               <span>Scope</span>
               <strong>Reviewed and accepted</strong>
             </div>
-            <div className="approval-action-item">
+            <div className="approval-action-item print-keep-block">
               <span>Commercials</span>
               <strong>Approved to proceed</strong>
             </div>
-            <div className="approval-action-item">
+            <div className="approval-action-item print-keep-block">
               <span>Next step</span>
               <strong>Release for order processing</strong>
             </div>
           </div>
 
-          <div className="approval-signature-grid approval-signature-grid-three-up">
-            <div className="signature-field">
+          <div className="approval-signature-grid approval-signature-grid-three-up print-keep-group">
+            <div className="signature-field print-keep-block">
               <div className="signature-line" />
               <div className="signature-label">{quote.approval.signatureLabel}</div>
             </div>
-            <div className="signature-field">
+            <div className="signature-field print-keep-block">
               <div className="signature-line" />
               <div className="signature-label">{quote.approval.customerNameLabel}</div>
             </div>
-            <div className="signature-field">
+            <div className="signature-field print-keep-block">
               <div className="signature-line" />
               <div className="signature-label">{quote.approval.dateLabel}</div>
             </div>
