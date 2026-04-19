@@ -53,18 +53,10 @@ function ProposalPage() {
 
   const handlePrintPdf = () => {
     try {
-      const opened = window.open(printUrl, "_blank");
+      const opened = window.open(printUrl, "_blank", "noopener,noreferrer");
 
-      if (!opened || opened.closed) {
+      if (!opened) {
         window.alert("Unable to open the print tab right now. If your browser blocked the new tab, allow popups/new tabs for this site and try again.");
-        return;
-      }
-
-      try {
-        opened.opener = null;
-        opened.focus();
-      } catch {
-        // Ignore cross-browser focus/opener restrictions.
       }
     } catch {
       window.alert("Unable to open the print tab right now. If your browser blocked the new tab, allow popups/new tabs for this site and try again.");
