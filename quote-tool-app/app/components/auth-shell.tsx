@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
@@ -124,15 +125,31 @@ export function AppFrame({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div>
+    <div className="app-shell-frame">
       <header className="app-shell-header">
         <div className="app-shell-brand-lockup">
-          <div className="workspace-brand-mark app-shell-brand-mark">
-            <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
+          <div className="app-shell-brand-family">
+            <div className="app-shell-parent-brand" aria-label="iNet parent brand">
+              <Image
+                src="/inet-logo.png"
+                alt="iNet logo"
+                width={112}
+                height={32}
+                className="app-shell-parent-brand-logo"
+                priority
+              />
+            </div>
+            <div className="app-shell-divider" aria-hidden="true" />
+            <div className="workspace-brand-mark app-shell-brand-mark">
+              <ProductLogo width={148} height={42} className="workspace-brand-logo product-logo" priority />
+            </div>
           </div>
-          <div>
-            <div className="app-shell-eyebrow">RapidQuote Workspace</div>
-            <div className="app-shell-title">Enterprise quote builder</div>
+          <div className="app-shell-brand-copy">
+            <div className="app-shell-eyebrow">iNet sales application</div>
+            <div className="app-shell-title-row">
+              <div className="app-shell-title">RapidQuote Workspace</div>
+            </div>
+            <div className="brand-trust-note">Enterprise quote builder and proposal workflow for iNet teams</div>
           </div>
         </div>
         <div className="app-shell-userbar">
@@ -143,16 +160,15 @@ export function AppFrame({ children }: { children: ReactNode }) {
               <div className="app-shell-user-meta">{user.title} • {user.team}</div>
             </div>
           </div>
-          <nav className="app-shell-nav">
+          <nav className="app-shell-nav" aria-label="Workspace navigation">
             <Link href="/">Queue</Link>
             <Link href="/new">Builder</Link>
             <Link href="/proposal">Preview</Link>
-            <Link href="/signup">Users</Link>
           </nav>
           <button type="button" className="workspace-secondary-button" onClick={signOut}>Sign out</button>
         </div>
       </header>
-      {children}
+      <div className="app-shell-content">{children}</div>
     </div>
   );
 }
@@ -160,8 +176,14 @@ export function AppFrame({ children }: { children: ReactNode }) {
 export function AuthMarketingPanel() {
   return (
     <section className="auth-marketing-panel">
-      <div className="workspace-brand-mark auth-marketing-brand-mark">
-        <ProductLogo width={168} height={48} className="workspace-brand-logo product-logo" priority />
+      <div className="auth-brand-header">
+        <div className="workspace-brand-mark auth-marketing-brand-mark">
+          <ProductLogo width={168} height={48} className="workspace-brand-logo product-logo" priority />
+        </div>
+        <div className="brand-signature-stack">
+          <span className="brand-signature-pill">by iNet</span>
+          <div className="brand-trust-note">Trusted internal quoting workspace</div>
+        </div>
       </div>
       <h1 className="auth-marketing-title">Quote and proposal workflow built for enterprise sales teams.</h1>
       <p className="auth-marketing-copy">
@@ -206,8 +228,8 @@ export function SignupEligibilityMessage({ email }: { email: string }) {
   return (
     <div className={`auth-inline-message ${selfServe ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
       {selfServe
-        ? "Looks like an iNet teammate. You can request RapidQuote access and get routed into the internal approval queue."
-        : "RapidQuote is currently limited to internal iNet users. Use an @inetlte.com address or contact the product owner for access."}
+        ? "Looks like an iNet teammate. You can request RapidQuote by iNet access and get routed into the internal approval queue."
+        : "RapidQuote by iNet is currently limited to internal iNet users. Use an @inetlte.com address or contact the product owner for access."}
     </div>
   );
 }

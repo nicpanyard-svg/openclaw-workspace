@@ -30,6 +30,10 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.app-shell-frame {
+  min-height: 100vh;
+}
+
 .app-shell-header {
   display: flex;
   justify-content: space-between;
@@ -37,11 +41,15 @@ body {
   gap: 18px;
   padding: 18px 24px;
   border-bottom: 1px solid rgba(215, 221, 228, 0.9);
-  background: rgba(248, 250, 252, 0.88);
+  background: rgba(248, 250, 252, 0.94);
   backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 40;
+}
+
+.app-shell-content {
+  padding-top: 8px;
 }
 
 .app-shell-eyebrow,
@@ -51,6 +59,36 @@ body {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #8b96a3;
+}
+
+.app-shell-brand-family {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.app-shell-parent-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  border: 1px solid #dbe2e9;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(244, 247, 250, 0.96) 100%);
+}
+
+.app-shell-parent-brand-logo {
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.app-shell-divider {
+  width: 1px;
+  min-height: 34px;
+  background: linear-gradient(180deg, rgba(205, 213, 223, 0) 0%, rgba(205, 213, 223, 0.95) 50%, rgba(205, 213, 223, 0) 100%);
 }
 
 .app-shell-brand-copy {
@@ -68,8 +106,8 @@ body {
 }
 
 .app-shell-title {
-  margin-top: 4px;
-  font-size: 20px;
+  margin-top: 2px;
+  font-size: 22px;
   font-weight: 700;
   color: #16202b;
 }
@@ -371,8 +409,8 @@ body {
 }
 
 .workspace-shell {
-  min-height: 100vh;
-  padding: 28px 16px 40px;
+  min-height: calc(100vh - 110px);
+  padding: 20px 16px 40px;
 }
 
 .workspace-container {
@@ -480,13 +518,14 @@ body {
 .app-shell-brand-lockup {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
+  flex-wrap: wrap;
 }
 
 .app-shell-brand-mark,
 .auth-marketing-brand-mark,
 .auth-simple-brand-mark {
-  min-width: 176px;
+  min-width: 148px;
 }
 
 .workspace-current-user {
@@ -2143,9 +2182,14 @@ body {
   }
 
   .app-shell-header,
-  .app-shell-userbar {
+  .app-shell-userbar,
+  .app-shell-brand-family {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .app-shell-divider {
+    display: none;
   }
 
   .workspace-hero,
