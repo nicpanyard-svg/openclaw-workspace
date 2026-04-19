@@ -355,11 +355,17 @@ const styles = StyleSheet.create({
   },
   twoColumn: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "stretch",
     gap: 10,
     marginTop: 10,
+    flexWrap: "nowrap",
   },
   half: {
-    flex: 1,
+    width: "48.5%",
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: "48.5%",
   },
   paragraph: {
     fontSize: 10,
