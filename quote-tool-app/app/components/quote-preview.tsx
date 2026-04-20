@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/app/components/auth-shell";
-import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { PROPOSAL_STORAGE_KEY, serializeQuoteRecord } from "@/app/lib/proposal-state";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
 import {
@@ -827,7 +827,7 @@ export default function QuotePreview() {
   };
 
   const persistProposalState = () => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return null;
 
     const nextQuote = {
       ...quote,
@@ -880,6 +880,26 @@ export default function QuotePreview() {
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, proposalId);
     setActiveProposal(updatedProposal);
     setQuote(nextQuote);
+
+    return { proposal: updatedProposal, store: nextStore };
+  };
+
+  const copyProposalFromBuilder = () => {
+    const persisted = persistProposalState();
+    if (!persisted || typeof window === "undefined") return;
+
+    const copiedProposal = createProposalCopy({
+      proposal: persisted.proposal,
+      owner: persisted.proposal.owner,
+      currentUser: persisted.store.currentUser,
+    });
+    const nextStore = upsertProposal(persisted.store, copiedProposal);
+
+    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
+    window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
+    window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(copiedProposal.quote));
+    setActiveProposal(copiedProposal);
+    setQuote(copiedProposal.quote);
   };
 
   return (
@@ -913,6 +933,7 @@ export default function QuotePreview() {
               Preview Proposal
             </Link>
             <button type="button" className="pill-button" onClick={persistProposalState}>Save Draft</button>
+            <button type="button" className="pill-button" onClick={copyProposalFromBuilder}>Copy Proposal</button>
           </div>
         </section>
 
