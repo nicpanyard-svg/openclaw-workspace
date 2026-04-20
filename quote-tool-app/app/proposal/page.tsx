@@ -6,6 +6,7 @@ import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
+import { buildProposalWordHtml } from "@/app/lib/proposal-word-export";
 
 function ProposalPage() {
   const [quote, setQuote] = useState<QuoteRecord>(sampleQuoteRecord);
@@ -35,6 +36,23 @@ function ProposalPage() {
     }
   };
 
+  const handleExportWord = () => {
+    persistPreviewQuote(quote);
+
+    const html = buildProposalWordHtml(quote);
+    const blob = new Blob([html], { type: "application/msword;charset=utf-8" });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeProposalNumber = quote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
+
+    link.href = objectUrl;
+    link.download = `${safeProposalNumber}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  };
+
   return (
     <AuthGate>
       <div className="proposal-route-shell">
@@ -49,6 +67,9 @@ function ProposalPage() {
             </div>
           </div>
           <div className="proposal-toolbar-actions">
+            <button type="button" className="proposal-secondary-button" onClick={handleExportWord}>
+              Export Word
+            </button>
             <button type="button" className="proposal-print-button" onClick={handlePrintPdf}>
               Print PDF
             </button>
