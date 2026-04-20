@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { AuthHelpLinks, AuthMarketingPanel, useAuth } from "@/app/components/auth-shell";
+import { AuthHelpLinks, useAuth } from "@/app/components/auth-shell";
 import { ProductLogo } from "@/app/components/product-logo";
 
 function LoginForm() {
@@ -75,13 +75,10 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="auth-shell">
-      <div className="auth-layout">
-        <AuthMarketingPanel />
-        <Suspense fallback={<section className="auth-form-panel">Loading sign-in…</section>}>
-          <LoginForm />
-        </Suspense>
-      </div>
+    <main className="auth-shell auth-shell-simple">
+      <Suspense fallback={<section className="auth-form-panel auth-form-panel-single">Loading sign-in…</section>}>
+        <LoginForm />
+      </Suspense>
     </main>
   );
 }

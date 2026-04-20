@@ -475,8 +475,54 @@ body {
   place-items: center;
 }
 
+.auth-form-panel-single {
+  width: min(460px, 100%);
+  margin: 0 auto;
+}
+
 .auth-simple-card {
   width: min(760px, 100%);
+}
+
+.auth-shell.auth-shell-simple {
+  padding-inline: 18px;
+}
+
+.auth-shell.auth-shell-simple .auth-form-panel {
+  width: min(460px, 100%);
+}
+
+.auth-shell.auth-shell-simple .auth-form-header,
+.auth-shell.auth-shell-simple .auth-help-links,
+.auth-shell.auth-shell-simple .auth-footer-note {
+  text-align: center;
+}
+
+.auth-shell.auth-shell-simple .auth-brand-header {
+  justify-content: center;
+}
+
+.auth-shell.auth-shell-simple .auth-brand-header .flex {
+  justify-content: center;
+}
+
+.auth-shell.auth-shell-simple .auth-help-links {
+  justify-content: center;
+}
+
+.auth-shell.auth-shell-simple .auth-footer-note {
+  margin-top: 8px;
+}
+
+.auth-shell.auth-shell-simple .auth-form-copy {
+  max-width: 36ch;
+  margin-inline: auto;
+}
+
+.auth-shell.auth-shell-simple .auth-form,
+.auth-shell.auth-shell-simple .auth-inline-message,
+.auth-shell.auth-shell-simple .auth-field {
+  text-align: left;
 }
 
 .auth-loading-shell {
