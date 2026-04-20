@@ -6,7 +6,7 @@ import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
-import { buildProposalWordHtml } from "@/app/lib/proposal-word-export";
+import { buildProposalWordDocument } from "@/app/lib/proposal-word-export";
 
 function ProposalPage() {
   const [quote, setQuote] = useState<QuoteRecord>(sampleQuoteRecord);
@@ -50,7 +50,7 @@ function ProposalPage() {
     }
   };
 
-  const handleExportWord = () => {
+  const handleExportWord = async () => {
     const nextQuote: QuoteRecord = {
       ...quote,
       metadata: {
@@ -67,14 +67,13 @@ function ProposalPage() {
     setQuote(nextQuote);
     persistPreviewQuote(nextQuote, { markAsSent: true });
 
-    const html = buildProposalWordHtml(nextQuote);
-    const blob = new Blob([html], { type: "application/msword;charset=utf-8" });
+    const blob = await buildProposalWordDocument(nextQuote);
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const safeProposalNumber = nextQuote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
 
     link.href = objectUrl;
-    link.download = `${safeProposalNumber}.doc`;
+    link.download = `${safeProposalNumber}.docx`;
     document.body.appendChild(link);
     link.click();
     link.remove();
