@@ -163,7 +163,109 @@ export function createProposalFromQuote(params: {
       {
         id: `activity_created_${Date.now()}`,
         type: "created",
-        message: `Proposal created for ${params.quote.customer.name}`,
+        message: `Proposal created for ${params.quote.customer.name || "new customer draft"}`,
+        at: now,
+        by: { id: currentUser.id, name: currentUser.name },
+      },
+    ],
+  };
+}
+
+export function createProposalCopy(params: {
+  proposal: SavedProposalRecord;
+  owner?: ProposalOwner;
+  currentUser?: ProposalOwner;
+}): SavedProposalRecord {
+  const currentUser = params.currentUser ?? mockUsers[0];
+  const owner = params.owner ?? params.proposal.owner ?? currentUser;
+  const now = new Date().toISOString();
+  const sourceQuote = JSON.parse(JSON.stringify(params.proposal.quote)) as QuoteRecord;
+  const sourceTitle = params.proposal.quote.metadata.documentTitle?.trim() || params.proposal.quote.customer.name?.trim() || "Proposal";
+  const sourceShortName = params.proposal.quote.metadata.customerShortName?.trim() || "Draft";
+  const id = `proposal_${Date.now()}`;
+  const proposalNumber = `${params.proposal.quote.metadata.proposalNumber || "RCT"}-COPY`;
+
+  const clearedCustomer = {
+    ...sourceQuote.customer,
+    name: "",
+    logoText: "",
+    logoDataUrl: undefined,
+    contactName: "",
+    contactPhone: "",
+    contactEmail: "",
+    addressLines: [],
+  };
+
+  const clearedAddress = {
+    companyName: "",
+    attention: "",
+    lines: [],
+  };
+
+  return {
+    id,
+    recordVersion: 1,
+    quote: {
+      ...sourceQuote,
+      metadata: {
+        ...sourceQuote.metadata,
+        proposalNumber,
+        documentTitle: `${sourceTitle} Copy`,
+        customerShortName: "",
+        status: "draft",
+        ownerUserId: owner.id,
+        ownerName: owner.name,
+        accountId: undefined,
+        accountName: undefined,
+        lastTouchedAt: now,
+      },
+      documentation: {
+        ...sourceQuote.documentation,
+        proposalTitle: `${sourceTitle} Copy`,
+        proposalDateLabel: sourceQuote.metadata.proposalDate,
+        proposalNumberLabel: proposalNumber,
+      },
+      customer: clearedCustomer,
+      billTo: clearedAddress,
+      shipTo: clearedAddress,
+      shippingSameAsBillTo: true,
+      executiveSummary: {
+        ...sourceQuote.executiveSummary,
+        customerContext: "",
+        paragraphs: sourceQuote.executiveSummary.enabled && sourceQuote.executiveSummary.body
+          ? [sourceQuote.executiveSummary.body]
+          : [],
+      },
+      internal: {
+        ...sourceQuote.internal,
+        quoteId: id,
+        quoteStatus: "draft",
+        crmOwnerLabel: owner.name,
+        crmSyncReady: false,
+        savedProposalId: id,
+        workspaceOwnerId: owner.id,
+        workspaceOwnerName: owner.name,
+      },
+      integrations: {
+        ...sourceQuote.integrations,
+        quoteReferences: {},
+        lastSyncSummary: `Copied from ${params.proposal.quote.metadata.proposalNumber || sourceShortName} and reset for a new customer draft.`,
+      },
+    },
+    owner,
+    createdBy: currentUser,
+    createdAt: now,
+    updatedAt: now,
+    status: "draft",
+    stageLabel: statusToStageLabel("draft"),
+    workspace: {
+      ...params.proposal.workspace,
+    },
+    activity: [
+      {
+        id: `activity_copied_${Date.now()}`,
+        type: "created",
+        message: `Proposal copied from ${params.proposal.quote.metadata.proposalNumber || sourceTitle} and reset for a new customer draft`,
         at: now,
         by: { id: currentUser.id, name: currentUser.name },
       },

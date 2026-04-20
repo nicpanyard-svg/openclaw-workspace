@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
-import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 function formatCurrency(value: number) {
@@ -264,6 +264,25 @@ export function ProposalWorkspace() {
     setActiveProposalId(proposalId);
   };
 
+  const copyProposal = (proposal: SavedProposalRecord) => {
+    if (!store) return;
+
+    const copiedProposal = createProposalCopy({
+      proposal,
+      owner: proposal.owner,
+      currentUser: store.currentUser,
+    });
+    const nextStore = upsertProposal(store, copiedProposal);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
+      window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
+    }
+
+    setStore(nextStore);
+    setActiveProposalId(copiedProposal.id);
+  };
+
   if (!store || !currentOwner) {
     return <main className="workspace-shell"><div className="workspace-empty">Loading dashboard…</div></main>;
   }
@@ -307,24 +326,6 @@ export function ProposalWorkspace() {
               <div className="workspace-support-label">Sent</div>
               <strong>{launchpadStats.sent} proposals sent</strong>
               <p className="workspace-support-copy">Customer-facing proposals that now need follow-up or opportunity management in Salesforce.</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="workspace-panel workspace-hero-support">
-          <div className="workspace-support-grid">
-            <div>
-              <div className="workspace-support-label">User-facing auth behavior</div>
-              <p className="workspace-support-copy">
-                RapidQuote now has a clear front door: sign in, request access, recover access, and track who owns onboarding.
-                That gives the app a believable multi-user shape before the backend engine finishes landing.
-              </p>
-            </div>
-            <div>
-              <div className="workspace-support-label">What happens later</div>
-              <p className="workspace-support-copy">
-                Real directory sync, reviewer actions, invite delivery, reset tokens, and audit history should slide under these screens without forcing a product rewrite.
-              </p>
             </div>
           </div>
         </section>
@@ -397,6 +398,7 @@ export function ProposalWorkspace() {
               proposals={groupedProposals.next}
               activeProposalId={activeProposal?.id ?? null}
               setActiveProposal={setActiveProposal}
+              onCopyProposal={copyProposal}
               tone="next"
             />
             <DashboardGroup
@@ -406,6 +408,7 @@ export function ProposalWorkspace() {
               proposals={groupedProposals.watch}
               activeProposalId={activeProposal?.id ?? null}
               setActiveProposal={setActiveProposal}
+              onCopyProposal={copyProposal}
               tone="watch"
             />
           </div>
@@ -429,6 +432,7 @@ function DashboardGroup({
   proposals,
   activeProposalId,
   setActiveProposal,
+  onCopyProposal,
   tone,
 }: {
   title: string;
@@ -442,6 +446,7 @@ function DashboardGroup({
   }>;
   activeProposalId: string | null;
   setActiveProposal: (proposalId: string) => void;
+  onCopyProposal: (proposal: SavedProposalRecord) => void;
   tone: "next" | "watch";
 }) {
   return (
@@ -521,6 +526,9 @@ function DashboardGroup({
                     </div>
                   </div>
                   <div className="proposal-list-actions proposal-list-actions-priority">
+                    <button type="button" className="workspace-secondary-button" onClick={() => onCopyProposal(proposal)}>
+                      Copy Proposal
+                    </button>
                     <Link href="/new" className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
                       Open Editor
                     </Link>
@@ -541,6 +549,23 @@ function DashboardGroup({
 }
 
 export function ProposalDetailView({ proposal, users }: { proposal: SavedProposalRecord; users: ProposalOwner[] }) {
+  const copyProposal = () => {
+    if (typeof window === "undefined") return;
+
+    const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
+    if (!savedStore) return;
+
+    const copiedProposal = createProposalCopy({
+      proposal,
+      owner: proposal.owner,
+      currentUser: savedStore.currentUser,
+    });
+    const nextStore = upsertProposal(savedStore, copiedProposal);
+
+    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
+    window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
+    window.location.href = "/new";
+  };
   const summary = buildProposalSummary(proposal);
   const latestActivity = proposal.activity[proposal.activity.length - 1] ?? null;
   const lastTouched = proposal.quote.metadata.lastTouchedAt ? formatDateTime(proposal.quote.metadata.lastTouchedAt) : formatDateTime(proposal.updatedAt);
@@ -556,6 +581,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
           </div>
           <div className="workspace-actions">
             <span className={statusTone(proposal.status)}>{proposal.stageLabel}</span>
+            <button type="button" className="workspace-secondary-button" onClick={copyProposal}>Copy Proposal</button>
             <Link href="/" className="workspace-secondary-button">Dashboard</Link>
             <Link href="/proposal" className="workspace-secondary-button">Preview Proposal</Link>
             <Link href="/new" className="workspace-primary-button">Open Editor</Link>
