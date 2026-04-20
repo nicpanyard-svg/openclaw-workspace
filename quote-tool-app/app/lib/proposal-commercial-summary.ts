@@ -37,18 +37,34 @@ export function getOptionalServicesTotal(quote: QuoteRecord) {
   );
 }
 
+export function getCombinedOneTimeTotal(
+  quote: QuoteRecord,
+  equipmentTotal?: number,
+  optionalServicesTotal?: number,
+) {
+  const equipment = equipmentTotal ?? getEquipmentTotal(quote);
+  const services = optionalServicesTotal ?? getOptionalServicesTotal(quote);
+  return Number((equipment + services).toFixed(2));
+}
+
 export function getLeaseMonthlyTotal(quote: QuoteRecord, recurringMonthlyTotal?: number, equipmentTotal?: number) {
   if (quote.metadata.quoteType !== "lease") return 0;
+  if (!quote.metadata.hasActiveDataAgreement) return 0;
+
   const recurring = recurringMonthlyTotal ?? getRecurringMonthlyTotal(quote);
   const equipment = equipmentTotal ?? getEquipmentTotal(quote);
-  const term = Math.max(quote.sections.sectionA.termMonths || 1, 1);
-  return Number((recurring + equipment / term).toFixed(2));
+  const marginPercent = quote.metadata.leaseMarginPercent ?? 35;
+  const leaseBase = equipment * (1 + marginPercent / 100);
+  const term = quote.metadata.leaseTermMonths ?? 12;
+
+  return Number((recurring + leaseBase / term).toFixed(2));
 }
 
 export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalCommercialSummaryItem[] {
   const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
   const equipmentTotal = getEquipmentTotal(quote);
   const optionalServicesTotal = getOptionalServicesTotal(quote);
+  const combinedOneTimeTotal = getCombinedOneTimeTotal(quote, equipmentTotal, optionalServicesTotal);
   const leaseMonthlyTotal = getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
 
   const items: ProposalCommercialSummaryItem[] = [
@@ -69,9 +85,15 @@ export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalComm
 
   if (quote.sections.sectionC.enabled) {
     items.push({
-      key: "optional-services",
-      label: "Optional services",
+      key: "field-services",
+      label: "Field services",
       value: optionalServicesTotal,
+    });
+
+    items.push({
+      key: "one-time-total",
+      label: "One-time total",
+      value: combinedOneTimeTotal,
     });
   }
 

@@ -84,8 +84,11 @@ function getSectionCTotal(quote: QuoteRecord) {
 
 function getLeaseMonthly(quote: QuoteRecord, recurringMonthlyTotal: number, equipmentTotal: number) {
   if (quote.metadata.quoteType !== "lease") return 0;
-  const term = Math.max(quote.sections.sectionA.termMonths || 1, 1);
-  return Number((recurringMonthlyTotal + equipmentTotal / term).toFixed(2));
+  if (!quote.metadata.hasActiveDataAgreement) return 0;
+  const marginPercent = quote.metadata.leaseMarginPercent ?? 35;
+  const leaseBase = equipmentTotal * (1 + marginPercent / 100);
+  const term = quote.metadata.leaseTermMonths ?? 12;
+  return Number((recurringMonthlyTotal + leaseBase / term).toFixed(2));
 }
 
 export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewModel {
@@ -158,7 +161,7 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     sectionCEnabled: quote.sections.sectionC.enabled,
     sectionCTitle: quote.sections.sectionC.title,
     sectionCIntro:
-      quote.sections.sectionC.introText || "Optional field services can be included as budgetary or final pricing.",
+      quote.sections.sectionC.introText || "Field services can be included as budgetary or final pricing.",
     serviceRows: quote.sections.sectionC.lineItems,
     serviceTotal,
     quoteType: quote.metadata.quoteType,

@@ -116,6 +116,9 @@ export type QuoteMetadata = {
   currencyCode: CurrencyCode;
   status: QuoteStatus;
   quoteType: QuoteType;
+  leaseTermMonths?: 12 | 24 | 36;
+  leaseMarginPercent?: number;
+  hasActiveDataAgreement?: boolean;
   ownerUserId?: string;
   ownerName?: string;
   accountId?: string;

@@ -469,11 +469,30 @@ export default function QuotePreview() {
   const equipmentTotal = useMemo(() => Number(quote.sections.sectionB.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? row.quantity * row.unitPrice), 0).toFixed(2)), [quote.sections.sectionB.lineItems]);
   const sectionCTotal = useMemo(() => Number(quote.sections.sectionC.lineItems.reduce((sum, row) => sum + row.totalPrice, 0).toFixed(2)), [quote.sections.sectionC.lineItems]);
 
+  const selectedLeaseTerm = quote.metadata.leaseTermMonths ?? 12;
+  const hasActiveDataAgreement = quote.metadata.hasActiveDataAgreement ?? false;
+  const leaseMarginPercent = quote.metadata.leaseMarginPercent ?? 35;
+
+  const leaseMarginAmount = useMemo(() => {
+    if (quote.metadata.quoteType !== "lease") return 0;
+    return Number((equipmentTotal * (leaseMarginPercent / 100)).toFixed(2));
+  }, [equipmentTotal, leaseMarginPercent, quote.metadata.quoteType]);
+
+  const leaseEquipmentBase = useMemo(() => {
+    if (quote.metadata.quoteType !== "lease") return 0;
+    return Number((equipmentTotal + leaseMarginAmount).toFixed(2));
+  }, [equipmentTotal, leaseMarginAmount, quote.metadata.quoteType]);
+
+  const leaseEquipmentMonthly = useMemo(() => {
+    if (quote.metadata.quoteType !== "lease") return 0;
+    return Number((leaseEquipmentBase / selectedLeaseTerm).toFixed(2));
+  }, [leaseEquipmentBase, quote.metadata.quoteType, selectedLeaseTerm]);
+
   const leaseMonthly = useMemo(() => {
     if (quote.metadata.quoteType !== "lease") return 0;
-    const term = Math.max(quote.sections.sectionA.termMonths || 1, 1);
-    return Number((recurringMonthlyTotal + equipmentTotal / term).toFixed(2));
-  }, [equipmentTotal, quote.metadata.quoteType, quote.sections.sectionA.termMonths, recurringMonthlyTotal]);
+    if (!hasActiveDataAgreement) return 0;
+    return Number((recurringMonthlyTotal + leaseEquipmentMonthly).toFixed(2));
+  }, [hasActiveDataAgreement, leaseEquipmentMonthly, quote.metadata.quoteType, recurringMonthlyTotal]);
 
   const equipmentCategories = useMemo(() => ["All", ...Array.from(new Set(equipmentCatalog.map((item) => item.category))).sort()], []);
 
@@ -1052,9 +1071,115 @@ export default function QuotePreview() {
                   { key: "purchase", label: "Purchase quote", description: "Show one-time hardware separately from recurring service pricing." },
                   { key: "lease", label: "Lease quote", description: "Blend hardware into a term-based monthly view without losing line items." },
                 ] as { key: QuoteType; label: string; description: string }[]).map((option) => (
-                  <ToggleCard key={option.key} label={option.label} description={option.description} active={quote.metadata.quoteType === option.key} onClick={() => updateQuote((draft) => { draft.metadata.quoteType = option.key; return draft; })} />
+                  <ToggleCard
+                    key={option.key}
+                    label={option.label}
+                    description={option.description}
+                    active={quote.metadata.quoteType === option.key}
+                    onClick={() => updateQuote((draft) => {
+                      draft.metadata.quoteType = option.key;
+                      if (option.key === "lease") {
+                        draft.metadata.leaseTermMonths = draft.metadata.leaseTermMonths ?? 12;
+                        draft.metadata.hasActiveDataAgreement = draft.metadata.hasActiveDataAgreement ?? false;
+                      }
+                      return draft;
+                    })}
+                  />
                 ))}
               </div>
+
+              {quote.metadata.quoteType === "lease" && (
+                <div className="mt-5 rounded-[22px] border border-[#ead9db] bg-[#fff7f7] p-4 md:p-5">
+                  <div className="builder-eyebrow">Lease calculator</div>
+                  <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Lease pricing builder</h3>
+                  <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
+                    Lease pricing is gated by an active data agreement. Hardware margin is editable, defaults to 35%, and is spread across the selected lease term.
+                  </p>
+
+                  <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
+                    <div className="space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
+                      <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]">
+                        <input
+                          type="checkbox"
+                          checked={hasActiveDataAgreement}
+                          onChange={(e) => updateQuote((draft) => {
+                            draft.metadata.hasActiveDataAgreement = e.target.checked;
+                            return draft;
+                          })}
+                        />
+                        Active data agreement is in place
+                      </label>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="builder-field compact">
+                          <span>Lease term</span>
+                          <select
+                            value={selectedLeaseTerm}
+                            onChange={(e) => updateQuote((draft) => {
+                              draft.metadata.leaseTermMonths = Number(e.target.value) as 12 | 24 | 36;
+                              return draft;
+                            })}
+                          >
+                            <option value={12}>12 months</option>
+                            <option value={24}>24 months</option>
+                            <option value={36}>36 months</option>
+                          </select>
+                        </label>
+
+                        <label className="builder-field compact">
+                          <span>Lease margin %</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={leaseMarginPercent}
+                            onChange={(e) => updateQuote((draft) => {
+                              draft.metadata.leaseMarginPercent = Math.max(parseNumber(e.target.value), 0);
+                              return draft;
+                            })}
+                          />
+                        </label>
+                      </div>
+
+                      <div className={`rounded-[18px] border px-4 py-3 text-[13px] leading-[1.5] ${hasActiveDataAgreement ? "border-[#d9e7dd] bg-[#f5fbf6] text-[#365444]" : "border-[#f0d1d1] bg-[#fff1f1] text-[#7d4b4b]"}`}>
+                        {hasActiveDataAgreement
+                          ? `Lease pricing is active. The monthly lease total below now includes the ${leaseMarginPercent}% hardware margin spread across the selected term.`
+                          : "Lease pricing is locked until an active data agreement is confirmed. Turn this on to enable the lease monthly number."}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
+                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Purchase hardware total</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>
+                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Lease margin ({leaseMarginPercent}%)</span><strong>{formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>
+                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Lease hardware base</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
+                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Selected term</span><strong>{selectedLeaseTerm} months</strong></div>
+                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Hardware per month</span><strong>{formatCurrency(leaseEquipmentMonthly, currencyCode)}</strong></div>
+                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Recurring monthly service</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>
+                      <div className="rounded-[16px] border border-[#e8edf2] bg-[#fafcfd] px-4 py-3 text-[13px] text-[#5d6874]">
+                        <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Calculation breakdown</div>
+                        <div className="mt-2 space-y-2">
+                          <div className="flex items-center justify-between gap-3"><span>1. Equipment total</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>2. + Margin ({leaseMarginPercent}%)</span><strong>+ {formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>3. Lease hardware base</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>4. ÷ Term ({selectedLeaseTerm})</span><strong>{formatCurrency(leaseEquipmentMonthly, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>5. + Recurring monthly service</span><strong>+ {formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>
+                        </div>
+                      </div>
+                      <div className="border-t border-[#e8edf2] pt-3">
+                        <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Lease monthly</div>
+                        <div className={`mt-1 text-[28px] font-semibold tracking-[-0.03em] ${hasActiveDataAgreement ? "text-[#b00000]" : "text-[#7f8a96]"}`}>
+                          {hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}
+                        </div>
+                        <div className="mt-1 text-[13px] text-[#60707f]">
+                          {hasActiveDataAgreement
+                            ? `Formula: ${formatCurrency(equipmentTotal, currencyCode)} + ${leaseMarginPercent}% margin = ${formatCurrency(leaseEquipmentBase, currencyCode)}; then ${formatCurrency(leaseEquipmentBase, currencyCode)} ÷ ${selectedLeaseTerm} = ${formatCurrency(leaseEquipmentMonthly, currencyCode)}; then + ${formatCurrency(recurringMonthlyTotal, currencyCode)} recurring monthly service.`
+                            : "This lease calculator stays disabled until the active data agreement box is checked."}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <label className="builder-field"><span>Section A provider option</span><select value={quote.metadata.customerProvider} onChange={(e) => updateQuote((draft) => { draft.metadata.customerProvider = e.target.value as QuoteRecord["metadata"]["customerProvider"]; return draft; })}><option value="Starlink">Starlink</option><option value="UniSIM">UniSIM</option><option value="T-Mobile">T-Mobile</option></select></label>
@@ -1282,14 +1407,14 @@ export default function QuotePreview() {
                 <div className="summary-block"><div className="summary-label">Proposal info</div><div className="summary-value">{quote.metadata.documentTitle}</div><div className="summary-subvalue">Prepared by {quote.inet.contactName} • {quote.inet.contactPhone}</div></div>
                 <div className="summary-block"><div className="summary-label">Bill To / Ship To</div><div className="summary-value">{quote.billTo.companyName || quote.customer.name}</div><div className="summary-subvalue">{quote.shippingSameAsBillTo ? "Ship To matches Bill To" : `${quote.shipTo.companyName || "Custom Ship To"} configured separately`}</div></div>
                 <div className="summary-block"><div className="summary-label">Executive Summary</div><div className="summary-value">{quote.executiveSummary.enabled ? (quote.executiveSummary.heading?.trim() || "Executive Summary") : "Hidden"}</div><div className="summary-subvalue">{quote.executiveSummary.enabled ? `${compactList([quote.executiveSummary.customerContext, quote.executiveSummary.body]).length} editable text block(s) ready for output` : "Not included in proposal output"}</div></div>
-                <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : `Estimated monthly blended total over ${quote.sections.sectionA.termMonths} months`}</div></div>
+                <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : hasActiveDataAgreement ? `Estimated monthly blended total over ${selectedLeaseTerm} months` : "Lease pricing blocked until active data agreement is confirmed"}</div></div>
                 <div className="summary-block"><div className="summary-label">Current pricing</div><div className="summary-value">Current proposal data</div><div className="summary-subvalue">Recommended defaults plus any edits you made in this proposal</div></div>
                 <div className="summary-block"><div className="summary-label">Enabled sections</div><ul className="list-disc pl-5 text-[#56616d]">{quote.executiveSummary.enabled && <li>Executive Summary</li>}{quote.sections.sectionA.enabled && <li>Monthly Service</li>}{quote.sections.sectionB.enabled && <li>Hardware</li>}{quote.sections.sectionC.enabled && <li>Field Services</li>}</ul></div>
                 {customSectionFields.length > 0 && <div className="summary-block"><div className="summary-label">Extra section fields</div><div className="space-y-1 text-[#56616d]">{customSectionFields.map((field) => <div key={field.id}><strong>{field.label}:</strong> {field.value || "—"} <span className="text-[#8b96a3]">({field.visibility === "customer" ? "proposal" : "internal"})</span></div>)}</div></div>}
                 <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{activeSectionARows.length} row(s) ready for the proposal</div></div>
                 <div className="summary-block"><div className="summary-label">Section B output</div><div className="summary-value">{quote.sections.sectionB.lineItems.length} hardware row(s)</div><div className="summary-subvalue">{suggestedAccessories.length > 0 ? `${suggestedAccessories.length} accessory suggestion(s) available` : "All suggested accessories are already added"}</div></div>
                 <div className="summary-block"><div className="summary-label">Section C output</div><div className="summary-value">{quote.sections.sectionC.title}</div><div className="summary-subvalue">{quote.sections.sectionC.lineItems.length} service row(s) • {quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "budgetary").length} budgetary / {quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "final").length} final</div></div>
-                <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>Recurring monthly</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div><div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div><div className="flex justify-between gap-3"><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>{quote.metadata.quoteType === "lease" && <div className="flex justify-between gap-3 text-[#b00000]"><span>Blended lease monthly</span><strong>{formatCurrency(leaseMonthly, currencyCode)}</strong></div>}</div></div>
+                <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>Recurring monthly</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div><div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div><div className="flex justify-between gap-3"><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>{quote.metadata.quoteType === "lease" && <div className="flex justify-between gap-3 text-[#b00000]"><span>Blended lease monthly</span><strong>{hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}</strong></div>}</div></div>
                 <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">Keep it simple: build the quote, review the proposal, and send it with confidence.</div>
               </div>
             </section>
