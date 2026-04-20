@@ -104,7 +104,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const { isReady, session } = useAuth();
 
   if (!isReady) {
-    return <div className="auth-loading-shell"><div className="auth-loading-card">Loading RapidQuote…</div></div>;
+    return <div className="auth-loading-shell"><div className="auth-loading-card">Opening RapidQuote…</div></div>;
   }
 
   if (!session) {
@@ -129,14 +129,11 @@ export function AppFrame({ children }: { children: ReactNode }) {
       <header className="app-shell-header">
         <div className="app-shell-brand-lockup">
           <div className="app-shell-brand-family">
-            <Image
-              src="/inet-logo.png"
-              alt="iNet logo"
-              width={112}
-              height={32}
-              className="app-shell-parent-brand-logo"
-              priority
-            />
+            <ProductLogo width={164} height={46} className="workspace-brand-logo product-logo app-shell-product-logo" priority />
+            <div className="app-shell-brand-copy">
+              <div className="app-shell-eyebrow">Proposal workspace</div>
+              <div className="app-shell-title">RapidQuote</div>
+            </div>
           </div>
         </div>
         <div className="app-shell-userbar">
@@ -149,10 +146,10 @@ export function AppFrame({ children }: { children: ReactNode }) {
           </div>
           <nav className="app-shell-nav" aria-label="Workspace navigation">
             <Link href="/">Dashboard</Link>
-            <Link href="/new">Builder</Link>
+            <Link href="/new">Editor</Link>
             <Link href="/proposal">Preview</Link>
           </nav>
-          <button type="button" className="workspace-secondary-button" onClick={signOut}>Sign out</button>
+          <button type="button" className="workspace-secondary-button" onClick={signOut}>Log out</button>
         </div>
       </header>
       <div className="app-shell-content">{children}</div>
@@ -169,29 +166,29 @@ export function AuthMarketingPanel() {
         </div>
         <div className="brand-signature-stack">
           <span className="brand-signature-pill">by iNet</span>
-          <div className="brand-trust-note">Trusted internal quoting workspace</div>
+          <div className="brand-trust-note">Built for iNet proposal teams</div>
         </div>
       </div>
-      <h1 className="auth-marketing-title">Quote and proposal workflow built for enterprise sales teams.</h1>
+      <h1 className="auth-marketing-title">One place to build, review, and manage proposals.</h1>
       <p className="auth-marketing-copy">
-        RapidQuote gives your team one secure place to build pricing, manage proposal activity, and move customer-ready documents forward with confidence.
+        RapidQuote keeps pricing, proposal work, and deal progress in one clear workspace so your team can move faster with less friction.
       </p>
 
       <div className="auth-marketing-grid">
         <div className="auth-marketing-card">
-          <span>Secure workspace</span>
-          <strong>Protected account access</strong>
-          <p>Keep quotes, pricing activity, and proposal details inside a controlled workspace for approved team members.</p>
+          <span>Secure access</span>
+          <strong>Protected team workspace</strong>
+          <p>Keep quotes, proposal details, and account activity in one place for approved team members.</p>
         </div>
         <div className="auth-marketing-card">
-          <span>Faster execution</span>
-          <strong>Built for daily selling</strong>
-          <p>Create, review, and refine customer-ready proposals without jumping between disconnected tools.</p>
+          <span>Move faster</span>
+          <strong>Built for daily proposal work</strong>
+          <p>Create, review, and refine proposals without bouncing between disconnected tools.</p>
         </div>
         <div className="auth-marketing-card">
-          <span>Operational clarity</span>
-          <strong>Shared team visibility</strong>
-          <p>Give sales, operations, and technical teams a consistent view of active quote work and proposal progress.</p>
+          <span>Shared visibility</span>
+          <strong>Clear team view</strong>
+          <p>Give sales, operations, and technical teams a consistent view of active work and proposal progress.</p>
         </div>
       </div>
     </section>
@@ -215,8 +212,8 @@ export function SignupEligibilityMessage({ email }: { email: string }) {
   return (
     <div className={`auth-inline-message ${selfServe ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
       {selfServe
-        ? "Looks like an iNet teammate. You can request RapidQuote by iNet access and get routed into the internal approval queue."
-        : "RapidQuote by iNet is currently limited to internal iNet users. Use an @inetlte.com address or contact the product owner for access."}
+        ? "Looks like an iNet teammate. You can request access and we’ll route it for approval."
+        : "RapidQuote is currently limited to iNet users. Use an @inetlte.com address or contact your workspace admin for access."}
     </div>
   );
 }

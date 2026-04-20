@@ -19,13 +19,13 @@ export default function ForgotPasswordPage() {
           </div>
           <div className="brand-signature-stack">
             <span className="brand-signature-pill">by iNet</span>
-            <div className="brand-trust-note">Internal recovery flow</div>
+            <div className="brand-trust-note">Password recovery</div>
           </div>
         </div>
         <div className="workspace-eyebrow">Password recovery</div>
         <h1 className="auth-form-title">Reset your RapidQuote password</h1>
         <p className="auth-form-copy">
-          This gives the app a believable recovery path now for RapidQuote by iNet. Next production step should swap this page over to directory-backed email reset or SSO recovery.
+          Enter your work email and we’ll prepare your password reset flow for RapidQuote.
         </p>
 
         <form
@@ -46,8 +46,8 @@ export default function ForgotPasswordPage() {
         {submitted ? (
           <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
             {eligible
-              ? `Reset instructions prepared for ${email}. For this stage, continue to the simulated reset page and wire in real email delivery next.`
-              : `RapidQuote by iNet recovery is limited to internal iNet accounts. Use an @inetlte.com address.`}
+              ? `Reset instructions prepared for ${email}. Continue to the reset form to finish updating your password.`
+              : `RapidQuote password recovery is limited to iNet accounts. Use an @inetlte.com address.`}
           </div>
         ) : null}
 

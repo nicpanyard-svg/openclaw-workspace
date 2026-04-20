@@ -892,7 +892,7 @@ export default function QuotePreview() {
               <div>
                 <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal Editor</h1>
                 <p className="mt-2 max-w-[680px] text-[15px] leading-[1.55] text-[#5a6572]">
-                  This is the builder/editor. Make content changes here, then move to Preview Proposal when you want the customer-facing document. Session-aware ownership is now part of the editing flow so the product can grow into real collaboration.
+                  Update proposal details here, then move to Preview Proposal when you are ready to review the finished document.
                 </p>
               </div>
             </div>
@@ -901,13 +901,13 @@ export default function QuotePreview() {
               <div className="builder-stat-card"><div className="builder-stat-label">Recurring monthly</div><div className="builder-stat-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section A</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">One-time equipment</div><div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section B</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">Optional services</div><div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div><div className="builder-stat-note">Inspection and install totals</div></div>
-              <div className="builder-stat-card"><div className="builder-stat-label">Editor owner</div><div className="builder-stat-value">{user?.initials ?? "RQ"}</div><div className="builder-stat-note">{user ? `${user.name} • ${user.title}` : "Signed-in user context"}</div></div>
+              <div className="builder-stat-card"><div className="builder-stat-label">Current user</div><div className="builder-stat-value">{user?.initials ?? "RQ"}</div><div className="builder-stat-note">{user ? `${user.name} • ${user.title}` : "Active workspace session"}</div></div>
             </div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/" className="pill-button">
-              My Proposals
+              Dashboard
             </Link>
             <Link href="/proposal" className="pill-button pill-button-active" onClick={persistProposalState}>
               Preview Proposal

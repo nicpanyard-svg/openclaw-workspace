@@ -41,12 +41,12 @@ function LoginForm() {
           </div>
           <div className="brand-signature-stack">
             <span className="brand-signature-pill">by iNet</span>
-            <div className="brand-trust-note">Internal product access</div>
+            <div className="brand-trust-note">Secure team access</div>
           </div>
         </div>
         <div className="workspace-eyebrow">Secure access</div>
         <h2 className="auth-form-title">Sign in to RapidQuote</h2>
-        <p className="auth-form-copy">Sign in to access RapidQuote by iNet and continue working on quotes, proposals, and customer-ready documents.</p>
+        <p className="auth-form-copy">Sign in to continue working on quotes, proposals, and deal activity in RapidQuote.</p>
       </div>
 
       <form className="auth-form" onSubmit={handleSubmit}>
@@ -70,7 +70,7 @@ function LoginForm() {
       <AuthHelpLinks />
 
       <div className="auth-footer-note">
-        Need access? <Link href="/signup">Request an account</Link>. Need to reset your password? <Link href="/forgot-password">Reset it here</Link>.
+        Need access? <Link href="/signup">Request access</Link>. Need to reset your password? <Link href="/forgot-password">Reset it here</Link>.
       </div>
     </section>
   );
