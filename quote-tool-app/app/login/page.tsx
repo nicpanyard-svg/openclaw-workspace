@@ -1,10 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { ProductLogo } from "@/app/components/product-logo";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { AuthDemoCredentialsCard, AuthHelpLinks, AuthMarketingPanel, useAuth } from "@/app/components/auth-shell";
+import { AuthHelpLinks, AuthMarketingPanel, useAuth } from "@/app/components/auth-shell";
 
 function LoginForm() {
   const router = useRouter();
@@ -16,7 +16,6 @@ function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const nextRoute = searchParams.get("next") || "/";
-  const showReturnNotice = nextRoute !== "/";
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -37,25 +36,16 @@ function LoginForm() {
     <section className="auth-form-panel">
       <div className="auth-form-header">
         <div className="auth-brand-header auth-brand-header-compact">
-          <div className="workspace-brand-mark auth-brand-mark">
-            <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
-          </div>
-          <div className="brand-signature-stack">
-            <span className="brand-signature-pill">by iNet</span>
-            <div className="brand-trust-note">Internal product access</div>
+          <div className="flex items-center gap-3">
+            <Image src="/inet-logo.png" alt="iNet logo" width={44} height={44} className="h-11 w-11 object-contain" priority />
+            <div>
+              <h1 className="m-0 text-[1.9rem] font-semibold leading-none tracking-[-0.03em] text-[#16202b]">RapidQuote</h1>
+            </div>
           </div>
         </div>
-        {showReturnNotice ? (
-          <div className="auth-inline-message auth-inline-message-info">
-            Sign in to continue to <strong>{nextRoute}</strong>.
-          </div>
-        ) : null}
-        <div className="workspace-eyebrow">Secure access</div>
         <h2 className="auth-form-title">Sign in to RapidQuote</h2>
-        <p className="auth-form-copy">Sign in to access RapidQuote by iNet and continue working on quotes, proposals, and customer-ready documents.</p>
+        <p className="auth-form-copy">Sign in to access RapidQuote and continue working on quotes, proposals, and customer-ready documents.</p>
       </div>
-
-      <AuthDemoCredentialsCard />
 
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="auth-field">
@@ -74,17 +64,6 @@ function LoginForm() {
           {isSubmitting ? "Signing in…" : "Sign in"}
         </button>
       </form>
-
-      <div className="auth-inline-support-row">
-        <div className="auth-inline-support-item">
-          <span>Session window</span>
-          <strong>8 hours</strong>
-        </div>
-        <div className="auth-inline-support-item">
-          <span>Access scope</span>
-          <strong>Internal workspace only</strong>
-        </div>
-      </div>
 
       <AuthHelpLinks />
 

@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ProductLogo } from "@/app/components/product-logo";
 import {
   AUTH_STORAGE_KEY,
   authenticateWithPassword,
@@ -161,41 +160,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 }
 
 export function AuthMarketingPanel() {
-  return (
-    <section className="auth-marketing-panel">
-      <div className="auth-brand-header">
-        <div className="workspace-brand-mark auth-marketing-brand-mark">
-          <ProductLogo width={168} height={48} className="workspace-brand-logo product-logo" priority />
-        </div>
-        <div className="brand-signature-stack">
-          <span className="brand-signature-pill">by iNet</span>
-          <div className="brand-trust-note">Trusted internal quoting workspace</div>
-        </div>
-      </div>
-      <h1 className="auth-marketing-title">Quote and proposal workflow built for enterprise sales teams.</h1>
-      <p className="auth-marketing-copy">
-        RapidQuote gives your team one secure place to build pricing, manage proposal activity, and move customer-ready documents forward with confidence.
-      </p>
-
-      <div className="auth-marketing-grid">
-        <div className="auth-marketing-card">
-          <span>Secure workspace</span>
-          <strong>Protected account access</strong>
-          <p>Keep quotes, pricing activity, and proposal details inside a controlled workspace for approved team members.</p>
-        </div>
-        <div className="auth-marketing-card">
-          <span>Faster execution</span>
-          <strong>Built for daily selling</strong>
-          <p>Create, review, and refine customer-ready proposals without jumping between disconnected tools.</p>
-        </div>
-        <div className="auth-marketing-card">
-          <span>Operational clarity</span>
-          <strong>Shared team visibility</strong>
-          <p>Give sales, operations, and technical teams a consistent view of active quote work and proposal progress.</p>
-        </div>
-      </div>
-    </section>
-  );
+  return <section className="auth-marketing-panel" aria-hidden="true" />;
 }
 
 export function AuthHelpLinks() {
