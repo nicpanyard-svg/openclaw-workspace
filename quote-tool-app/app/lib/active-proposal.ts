@@ -8,6 +8,7 @@ import {
   getDefaultProposalStore,
   mockUsers,
   serializeProposalStore,
+  statusToStageLabel,
   upsertProposal,
   type SavedProposalRecord,
 } from "@/app/lib/proposal-store";
@@ -54,9 +55,7 @@ export function resolveActiveProposalQuote(): {
 
   const quote = activeProposal?.quote ?? savedQuote ?? sampleQuoteRecord;
 
-  if (activeProposal?.quote) {
-    window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(activeProposal.quote));
-  }
+  window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(quote));
 
   return {
     quote,
@@ -78,11 +77,13 @@ export function persistPreviewQuote(quote: QuoteRecord) {
   const activeProposal = getActiveProposal(savedStore, activeId);
   if (!activeProposal) return;
 
+  const nextUpdatedAt = quote.metadata.lastTouchedAt ?? activeProposal.updatedAt;
   const updatedProposal: SavedProposalRecord = {
     ...activeProposal,
     quote,
-    updatedAt: quote.metadata.lastTouchedAt ?? activeProposal.updatedAt,
+    updatedAt: nextUpdatedAt,
     status: quote.metadata.status,
+    stageLabel: statusToStageLabel(quote.metadata.status),
   };
 
   const nextStore = upsertProposal(savedStore, updatedProposal);
