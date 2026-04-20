@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ProductLogo } from "@/app/components/product-logo";
-import { canSelfServeSignUp } from "@/app/lib/auth";
+import { canSelfServeSignUp, getUserByEmail } from "@/app/lib/auth";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const eligible = canSelfServeSignUp(email);
+  const knownUser = getUserByEmail(email);
 
   return (
     <main className="auth-shell auth-shell-simple">
@@ -25,7 +26,8 @@ export default function ForgotPasswordPage() {
         <div className="workspace-eyebrow">Password recovery</div>
         <h1 className="auth-form-title">Reset your RapidQuote password</h1>
         <p className="auth-form-copy">
-          Start the internal password recovery flow here. This keeps the visible app experience complete without changing the broader authentication implementation in this pass.
+          Start the internal recovery flow here. This screen now sets expectations for the real backend handoff: confirm the account, explain the next step,
+          and prepare for token-based delivery without promising email behavior that is not wired yet.
         </p>
 
         <form
@@ -40,7 +42,7 @@ export default function ForgotPasswordPage() {
             <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required autoComplete="email" />
           </label>
 
-          <button type="submit" className="workspace-primary-button auth-submit-button">Send reset link</button>
+          <button type="submit" className="workspace-primary-button auth-submit-button">Continue</button>
         </form>
 
         <div className="auth-inline-support-row">
@@ -57,13 +59,15 @@ export default function ForgotPasswordPage() {
         {submitted ? (
           <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
             {eligible
-              ? `Reset instructions prepared for ${email}. For this stage, continue to the simulated reset page and wire in real email delivery next.`
+              ? knownUser
+                ? `Recovery request prepared for ${email}. The user exists, so the next backend step is token delivery, audit logging, and session invalidation.`
+                : `Recovery request prepared for ${email}. The UI is ready for the backend to verify identity before sending reset instructions.`
               : `RapidQuote by iNet recovery is limited to internal iNet accounts. Use an @inetlte.com address.`}
           </div>
         ) : null}
 
         <div className="auth-help-links">
-          <Link href={`/reset-password${email ? `?email=${encodeURIComponent(email)}` : ""}`}>Continue to reset form</Link>
+          <Link href={`/reset-password${email ? `?email=${encodeURIComponent(email)}` : ""}`}>Open reset form</Link>
           <Link href="/login">Back to sign in</Link>
         </div>
       </div>

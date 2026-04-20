@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { ProductLogo } from "@/app/components/product-logo";
+import { getUserByEmail } from "@/app/lib/auth";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -10,12 +12,13 @@ function ResetPasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const email = searchParams.get("email") || "";
+  const knownUser = email ? getUserByEmail(email) : null;
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!password || password.length < 10) {
-      setMessage("Use at least 10 characters so the future real reset flow starts with stronger password policy.");
+      setMessage("Use at least 10 characters to meet the staged minimum while the production password policy is finalized.");
       return;
     }
 
@@ -24,18 +27,31 @@ function ResetPasswordForm() {
       return;
     }
 
-    setMessage("Password reset accepted for this stage for RapidQuote by iNet. Next production step is wiring this to a real identity provider or email-token workflow.");
+    setMessage(
+      knownUser
+        ? "Password update accepted on the product surface. The backend still needs to persist the new credential, validate the reset token, and invalidate older sessions."
+        : "Password reset surface is ready, but the backend still needs to validate reset tokens, user identity, and password policy before this can go live.",
+    );
   };
 
   return (
     <div className="auth-simple-card">
+      <div className="auth-brand-header auth-brand-header-compact">
+        <div className="workspace-brand-mark auth-brand-mark auth-simple-brand-mark">
+          <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
+        </div>
+        <div className="brand-signature-stack">
+          <span className="brand-signature-pill">by iNet</span>
+          <div className="brand-trust-note">Internal credential reset</div>
+        </div>
+      </div>
       <div className="workspace-eyebrow">Reset confirmation</div>
       <h1 className="auth-form-title">Choose a new password</h1>
-      <div className="brand-signature-stack auth-inline-brand-note">
-        <span className="brand-signature-pill">by iNet</span>
-        <div className="brand-trust-note">Internal credential reset</div>
-      </div>
-      <p className="auth-form-copy">{email ? `Resetting RapidQuote by iNet access for ${email}.` : "Use this stage page to complete the RapidQuote by iNet reset flow."}</p>
+      <p className="auth-form-copy">
+        {email
+          ? `Resetting RapidQuote access for ${email}.`
+          : "Use this stage page to complete the RapidQuote reset flow once the backend issues a valid reset link."}
+      </p>
 
       <div className="auth-inline-support-row auth-inline-support-row-tight">
         <div className="auth-inline-support-item">
@@ -44,7 +60,7 @@ function ResetPasswordForm() {
         </div>
         <div className="auth-inline-support-item">
           <span>Account scope</span>
-          <strong>Internal workspace</strong>
+          <strong>{knownUser ? "Known internal account" : "Pending backend validation"}</strong>
         </div>
       </div>
 

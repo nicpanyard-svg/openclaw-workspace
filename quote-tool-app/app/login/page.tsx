@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { AuthHelpLinks, useAuth } from "@/app/components/auth-shell";
+import { AuthHelpLinks, AuthMarketingPanel, AuthSignInStatusCard, useAuth } from "@/app/components/auth-shell";
 import { ProductLogo } from "@/app/components/product-logo";
 
 function LoginForm() {
@@ -16,7 +16,10 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const nextRoute = searchParams.get("next") || "/";
+  const nextParam = searchParams.get("next");
+  const nextRoute = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") && !["/login", "/signup", "/forgot-password", "/reset-password"].includes(nextParam)
+    ? nextParam
+    : "/";
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -43,8 +46,13 @@ function LoginForm() {
           </div>
         </div>
         <h2 className="auth-form-title">Sign in to RapidQuote</h2>
-        <p className="auth-form-copy">Sign in to access RapidQuote and continue working on quotes, proposals, and customer-ready documents.</p>
+        <p className="auth-form-copy">
+          Use your approved internal account to get back into the proposal workspace, pick up where your last quote left off, and keep approvals, access,
+          and output in one steady flow.
+        </p>
       </div>
+
+      <AuthSignInStatusCard />
 
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="auth-field">
@@ -67,7 +75,7 @@ function LoginForm() {
       <AuthHelpLinks />
 
       <div className="auth-footer-note">
-        Need access? <Link href="/signup">Request an account</Link>. Need to reset your password? <Link href="/forgot-password">Reset it here</Link>.
+        Need access? <Link href="/signup">Request access</Link>. Need to reset your password? <Link href="/forgot-password">Reset it here</Link>.
       </div>
     </section>
   );
@@ -75,10 +83,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="auth-shell auth-shell-simple">
-      <Suspense fallback={<section className="auth-form-panel auth-form-panel-single">Loading sign-in…</section>}>
-        <LoginForm />
-      </Suspense>
+    <main className="auth-shell">
+      <div className="auth-layout">
+        <AuthMarketingPanel />
+        <Suspense fallback={<section className="auth-form-panel auth-form-panel-single">Loading sign-in…</section>}>
+          <LoginForm />
+        </Suspense>
+      </div>
     </main>
   );
 }
