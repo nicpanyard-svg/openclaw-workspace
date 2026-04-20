@@ -304,7 +304,6 @@ export function ProposalWorkspace() {
             </div>
           </div>
           <div className="workspace-actions workspace-dashboard-actions">
-            <Link href="/access" className="workspace-secondary-button">Access queue</Link>
             <Link href="/signup" className="workspace-secondary-button">Request access</Link>
             <Link href="/new" className="workspace-primary-button">+ New Proposal</Link>
           </div>
@@ -331,10 +330,8 @@ export function ProposalWorkspace() {
         </section>
 
         <section className="workspace-stat-grid">
-          <StatFilterCard label="All proposals" value={stats.total} note="Show every saved proposal" active={ownerFilter === "all" && statusFilter === "all"} onClick={() => { setOwnerFilter("all"); setStatusFilter("all"); }} />
-          <StatFilterCard label="Assigned to me" value={stats.mine} note="Show only proposals in your lane" active={ownerFilter === "mine" && statusFilter === "all"} onClick={() => { setOwnerFilter("mine"); setStatusFilter("all"); }} />
-          <StatFilterCard label="Active work" value={stats.active} note={<>Show draft, in review, and<br />sent proposals</>} active={ownerFilter === "all" && statusFilter === "active"} onClick={() => { setOwnerFilter("all"); setStatusFilter("active"); }} />
-          <StatFilterCard label="Sent out" value={stats.sent} note="Show proposals waiting on review" active={ownerFilter === "all" && statusFilter === "sent"} onClick={() => { setOwnerFilter("all"); setStatusFilter("sent"); }} />
+          <StatFilterCard label="All Proposals" value={stats.total} note="Show every saved proposal" active={ownerFilter === "all" && statusFilter === "all"} onClick={() => { setOwnerFilter("all"); setStatusFilter("all"); }} />
+          <StatFilterCard label="My Proposals" value={stats.mine} note="Show only proposals in your lane" active={ownerFilter === "mine" && statusFilter === "all"} onClick={() => { setOwnerFilter("mine"); setStatusFilter("all"); }} />
         </section>
 
         <section className="workspace-panel workspace-dashboard-panel">
