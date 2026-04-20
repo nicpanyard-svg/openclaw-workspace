@@ -175,6 +175,9 @@ export function buildProposalWordHtml(quote: QuoteRecord) {
       .doc { max-width: 7.3in; margin: 0 auto; }
       .hero, .section, .summary-card, .terms-card, .approval-card { border: 1px solid #dbe2e9; padding: 18px; margin-bottom: 16px; }
       .hero { background: #f8fafc; }
+      .customer-brand { margin-bottom: 12px; }
+      .customer-brand img { max-width: 180px; max-height: 72px; height: auto; width: auto; }
+      .customer-brand-fallback { display: inline-block; padding: 10px 14px; border: 1px solid #dbe2e9; background: #ffffff; font-weight: 700; color: #18222c; }
       .eyebrow { text-transform: uppercase; letter-spacing: 0.15em; font-size: 8.5pt; color: #7a042e; font-weight: 700; margin-bottom: 8px; }
       .hero-grid, .party-grid, .metric-grid, .snapshot-grid, .approval-grid { width: 100%; border-collapse: collapse; }
       .party-grid td, .metric-grid td, .snapshot-grid td, .approval-grid td { vertical-align: top; width: 50%; padding: 0 12px 12px 0; }
@@ -209,6 +212,9 @@ export function buildProposalWordHtml(quote: QuoteRecord) {
           <tr>
             <td>
               <div class="label">Prepared for</div>
+              ${quote.customer.logoDataUrl
+                ? `<div class="customer-brand"><img src="${escapeHtml(quote.customer.logoDataUrl)}" alt="${escapeHtml(quote.customer.name)} logo" /></div>`
+                : `<div class="customer-brand"><div class="customer-brand-fallback">${escapeHtml(quote.customer.logoText || quote.customer.name)}</div></div>`}
               <p><strong>${escapeHtml(quote.customer.name)}</strong></p>
               <p>${escapeHtml(quote.customer.contactName)}</p>
               <p>${escapeHtml(quote.customer.contactPhone)}</p>
@@ -248,6 +254,7 @@ export function buildProposalWordHtml(quote: QuoteRecord) {
               <div class="label">Date</div>
               <p><strong>${escapeHtml(quote.documentation.proposalDateLabel)}</strong></p>
               <p class="muted">Budgetary Estimate</p>
+              <p class="subtle">Revision ${escapeHtml(quote.metadata.revisionVersion)}</p>
             </td>
           </tr>
           <tr>
@@ -338,6 +345,7 @@ export function buildProposalWordHtml(quote: QuoteRecord) {
           <div class="label">${escapeHtml(quote.approval.heading)}</div>
           <h3>Authorization to proceed</h3>
           <p class="section-copy">By signing below, the customer confirms review and acceptance of the pricing and scope described in this proposal, subject to any mutually agreed revisions or final contract documents.</p>
+          ${quote.approval.approvalNote ? `<p class="section-copy">${escapeHtml(quote.approval.approvalNote)}</p>` : ""}
           <table class="approval-grid">
             <tr>
               <td>${wrapInline("Scope")}<p><strong>Reviewed and accepted</strong></p></td>

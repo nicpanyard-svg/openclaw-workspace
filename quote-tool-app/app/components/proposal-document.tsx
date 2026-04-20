@@ -164,6 +164,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           <div className="proposal-date-card">
             <div className="proposal-date-label">Prepared</div>
             <div>{quote.metadata.proposalDate}</div>
+            <div className="proposal-cell-note">Revision {quote.metadata.revisionVersion}</div>
           </div>
         </div>
 
@@ -558,6 +559,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             Please sign below to indicate acceptance of this proposal and authorization for iNet to proceed with order
             processing based on the approved scope.
           </p>
+          {quote.approval.approvalNote ? <p>{quote.approval.approvalNote}</p> : null}
         </div>
 
         <div className="approval-block sample-approval-block print-keep-block">
