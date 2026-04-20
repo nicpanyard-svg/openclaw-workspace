@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { AuthHelpLinks, AuthMarketingPanel, useAuth } from "@/app/components/auth-shell";
+import { AuthDemoCredentialsCard, AuthHelpLinks, AuthMarketingPanel, useAuth } from "@/app/components/auth-shell";
 
 function LoginForm() {
   const router = useRouter();
@@ -16,6 +16,7 @@ function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const nextRoute = searchParams.get("next") || "/";
+  const showReturnNotice = nextRoute !== "/";
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -44,20 +45,27 @@ function LoginForm() {
             <div className="brand-trust-note">Internal product access</div>
           </div>
         </div>
+        {showReturnNotice ? (
+          <div className="auth-inline-message auth-inline-message-info">
+            Sign in to continue to <strong>{nextRoute}</strong>.
+          </div>
+        ) : null}
         <div className="workspace-eyebrow">Secure access</div>
         <h2 className="auth-form-title">Sign in to RapidQuote</h2>
         <p className="auth-form-copy">Sign in to access RapidQuote by iNet and continue working on quotes, proposals, and customer-ready documents.</p>
       </div>
 
+      <AuthDemoCredentialsCard />
+
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="auth-field">
           <span>Work email</span>
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required />
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required autoComplete="email" />
         </label>
 
         <label className="auth-field">
           <span>Password</span>
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required />
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required autoComplete="current-password" />
         </label>
 
         {error ? <div className="auth-inline-message auth-inline-message-warn">{error}</div> : null}
@@ -66,6 +74,17 @@ function LoginForm() {
           {isSubmitting ? "Signing in…" : "Sign in"}
         </button>
       </form>
+
+      <div className="auth-inline-support-row">
+        <div className="auth-inline-support-item">
+          <span>Session window</span>
+          <strong>8 hours</strong>
+        </div>
+        <div className="auth-inline-support-item">
+          <span>Access scope</span>
+          <strong>Internal workspace only</strong>
+        </div>
+      </div>
 
       <AuthHelpLinks />
 

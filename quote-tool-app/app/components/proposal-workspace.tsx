@@ -215,6 +215,8 @@ export function ProposalWorkspace() {
             summary.proposalNumber,
             summary.ownerName,
             proposal.stageLabel,
+            proposal.owner.team ?? "",
+            proposal.workspace.accountSegment,
             nextStep,
           ].some((value) => value.toLowerCase().includes(normalizedSearch));
 
@@ -269,6 +271,9 @@ export function ProposalWorkspace() {
   const currentOwner = store?.currentUser;
   const myOpenCount = store ? store.proposals.filter((proposal) => proposal.owner.id === store.currentUser.id && ["draft", "open", "negotiating"].includes(proposal.status)).length : 0;
   const searchHasResults = proposals.length > 0;
+  const activeFilterCount = [ownerFilter !== "mine", statusFilter !== "all", searchQuery.trim().length > 0].filter(Boolean).length;
+  const visibleTotalMonthly = proposals.reduce((sum, entry) => sum + entry.summary.totalMonthly, 0);
+  const visibleEquipmentTotal = proposals.reduce((sum, entry) => sum + entry.summary.equipmentTotal, 0);
 
   const setActiveProposal = (proposalId: string) => {
     if (typeof window !== "undefined") {
@@ -341,7 +346,7 @@ export function ProposalWorkspace() {
               <div className="workspace-eyebrow">Dashboard</div>
               <h2 className="workspace-section-title">Proposal launchpad</h2>
               <p className="workspace-panel-copy">
-                Search by customer, title, or proposal number. Then use the sections below to focus on what needs a push, what should be watched, and what is already done.
+                Search by customer, title, owner, next step, or proposal number. Then use the sections below to focus on what needs a push, what should be watched, and what is already done.
               </p>
             </div>
             <div className="workspace-filter-stack">
@@ -351,8 +356,8 @@ export function ProposalWorkspace() {
                   type="search"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Customer, title, or proposal #"
-                  aria-label="Search proposals by customer, title, or proposal number"
+                  placeholder="Customer, title, owner, next step, or proposal #"
+                  aria-label="Search proposals by customer, title, owner, next step, or proposal number"
                 />
               </label>
               <div className="workspace-filter-row">
@@ -380,6 +385,17 @@ export function ProposalWorkspace() {
             </div>
           </div>
 
+          <div className="workspace-results-summary" aria-live="polite">
+            <div className="workspace-results-summary-copy">
+              <strong>{proposals.length}</strong> proposal{proposals.length === 1 ? "" : "s"} showing
+              {activeFilterCount ? <span> • {activeFilterCount} active filter{activeFilterCount === 1 ? "" : "s"}</span> : <span> • default dashboard view</span>}
+            </div>
+            <div className="workspace-results-summary-metrics">
+              <span><strong>{formatCurrency(visibleTotalMonthly)}</strong> MRR in view</span>
+              <span><strong>{formatCurrency(visibleEquipmentTotal)}</strong> one-time in view</span>
+            </div>
+          </div>
+
           <div className="workspace-section-stack">
             <DashboardGroup
               title="What needs attention next"
@@ -388,6 +404,7 @@ export function ProposalWorkspace() {
               proposals={groupedProposals.next}
               activeProposalId={activeProposal?.id ?? null}
               setActiveProposal={setActiveProposal}
+              tone="next"
             />
             <DashboardGroup
               title="Keep moving"
@@ -396,6 +413,7 @@ export function ProposalWorkspace() {
               proposals={groupedProposals.watch}
               activeProposalId={activeProposal?.id ?? null}
               setActiveProposal={setActiveProposal}
+              tone="watch"
             />
             <DashboardGroup
               title="Approved or closed"
@@ -404,13 +422,14 @@ export function ProposalWorkspace() {
               proposals={groupedProposals.done}
               activeProposalId={activeProposal?.id ?? null}
               setActiveProposal={setActiveProposal}
+              tone="done"
             />
           </div>
 
           {!searchHasResults ? (
             <div className="workspace-search-empty">
               <strong>No proposals matched that search.</strong>
-              <p>Try a customer name, proposal title, proposal number, or loosen the filters.</p>
+              <p>Try a customer name, proposal title, owner name, next step phrase, proposal number, or loosen the filters.</p>
             </div>
           ) : null}
         </section>
@@ -426,6 +445,7 @@ function DashboardGroup({
   proposals,
   activeProposalId,
   setActiveProposal,
+  tone,
 }: {
   title: string;
   subtitle: string;
@@ -438,6 +458,7 @@ function DashboardGroup({
   }>;
   activeProposalId: string | null;
   setActiveProposal: (proposalId: string) => void;
+  tone: "next" | "watch" | "done";
 }) {
   return (
     <section className="workspace-dashboard-group">
@@ -446,7 +467,7 @@ function DashboardGroup({
           <h3 className="workspace-dashboard-group-title">{title}</h3>
           <p className="workspace-dashboard-group-copy">{subtitle}</p>
         </div>
-        <span className="workspace-dashboard-group-count">{proposals.length}</span>
+        <span className={`workspace-dashboard-group-count workspace-dashboard-group-count-${tone}`}>{proposals.length}</span>
       </div>
 
       {proposals.length ? (
@@ -477,6 +498,7 @@ function DashboardGroup({
                     <div className="proposal-list-meta-row">
                       <p className="proposal-list-subtitle">Owner {summary.ownerName}</p>
                       <span className="proposal-owner-chip">{proposal.owner.team ?? "Team"}</span>
+                      <span className="proposal-segment-chip">{proposal.workspace.accountSegment}</span>
                     </div>
                   </div>
                 </div>
@@ -509,6 +531,9 @@ function DashboardGroup({
                     <div className="proposal-list-note-label">Team context</div>
                     <div className="proposal-list-note">
                       Created {formatDate(proposal.createdAt)} • Last touch {formatDateTime(proposal.updatedAt)}
+                    </div>
+                    <div className="proposal-list-note proposal-list-note-secondary">
+                      Stage {proposal.stageLabel || statusToStageLabel(proposal.status)} • Segment {proposal.workspace.accountSegment}
                     </div>
                   </div>
                   <div className="proposal-list-actions proposal-list-actions-priority">

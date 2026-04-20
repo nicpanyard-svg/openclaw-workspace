@@ -27,8 +27,7 @@ export default function SignupPage() {
         <div className="workspace-eyebrow">Access management</div>
         <h1 className="auth-form-title">Request RapidQuote access</h1>
         <p className="auth-form-copy">
-          This is the first real step toward multi-user RapidQuote by iNet. Internal iNet teammates can request access here, and the
-          product should eventually route this into admin approval, SSO, and role-based provisioning.
+          Request access for the internal RapidQuote workspace. This keeps the visible product flow believable today while leaving broader approval, SSO, and provisioning work for a later pass.
         </p>
 
         <div className="auth-roadmap-card">
@@ -49,7 +48,7 @@ export default function SignupPage() {
         >
           <label className="auth-field">
             <span>Work email</span>
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required />
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required autoComplete="email" />
           </label>
 
           <SignupEligibilityMessage email={email} />
@@ -59,10 +58,21 @@ export default function SignupPage() {
           </button>
         </form>
 
+        <div className="auth-inline-support-row">
+          <div className="auth-inline-support-item">
+            <span>Who can request</span>
+            <strong>iNet teammates</strong>
+          </div>
+          <div className="auth-inline-support-item">
+            <span>What happens next</span>
+            <strong>Admin review queue</strong>
+          </div>
+        </div>
+
         {submitted ? (
           <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
             {eligible
-              ? `Access request captured for ${email}. Next step should be admin approval + account provisioning, not a fake instant signup.`
+              ? `Access request captured for ${email}. Next step is admin approval and account setup.`
               : `RapidQuote by iNet is internal-only today. ${email} is outside the current onboarding rule.`}
           </div>
         ) : null}

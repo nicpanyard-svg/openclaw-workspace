@@ -37,19 +37,30 @@ function ResetPasswordForm() {
       </div>
       <p className="auth-form-copy">{email ? `Resetting RapidQuote by iNet access for ${email}.` : "Use this stage page to complete the RapidQuote by iNet reset flow."}</p>
 
+      <div className="auth-inline-support-row auth-inline-support-row-tight">
+        <div className="auth-inline-support-item">
+          <span>Password rule</span>
+          <strong>10+ characters</strong>
+        </div>
+        <div className="auth-inline-support-item">
+          <span>Account scope</span>
+          <strong>Internal workspace</strong>
+        </div>
+      </div>
+
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="auth-field">
           <span>New password</span>
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="new-password" />
         </label>
         <label className="auth-field">
           <span>Confirm password</span>
-          <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required />
+          <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required autoComplete="new-password" />
         </label>
         <button type="submit" className="workspace-primary-button auth-submit-button">Save new password</button>
       </form>
 
-      {message ? <div className="auth-inline-message auth-inline-message-success">{message}</div> : null}
+      {message ? <div className={`auth-inline-message ${message === "Passwords must match." || message.startsWith("Use at least 10 characters") ? "auth-inline-message-warn" : "auth-inline-message-success"}`}>{message}</div> : null}
 
       <div className="auth-help-links">
         <Link href="/login">Back to sign in</Link>

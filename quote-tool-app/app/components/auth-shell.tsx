@@ -200,9 +200,34 @@ export function AuthMarketingPanel() {
 
 export function AuthHelpLinks() {
   return (
-    <div className="auth-help-links">
+    <div className="auth-help-links" role="navigation" aria-label="Authentication help links">
       <Link href="/forgot-password">Forgot password</Link>
       <Link href="/signup">Request access</Link>
+    </div>
+  );
+}
+
+export function AuthDemoCredentialsCard() {
+  return (
+    <div className="auth-demo-card" aria-label="Demo sign in help">
+      <div className="auth-demo-card-header">
+        <div>
+          <div className="auth-demo-card-label">Quick access</div>
+          <strong>Use the seeded internal demo account</strong>
+        </div>
+        <span className="auth-demo-card-pill">Internal demo</span>
+      </div>
+      <div className="auth-demo-credentials-grid">
+        <div className="auth-demo-credential-item">
+          <span>Email</span>
+          <code>nick.panyard@inetlte.com</code>
+        </div>
+        <div className="auth-demo-credential-item">
+          <span>Password</span>
+          <code>RapidQuote!23</code>
+        </div>
+      </div>
+      <p className="auth-demo-hint">This is a visible product demo path only. It does not change the broader auth model.</p>
     </div>
   );
 }

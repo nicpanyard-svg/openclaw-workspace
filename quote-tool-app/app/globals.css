@@ -369,10 +369,105 @@ body {
   color: #1d6a3d;
 }
 
+.auth-inline-message-info {
+  background: #eef4ff;
+  border: 1px solid #cddcf6;
+  color: #29558f;
+}
+
 .auth-inline-message-warn {
   background: #fff7f0;
   border: 1px solid #f2d2bb;
   color: #8b4d19;
+}
+
+.auth-demo-card {
+  margin-bottom: 18px;
+  border-radius: 22px;
+  border: 1px solid #ead1d1;
+  background: linear-gradient(180deg, #fffafa 0%, #fff4f4 100%);
+  padding: 18px;
+}
+
+.auth-demo-card-header,
+.auth-inline-support-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.auth-demo-card-label,
+.auth-demo-credential-item span,
+.auth-inline-support-item span {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7d8996;
+}
+
+.auth-demo-card-header strong,
+.auth-inline-support-item strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 16px;
+  line-height: 1.25;
+  color: #18212b;
+}
+
+.auth-demo-card-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #f0caca;
+  background: white;
+  color: #8f0000;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.auth-demo-credentials-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.auth-demo-credential-item,
+.auth-inline-support-item {
+  border-radius: 18px;
+  border: 1px solid #e3e8ee;
+  background: white;
+  padding: 14px 15px;
+}
+
+.auth-demo-credential-item code {
+  display: block;
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2a35;
+  word-break: break-word;
+}
+
+.auth-inline-support-row {
+  margin-top: 18px;
+}
+
+.auth-inline-support-row-tight {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.auth-inline-support-item {
+  flex: 1 1 220px;
 }
 
 .auth-shell-simple {
@@ -840,6 +935,51 @@ body {
   font-weight: 800;
 }
 
+.workspace-dashboard-group-count-next {
+  border-color: #f0caca;
+  background: #fff3f3;
+  color: #981818;
+}
+
+.workspace-dashboard-group-count-watch {
+  border-color: #f1ddb7;
+  background: #fff8ea;
+  color: #9a5b00;
+}
+
+.workspace-dashboard-group-count-done {
+  border-color: #d7e0ea;
+  background: #f3f7fb;
+  color: #43607f;
+}
+
+.workspace-results-summary {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  border-radius: 20px;
+  border: 1px solid #e1e7ed;
+  background: #fbfcfe;
+  padding: 14px 16px;
+}
+
+.workspace-results-summary-copy,
+.workspace-results-summary-metrics {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  color: #586574;
+  font-size: 14px;
+}
+
+.workspace-results-summary strong {
+  color: #16202b;
+}
+
 .workspace-group-empty,
 .workspace-search-empty {
   border-radius: 22px;
@@ -946,6 +1086,10 @@ body {
   color: #60707f;
 }
 
+.proposal-list-note-secondary {
+  color: #74818d;
+}
+
 .proposal-list-selected-pill {
   display: inline-flex;
   align-items: center;
@@ -975,7 +1119,8 @@ body {
 }
 
 .proposal-owner-chip,
-.workspace-user-chip {
+.workspace-user-chip,
+.proposal-segment-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -989,6 +1134,11 @@ body {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.proposal-segment-chip {
+  background: #ffffff;
+  color: #5c6975;
 }
 
 .proposal-list-title-block {
@@ -1257,7 +1407,10 @@ body {
 
   .workspace-dashboard-topbar,
   .workspace-dashboard-group-head,
-  .workspace-hero {
+  .workspace-hero,
+  .workspace-results-summary,
+  .auth-demo-card-header,
+  .auth-inline-support-row {
     align-items: flex-start;
   }
 
@@ -2436,7 +2589,8 @@ body {
 
 @media (max-width: 860px) {
   .auth-layout,
-  .auth-marketing-grid {
+  .auth-marketing-grid,
+  .auth-demo-credentials-grid {
     grid-template-columns: 1fr;
   }
 

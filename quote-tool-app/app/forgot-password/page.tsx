@@ -25,7 +25,7 @@ export default function ForgotPasswordPage() {
         <div className="workspace-eyebrow">Password recovery</div>
         <h1 className="auth-form-title">Reset your RapidQuote password</h1>
         <p className="auth-form-copy">
-          This gives the app a believable recovery path now for RapidQuote by iNet. Next production step should swap this page over to directory-backed email reset or SSO recovery.
+          Start the internal password recovery flow here. This keeps the visible app experience complete without changing the broader authentication implementation in this pass.
         </p>
 
         <form
@@ -37,11 +37,22 @@ export default function ForgotPasswordPage() {
         >
           <label className="auth-field">
             <span>Work email</span>
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required />
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required autoComplete="email" />
           </label>
 
           <button type="submit" className="workspace-primary-button auth-submit-button">Send reset link</button>
         </form>
+
+        <div className="auth-inline-support-row">
+          <div className="auth-inline-support-item">
+            <span>Eligible accounts</span>
+            <strong>@inetlte.com only</strong>
+          </div>
+          <div className="auth-inline-support-item">
+            <span>Reset path</span>
+            <strong>Internal guided flow</strong>
+          </div>
+        </div>
 
         {submitted ? (
           <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
