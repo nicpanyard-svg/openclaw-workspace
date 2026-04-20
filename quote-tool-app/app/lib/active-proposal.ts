@@ -65,10 +65,25 @@ export function resolveActiveProposalQuote(): {
   };
 }
 
-export function persistPreviewQuote(quote: QuoteRecord) {
+export function persistPreviewQuote(quote: QuoteRecord, options?: { markAsSent?: boolean }) {
   if (typeof window === "undefined") return;
 
-  window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(quote));
+  const nextStatus = options?.markAsSent ? "sent" : quote.metadata.status;
+  const nextTouchedAt = new Date().toISOString();
+  const nextQuote: QuoteRecord = {
+    ...quote,
+    metadata: {
+      ...quote.metadata,
+      status: nextStatus,
+      lastTouchedAt: nextTouchedAt,
+    },
+    internal: {
+      ...quote.internal,
+      quoteStatus: nextStatus,
+    },
+  };
+
+  window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(nextQuote));
 
   const activeId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
   const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
@@ -77,13 +92,12 @@ export function persistPreviewQuote(quote: QuoteRecord) {
   const activeProposal = getActiveProposal(savedStore, activeId);
   if (!activeProposal) return;
 
-  const nextUpdatedAt = quote.metadata.lastTouchedAt ?? activeProposal.updatedAt;
   const updatedProposal: SavedProposalRecord = {
     ...activeProposal,
-    quote,
-    updatedAt: nextUpdatedAt,
-    status: quote.metadata.status,
-    stageLabel: statusToStageLabel(quote.metadata.status),
+    quote: nextQuote,
+    updatedAt: nextTouchedAt,
+    status: nextStatus,
+    stageLabel: statusToStageLabel(nextStatus),
   };
 
   const nextStore = upsertProposal(savedStore, updatedProposal);

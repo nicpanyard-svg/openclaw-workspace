@@ -1,7 +1,7 @@
 import type { QuoteIntegrationState } from "@/app/lib/crm";
 
 export type CurrencyCode = "USD" | "CAD" | "EUR" | string;
-export type QuoteStatus = "draft" | "sent" | "open" | "negotiating" | "approved" | "closed";
+export type QuoteStatus = "draft" | "in_review" | "sent";
 export type SectionAMode = "pool" | "per_kit";
 export type QuoteType = "purchase" | "lease";
 

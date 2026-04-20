@@ -20,7 +20,21 @@ function ProposalPage() {
   }, []);
 
   const handlePrintPdf = () => {
-    persistPreviewQuote(quote);
+    const nextQuote: QuoteRecord = {
+      ...quote,
+      metadata: {
+        ...quote.metadata,
+        status: "sent",
+        lastTouchedAt: new Date().toISOString(),
+      },
+      internal: {
+        ...quote.internal,
+        quoteStatus: "sent",
+      },
+    };
+
+    setQuote(nextQuote);
+    persistPreviewQuote(nextQuote, { markAsSent: true });
 
     const opened = window.open("/proposal/print", "_blank");
 
@@ -37,13 +51,27 @@ function ProposalPage() {
   };
 
   const handleExportWord = () => {
-    persistPreviewQuote(quote);
+    const nextQuote: QuoteRecord = {
+      ...quote,
+      metadata: {
+        ...quote.metadata,
+        status: "sent",
+        lastTouchedAt: new Date().toISOString(),
+      },
+      internal: {
+        ...quote.internal,
+        quoteStatus: "sent",
+      },
+    };
 
-    const html = buildProposalWordHtml(quote);
+    setQuote(nextQuote);
+    persistPreviewQuote(nextQuote, { markAsSent: true });
+
+    const html = buildProposalWordHtml(nextQuote);
     const blob = new Blob([html], { type: "application/msword;charset=utf-8" });
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    const safeProposalNumber = quote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
+    const safeProposalNumber = nextQuote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
 
     link.href = objectUrl;
     link.download = `${safeProposalNumber}.doc`;

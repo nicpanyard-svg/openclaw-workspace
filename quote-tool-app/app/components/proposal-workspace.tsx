@@ -48,15 +48,10 @@ function formatRelativeTime(value: string) {
 
 function statusTone(status: SavedProposalRecord["status"]) {
   switch (status) {
-    case "approved":
-      return "workspace-badge workspace-badge-success";
-    case "negotiating":
+    case "in_review":
       return "workspace-badge workspace-badge-warn";
     case "sent":
-    case "open":
       return "workspace-badge workspace-badge-info";
-    case "closed":
-      return "workspace-badge workspace-badge-muted";
     default:
       return "workspace-badge";
   }
@@ -64,15 +59,10 @@ function statusTone(status: SavedProposalRecord["status"]) {
 
 function statusAccentClass(status: SavedProposalRecord["status"]) {
   switch (status) {
-    case "approved":
-      return "proposal-state-accent proposal-state-accent-success";
-    case "negotiating":
+    case "in_review":
       return "proposal-state-accent proposal-state-accent-warn";
     case "sent":
-    case "open":
       return "proposal-state-accent proposal-state-accent-info";
-    case "closed":
-      return "proposal-state-accent proposal-state-accent-muted";
     default:
       return "proposal-state-accent";
   }
@@ -81,26 +71,19 @@ function statusAccentClass(status: SavedProposalRecord["status"]) {
 function getNextStepLabel(proposal: SavedProposalRecord) {
   switch (proposal.status) {
     case "draft":
-      return "Finish pricing and prep customer review";
+      return "Finish pricing and move it into review";
+    case "in_review":
+      return "Resolve review notes and prep customer send";
     case "sent":
-      return "Follow up on customer review";
-    case "open":
-      return "Tighten scope and confirm feedback";
-    case "negotiating":
-      return "Work commercial terms and approvals";
-    case "approved":
-      return "Move into closeout and handoff";
-    case "closed":
-      return "Reference for renewals or reuse";
+      return "Follow up with the customer or manage the opportunity in Salesforce";
     default:
       return "Keep proposal moving";
   }
 }
 
 function getPriorityBucket(proposal: SavedProposalRecord) {
-  if (proposal.status === "negotiating" || proposal.status === "open") return "next";
-  if (proposal.status === "sent" || proposal.status === "draft") return "watch";
-  return "done";
+  if (proposal.status === "in_review") return "next";
+  return "watch";
 }
 
 function StatFilterCard({
@@ -204,7 +187,7 @@ export function ProposalWorkspace() {
       const statusMatch = statusFilter === "all"
         ? true
         : statusFilter === "active"
-          ? ["draft", "open", "negotiating"].includes(proposal.status)
+          ? ["draft", "in_review", "sent"].includes(proposal.status)
           : proposal.status === statusFilter;
 
       const searchMatch = !normalizedSearch
@@ -227,7 +210,6 @@ export function ProposalWorkspace() {
   const groupedProposals = useMemo(() => ({
     next: proposals.filter((entry) => entry.priorityBucket === "next"),
     watch: proposals.filter((entry) => entry.priorityBucket === "watch"),
-    done: proposals.filter((entry) => entry.priorityBucket === "done"),
   }), [proposals]);
 
   const stats = useMemo(() => {
@@ -236,7 +218,7 @@ export function ProposalWorkspace() {
     return {
       total: store.proposals.length,
       mine: store.proposals.filter((proposal) => proposal.owner.id === store.currentUser.id).length,
-      active: store.proposals.filter((proposal) => ["draft", "open", "negotiating"].includes(proposal.status)).length,
+      active: store.proposals.filter((proposal) => ["draft", "in_review", "sent"].includes(proposal.status)).length,
       sent: store.proposals.filter((proposal) => proposal.status === "sent").length,
     };
   }, [store]);
@@ -247,7 +229,7 @@ export function ProposalWorkspace() {
         teamCount: 0,
         activeOwners: 0,
         nextUp: 0,
-        approvals: 0,
+        sent: 0,
       };
     }
 
@@ -255,11 +237,11 @@ export function ProposalWorkspace() {
       teamCount: store.users.length,
       activeOwners: new Set(
         store.proposals
-          .filter((proposal) => ["draft", "open", "negotiating", "sent"].includes(proposal.status))
+          .filter((proposal) => ["draft", "in_review", "sent"].includes(proposal.status))
           .map((proposal) => proposal.owner.id),
       ).size,
-      nextUp: store.proposals.filter((proposal) => ["open", "negotiating"].includes(proposal.status)).length,
-      approvals: store.proposals.filter((proposal) => proposal.status === "approved").length,
+      nextUp: store.proposals.filter((proposal) => proposal.status === "in_review").length,
+      sent: store.proposals.filter((proposal) => proposal.status === "sent").length,
     };
   }, [store]);
 
@@ -269,7 +251,7 @@ export function ProposalWorkspace() {
   }, [activeProposalId, proposals, store]);
 
   const currentOwner = store?.currentUser;
-  const myOpenCount = store ? store.proposals.filter((proposal) => proposal.owner.id === store.currentUser.id && ["draft", "open", "negotiating"].includes(proposal.status)).length : 0;
+  const myOpenCount = store ? store.proposals.filter((proposal) => proposal.owner.id === store.currentUser.id && ["draft", "in_review", "sent"].includes(proposal.status)).length : 0;
   const searchHasResults = proposals.length > 0;
   const activeFilterCount = [ownerFilter !== "mine", statusFilter !== "all", searchQuery.trim().length > 0].filter(Boolean).length;
   const visibleTotalMonthly = proposals.reduce((sum, entry) => sum + entry.summary.totalMonthly, 0);
@@ -303,7 +285,8 @@ export function ProposalWorkspace() {
             </div>
           </div>
           <div className="workspace-actions workspace-dashboard-actions">
-            <Link href="/signup" className="workspace-secondary-button">Manage access</Link>
+            <Link href="/access" className="workspace-secondary-button">Access queue</Link>
+            <Link href="/signup" className="workspace-secondary-button">Request access</Link>
             <Link href="/new" className="workspace-primary-button">+ New Proposal</Link>
           </div>
         </section>
@@ -313,22 +296,35 @@ export function ProposalWorkspace() {
             <div className="workspace-launchpad-card workspace-launchpad-card-primary">
               <div className="workspace-support-label">Your lane</div>
               <strong>{myOpenCount} active proposals</strong>
-              <p className="workspace-support-copy">Drafts, open deals, and negotiations assigned to you right now.</p>
+              <p className="workspace-support-copy">Draft, in-review, and sent proposals assigned to you right now.</p>
             </div>
             <div className="workspace-launchpad-card">
-              <div className="workspace-support-label">Team in motion</div>
-              <strong>{launchpadStats.activeOwners} teammates active</strong>
-              <p className="workspace-support-copy">Across {launchpadStats.teamCount} workspace users, without cluttering the page.</p>
+              <div className="workspace-support-label">In review</div>
+              <strong>{launchpadStats.nextUp} proposals need review</strong>
+            
             </div>
             <div className="workspace-launchpad-card">
-              <div className="workspace-support-label">What matters next</div>
-              <strong>{launchpadStats.nextUp} proposals need push</strong>
-              <p className="workspace-support-copy">Open reviews and commercial work that should stay in front of the team.</p>
+              <div className="workspace-support-label">Sent</div>
+              <strong>{launchpadStats.sent} proposals sent</strong>
+              <p className="workspace-support-copy">Customer-facing proposals that now need follow-up or opportunity management in Salesforce.</p>
             </div>
-            <div className="workspace-launchpad-card">
-              <div className="workspace-support-label">Ready wins</div>
-              <strong>{launchpadStats.approvals} approved</strong>
-              <p className="workspace-support-copy">Closed-loop visibility on what is ready for handoff or final closeout.</p>
+          </div>
+        </section>
+
+        <section className="workspace-panel workspace-hero-support">
+          <div className="workspace-support-grid">
+            <div>
+              <div className="workspace-support-label">User-facing auth behavior</div>
+              <p className="workspace-support-copy">
+                RapidQuote now has a clear front door: sign in, request access, recover access, and track who owns onboarding.
+                That gives the app a believable multi-user shape before the backend engine finishes landing.
+              </p>
+            </div>
+            <div>
+              <div className="workspace-support-label">What happens later</div>
+              <p className="workspace-support-copy">
+                Real directory sync, reviewer actions, invite delivery, reset tokens, and audit history should slide under these screens without forcing a product rewrite.
+              </p>
             </div>
           </div>
         </section>
@@ -336,7 +332,7 @@ export function ProposalWorkspace() {
         <section className="workspace-stat-grid">
           <StatFilterCard label="All proposals" value={stats.total} note="Show every saved proposal" active={ownerFilter === "all" && statusFilter === "all"} onClick={() => { setOwnerFilter("all"); setStatusFilter("all"); }} />
           <StatFilterCard label="Assigned to me" value={stats.mine} note="Show only proposals in your lane" active={ownerFilter === "mine" && statusFilter === "all"} onClick={() => { setOwnerFilter("mine"); setStatusFilter("all"); }} />
-          <StatFilterCard label="Active work" value={stats.active} note={<>Show drafts, open deals, and<br />negotiations in progress</>} active={ownerFilter === "all" && statusFilter === "active"} onClick={() => { setOwnerFilter("all"); setStatusFilter("active"); }} />
+          <StatFilterCard label="Active work" value={stats.active} note={<>Show draft, in review, and<br />sent proposals</>} active={ownerFilter === "all" && statusFilter === "active"} onClick={() => { setOwnerFilter("all"); setStatusFilter("active"); }} />
           <StatFilterCard label="Sent out" value={stats.sent} note="Show proposals waiting on review" active={ownerFilter === "all" && statusFilter === "sent"} onClick={() => { setOwnerFilter("all"); setStatusFilter("sent"); }} />
         </section>
 
@@ -346,7 +342,7 @@ export function ProposalWorkspace() {
               <div className="workspace-eyebrow">Dashboard</div>
               <h2 className="workspace-section-title">Proposal launchpad</h2>
               <p className="workspace-panel-copy">
-                Search by customer, title, owner, next step, or proposal number. Then use the sections below to focus on what needs a push, what should be watched, and what is already done.
+                Search by customer, title, owner, next step, or proposal number. Then use the sections below to focus on proposals in review and proposals that still need concrete follow-through.
               </p>
             </div>
             <div className="workspace-filter-stack">
@@ -374,11 +370,8 @@ export function ProposalWorkspace() {
                     <option value="all">All statuses</option>
                     <option value="active">Active</option>
                     <option value="draft">Draft</option>
+                    <option value="in_review">In Review</option>
                     <option value="sent">Sent</option>
-                    <option value="open">Open</option>
-                    <option value="negotiating">Negotiating</option>
-                    <option value="approved">Approved</option>
-                    <option value="closed">Closed</option>
                   </select>
                 </label>
               </div>
@@ -398,9 +391,9 @@ export function ProposalWorkspace() {
 
           <div className="workspace-section-stack">
             <DashboardGroup
-              title="What needs attention next"
-              subtitle="Open reviews and commercial conversations that deserve the front seat."
-              emptyLabel="Nothing urgent in this slice right now."
+              title="In review"
+              subtitle=""
+              emptyLabel=""
               proposals={groupedProposals.next}
               activeProposalId={activeProposal?.id ?? null}
               setActiveProposal={setActiveProposal}
@@ -408,21 +401,12 @@ export function ProposalWorkspace() {
             />
             <DashboardGroup
               title="Keep moving"
-              subtitle="Drafts and sent proposals that need follow-through, but not full fire-drill energy."
+              subtitle="Draft proposals to finish and sent proposals to follow up on. If the deal moves past proposal work, take it to Salesforce."
               emptyLabel="No draft or sent proposals match the current filters."
               proposals={groupedProposals.watch}
               activeProposalId={activeProposal?.id ?? null}
               setActiveProposal={setActiveProposal}
               tone="watch"
-            />
-            <DashboardGroup
-              title="Approved or closed"
-              subtitle="Useful for quick reference, handoff, and pattern reuse without burying active work."
-              emptyLabel="No approved or closed proposals match the current filters."
-              proposals={groupedProposals.done}
-              activeProposalId={activeProposal?.id ?? null}
-              setActiveProposal={setActiveProposal}
-              tone="done"
             />
           </div>
 
@@ -448,8 +432,8 @@ function DashboardGroup({
   tone,
 }: {
   title: string;
-  subtitle: string;
-  emptyLabel: string;
+  subtitle?: string;
+  emptyLabel?: string;
   proposals: Array<{
     proposal: SavedProposalRecord;
     summary: ReturnType<typeof buildProposalSummary>;
@@ -458,14 +442,14 @@ function DashboardGroup({
   }>;
   activeProposalId: string | null;
   setActiveProposal: (proposalId: string) => void;
-  tone: "next" | "watch" | "done";
+  tone: "next" | "watch";
 }) {
   return (
     <section className="workspace-dashboard-group">
       <div className="workspace-dashboard-group-head">
         <div>
           <h3 className="workspace-dashboard-group-title">{title}</h3>
-          <p className="workspace-dashboard-group-copy">{subtitle}</p>
+          {subtitle ? <p className="workspace-dashboard-group-copy">{subtitle}</p> : null}
         </div>
         <span className={`workspace-dashboard-group-count workspace-dashboard-group-count-${tone}`}>{proposals.length}</span>
       </div>
@@ -550,7 +534,7 @@ function DashboardGroup({
           })}
         </div>
       ) : (
-        <div className="workspace-group-empty">{emptyLabel}</div>
+        emptyLabel ? <div className="workspace-group-empty">{emptyLabel}</div> : null
       )}
     </section>
   );

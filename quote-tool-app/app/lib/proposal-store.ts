@@ -174,19 +174,13 @@ export function createProposalFromQuote(params: {
 export function statusToStageLabel(status: QuoteStatus) {
   switch (status) {
     case "draft":
-      return "Working Draft";
+      return "Draft";
+    case "in_review":
+      return "In Review";
     case "sent":
-      return "Sent to Customer";
-    case "open":
-      return "Open Review";
-    case "negotiating":
-      return "Commercial Review";
-    case "approved":
-      return "Approved";
-    case "closed":
-      return "Closed";
+      return "Sent";
     default:
-      return "Working Draft";
+      return "Draft";
   }
 }
 
@@ -247,7 +241,7 @@ export function getDefaultProposalStore(seedProposal: SavedProposalRecord): Prop
       createdAt: "2026-04-08T15:10:00.000Z",
       updatedAt: "2026-04-15T17:42:00.000Z",
       status: "sent",
-      stageLabel: "Sent to Customer",
+      stageLabel: "Sent",
       owner: mockUsers[1],
       quote: {
         ...seedProposal.quote,
@@ -299,8 +293,8 @@ export function getDefaultProposalStore(seedProposal: SavedProposalRecord): Prop
       id: "proposal_riverline_upgrade",
       createdAt: "2026-04-11T13:20:00.000Z",
       updatedAt: "2026-04-16T19:05:00.000Z",
-      status: "negotiating",
-      stageLabel: "Commercial Review",
+      status: "in_review",
+      stageLabel: "In Review",
       owner: mockUsers[2],
       quote: {
         ...seedProposal.quote,
@@ -309,7 +303,7 @@ export function getDefaultProposalStore(seedProposal: SavedProposalRecord): Prop
           proposalNumber: "RCT021",
           documentTitle: "Riverline Field Upgrade",
           customerShortName: "Riverline",
-          status: "negotiating",
+          status: "in_review",
           ownerUserId: mockUsers[2].id,
           ownerName: mockUsers[2].name,
         },
@@ -324,7 +318,7 @@ export function getDefaultProposalStore(seedProposal: SavedProposalRecord): Prop
           ...seedProposal.quote.internal,
           quoteId: "proposal_riverline_upgrade",
           savedProposalId: "proposal_riverline_upgrade",
-          quoteStatus: "negotiating",
+          quoteStatus: "in_review",
           crmOwnerLabel: mockUsers[2].name,
           workspaceOwnerId: mockUsers[2].id,
           workspaceOwnerName: mockUsers[2].name,
@@ -341,7 +335,7 @@ export function getDefaultProposalStore(seedProposal: SavedProposalRecord): Prop
         {
           id: "activity_riverline_review",
           type: "updated",
-          message: "Commercial terms updated after internal review",
+          message: "Proposal updated after internal review",
           at: "2026-04-16T19:05:00.000Z",
           by: { id: mockUsers[2].id, name: mockUsers[2].name },
         },
