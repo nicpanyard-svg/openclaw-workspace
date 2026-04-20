@@ -3,8 +3,8 @@ import { AppFrame, AuthProvider } from "@/app/components/auth-shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RapidQuote | Proposal Workspace",
-  description: "RapidQuote is the proposal workspace for building, reviewing, and managing iNet quotes and proposals.",
+  title: "RapidQuote | Secure Proposal Workspace",
+  description: "RapidQuote proposal workspace with authenticated access, shared ownership direction, and customer-ready output tools.",
 };
 
 export default function RootLayout({

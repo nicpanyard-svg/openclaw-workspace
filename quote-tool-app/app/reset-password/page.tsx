@@ -15,7 +15,7 @@ function ResetPasswordForm() {
     event.preventDefault();
 
     if (!password || password.length < 10) {
-      setMessage("Use at least 10 characters for a stronger password.");
+      setMessage("Use at least 10 characters so the future real reset flow starts with stronger password policy.");
       return;
     }
 
@@ -24,7 +24,7 @@ function ResetPasswordForm() {
       return;
     }
 
-    setMessage("Your new password has been accepted. You can return to sign in.");
+    setMessage("Password reset accepted for this stage for RapidQuote by iNet. Next production step is wiring this to a real identity provider or email-token workflow.");
   };
 
   return (
@@ -33,9 +33,9 @@ function ResetPasswordForm() {
       <h1 className="auth-form-title">Choose a new password</h1>
       <div className="brand-signature-stack auth-inline-brand-note">
         <span className="brand-signature-pill">by iNet</span>
-        <div className="brand-trust-note">Secure password update</div>
+        <div className="brand-trust-note">Internal credential reset</div>
       </div>
-      <p className="auth-form-copy">{email ? `Resetting access for ${email}.` : "Choose a new password to finish resetting your RapidQuote access."}</p>
+      <p className="auth-form-copy">{email ? `Resetting RapidQuote by iNet access for ${email}.` : "Use this stage page to complete the RapidQuote by iNet reset flow."}</p>
 
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="auth-field">

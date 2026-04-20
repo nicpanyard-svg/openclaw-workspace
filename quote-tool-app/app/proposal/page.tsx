@@ -44,7 +44,7 @@ function ProposalPage() {
             <div className="proposal-toolbar-title">Preview Proposal</div>
             <div className="proposal-toolbar-subtitle">
               {usingSavedData
-                ? "This preview is generated from your saved proposal data."
+                ? "This is the actual proposal document generated from your saved proposal data."
                 : "Previewing the current proposal document."}
             </div>
           </div>

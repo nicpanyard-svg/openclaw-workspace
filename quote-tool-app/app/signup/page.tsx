@@ -21,21 +21,22 @@ export default function SignupPage() {
           </div>
           <div className="brand-signature-stack">
             <span className="brand-signature-pill">by iNet</span>
-            <div className="brand-trust-note">Team access</div>
+            <div className="brand-trust-note">Internal access workflow</div>
           </div>
         </div>
         <div className="workspace-eyebrow">Access management</div>
         <h1 className="auth-form-title">Request RapidQuote access</h1>
         <p className="auth-form-copy">
-          iNet teammates can request RapidQuote access here. Use your work email so the request can be reviewed and routed to the right team.
+          This is the first real step toward multi-user RapidQuote by iNet. Internal iNet teammates can request access here, and the
+          product should eventually route this into admin approval, SSO, and role-based provisioning.
         </p>
 
         <div className="auth-roadmap-card">
-          <div className="auth-roadmap-title">Before you submit</div>
+          <div className="auth-roadmap-title">What this page does today</div>
           <ul>
-            <li>Use your @inetlte.com work email.</li>
-            <li>Access requests are reviewed before the workspace is opened.</li>
-            <li>You can return to sign in once your access is approved.</li>
+            <li>Confirms whether the email is eligible for internal onboarding.</li>
+            <li>Sets the product expectation that RapidQuote by iNet is an internal iNet tool right now.</li>
+            <li>Points to the next enterprise-grade step: approval workflow + directory-backed account creation.</li>
           </ul>
         </div>
 
@@ -61,13 +62,13 @@ export default function SignupPage() {
         {submitted ? (
           <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
             {eligible
-              ? `Access request captured for ${email}. We’ll route it for review and provisioning.`
-              : `RapidQuote is currently limited to iNet users. ${email} does not match the current access rule.`}
+              ? `Access request captured for ${email}. Next step should be admin approval + account provisioning, not a fake instant signup.`
+              : `RapidQuote by iNet is internal-only today. ${email} is outside the current onboarding rule.`}
           </div>
         ) : null}
 
         <div className="auth-directory-card">
-          <div className="auth-directory-heading">Current workspace users</div>
+          <div className="auth-directory-heading">Current internal user model</div>
           <div className="auth-directory-list">
             {directoryUsers.map((user) => (
               <div key={user.id} className="auth-directory-item">

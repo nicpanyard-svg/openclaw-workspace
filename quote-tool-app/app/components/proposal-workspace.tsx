@@ -297,11 +297,11 @@ export function ProposalWorkspace() {
               </div>
             </div>
             <p className="workspace-subtitle">
-              Start with what needs attention next. Search proposals fast, scan team activity, and jump straight into the work.
+              Your launchpad for what needs attention next. Search proposals fast, scan team activity, and jump straight into the work without turning this into a CRM admin screen.
             </p>
           </div>
           <div className="workspace-actions workspace-dashboard-actions">
-            <Link href="/signup" className="workspace-secondary-button">Access</Link>
+            <Link href="/signup" className="workspace-secondary-button">Manage access</Link>
             <Link href="/new" className="workspace-primary-button">+ New Proposal</Link>
           </div>
         </section>
@@ -316,7 +316,7 @@ export function ProposalWorkspace() {
             <div className="workspace-launchpad-card">
               <div className="workspace-support-label">Team in motion</div>
               <strong>{launchpadStats.activeOwners} teammates active</strong>
-              <p className="workspace-support-copy">Across {launchpadStats.teamCount} workspace users with a clear view of who is active.</p>
+              <p className="workspace-support-copy">Across {launchpadStats.teamCount} workspace users, without cluttering the page.</p>
             </div>
             <div className="workspace-launchpad-card">
               <div className="workspace-support-label">What matters next</div>
@@ -344,7 +344,7 @@ export function ProposalWorkspace() {
               <div className="workspace-eyebrow">Dashboard</div>
               <h2 className="workspace-section-title">Proposal launchpad</h2>
               <p className="workspace-panel-copy">
-                Search by customer, title, or proposal number. Then use the sections below to focus on what needs a push, what to keep moving, and what is already wrapped up.
+                Search by customer, title, or proposal number. Then use the sections below to focus on what needs a push, what should be watched, and what is already done.
               </p>
             </div>
             <div className="workspace-filter-stack">
@@ -544,7 +544,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
       <div className="workspace-container detail-layout">
         <section className="workspace-hero detail-hero">
           <div>
-            <div className="workspace-eyebrow">Proposal record</div>
+            <div className="workspace-eyebrow">Internal proposal record</div>
             <h1 className="workspace-title">{summary.title}</h1>
             <p className="workspace-subtitle">{summary.customerName} • {summary.proposalNumber}</p>
           </div>
@@ -560,10 +560,10 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
           <div className="workspace-panel-topbar workspace-panel-topbar-stack">
             <div>
               <div className="workspace-eyebrow">Page purpose</div>
-              <h2 className="workspace-section-title">Proposal workspace</h2>
+              <h2 className="workspace-section-title">Internal proposal workspace</h2>
               <p className="workspace-panel-copy">
-                This view shows ownership, status, totals, and history for the saved proposal.
-                Keep the flow simple: start in <strong>Dashboard</strong>, use <strong>Open Editor</strong> to make changes, move to <strong>Preview Proposal</strong> to review the document, then use <strong>Print PDF</strong> when you need a print-ready copy.
+                It shows ownership, status, totals, and history for the saved proposal. It is not the customer document.
+                Keep the flow simple: start in <strong>Dashboard</strong>, use <strong>Open Editor</strong> to make changes, move to <strong>Preview Proposal</strong> to review the customer-facing document, then use <strong>Print PDF</strong> to open the print-ready page and launch the browser print dialog.
               </p>
             </div>
             <div className="workspace-focus-actions">
@@ -640,7 +640,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
             </div>
 
             <div className="detail-card-grid">
-              <div className="detail-card"><span>Proposal ID</span><strong>{proposal.id}</strong><em>Saved workspace record</em></div>
+              <div className="detail-card"><span>Proposal ID</span><strong>{proposal.id}</strong><em>Internal saved record</em></div>
               <div className="detail-card"><span>Record version</span><strong>v{proposal.recordVersion}</strong><em>Local workspace data</em></div>
               <div className="detail-card"><span>Created by</span><strong>{proposal.createdBy.name}</strong><em>{formatDateTime(proposal.createdAt)}</em></div>
               <div className="detail-card"><span>Current owner label</span><strong>{proposal.quote.metadata.ownerName ?? proposal.owner.name}</strong><em>Shown in editor and preview</em></div>
