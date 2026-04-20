@@ -1,23 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { AuthGate } from "@/app/components/auth-shell";
 import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
 import type { QuoteRecord } from "@/app/lib/quote-record";
-import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 import { buildProposalWordDocument } from "@/app/lib/proposal-word-export";
 
 function ProposalPage() {
-  const [quote, setQuote] = useState<QuoteRecord>(sampleQuoteRecord);
-  const [usingSavedData, setUsingSavedData] = useState(false);
-
-  useEffect(() => {
-    const resolved = resolveActiveProposalQuote();
-    setQuote(resolved.quote);
-    setUsingSavedData(resolved.usingSavedData);
-    persistPreviewQuote(resolved.quote);
+  const resolved = useMemo(() => {
+    const nextResolved = resolveActiveProposalQuote();
+    persistPreviewQuote(nextResolved.quote);
+    return nextResolved;
   }, []);
+  const [quote, setQuote] = useState<QuoteRecord>(resolved.quote);
+  const usingSavedData = resolved.usingSavedData;
 
   const handlePrintPdf = () => {
     const nextQuote: QuoteRecord = {

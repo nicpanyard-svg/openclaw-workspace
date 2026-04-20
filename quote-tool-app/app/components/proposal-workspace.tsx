@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ProductLogo } from "@/app/components/product-logo";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
@@ -115,20 +115,49 @@ function StatFilterCard({
 
 export function ProposalWorkspace() {
   const { user } = useAuth();
-  const [store, setStore] = useState<ProposalStoreData | null>(null);
-  const [ownerFilter, setOwnerFilter] = useState<string>("mine");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [activeProposalId, setActiveProposalId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
+  const store = useMemo<ProposalStoreData>(() => {
     const seed = createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] });
     const fallbackStore = getDefaultProposalStore(seed);
 
     if (typeof window === "undefined") {
-      setStore(fallbackStore);
-      setActiveProposalId(fallbackStore.proposals[0]?.id ?? null);
-      return;
+      return fallbackStore;
+    }
+
+    const saved = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
+    const sessionUser = user
+      ? {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.title,
+          team: user.team,
+        }
+      : fallbackStore.currentUser;
+
+    const nextStore = saved
+      ? {
+          ...saved,
+          currentUser: sessionUser,
+        }
+      : {
+          ...fallbackStore,
+          currentUser: sessionUser,
+        };
+
+    if (!saved) {
+      window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
+    }
+
+    return nextStore;
+  }, [user]);
+  const [ownerFilter, setOwnerFilter] = useState<string>("mine");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [activeProposalId, setActiveProposalId] = useState<string | null>(() => {
+    const seed = createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] });
+    const fallbackStore = getDefaultProposalStore(seed);
+
+    if (typeof window === "undefined") {
+      return fallbackStore.proposals[0]?.id ?? null;
     }
 
     const saved = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
@@ -154,17 +183,13 @@ export function ProposalWorkspace() {
     const savedActiveProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
     const resolvedActiveProposalId = getActiveProposalId(nextStore, savedActiveProposalId);
 
-    if (!saved) {
-      window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
-    }
-
     if (resolvedActiveProposalId) {
       window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, resolvedActiveProposalId);
     }
 
-    setStore(nextStore);
-    setActiveProposalId(resolvedActiveProposalId);
-  }, [user]);
+    return resolvedActiveProposalId;
+  });
+  const [searchQuery, setSearchQuery] = useState("");
 
   const proposalSummaries = useMemo(() => {
     if (!store) return [];
@@ -279,7 +304,6 @@ export function ProposalWorkspace() {
       window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
     }
 
-    setStore(nextStore);
     setActiveProposalId(copiedProposal.id);
   };
 

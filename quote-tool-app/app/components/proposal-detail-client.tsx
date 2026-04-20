@@ -1,20 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { ProposalDetailView } from "@/app/components/proposal-workspace";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, type ProposalStoreData } from "@/app/lib/proposal-store";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 export default function ProposalDetailClient({ proposalId }: { proposalId: string }) {
-  const [store, setStore] = useState<ProposalStoreData | null>(null);
-
-  useEffect(() => {
+  const store = useMemo<ProposalStoreData>(() => {
     const seed = createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] });
     const fallbackStore = getDefaultProposalStore(seed);
 
     if (typeof window === "undefined") {
-      setStore(fallbackStore);
-      return;
+      return fallbackStore;
     }
 
     const saved = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
@@ -29,7 +26,7 @@ export default function ProposalDetailClient({ proposalId }: { proposalId: strin
       window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, resolvedProposal.id);
     }
 
-    setStore(nextStore);
+    return nextStore;
   }, [proposalId]);
 
   if (!store) {

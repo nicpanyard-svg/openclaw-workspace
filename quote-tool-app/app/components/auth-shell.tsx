@@ -5,11 +5,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  ACCESS_REQUESTS_STORAGE_KEY,
   AUTH_STORAGE_KEY,
   authenticateWithPassword,
   canSelfServeSignUp,
+  deserializeAccessRequests,
   deserializeAuthSession,
+  getSeededAccessRequests,
   isSessionExpired,
+  type AccessRequestRecord,
   type AuthSession,
   type AuthUser,
 } from "@/app/lib/auth";
@@ -18,33 +22,57 @@ type AuthContextValue = {
   session: AuthSession | null;
   user: AuthUser | null;
   isReady: boolean;
+  accessRequests: AccessRequestRecord[];
   signIn: (email: string, password: string) => { ok: boolean; error?: string };
   signOut: () => void;
+  submitAccessRequest: (request: AccessRequestRecord) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const protectedRoutes = ["/", "/new", "/proposal", "/proposals"];
+const protectedRoutes = ["/", "/new", "/proposal", "/proposals", "/access"];
 const authRoutes = ["/login", "/signup", "/forgot-password", "/reset-password"];
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [isReady, setIsReady] = useState(false);
-  const pathname = usePathname();
-  const router = useRouter();
+function sanitizeNextRoute(next: string | null, pathname: string) {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) {
+    return "/";
+  }
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const [nextPath] = next.split("?");
+  if (!nextPath || authRoutes.includes(nextPath) || nextPath === pathname) {
+    return "/";
+  }
+
+  return next;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<AuthSession | null>(() => {
+    if (typeof window === "undefined") return null;
 
     const savedSession = deserializeAuthSession(window.localStorage.getItem(AUTH_STORAGE_KEY));
     if (savedSession && !isSessionExpired(savedSession)) {
-      setSession(savedSession);
-    } else if (savedSession) {
+      return savedSession;
+    }
+
+    if (savedSession) {
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
     }
 
-    setIsReady(true);
-  }, []);
+    return null;
+  });
+  const [accessRequests, setAccessRequests] = useState<AccessRequestRecord[]>(() => {
+    if (typeof window === "undefined") {
+      return getSeededAccessRequests();
+    }
+
+    const savedAccessRequests = deserializeAccessRequests(window.localStorage.getItem(ACCESS_REQUESTS_STORAGE_KEY));
+    window.localStorage.setItem(ACCESS_REQUESTS_STORAGE_KEY, JSON.stringify(savedAccessRequests));
+    return savedAccessRequests;
+  });
+  const [isReady] = useState(true);
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     if (!isReady) return;
@@ -53,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const routeIsAuthPage = authRoutes.includes(pathname);
 
     if (routeRequiresAuth && !session) {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      router.replace(`/login?next=${encodeURIComponent(sanitizeNextRoute(pathname, pathname))}`);
       return;
     }
 
@@ -66,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user: session?.user ?? null,
     isReady,
+    accessRequests,
     signIn(email: string, password: string) {
       const result = authenticateWithPassword(email, password);
       if (!result.ok || !result.session) {
@@ -86,7 +115,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(null);
       router.replace("/login");
     },
-  }), [isReady, router, session]);
+    submitAccessRequest(request: AccessRequestRecord) {
+      const nextRequests = [request, ...accessRequests];
+      setAccessRequests(nextRequests);
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(ACCESS_REQUESTS_STORAGE_KEY, JSON.stringify(nextRequests));
+      }
+    },
+  }), [accessRequests, isReady, router, session]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -115,9 +152,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
 export function AppFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { user, signOut, isReady } = useAuth();
+  const { user, signOut, isReady, accessRequests } = useAuth();
   const isChromeFreeRoute = pathname.startsWith("/proposal/print");
   const showChrome = isReady && user && !authRoutes.includes(pathname) && !isChromeFreeRoute;
+  const pendingAccessCount = accessRequests.filter((request) => request.status === "pending").length;
 
   if (!showChrome) {
     return <>{children}</>;
@@ -150,6 +188,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
             <Link href="/">Dashboard</Link>
             <Link href="/new">Builder</Link>
             <Link href="/proposal">Preview</Link>
+            <Link href="/access">Access {user.canManageUsers ? `(${pendingAccessCount})` : ""}</Link>
           </nav>
           <button type="button" className="workspace-secondary-button" onClick={signOut}>Sign out</button>
         </div>
@@ -160,7 +199,43 @@ export function AppFrame({ children }: { children: ReactNode }) {
 }
 
 export function AuthMarketingPanel() {
-  return <section className="auth-marketing-panel" aria-hidden="true" />;
+  return (
+    <section className="auth-marketing-panel" aria-hidden="true">
+      <div className="auth-marketing-kicker">Secure proposal workspace</div>
+      <h1 className="auth-marketing-title">RapidQuote by iNet gives every teammate a clean front door into quoting, approvals, and proposal delivery.</h1>
+      <p className="auth-marketing-copy">
+        Tonight&apos;s auth work is landing behind this surface. These screens now frame RapidQuote as a real internal workspace with clear sign-in,
+        request-access, and recovery paths instead of a product demo shortcut.
+      </p>
+
+      <div className="auth-marketing-grid">
+        <article className="auth-marketing-card">
+          <span>Access rules</span>
+          <strong>Internal first</strong>
+          <p>iNet users can request access directly, while external parties stay on exported proposal outputs for now.</p>
+        </article>
+        <article className="auth-marketing-card">
+          <span>Shared ownership</span>
+          <strong>Admin queue direction</strong>
+          <p>Requests, approvals, and role decisions have a visible place to land instead of living in someone&apos;s head.</p>
+        </article>
+        <article className="auth-marketing-card">
+          <span>User trust</span>
+          <strong>Clear next steps</strong>
+          <p>Every auth screen explains what is live now and what the backend will take over next.</p>
+        </article>
+      </div>
+
+      <div className="auth-roadmap-card">
+        <div className="auth-roadmap-title">Backend connection points landing next</div>
+        <ul>
+          <li>Directory-backed users, real invites, and passwordless or SSO flows.</li>
+          <li>Approval logic, audit history, and role-based provisioning.</li>
+          <li>Email delivery, reset tokens, and production-grade policy enforcement.</li>
+        </ul>
+      </div>
+    </section>
+  );
 }
 
 export function AuthHelpLinks() {
@@ -172,27 +247,27 @@ export function AuthHelpLinks() {
   );
 }
 
-export function AuthDemoCredentialsCard() {
+export function AuthSignInStatusCard() {
   return (
-    <div className="auth-demo-card" aria-label="Demo sign in help">
+    <div className="auth-demo-card" aria-label="Sign in status">
       <div className="auth-demo-card-header">
         <div>
-          <div className="auth-demo-card-label">Quick access</div>
-          <strong>Use the seeded internal demo account</strong>
+          <div className="auth-demo-card-label">Sign-in status</div>
+          <strong>Internal account access is required</strong>
         </div>
-        <span className="auth-demo-card-pill">Internal demo</span>
+        <span className="auth-demo-card-pill">Staging</span>
       </div>
       <div className="auth-demo-credentials-grid">
         <div className="auth-demo-credential-item">
-          <span>Email</span>
-          <code>nick.panyard@inetlte.com</code>
+          <span>Who can sign in</span>
+          <code>Approved iNet users</code>
         </div>
         <div className="auth-demo-credential-item">
-          <span>Password</span>
-          <code>RapidQuote!23</code>
+          <span>Backend handoff</span>
+          <code>Real auth wiring in progress</code>
         </div>
       </div>
-      <p className="auth-demo-hint">This is a visible product demo path only. It does not change the broader auth model.</p>
+      <p className="auth-demo-hint">If your account is not ready yet, use Request access or Forgot password so the new backend flow has a clean user-facing path to attach to.</p>
     </div>
   );
 }

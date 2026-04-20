@@ -1,7 +1,9 @@
 export const AUTH_STORAGE_KEY = "rapidquote:auth-session";
+export const ACCESS_REQUESTS_STORAGE_KEY = "rapidquote:access-requests";
 
 export type RapidQuoteRole = "sales" | "sales_ops" | "solutions_engineering" | "admin";
-export type AccountStatus = "active" | "invited" | "pending_admin";
+export type AccountStatus = "active" | "invited" | "pending_admin" | "suspended";
+export type AccessRequestStatus = "pending" | "approved" | "needs_info" | "denied";
 
 export type AuthUser = {
   id: string;
@@ -25,6 +27,21 @@ export type SignInResult = {
   ok: boolean;
   session?: AuthSession;
   error?: string;
+};
+
+export type AccessRequestRecord = {
+  id: string;
+  name: string;
+  email: string;
+  team: string;
+  roleNeeded: string;
+  businessReason: string;
+  requestedBy: string;
+  status: AccessRequestStatus;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewerName?: string;
+  notes?: string;
 };
 
 const EIGHT_HOURS_MS = 1000 * 60 * 60 * 8;
@@ -68,21 +85,63 @@ const users: Array<AuthUser & { password: string }> = [
   },
 ];
 
-export const demoCredentials = {
-  email: users[0].email,
-  password: users[0].password,
-};
+const seededAccessRequests: AccessRequestRecord[] = [
+  {
+    id: "rq-access-1001",
+    name: "Taylor Brooks",
+    email: "taylor.brooks@inetlte.com",
+    team: "Sales",
+    roleNeeded: "Account Executive",
+    businessReason: "Needs access to build and review customer quote packages for new midstream opportunities.",
+    requestedBy: "Manager invite",
+    status: "pending",
+    createdAt: "2026-04-18T14:15:00.000Z",
+    notes: "New hire starting Monday. Prioritize before territory handoff.",
+  },
+  {
+    id: "rq-access-1002",
+    name: "Jordan Lee",
+    email: "jordan.lee@inetlte.com",
+    team: "Revenue Operations",
+    roleNeeded: "Sales Ops Analyst",
+    businessReason: "Needs visibility into proposal output and approval workflow for process QA.",
+    requestedBy: "Self-serve request",
+    status: "needs_info",
+    createdAt: "2026-04-17T09:40:00.000Z",
+    reviewedAt: "2026-04-17T15:10:00.000Z",
+    reviewerName: "Casey Morgan",
+    notes: "Waiting on manager confirmation for admin scope.",
+  },
+  {
+    id: "rq-access-1003",
+    name: "Morgan Patel",
+    email: "morgan.patel@partnerco.com",
+    team: "Partner",
+    roleNeeded: "External reviewer",
+    businessReason: "Asked for access to customer-facing quotes during a joint pursuit.",
+    requestedBy: "Self-serve request",
+    status: "denied",
+    createdAt: "2026-04-16T12:05:00.000Z",
+    reviewedAt: "2026-04-16T16:30:00.000Z",
+    reviewerName: "Casey Morgan",
+    notes: "External access is not enabled in this phase. Route through exported proposal PDFs instead.",
+  },
+];
+
+function stripPassword(user: AuthUser & { password: string }): AuthUser {
+  const { password: _password, ...safeUser } = user;
+  return safeUser;
+}
 
 export function getDirectoryUsers(): AuthUser[] {
-  return users.map(({ password: _password, ...user }) => user);
+  return users.map(stripPassword);
 }
 
 export function getUserByEmail(email: string): AuthUser | null {
   const normalizedEmail = email.trim().toLowerCase();
   const match = users.find((user) => user.email.toLowerCase() === normalizedEmail);
   if (!match) return null;
-  const { password: _password, ...safeUser } = match;
-  return safeUser;
+  return stripPassword(match);
 }
 
 export function canSelfServeSignUp(email: string) {
@@ -119,6 +178,29 @@ export function deserializeAuthSession(value: string | null | undefined): AuthSe
   }
 }
 
+export function deserializeAccessRequests(value: string | null | undefined): AccessRequestRecord[] {
+  if (!value) return seededAccessRequests;
+
+  try {
+    const parsed = JSON.parse(value) as AccessRequestRecord[];
+    if (!Array.isArray(parsed)) {
+      return seededAccessRequests;
+    }
+
+    return parsed;
+  } catch {
+    return seededAccessRequests;
+  }
+}
+
+export function getSeededAccessRequests(): AccessRequestRecord[] {
+  return seededAccessRequests;
+}
+
+export function buildAccessRequestId() {
+  return `rq-access-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function authenticateWithPassword(email: string, password: string): SignInResult {
   const normalizedEmail = email.trim().toLowerCase();
   const normalizedPassword = password.trim();
@@ -127,13 +209,19 @@ export function authenticateWithPassword(email: string, password: string): SignI
   if (!match || match.password !== normalizedPassword) {
     return {
       ok: false,
-      error: "Email or password did not match. Please try again or contact your administrator for access.",
+      error: "Email or password did not match. Please try again, reset your password, or request access if your account has not been provisioned yet.",
     };
   }
 
-  const { password: _password, ...safeUser } = match;
+  if (match.status !== "active") {
+    return {
+      ok: false,
+      error: "This account is not active yet. Check your invite status or contact the RapidQuote admin owner.",
+    };
+  }
+
   return {
     ok: true,
-    session: buildSession(safeUser),
+    session: buildSession(stripPassword(match)),
   };
 }

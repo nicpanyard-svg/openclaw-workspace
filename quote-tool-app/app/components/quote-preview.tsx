@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ProductLogo } from "@/app/components/product-logo";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { PROPOSAL_STORAGE_KEY, serializeQuoteRecord } from "@/app/lib/proposal-state";
@@ -413,18 +413,14 @@ function AddressEditor({
 
 export default function QuotePreview() {
   const { user } = useAuth();
-  const [quote, setQuote] = useState<QuoteRecord>(() => cloneQuote(sampleQuoteRecord));
-  const [activeProposal, setActiveProposal] = useState<SavedProposalRecord | null>(null);
-  const [equipmentSearch, setEquipmentSearch] = useState("");
-  const [equipmentCategoryFilter, setEquipmentCategoryFilter] = useState("All");
-  const [customEquipmentDraft, setCustomEquipmentDraft] = useState<EquipmentDraft>(emptyEquipmentDraft);
-  const [customSectionFields, setCustomSectionFields] = useState<CustomSectionField[]>(() => cloneQuote(sampleQuoteRecord).customFields ?? []);
-  const [dataQuickAddValue, setDataQuickAddValue] = useState("1");
-  const [dataQuickAddUnit, setDataQuickAddUnit] = useState<DataQuickAddUnit>("TB");
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const initialState = useMemo(() => {
+    if (typeof window === "undefined") {
+      return {
+        activeProposal: null as SavedProposalRecord | null,
+        quote: cloneQuote(sampleQuoteRecord),
+        customSectionFields: cloneQuote(sampleQuoteRecord).customFields ?? [],
+      };
+    }
 
     const activeProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
     const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
@@ -454,13 +450,23 @@ export default function QuotePreview() {
     }
 
     const matchedProposal = getActiveProposal(store, activeProposalId);
+    const nextQuote = matchedProposal ? cloneQuote(matchedProposal.quote) : cloneQuote(sampleQuoteRecord);
 
-    if (matchedProposal) {
-      setActiveProposal(matchedProposal);
-      setQuote(cloneQuote(matchedProposal.quote));
-      setCustomSectionFields(matchedProposal.quote.customFields ?? []);
-    }
+    return {
+      activeProposal: matchedProposal,
+      quote: nextQuote,
+      customSectionFields: nextQuote.customFields ?? [],
+    };
   }, [user]);
+  const [quote, setQuote] = useState<QuoteRecord>(initialState.quote);
+  const [activeProposal, setActiveProposal] = useState<SavedProposalRecord | null>(initialState.activeProposal);
+  const [equipmentSearch, setEquipmentSearch] = useState("");
+  const [equipmentCategoryFilter, setEquipmentCategoryFilter] = useState("All");
+  const [customEquipmentDraft, setCustomEquipmentDraft] = useState<EquipmentDraft>(emptyEquipmentDraft);
+  const [customSectionFields, setCustomSectionFields] = useState<CustomSectionField[]>(initialState.customSectionFields);
+  const [dataQuickAddValue, setDataQuickAddValue] = useState("1");
+  const [dataQuickAddUnit, setDataQuickAddUnit] = useState<DataQuickAddUnit>("TB");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currencyCode = quote.metadata.currencyCode || "USD";
   const activeSectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;

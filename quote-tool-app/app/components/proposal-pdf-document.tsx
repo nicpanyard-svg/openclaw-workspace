@@ -704,11 +704,11 @@ function getPricingLabel(row: ServicePricingRow) {
   return row.pricingStage === "final" ? "Final" : "Budgetary";
 }
 
-function TableRow({ children, style }: { children: React.ReactNode; style?: any }) {
-  return <View style={[styles.row, style]}>{children}</View>;
+function TableRow({ children, style }: { children: React.ReactNode; style?: React.ComponentProps<typeof View>["style"] }) {
+  return <View style={style ? [styles.row, style].flat() : styles.row}>{children}</View>;
 }
 
-function Cell({ children, style }: { children?: React.ReactNode; style?: any }) {
+function Cell({ children, style }: { children?: React.ReactNode; style?: React.ComponentProps<typeof View>["style"] }) {
   return <View style={style}>{children}</View>;
 }
 
@@ -967,7 +967,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             </TableRow>
 
             {model.sectionARows.map((row, index) => (
-              <TableRow key={row.id} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : null]}>
+              <TableRow key={row.id} style={index % 2 === 1 ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow}>
                 <Cell style={styles.colWide}>
                   <View style={styles.td}>
                     <Text style={styles.tdStrong}>{row.description}</Text>
@@ -1034,7 +1034,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             </TableRow>
 
             {model.equipmentRows.map((row, index) => (
-              <TableRow key={row.id} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : null]}>
+              <TableRow key={row.id} style={index % 2 === 1 ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow}>
                 <Cell style={styles.colWide}>
                   <View style={styles.td}>
                     <Text style={styles.tdStrong}>{row.itemName}</Text>
@@ -1083,7 +1083,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             </TableRow>
 
             {model.serviceRows.map((row, index) => (
-              <TableRow key={row.id} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : null]}>
+              <TableRow key={row.id} style={index % 2 === 1 ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow}>
                 <Cell style={styles.colWide}>
                   <View style={styles.td}>
                     <Text style={styles.tdStrong}>{row.description}</Text>

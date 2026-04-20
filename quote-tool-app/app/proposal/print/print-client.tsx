@@ -1,21 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { ProposalDocument } from "@/app/components/proposal-document";
 import { ProposalPrintTrigger } from "@/app/components/proposal-print-trigger";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
 import type { QuoteRecord } from "@/app/lib/quote-record";
-import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 export function ProposalPrintClient() {
-  const [quote, setQuote] = useState<QuoteRecord>(sampleQuoteRecord);
-
-  useEffect(() => {
-    const resolved = resolveActiveProposalQuote();
-    setQuote(resolved.quote);
-    persistPreviewQuote(resolved.quote);
+  const resolved = useMemo(() => {
+    const nextResolved = resolveActiveProposalQuote();
+    persistPreviewQuote(nextResolved.quote);
+    return nextResolved;
   }, []);
+  const [quote] = useState<QuoteRecord>(resolved.quote);
 
   return (
     <div className="proposal-route-shell proposal-print-shell">
