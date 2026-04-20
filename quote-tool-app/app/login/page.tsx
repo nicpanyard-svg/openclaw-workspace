@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AuthHelpLinks, AuthMarketingPanel, useAuth } from "@/app/components/auth-shell";
+import { ProductLogo } from "@/app/components/product-logo";
 
 function LoginForm() {
   const router = useRouter();
@@ -38,9 +39,7 @@ function LoginForm() {
         <div className="auth-brand-header auth-brand-header-compact">
           <div className="flex items-center gap-3">
             <Image src="/inet-logo.png" alt="iNet logo" width={44} height={44} className="h-11 w-11 object-contain" priority />
-            <div>
-              <h1 className="m-0 text-[1.9rem] font-semibold leading-none tracking-[-0.03em] text-[#16202b]">RapidQuote</h1>
-            </div>
+            <ProductLogo width={150} height={42} className="h-10 w-auto object-contain" priority />
           </div>
         </div>
         <h2 className="auth-form-title">Sign in to RapidQuote</h2>
