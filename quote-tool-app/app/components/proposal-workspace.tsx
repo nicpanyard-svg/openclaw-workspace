@@ -296,9 +296,6 @@ export function ProposalWorkspace() {
                 <span className="workspace-user-chip">{currentOwner.team} • {currentOwner.role}</span>
               </div>
             </div>
-            <p className="workspace-subtitle">
-              Your launchpad for what needs attention next. Search proposals fast, scan team activity, and jump straight into the work without turning this into a CRM admin screen.
-            </p>
           </div>
           <div className="workspace-actions workspace-dashboard-actions">
             <Link href="/signup" className="workspace-secondary-button">Manage access</Link>
