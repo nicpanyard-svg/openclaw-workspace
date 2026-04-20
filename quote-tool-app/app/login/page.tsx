@@ -37,9 +37,9 @@ function LoginForm() {
     <section className="auth-form-panel">
       <div className="auth-form-header">
         <div className="auth-brand-header auth-brand-header-compact">
-          <div className="flex items-center gap-4">
-            <Image src="/inet-logo.png" alt="iNet logo" width={60} height={60} className="h-15 w-15 object-contain" priority />
-            <ProductLogo width={190} height={54} className="h-13 w-auto object-contain" priority />
+          <div className="flex items-center gap-5">
+            <Image src="/inet-logo.png" alt="iNet logo" width={88} height={88} className="h-22 w-22 object-contain" priority />
+            <ProductLogo width={280} height={80} className="h-20 w-auto object-contain" priority />
           </div>
         </div>
         <h2 className="auth-form-title">Sign in to RapidQuote</h2>
