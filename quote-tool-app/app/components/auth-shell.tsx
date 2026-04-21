@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -47,8 +49,16 @@ function sanitizeNextRoute(next: string | null, pathname: string) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AuthSession | null>(() => {
-    if (typeof window === "undefined") return null;
+  const [isHydrated, setIsHydrated] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  const session = useMemo<AuthSession | null>(() => {
+    if (!isHydrated) return null;
 
     const savedSession = deserializeAuthSession(window.localStorage.getItem(AUTH_STORAGE_KEY));
     if (savedSession && !isSessionExpired(savedSession)) {
@@ -60,19 +70,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return null;
-  });
-  const [accessRequests, setAccessRequests] = useState<AccessRequestRecord[]>(() => {
-    if (typeof window === "undefined") {
+  }, [isHydrated]);
+
+  const accessRequests = useMemo<AccessRequestRecord[]>(() => {
+    if (!isHydrated) {
       return getSeededAccessRequests();
     }
 
     const savedAccessRequests = deserializeAccessRequests(window.localStorage.getItem(ACCESS_REQUESTS_STORAGE_KEY));
     window.localStorage.setItem(ACCESS_REQUESTS_STORAGE_KEY, JSON.stringify(savedAccessRequests));
     return savedAccessRequests;
-  });
-  const [isReady] = useState(true);
-  const pathname = usePathname();
-  const router = useRouter();
+  }, [isHydrated]);
+
+  const isReady = isHydrated;
 
   useEffect(() => {
     if (!isReady) return;
@@ -103,24 +113,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (typeof window !== "undefined") {
         window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(result.session));
+        router.refresh();
       }
 
-      setSession(result.session);
       return { ok: true };
     },
     signOut() {
       if (typeof window !== "undefined") {
         window.localStorage.removeItem(AUTH_STORAGE_KEY);
       }
-      setSession(null);
       router.replace("/login");
+      router.refresh();
     },
     submitAccessRequest(request: AccessRequestRecord) {
       const nextRequests = [request, ...accessRequests];
-      setAccessRequests(nextRequests);
 
       if (typeof window !== "undefined") {
         window.localStorage.setItem(ACCESS_REQUESTS_STORAGE_KEY, JSON.stringify(nextRequests));
+        router.refresh();
       }
     },
   }), [accessRequests, isReady, router, session]);
@@ -171,7 +181,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
               alt="iNet logo"
               width={112}
               height={32}
-              className="app-shell-parent-brand-logo"
+              className="app-shell-parent-brand-logo h-auto w-auto"
               priority
             />
           </div>

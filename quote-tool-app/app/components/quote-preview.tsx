@@ -1,9 +1,11 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import Image from "next/image";
 import Link from "next/link";
 import { ProductLogo } from "@/app/components/product-logo";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { PROPOSAL_STORAGE_KEY, serializeQuoteRecord } from "@/app/lib/proposal-state";
@@ -413,15 +415,18 @@ function AddressEditor({
 
 export default function QuotePreview() {
   const { user } = useAuth();
-  const initialState = useMemo(() => {
-    if (typeof window === "undefined") {
-      return {
-        activeProposal: null as SavedProposalRecord | null,
-        quote: cloneQuote(sampleQuoteRecord),
-        customSectionFields: cloneQuote(sampleQuoteRecord).customFields ?? [],
-      };
-    }
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [quote, setQuote] = useState<QuoteRecord>(cloneQuote(sampleQuoteRecord));
+  const [activeProposal, setActiveProposal] = useState<SavedProposalRecord | null>(null);
+  const [equipmentSearch, setEquipmentSearch] = useState("");
+  const [equipmentCategoryFilter, setEquipmentCategoryFilter] = useState("All");
+  const [customEquipmentDraft, setCustomEquipmentDraft] = useState<EquipmentDraft>(emptyEquipmentDraft);
+  const [customSectionFields, setCustomSectionFields] = useState<CustomSectionField[]>(cloneQuote(sampleQuoteRecord).customFields ?? []);
+  const [dataQuickAddValue, setDataQuickAddValue] = useState("1");
+  const [dataQuickAddUnit, setDataQuickAddUnit] = useState<DataQuickAddUnit>("TB");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  useEffect(() => {
     const activeProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
     const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
     const fallbackStore = getDefaultProposalStore(createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }));
@@ -445,28 +450,18 @@ export default function QuotePreview() {
           currentUser: sessionUser,
         };
 
-    if (savedStore === null) {
+    if (!savedStore) {
       window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(store));
     }
 
     const matchedProposal = getActiveProposal(store, activeProposalId);
     const nextQuote = matchedProposal ? cloneQuote(matchedProposal.quote) : cloneQuote(sampleQuoteRecord);
 
-    return {
-      activeProposal: matchedProposal,
-      quote: nextQuote,
-      customSectionFields: nextQuote.customFields ?? [],
-    };
+    setActiveProposal(matchedProposal);
+    setQuote(nextQuote);
+    setCustomSectionFields(nextQuote.customFields ?? []);
+    setIsHydrated(true);
   }, [user]);
-  const [quote, setQuote] = useState<QuoteRecord>(initialState.quote);
-  const [activeProposal, setActiveProposal] = useState<SavedProposalRecord | null>(initialState.activeProposal);
-  const [equipmentSearch, setEquipmentSearch] = useState("");
-  const [equipmentCategoryFilter, setEquipmentCategoryFilter] = useState("All");
-  const [customEquipmentDraft, setCustomEquipmentDraft] = useState<EquipmentDraft>(emptyEquipmentDraft);
-  const [customSectionFields, setCustomSectionFields] = useState<CustomSectionField[]>(initialState.customSectionFields);
-  const [dataQuickAddValue, setDataQuickAddValue] = useState("1");
-  const [dataQuickAddUnit, setDataQuickAddUnit] = useState<DataQuickAddUnit>("TB");
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currencyCode = quote.metadata.currencyCode || "USD";
   const activeSectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
@@ -927,7 +922,7 @@ export default function QuotePreview() {
     setQuote(copiedProposal.quote);
   };
 
-  return (
+  return isHydrated ? (
     <main className="min-h-screen px-4 py-6 text-[#232a31] md:px-6 md:py-8">
       <div className="mx-auto max-w-[1380px] space-y-6">
         <section className="rounded-[28px] border border-white/60 bg-[var(--workspace-panel)] p-6 shadow-[0_16px_40px_rgba(75,88,106,0.12)] backdrop-blur">
@@ -1428,5 +1423,5 @@ export default function QuotePreview() {
         </div>
       </div>
     </main>
-  );
+  ) : <div className="workspace-shell"><div className="workspace-container">Loading proposal builder…</div></div>;
 }

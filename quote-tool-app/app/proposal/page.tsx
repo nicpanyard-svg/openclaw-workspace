@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+/* eslint-disable react-hooks/set-state-in-effect */
+
+import { useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/app/components/auth-shell";
 import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
@@ -8,15 +10,28 @@ import type { QuoteRecord } from "@/app/lib/quote-record";
 import { buildProposalWordDocument } from "@/app/lib/proposal-word-export";
 
 function ProposalPage() {
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
   const resolved = useMemo(() => {
+    if (!isHydrated) {
+      return null;
+    }
+
     const nextResolved = resolveActiveProposalQuote();
     persistPreviewQuote(nextResolved.quote);
     return nextResolved;
-  }, []);
-  const [quote, setQuote] = useState<QuoteRecord>(resolved.quote);
-  const usingSavedData = resolved.usingSavedData;
+  }, [isHydrated]);
+  const [quoteOverride, setQuoteOverride] = useState<QuoteRecord | null>(null);
+  const quote = quoteOverride ?? resolved?.quote ?? null;
+  const usingSavedData = resolved?.usingSavedData ?? false;
 
   const handlePrintPdf = () => {
+    if (!quote) return;
+
     const nextQuote: QuoteRecord = {
       ...quote,
       metadata: {
@@ -30,7 +45,7 @@ function ProposalPage() {
       },
     };
 
-    setQuote(nextQuote);
+    setQuoteOverride(nextQuote);
     persistPreviewQuote(nextQuote, { markAsSent: true });
 
     const opened = window.open("/proposal/print", "_blank");
@@ -48,6 +63,8 @@ function ProposalPage() {
   };
 
   const handleExportWord = async () => {
+    if (!quote) return;
+
     const nextQuote: QuoteRecord = {
       ...quote,
       metadata: {
@@ -61,7 +78,7 @@ function ProposalPage() {
       },
     };
 
-    setQuote(nextQuote);
+    setQuoteOverride(nextQuote);
     persistPreviewQuote(nextQuote, { markAsSent: true });
 
     const blob = await buildProposalWordDocument(nextQuote);
@@ -76,6 +93,10 @@ function ProposalPage() {
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   };
+
+  if (!quote || !resolved) {
+    return <AuthGate><div className="proposal-route-shell"><div className="proposal-toolbar no-print"><div className="proposal-toolbar-title">Loading proposal preview…</div></div></div></AuthGate>;
+  }
 
   return (
     <AuthGate>

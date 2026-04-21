@@ -75,7 +75,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
                 <Image
                   src="/inet-logo.png"
                   alt="iNet logo"
-                  className="cover-brand-logo"
+                  className="cover-brand-logo h-auto w-auto"
                   width={208}
                   height={64}
                   priority

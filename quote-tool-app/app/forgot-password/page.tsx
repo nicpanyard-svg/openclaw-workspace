@@ -24,6 +24,7 @@ export default function ForgotPasswordPage() {
           </div>
         </div>
         <div className="workspace-eyebrow">Password recovery</div>
+        <div className="auth-demo-card-pill">Staging only — no reset email is sent yet</div>
         <h1 className="auth-form-title">Reset your RapidQuote password</h1>
         <p className="auth-form-copy">
           Start the internal recovery flow here. This screen now sets expectations for the real backend handoff: confirm the account, explain the next step,
@@ -39,7 +40,7 @@ export default function ForgotPasswordPage() {
         >
           <label className="auth-field">
             <span>Work email</span>
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required autoComplete="email" />
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required autoComplete="username email" />
           </label>
 
           <button type="submit" className="workspace-primary-button auth-submit-button">Continue</button>
@@ -60,8 +61,8 @@ export default function ForgotPasswordPage() {
           <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
             {eligible
               ? knownUser
-                ? `Recovery request prepared for ${email}. The user exists, so the next backend step is token delivery, audit logging, and session invalidation.`
-                : `Recovery request prepared for ${email}. The UI is ready for the backend to verify identity before sending reset instructions.`
+                ? `Recovery request prepared for ${email}. Staging note: no real email or reset token has been sent yet. The backend still needs token delivery, audit logging, and session invalidation.`
+                : `Recovery request prepared for ${email}. Staging note: the UI is ready, but the backend still needs to verify identity before any reset instructions can be sent.`
               : `RapidQuote by iNet recovery is limited to internal iNet accounts. Use an @inetlte.com address.`}
           </div>
         ) : null}

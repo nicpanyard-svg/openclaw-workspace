@@ -46,6 +46,7 @@ function ResetPasswordForm() {
         </div>
       </div>
       <div className="workspace-eyebrow">Reset confirmation</div>
+      <div className="auth-demo-card-pill">Staging only — password is not persisted yet</div>
       <h1 className="auth-form-title">Choose a new password</h1>
       <p className="auth-form-copy">
         {email
@@ -65,9 +66,10 @@ function ResetPasswordForm() {
       </div>
 
       <form className="auth-form" onSubmit={handleSubmit}>
+        <input type="email" value={email} readOnly autoComplete="username" tabIndex={-1} aria-hidden="true" className="sr-only" />
         <label className="auth-field">
           <span>New password</span>
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="new-password" />
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="new-password" aria-describedby="reset-password-status" />
         </label>
         <label className="auth-field">
           <span>Confirm password</span>
@@ -76,7 +78,7 @@ function ResetPasswordForm() {
         <button type="submit" className="workspace-primary-button auth-submit-button">Save new password</button>
       </form>
 
-      {message ? <div className={`auth-inline-message ${message === "Passwords must match." || message.startsWith("Use at least 10 characters") ? "auth-inline-message-warn" : "auth-inline-message-success"}`}>{message}</div> : null}
+      {message ? <div id="reset-password-status" className={`auth-inline-message ${message === "Passwords must match." || message.startsWith("Use at least 10 characters") ? "auth-inline-message-warn" : "auth-inline-message-success"}`}>{message}</div> : null}
 
       <div className="auth-help-links">
         <Link href="/login">Back to sign in</Link>

@@ -1,8 +1,10 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import Link from "next/link";
 import { ProductLogo } from "@/app/components/product-logo";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
@@ -115,14 +117,14 @@ function StatFilterCard({
 
 export function ProposalWorkspace() {
   const { user } = useAuth();
-  const store = useMemo<ProposalStoreData>(() => {
-    const seed = createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] });
-    const fallbackStore = getDefaultProposalStore(seed);
-
-    if (typeof window === "undefined") {
-      return fallbackStore;
-    }
-
+  const seed = useMemo(() => createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }), []);
+  const fallbackStore = useMemo(() => getDefaultProposalStore(seed), [seed]);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [store, setStore] = useState<ProposalStoreData>(fallbackStore);
+  const [ownerFilter, setOwnerFilter] = useState<string>("mine");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [activeProposalId, setActiveProposalId] = useState<string | null>(fallbackStore.proposals[0]?.id ?? null);
+  useEffect(() => {
     const saved = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
     const sessionUser = user
       ? {
@@ -143,52 +145,20 @@ export function ProposalWorkspace() {
           ...fallbackStore,
           currentUser: sessionUser,
         };
-
     if (!saved) {
       window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
     }
 
-    return nextStore;
-  }, [user]);
-  const [ownerFilter, setOwnerFilter] = useState<string>("mine");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [activeProposalId, setActiveProposalId] = useState<string | null>(() => {
-    const seed = createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] });
-    const fallbackStore = getDefaultProposalStore(seed);
-
-    if (typeof window === "undefined") {
-      return fallbackStore.proposals[0]?.id ?? null;
-    }
-
-    const saved = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
-    const sessionUser = user
-      ? {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.title,
-          team: user.team,
-        }
-      : fallbackStore.currentUser;
-
-    const nextStore = saved
-      ? {
-          ...saved,
-          currentUser: sessionUser,
-        }
-      : {
-          ...fallbackStore,
-          currentUser: sessionUser,
-        };
     const savedActiveProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
     const resolvedActiveProposalId = getActiveProposalId(nextStore, savedActiveProposalId);
-
     if (resolvedActiveProposalId) {
       window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, resolvedActiveProposalId);
     }
 
-    return resolvedActiveProposalId;
-  });
+    setStore(nextStore);
+    setActiveProposalId(resolvedActiveProposalId);
+    setIsHydrated(true);
+  }, [fallbackStore, user]);
   const [searchQuery, setSearchQuery] = useState("");
 
   const proposalSummaries = useMemo(() => {
@@ -307,7 +277,7 @@ export function ProposalWorkspace() {
     setActiveProposalId(copiedProposal.id);
   };
 
-  if (!store || !currentOwner) {
+  if (!isHydrated || !store || !currentOwner) {
     return <main className="workspace-shell"><div className="workspace-empty">Loading dashboard…</div></main>;
   }
 

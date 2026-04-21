@@ -181,7 +181,6 @@ export function createProposalCopy(params: {
   const now = new Date().toISOString();
   const sourceQuote = JSON.parse(JSON.stringify(params.proposal.quote)) as QuoteRecord;
   const sourceTitle = params.proposal.quote.metadata.documentTitle?.trim() || params.proposal.quote.customer.name?.trim() || "Proposal";
-  const sourceShortName = params.proposal.quote.metadata.customerShortName?.trim() || "Draft";
   const id = `proposal_${Date.now()}`;
   const proposalNumber = `${params.proposal.quote.metadata.proposalNumber || "RCT"}-COPY`;
 
@@ -201,6 +200,10 @@ export function createProposalCopy(params: {
     attention: "",
     lines: [],
   };
+  const clearedCustomFields = (sourceQuote.customFields ?? []).map((field) => ({
+    ...field,
+    value: "",
+  }));
 
   return {
     id,
@@ -232,10 +235,10 @@ export function createProposalCopy(params: {
       executiveSummary: {
         ...sourceQuote.executiveSummary,
         customerContext: "",
-        paragraphs: sourceQuote.executiveSummary.enabled && sourceQuote.executiveSummary.body
-          ? [sourceQuote.executiveSummary.body]
-          : [],
+        body: "",
+        paragraphs: [],
       },
+      customFields: clearedCustomFields,
       internal: {
         ...sourceQuote.internal,
         quoteId: id,
@@ -245,11 +248,17 @@ export function createProposalCopy(params: {
         savedProposalId: id,
         workspaceOwnerId: owner.id,
         workspaceOwnerName: owner.name,
+        internalNotes: "",
       },
       integrations: {
         ...sourceQuote.integrations,
+        connectors: sourceQuote.integrations.connectors.map((connector) => ({
+          ...connector,
+          status: connector.enabled ? "configured" : "disconnected",
+          lastValidatedAt: undefined,
+        })),
         quoteReferences: {},
-        lastSyncSummary: `Copied from ${params.proposal.quote.metadata.proposalNumber || sourceShortName} and reset for a new customer draft.`,
+        lastSyncSummary: "Copy reset for a new customer draft. Reconnect CRM references after the new customer is selected.",
       },
     },
     owner,

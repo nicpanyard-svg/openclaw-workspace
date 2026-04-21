@@ -30,6 +30,7 @@ export default function SignupPage() {
           </div>
         </div>
         <div className="workspace-eyebrow">Access management</div>
+        <div className="auth-demo-card-pill">Staging queue — request is stored locally for review demos</div>
         <h1 className="auth-form-title">Request RapidQuote access</h1>
         <p className="auth-form-copy">
           Ask for workspace access the same way the real system will: who you are, what team you are on, what role you need, and why you need it.
@@ -113,7 +114,7 @@ export default function SignupPage() {
         {submittedRequest ? (
           <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
             {eligible
-              ? `Access request captured for ${submittedRequest.email}. It is now sitting in the admin review queue with your team and role details attached, ready for backend provisioning.`
+              ? `Access request captured for ${submittedRequest.email}. Staging note: it is stored in the local demo queue only until backend provisioning and reviewer workflow are connected.`
               : `RapidQuote by iNet is internal-only today. ${submittedRequest.email} was captured, but it is outside the current onboarding rule.`}
           </div>
         ) : null}
