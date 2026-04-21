@@ -2736,6 +2736,7 @@ body {
   }
 
   .proposal-page {
+    box-sizing: border-box;
     box-shadow: none;
     margin: 0;
     width: 100%;
@@ -2743,7 +2744,7 @@ body {
     page-break-after: always;
     break-after: page;
     overflow: visible;
-    padding: 0.22in 0.24in 0.3in;
+    padding: 0.18in 0.22in 0.24in;
   }
 
   .proposal-page:last-child {
@@ -2789,7 +2790,7 @@ body {
 
   .cover-page {
     min-height: 10.84in;
-    padding: 0.18in 0.24in 0;
+    padding: 0.15in 0.22in 0;
   }
 
   .cover-grid {
@@ -2819,7 +2820,7 @@ body {
   }
 
   .cover-content {
-    padding-top: 0.48in;
+    padding-top: 0.28in;
   }
 
   .cover-content h1 {
@@ -2909,15 +2910,15 @@ body {
 
   .proposal-closing-page {
     min-height: 10.84in;
-    padding: 0.2in 0.24in 0;
+    padding: 0.16in 0.22in 0;
     position: relative;
-    padding-bottom: 0.92in;
+    padding-bottom: 0.84in;
   }
 
   .proposal-closing-page .page-bottom-band {
     position: absolute;
-    left: 0.24in;
-    right: 0.24in;
+    left: 0.22in;
+    right: 0.22in;
     bottom: 0;
     margin: 0;
   }
@@ -2969,29 +2970,42 @@ body {
   }
 
   .proposal-header {
-    margin-bottom: 10px;
-    padding-bottom: 8px;
+    margin-bottom: 8px;
+    padding-bottom: 7px;
     font-size: 9px;
   }
 
-  .proposal-closing-page .proposal-overline {
+  .proposal-overline {
     margin-bottom: 2px;
+  }
+
+  .proposal-closing-page .proposal-overline {
+    margin-bottom: 1px;
   }
 
   .proposal-section-title,
   .proposal-callout-title,
   .proposal-closing-hero-title {
-    font-size: 20px;
+    font-size: 19px;
+  }
+
+  .proposal-section-title {
+    margin-top: 4px;
+    line-height: 1.08;
   }
 
   .proposal-closing-page .proposal-section-title {
-    margin-top: 4px;
-    line-height: 1.06;
+    margin-top: 3px;
+    line-height: 1.05;
+  }
+
+  .section-title-rule {
+    margin: 12px 0 14px;
   }
 
   .proposal-closing-page .section-title-rule {
-    margin-top: 11px;
-    margin-bottom: 12px;
+    margin-top: 9px;
+    margin-bottom: 10px;
   }
 
   .proposal-intro,
@@ -3045,7 +3059,7 @@ body {
   .proposal-highlight-grid,
   .proposal-grand-totals,
   .approval-action-row {
-    gap: 10px;
+    gap: 8px;
   }
 
   .proposal-section-summary-value,

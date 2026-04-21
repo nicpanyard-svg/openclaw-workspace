@@ -65,9 +65,18 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
     tone: item.tone ?? "default",
   }));
 
+  let printPageNumber = 1;
+  const coverPageLabel = `Page ${printPageNumber++}`;
+  const proposalInfoPageLabel = `Page ${printPageNumber++}`;
+  const recurringServicesPageLabel = quote.sections.sectionA.enabled ? `Page ${printPageNumber++}` : null;
+  const equipmentPageLabel = quote.sections.sectionB.enabled ? `Page ${printPageNumber++}` : null;
+  const fieldServicesPageLabel = quote.sections.sectionC.enabled ? `Page ${printPageNumber++}` : null;
+  const termsPageLabel = `Page ${printPageNumber++}`;
+  const closingPageLabel = `Page ${printPageNumber++}`;
+
   return (
     <main className="proposal-shell">
-      <section className="proposal-page cover-page proposal-page-with-band" data-page-label="Page 1">
+      <section className="proposal-page cover-page proposal-page-with-band" data-page-label={coverPageLabel}>
         <div className="cover-grid">
           <div className="cover-topbar">
             <div className="cover-brand-row">
@@ -150,7 +159,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </div>
       </section>
 
-      <section className="proposal-page" data-page-label="Page 2">
+      <section className="proposal-page" data-page-label={proposalInfoPageLabel}>
         <div className="proposal-header">
           <span>Proposal details</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
@@ -273,7 +282,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
       </section>
 
       {quote.sections.sectionA.enabled && (
-        <section className="proposal-page" data-page-label="Page 3">
+        <section className="proposal-page" data-page-label={recurringServicesPageLabel ?? "Page"}>
           <div className="proposal-header">
             <span>Recurring services</span>
             <span>Proposal #{quote.metadata.proposalNumber}</span>
@@ -353,7 +362,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
       )}
 
       {quote.sections.sectionB.enabled && (
-        <section className="proposal-page" data-page-label="Page 4">
+        <section className="proposal-page" data-page-label={equipmentPageLabel ?? "Page"}>
           <div className="proposal-header">
             <span>Equipment and accessories</span>
             <span>Proposal #{quote.metadata.proposalNumber}</span>
@@ -413,7 +422,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
       )}
 
       {quote.sections.sectionC.enabled && (
-        <section className="proposal-page" data-page-label="Page 5">
+        <section className="proposal-page" data-page-label={fieldServicesPageLabel ?? "Page"}>
           <div className="proposal-header">
             <span>Field services</span>
             <span>Proposal #{quote.metadata.proposalNumber}</span>
@@ -468,7 +477,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </section>
       )}
 
-      <section className="proposal-page proposal-terms-page" data-page-label="Page 6">
+      <section className="proposal-page proposal-terms-page" data-page-label={termsPageLabel}>
         <div className="proposal-header">
           <span>Terms and conditions</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
@@ -505,7 +514,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </div>
       </section>
 
-      <section className="proposal-page proposal-closing-page proposal-page-with-band" data-page-label="Page 7">
+      <section className="proposal-page proposal-closing-page proposal-page-with-band" data-page-label={closingPageLabel}>
         <div className="proposal-header">
           <span>Commercial recap</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
