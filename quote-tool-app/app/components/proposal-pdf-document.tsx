@@ -365,48 +365,92 @@ const styles = StyleSheet.create({
     color: "#61707d",
   },
   calloutGrid: {
-    flexDirection: "row",
-    gap: 10,
     marginTop: 10,
   },
-  calloutSpacer: {
-    flex: 1,
-  },
   calloutCard: {
-    flex: 1,
     borderWidth: 1,
     borderColor: "#d7dde5",
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: "rgba(255,255,255,0.97)",
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
-  totalsStack: {
-    marginTop: 8,
-    gap: 8,
+  calloutCardFull: {
+    borderWidth: 1,
+    borderColor: "#d7dde5",
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.97)",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
-  totalsRow: {
+  calloutHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "baseline",
+    alignItems: "center",
     gap: 12,
   },
-  totalsRowLabel: {
-    fontSize: 9.5,
-    color: "#485564",
-  },
-  totalsRowValue: {
+  calloutTitle: {
+    marginTop: 2,
     fontSize: 14,
     fontWeight: 700,
     color: "#16202b",
   },
-  totalsAccentRow: {
+  calloutChip: {
     borderWidth: 1,
     borderColor: "#f0cbcb",
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    fontSize: 8.5,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 1.1,
+    color: "#8c1212",
+    backgroundColor: "#fff7f7",
+  },
+  highlightGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  highlightCard: {
+    width: "48.5%",
+    borderWidth: 1,
+    borderColor: "#e1e7ee",
+    borderRadius: 14,
+    backgroundColor: "#ffffff",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  highlightCardAccent: {
+    borderColor: "#f0cbcb",
     backgroundColor: "#fff8f8",
-    borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 9,
+  },
+  highlightLabel: {
+    fontSize: 9,
+    color: "#61707d",
+  },
+  highlightValue: {
+    marginTop: 6,
+    fontSize: 15,
+    fontWeight: 700,
+    color: "#16202b",
+  },
+  sectionSummaryCard: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#d7dde5",
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  sectionSummaryValue: {
+    marginTop: 6,
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#16202b",
   },
   table: {
     width: "100%",
@@ -499,6 +543,21 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginTop: 10,
+  },
+  termsIntroCard: {
+    borderWidth: 1,
+    borderColor: "#d7dde5",
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.97)",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+  },
+  termsIntroTitle: {
+    marginTop: 4,
+    fontSize: 15,
+    fontWeight: 700,
+    color: "#16202b",
   },
   numberedTerm: {
     fontSize: 10,
@@ -713,24 +772,11 @@ function SupportBullets({ items }: { items?: string[] }) {
 }
 
 function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
-  const coverSummaryItems = [
-    {
-      label: "Monthly recurring",
-      value: formatCurrency(model.recurringMonthlyTotal, model.currencyCode),
-    },
-    {
-      label: "One-time equipment",
-      value: formatCurrency(model.equipmentTotal, model.currencyCode),
-    },
-    ...(model.quoteType === "lease"
-      ? [{ label: "Estimated lease monthly", value: formatCurrency(model.leaseMonthly, model.currencyCode) }]
-      : model.sectionCEnabled
-        ? [
-            { label: "Field services", value: formatCurrency(model.serviceTotal, model.currencyCode) },
-            { label: "One-time total", value: formatCurrency(model.equipmentTotal + model.serviceTotal, model.currencyCode) },
-          ]
-        : []),
-  ];
+  const coverSummaryItems = model.pricingSnapshotItems.map((item) => ({
+    label: item.label,
+    value: item.formattedValue,
+    tone: item.tone,
+  }));
 
   return (
     <>
@@ -813,6 +859,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
           <View style={styles.dateCard}>
             <Text style={styles.summaryLabel}>Prepared</Text>
             <Text>{model.proposalDate}</Text>
+            <Text style={styles.cellNote}>Revision {model.revisionVersion}</Text>
           </View>
         </View>
 
@@ -889,30 +936,24 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
         ) : null}
 
         <View style={styles.calloutGrid}>
-          <View style={styles.calloutSpacer} />
-          <View style={styles.calloutCard}>
-            <Text style={styles.summaryLabel}>Commercial snapshot</Text>
-            <View style={styles.totalsStack}>
-              <View style={styles.totalsRow}>
-                <Text style={styles.totalsRowLabel}>Recurring monthly</Text>
-                <Text style={styles.totalsRowValue}>{formatCurrency(model.recurringMonthlyTotal, model.currencyCode)}</Text>
+          <View style={styles.calloutCardFull}>
+            <View style={styles.calloutHeader}>
+              <View>
+                <Text style={styles.summaryLabel}>Commercial snapshot</Text>
+                <Text style={styles.calloutTitle}>Pricing at a glance</Text>
               </View>
-              <View style={styles.totalsRow}>
-                <Text style={styles.totalsRowLabel}>One-time equipment</Text>
-                <Text style={styles.totalsRowValue}>{formatCurrency(model.equipmentTotal, model.currencyCode)}</Text>
-              </View>
-              {model.sectionCEnabled ? (
-                <View style={styles.totalsRow}>
-                  <Text style={styles.totalsRowLabel}>Optional services</Text>
-                  <Text style={styles.totalsRowValue}>{formatCurrency(model.serviceTotal, model.currencyCode)}</Text>
+              <Text style={styles.calloutChip}>Customer view</Text>
+            </View>
+            <View style={styles.highlightGrid}>
+              {coverSummaryItems.map((item, index) => (
+                <View
+                  key={`${item.label}-${index}`}
+                  style={item.tone === "accent" ? [styles.highlightCard, styles.highlightCardAccent] : styles.highlightCard}
+                >
+                  <Text style={styles.highlightLabel}>{item.label}</Text>
+                  <Text style={styles.highlightValue}>{item.value}</Text>
                 </View>
-              ) : null}
-              {model.quoteType === "lease" ? (
-                <View style={[styles.totalsRow, styles.totalsAccentRow]}>
-                  <Text style={styles.totalsRowLabel}>Estimated lease monthly</Text>
-                  <Text style={styles.totalsRowValue}>{formatCurrency(model.leaseMonthly, model.currencyCode)}</Text>
-                </View>
-              ) : null}
+              ))}
             </View>
           </View>
         </View>
@@ -941,6 +982,12 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
               ))}
             </View>
           ) : null}
+
+          <View style={styles.sectionSummaryCard}>
+            <Text style={styles.summaryLabel}>Section summary</Text>
+            <Text style={styles.sectionSummaryValue}>{formatCurrency(model.recurringMonthlyTotal, model.currencyCode)}</Text>
+            <Text style={styles.summaryPanelCopy}>Total monthly recurring for the proposed service scope.</Text>
+          </View>
 
           <View style={styles.table}>
             <TableRow style={styles.tableHead}>
@@ -1009,6 +1056,12 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             <Text style={styles.introText}>{model.sectionBIntro}</Text>
           </View>
 
+          <View style={styles.sectionSummaryCard}>
+            <Text style={styles.summaryLabel}>Section summary</Text>
+            <Text style={styles.sectionSummaryValue}>{formatCurrency(model.equipmentTotal, model.currencyCode)}</Text>
+            <Text style={styles.summaryPanelCopy}>One-time hardware, accessories, and related material pricing.</Text>
+          </View>
+
           <View style={styles.table}>
             <TableRow style={styles.tableHead}>
               <Cell style={styles.colWide}><Text style={styles.th}>Equipment Description</Text></Cell>
@@ -1058,6 +1111,12 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             <Text style={styles.introText}>{model.sectionCIntro}</Text>
           </View>
 
+          <View style={styles.sectionSummaryCard}>
+            <Text style={styles.summaryLabel}>Section summary</Text>
+            <Text style={styles.sectionSummaryValue}>{formatCurrency(model.serviceTotal, model.currencyCode)}</Text>
+            <Text style={styles.summaryPanelCopy}>Field services included in the proposed scope.</Text>
+          </View>
+
           <View style={styles.table}>
             <TableRow style={styles.tableHead}>
               <Cell style={styles.colWide}><Text style={styles.th}>Service Description</Text></Cell>
@@ -1097,6 +1156,14 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
         <View style={styles.headerBar}>
           <Text style={styles.headerBarText}>Terms and conditions</Text>
           <Text style={styles.headerBarText}>Proposal #{model.proposalNumber}</Text>
+        </View>
+
+        <View style={styles.termsIntroCard}>
+          <Text style={styles.summaryLabel}>Review notes</Text>
+          <Text style={styles.termsIntroTitle}>Terms that support this commercial proposal</Text>
+          <Text style={styles.summaryPanelCopy}>
+            The items below stay with the printed proposal so the commercial pages and approval page are backed by the same terms package.
+          </Text>
         </View>
 
         <Text style={styles.overline}>Terms and conditions</Text>
@@ -1161,7 +1228,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
               </View>
               <View style={[styles.grandTotalCard, { borderColor: "#f0cbcb", backgroundColor: "#fff8f8" }]}>
                 <Text style={styles.summaryLabel}>One-time total</Text>
-                <Text style={styles.grandTotalValue}>{formatCurrency(model.equipmentTotal + model.serviceTotal, model.currencyCode)}</Text>
+                <Text style={styles.grandTotalValue}>{formatCurrency(model.oneTimeTotal, model.currencyCode)}</Text>
               </View>
             </>
           ) : null}
@@ -1182,6 +1249,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             Please sign below to indicate acceptance of this proposal and authorization for iNet to proceed with order
             processing based on the approved scope.
           </Text>
+          {model.approval.approvalNote ? <Text style={styles.paragraph}>{model.approval.approvalNote}</Text> : null}
         </View>
 
         <View style={styles.approvalBlock}>

@@ -1,10 +1,7 @@
 import {
-  buildProposalCommercialSummary,
-  getEquipmentTotal,
-  getLeaseMonthlyTotal,
-  getOptionalServicesTotal,
-  getRecurringMonthlyTotal,
-} from "@/app/lib/proposal-commercial-summary";
+  buildProposalPdfViewModel,
+  formatCurrency,
+} from "@/app/lib/proposal-pdf";
 import type { QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
 type ImageAsset = {
@@ -54,15 +51,6 @@ type ZipEntry = {
   data: Uint8Array;
 };
 
-function formatCurrency(value: number, currencyCode = "USD") {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currencyCode,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
 function xmlEscape(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -70,10 +58,6 @@ function xmlEscape(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
-}
-
-function cleanLines(lines: string[]) {
-  return lines.map((line) => line.trim()).filter(Boolean);
 }
 
 function getPricingLabel(row: ServicePricingRow) {
@@ -519,56 +503,35 @@ function buildAppXml() {
 }
 
 function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxImage; customerLogo?: DocxImage; footerHex: DocxImage }) {
-  const currencyCode = quote.metadata.currencyCode || "USD";
-  const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
-  const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
-  const equipmentTotal = getEquipmentTotal(quote);
-  const sectionCTotal = getOptionalServicesTotal(quote);
-  const leaseMonthly = getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
-  const executiveSummaryBlocks = [quote.executiveSummary.customerContext, quote.executiveSummary.body]
-    .map((value) => value?.trim())
-    .filter((value): value is string => Boolean(value?.length));
-  const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((item) => item.trim().length > 0);
-  const executiveSummaryParagraphs = executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary;
-  const billToLines = cleanLines([quote.billTo.companyName ?? "", quote.billTo.attention ?? "", ...quote.billTo.lines]);
-  const shipToSource = quote.shippingSameAsBillTo ? quote.billTo : quote.shipTo;
-  const shipToLines = cleanLines([shipToSource.companyName ?? "", shipToSource.attention ?? "", ...shipToSource.lines]);
-  const customerVisibleCustomFields = (quote.customFields ?? []).filter(
-    (field) => field.visibility === "customer" && (field.label.trim().length > 0 || field.value.trim().length > 0),
-  );
-  const pricingSnapshotItems = buildProposalCommercialSummary(quote).map((item) => ({
-    ...item,
-    value: formatCurrency(item.value, currencyCode),
-  }));
-  const oneTimeTotal = equipmentTotal + (quote.sections.sectionC.enabled ? sectionCTotal : 0);
+  const model = buildProposalPdfViewModel(quote);
 
   const blocks: string[] = [];
 
   blocks.push(imageParagraph(images.inetLogo));
   blocks.push(paragraph("iNet Communications Proposal", { bold: true, color: "7A042E", spacingAfter: 120 }));
-  blocks.push(paragraph(quote.metadata.documentTitle, { bold: true, sizeHalfPoints: 34, spacingAfter: 80 }));
-  blocks.push(paragraph(quote.metadata.documentSubtitle, { color: "60707F", spacingAfter: 180 }));
+  blocks.push(paragraph(model.documentTitle, { bold: true, sizeHalfPoints: 34, spacingAfter: 80 }));
+  blocks.push(paragraph(model.documentSubtitle, { color: "60707F", spacingAfter: 180 }));
 
   const preparedForContent = [
     paragraph("Prepared for", { bold: true, color: "7A042E", spacingAfter: 60 }),
     images.customerLogo
       ? imageParagraph(images.customerLogo)
-      : paragraph(quote.customer.logoText || quote.customer.name, { bold: true, spacingAfter: 80 }),
-    paragraph(quote.customer.name, { bold: true }),
-    paragraph(quote.customer.contactName),
-    paragraph(quote.customer.contactPhone),
-    paragraph(quote.customer.contactEmail),
-    ...quote.customer.addressLines.map((line) => paragraph(line)),
+      : paragraph(model.customerLogoText || model.customerName, { bold: true, spacingAfter: 80 }),
+    paragraph(model.customerName, { bold: true }),
+    paragraph(model.customerContactName),
+    paragraph(model.customerContactPhone),
+    paragraph(model.customerContactEmail),
+    ...model.customerAddressLines.map((line) => paragraph(line)),
   ].join("");
 
   const preparedByContent = [
-    paragraph(quote.documentation.preparedByLabel ?? "Prepared by", { bold: true, color: "7A042E", spacingAfter: 60 }),
+    paragraph(model.documentation.preparedByLabel ?? "Prepared by", { bold: true, color: "7A042E", spacingAfter: 60 }),
     imageParagraph(images.inetLogo),
-    paragraph(quote.inet.contactName, { bold: true }),
-    paragraph(quote.inet.name),
-    paragraph(quote.inet.contactPhone),
-    paragraph(quote.inet.contactEmail),
-    ...quote.inet.addressLines.map((line) => paragraph(line)),
+    paragraph(model.inetContactName, { bold: true }),
+    paragraph(model.inetName),
+    paragraph(model.inetContactPhone),
+    paragraph(model.inetContactEmail),
+    ...model.inetAddressLines.map((line) => paragraph(line)),
   ].join("");
 
   blocks.push(
@@ -590,9 +553,9 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
     table(
       [
         {
-          cells: pricingSnapshotItems.map((item) => ({
-            width: Math.floor(9000 / pricingSnapshotItems.length),
-            content: `${paragraph(item.label, { bold: true, color: "7A042E", spacingAfter: 40 })}${paragraph(item.value, { bold: true })}`,
+          cells: model.pricingSnapshotItems.map((item) => ({
+            width: Math.floor(9000 / model.pricingSnapshotItems.length),
+            content: `${paragraph(item.label, { bold: true, color: item.tone === "accent" ? "7A042E" : "60707F", spacingAfter: 40 })}${paragraph(item.formattedValue, { bold: true })}`,
           })),
         },
       ],
@@ -602,10 +565,10 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
   blocks.push(imageSection(images.footerHex, "center", 160, 0));
 
   blocks.push(paragraph("Proposal Information", { bold: true, sizeHalfPoints: 30, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
-  blocks.push(paragraph(`Proposal #${quote.documentation.proposalNumberLabel}`, { bold: true }));
-  blocks.push(paragraph(quote.documentation.proposalTitle));
-  blocks.push(paragraph(quote.documentation.proposalDateLabel));
-  blocks.push(paragraph(`Revision ${quote.metadata.revisionVersion}`, { color: "60707F", spacingAfter: 140 }));
+  blocks.push(paragraph(`Proposal #${model.documentation.proposalNumberLabel}`, { bold: true }));
+  blocks.push(paragraph(model.documentation.proposalTitle));
+  blocks.push(paragraph(model.documentation.proposalDateLabel));
+  blocks.push(paragraph(`Revision ${model.revisionVersion}`, { color: "60707F", spacingAfter: 140 }));
 
   blocks.push(
     table(
@@ -616,22 +579,22 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
               width: 4500,
               content: [
                 paragraph("Customer", { bold: true, color: "7A042E", spacingAfter: 60 }),
-                paragraph(`Customer Contact: ${quote.customer.contactName}`),
-                paragraph(`Contact Phone: ${quote.customer.contactPhone}`),
-                paragraph(`Contact Email: ${quote.customer.contactEmail}`),
-                paragraph(quote.documentation.customerAddressHeading, { bold: true, spacingBefore: 80 }),
-                ...quote.customer.addressLines.map((line) => paragraph(line)),
+                paragraph(`Customer Contact: ${model.customerContactName}`),
+                paragraph(`Contact Phone: ${model.customerContactPhone}`),
+                paragraph(`Contact Email: ${model.customerContactEmail}`),
+                paragraph(model.documentation.customerAddressHeading, { bold: true, spacingBefore: 80 }),
+                ...model.customerAddressLines.map((line) => paragraph(line)),
               ].join(""),
             },
             {
               width: 4500,
               content: [
-                paragraph(quote.documentation.inetSalesHeading ?? "iNet", { bold: true, color: "7A042E", spacingAfter: 60 }),
-                paragraph(`${quote.documentation.preparedByLabel ?? "Prepared by"}: ${quote.inet.contactName}`),
-                paragraph(`Contact Phone: ${quote.inet.contactPhone}`),
-                paragraph(`Contact Email: ${quote.inet.contactEmail}`),
-                paragraph(quote.documentation.inetAddressHeading, { bold: true, spacingBefore: 80 }),
-                ...quote.inet.addressLines.map((line) => paragraph(line)),
+                paragraph(model.documentation.inetSalesHeading ?? "iNet", { bold: true, color: "7A042E", spacingAfter: 60 }),
+                paragraph(`${model.documentation.preparedByLabel ?? "Prepared by"}: ${model.inetContactName}`),
+                paragraph(`Contact Phone: ${model.inetContactPhone}`),
+                paragraph(`Contact Email: ${model.inetContactEmail}`),
+                paragraph(model.documentation.inetAddressHeading, { bold: true, spacingBefore: 80 }),
+                ...model.inetAddressLines.map((line) => paragraph(line)),
               ].join(""),
             },
           ],
@@ -640,14 +603,14 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
           cells: [
             {
               width: 4500,
-              content: [paragraph(quote.documentation.billToHeading ?? "Bill To", { bold: true, color: "7A042E", spacingAfter: 60 }), ...billToLines.map((line) => paragraph(line))].join(""),
+              content: [paragraph(model.documentation.billToHeading ?? "Bill To", { bold: true, color: "7A042E", spacingAfter: 60 }), ...model.billToLines.map((line) => paragraph(line))].join(""),
             },
             {
               width: 4500,
               content: [
-                paragraph(quote.documentation.shipToHeading ?? "Ship To", { bold: true, color: "7A042E", spacingAfter: 60 }),
-                ...shipToLines.map((line) => paragraph(line)),
-                quote.shippingSameAsBillTo ? paragraph("Same as Bill To", { color: "60707F", spacingBefore: 60 }) : "",
+                paragraph(model.documentation.shipToHeading ?? "Ship To", { bold: true, color: "7A042E", spacingAfter: 60 }),
+                ...model.shipToLines.map((line) => paragraph(line)),
+                model.shippingSameAsBillTo ? paragraph("Same as Bill To", { color: "60707F", spacingBefore: 60 }) : "",
               ].join(""),
             },
           ],
@@ -657,27 +620,23 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
     ),
   );
 
-  if (quote.executiveSummary.enabled && executiveSummaryParagraphs.length) {
-    blocks.push(paragraph(quote.executiveSummary.heading?.trim() || "Executive Summary", { bold: true, color: "7A042E", spacingBefore: 200, spacingAfter: 80 }));
-    executiveSummaryParagraphs.forEach((item) => blocks.push(paragraph(item, { spacingAfter: 80 })));
+  if (model.executiveSummaryEnabled && model.executiveSummaryParagraphs.length) {
+    blocks.push(paragraph(model.executiveSummaryHeading, { bold: true, color: "7A042E", spacingBefore: 200, spacingAfter: 80 }));
+    model.executiveSummaryParagraphs.forEach((item) => blocks.push(paragraph(item, { spacingAfter: 80 })));
   }
 
-  if (customerVisibleCustomFields.length) {
+  if ((model.customerVisibleCustomFields ?? []).length) {
     blocks.push(paragraph("Additional Proposal Details", { bold: true, color: "7A042E", spacingBefore: 200, spacingAfter: 80 }));
-    customerVisibleCustomFields.forEach((field) => {
+    (model.customerVisibleCustomFields ?? []).forEach((field) => {
       blocks.push(paragraph(`${field.label || "Detail"}${field.value ? ` ${field.value}` : ""}`, { spacingAfter: 60 }));
     });
   }
 
-  if (quote.sections.sectionA.enabled) {
-    blocks.push(paragraph(quote.sections.sectionA.title, { bold: true, sizeHalfPoints: 28, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
-    blocks.push(
-      paragraph(
-        quote.sections.sectionA.introText || `The pricing below reflects a ${quote.sections.sectionA.termMonths}-month commercial term.`,
-        { spacingAfter: 100 },
-      ),
-    );
-    (quote.sections.sectionA.explanatoryParagraphs ?? []).forEach((item) => blocks.push(paragraph(item, { spacingAfter: 80 })));
+  if (model.sectionAEnabled) {
+    blocks.push(paragraph(model.sectionATitle, { bold: true, sizeHalfPoints: 28, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
+    blocks.push(paragraph(model.sectionAIntro, { spacingAfter: 100 }));
+    model.sectionAExplanatoryParagraphs.forEach((item) => blocks.push(paragraph(item, { spacingAfter: 80 })));
+    blocks.push(paragraph(`Section summary: ${formatCurrency(model.recurringMonthlyTotal, model.currencyCode)}`, { bold: true, color: "7A042E", spacingAfter: 100 }));
     blocks.push(
       table(
         [
@@ -690,7 +649,7 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
               { content: paragraph("Total Monthly", { bold: true }), width: 1800, shading: "F4F7FA" },
             ],
           },
-          ...sectionARows.map((row) => ({
+          ...model.sectionARows.map((row) => ({
             cells: [
               {
                 width: 4300,
@@ -706,12 +665,12 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
               {
                 width: 1800,
                 content: paragraph(
-                  row.rowType === "support" ? "Included with service" : formatCurrency(row.monthlyRate ?? row.unitPrice ?? 0, currencyCode),
+                  row.rowType === "support" ? "Included with service" : formatCurrency(row.monthlyRate ?? row.unitPrice ?? 0, model.currencyCode),
                 ),
               },
               {
                 width: 1800,
-                content: paragraph(row.rowType === "support" ? "Included" : formatCurrency(row.totalMonthlyRate ?? 0, currencyCode)),
+                content: paragraph(row.rowType === "support" ? "Included" : formatCurrency(row.totalMonthlyRate ?? 0, model.currencyCode)),
               },
             ],
           })),
@@ -720,7 +679,7 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
               { width: 4300, content: paragraph("Total monthly recurring", { bold: true }) },
               { width: 1100, content: emptyParagraph() },
               { width: 1800, content: emptyParagraph() },
-              { width: 1800, content: paragraph(formatCurrency(recurringMonthlyTotal, currencyCode), { bold: true }) },
+              { width: 1800, content: paragraph(formatCurrency(model.recurringMonthlyTotal, model.currencyCode), { bold: true }) },
             ],
           },
         ],
@@ -729,9 +688,10 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
     );
   }
 
-  if (quote.sections.sectionB.enabled) {
-    blocks.push(paragraph(quote.sections.sectionB.title, { bold: true, sizeHalfPoints: 28, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
-    blocks.push(paragraph(quote.sections.sectionB.introText || "The prices below reflect one-time hardware and accessory charges.", { spacingAfter: 100 }));
+  if (model.sectionBEnabled) {
+    blocks.push(paragraph(model.sectionBTitle, { bold: true, sizeHalfPoints: 28, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
+    blocks.push(paragraph(model.sectionBIntro, { spacingAfter: 100 }));
+    blocks.push(paragraph(`Section summary: ${formatCurrency(model.equipmentTotal, model.currencyCode)}`, { bold: true, color: "7A042E", spacingAfter: 100 }));
     blocks.push(
       table(
         [
@@ -743,19 +703,19 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
               { content: paragraph("Total Price", { bold: true }), width: 1800, shading: "F4F7FA" },
             ],
           },
-          ...quote.sections.sectionB.lineItems.map((row) => ({
+          ...model.equipmentRows.map((row) => ({
             cells: [
               {
                 width: 4300,
                 content: [
                   paragraph(row.itemName, { bold: true }),
-                  paragraph([row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" | ") || "Hardware line item", { color: "60707F" }),
+                  paragraph([row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • ") || "Hardware line item", { color: "60707F" }),
                   row.description ? paragraph(row.description, { color: "60707F" }) : "",
                 ].join(""),
               },
               { width: 1100, content: paragraph(String(row.quantity)) },
-              { width: 1800, content: paragraph(formatCurrency(row.unitPrice, currencyCode)) },
-              { width: 1800, content: paragraph(formatCurrency(row.totalPrice, currencyCode)) },
+              { width: 1800, content: paragraph(formatCurrency(row.unitPrice, model.currencyCode)) },
+              { width: 1800, content: paragraph(formatCurrency(row.totalPrice, model.currencyCode)) },
             ],
           })),
           {
@@ -763,7 +723,7 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
               { width: 4300, content: paragraph("One-time equipment total", { bold: true }) },
               { width: 1100, content: emptyParagraph() },
               { width: 1800, content: emptyParagraph() },
-              { width: 1800, content: paragraph(formatCurrency(equipmentTotal, currencyCode), { bold: true }) },
+              { width: 1800, content: paragraph(formatCurrency(model.equipmentTotal, model.currencyCode), { bold: true }) },
             ],
           },
         ],
@@ -772,9 +732,10 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
     );
   }
 
-  if (quote.sections.sectionC.enabled) {
-    blocks.push(paragraph(quote.sections.sectionC.title, { bold: true, sizeHalfPoints: 28, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
-    blocks.push(paragraph(quote.sections.sectionC.introText || "Field services can be included as budgetary or final pricing.", { spacingAfter: 100 }));
+  if (model.sectionCEnabled) {
+    blocks.push(paragraph(model.sectionCTitle, { bold: true, sizeHalfPoints: 28, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
+    blocks.push(paragraph(model.sectionCIntro, { spacingAfter: 100 }));
+    blocks.push(paragraph(`Section summary: ${formatCurrency(model.serviceTotal, model.currencyCode)}`, { bold: true, color: "7A042E", spacingAfter: 100 }));
     blocks.push(
       table(
         [
@@ -786,15 +747,15 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
               { content: paragraph("Total Price", { bold: true }), width: 1800, shading: "F4F7FA" },
             ],
           },
-          ...quote.sections.sectionC.lineItems.map((row) => ({
+          ...model.serviceRows.map((row) => ({
             cells: [
               {
                 width: 4300,
                 content: [paragraph(row.description, { bold: true }), paragraph(getPricingLabel(row), { color: "60707F" }), row.notes ? paragraph(row.notes, { color: "60707F" }) : ""].join(""),
               },
               { width: 1100, content: paragraph(String(row.quantity)) },
-              { width: 1800, content: paragraph(formatCurrency(row.unitPrice, currencyCode)) },
-              { width: 1800, content: paragraph(formatCurrency(row.totalPrice, currencyCode)) },
+              { width: 1800, content: paragraph(formatCurrency(row.unitPrice, model.currencyCode)) },
+              { width: 1800, content: paragraph(formatCurrency(row.totalPrice, model.currencyCode)) },
             ],
           })),
           {
@@ -802,7 +763,7 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
               { width: 4300, content: paragraph("Field services total", { bold: true }) },
               { width: 1100, content: emptyParagraph() },
               { width: 1800, content: emptyParagraph() },
-              { width: 1800, content: paragraph(formatCurrency(sectionCTotal, currencyCode), { bold: true }) },
+              { width: 1800, content: paragraph(formatCurrency(model.serviceTotal, model.currencyCode), { bold: true }) },
             ],
           },
         ],
@@ -811,23 +772,26 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
     );
   }
 
-  blocks.push(paragraph(quote.terms.generalStarlinkServiceTermsTitle, { bold: true, sizeHalfPoints: 28, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
-  quote.terms.generalStarlinkServiceTerms.forEach((term, index) => blocks.push(paragraph(`${index + 1}. ${term}`, { spacingAfter: 60 })));
-  blocks.push(paragraph(quote.terms.pricingTermsTitle, { bold: true, sizeHalfPoints: 28, spacingBefore: 200, spacingAfter: 120, keepNext: true }));
-  quote.terms.pricingTerms.forEach((term) => blocks.push(paragraph(`* ${term}`, { spacingAfter: 60 })));
+  blocks.push(paragraph("Terms that support this commercial proposal", { bold: true, sizeHalfPoints: 30, spacingBefore: 240, spacingAfter: 90, pageBreakBefore: true, keepNext: true }));
+  blocks.push(paragraph("The items below stay with the printed proposal so the commercial pages and approval page are backed by the same terms package.", { color: "60707F", spacingAfter: 120 }));
+  blocks.push(paragraph(model.terms.generalStarlinkServiceTermsTitle, { bold: true, sizeHalfPoints: 28, spacingAfter: 120, keepNext: true }));
+  model.terms.generalStarlinkServiceTerms.forEach((term, index) => blocks.push(paragraph(`${index + 1}. ${term}`, { spacingAfter: 60 })));
+  blocks.push(paragraph(model.terms.pricingTermsTitle, { bold: true, sizeHalfPoints: 28, spacingBefore: 200, spacingAfter: 120, keepNext: true }));
+  model.terms.pricingTerms.forEach((term) => blocks.push(paragraph(`* ${term}`, { spacingAfter: 60 })));
 
   blocks.push(paragraph("Summary of proposed pricing", { bold: true, sizeHalfPoints: 30, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
+  blocks.push(paragraph("Ready for commercial approval", { bold: true, color: "7A042E", spacingAfter: 100 }));
   blocks.push(
     table(
       [
         {
           cells: [
-            { width: 3000, content: `${paragraph("Recurring monthly", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(recurringMonthlyTotal, currencyCode), { bold: true })}` },
-            { width: 3000, content: `${paragraph("One-time equipment", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(equipmentTotal, currencyCode), { bold: true })}` },
+            { width: 3000, content: `${paragraph("Recurring monthly", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(model.recurringMonthlyTotal, model.currencyCode), { bold: true })}` },
+            { width: 3000, content: `${paragraph("One-time equipment", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(model.equipmentTotal, model.currencyCode), { bold: true })}` },
             {
               width: 3000,
-              content: `${paragraph(quote.sections.sectionC.enabled ? "One-time total" : "Proposal status", { bold: true, color: "7A042E" })}${paragraph(
-                quote.sections.sectionC.enabled ? formatCurrency(oneTimeTotal, currencyCode) : quote.metadata.status,
+              content: `${paragraph(model.sectionCEnabled ? "One-time total" : "Proposal status", { bold: true, color: "7A042E" })}${paragraph(
+                model.sectionCEnabled ? formatCurrency(model.oneTimeTotal, model.currencyCode) : quote.metadata.status,
                 { bold: true },
               )}`,
             },
@@ -838,17 +802,21 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
     ),
   );
 
-  if (quote.metadata.quoteType === "lease") {
-    blocks.push(paragraph(`Estimated lease monthly: ${formatCurrency(leaseMonthly, currencyCode)}`, { bold: true, spacingBefore: 120 }));
+  if (model.sectionCEnabled) {
+    blocks.push(paragraph(`Field services: ${formatCurrency(model.serviceTotal, model.currencyCode)}`, { bold: true, spacingBefore: 120 }));
+  }
+
+  if (model.quoteType === "lease") {
+    blocks.push(paragraph(`Estimated lease monthly: ${formatCurrency(model.leaseMonthly, model.currencyCode)}`, { bold: true, spacingBefore: 120 }));
   }
 
   blocks.push(paragraph("This proposal outlines the current commercial structure for review. Final scope, taxes, freight, installation assumptions, and delivery details may be refined in the next revision.", { spacingBefore: 160, spacingAfter: 80 }));
   blocks.push(paragraph("Please sign below to indicate acceptance of this proposal and authorization for iNet to proceed with order processing based on the approved scope.", { spacingAfter: 80 }));
-  if (quote.approval.approvalNote) {
-    blocks.push(paragraph(quote.approval.approvalNote, { spacingAfter: 100 }));
+  if (model.approval.approvalNote) {
+    blocks.push(paragraph(model.approval.approvalNote, { spacingAfter: 100 }));
   }
 
-  blocks.push(paragraph(quote.approval.heading, { bold: true, color: "7A042E", spacingBefore: 180, spacingAfter: 60 }));
+  blocks.push(paragraph(model.approval.heading, { bold: true, color: "7A042E", spacingBefore: 180, spacingAfter: 60 }));
   blocks.push(paragraph("Authorization to proceed", { bold: true, sizeHalfPoints: 28, spacingAfter: 80 }));
   blocks.push(paragraph("By signing below, the customer confirms review and acceptance of the pricing and scope described in this proposal, subject to any mutually agreed revisions or final contract documents.", { spacingAfter: 100 }));
   blocks.push(
@@ -863,9 +831,9 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
         },
         {
           cells: [
-            { width: 3000, content: `${paragraph("______________________________", { spacingAfter: 50 })}${paragraph(quote.approval.signatureLabel)}` },
-            { width: 3000, content: `${paragraph("______________________________", { spacingAfter: 50 })}${paragraph(quote.approval.customerNameLabel)}` },
-            { width: 3000, content: `${paragraph("______________________________", { spacingAfter: 50 })}${paragraph(quote.approval.dateLabel)}` },
+            { width: 3000, content: `${paragraph("______________________________", { spacingAfter: 50 })}${paragraph(model.approval.signatureLabel)}` },
+            { width: 3000, content: `${paragraph("______________________________", { spacingAfter: 50 })}${paragraph(model.approval.customerNameLabel)}` },
+            { width: 3000, content: `${paragraph("______________________________", { spacingAfter: 50 })}${paragraph(model.approval.dateLabel)}` },
           ],
         },
       ],

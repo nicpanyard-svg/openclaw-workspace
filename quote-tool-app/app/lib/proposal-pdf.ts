@@ -1,3 +1,10 @@
+import {
+  buildProposalCommercialSummary,
+  getEquipmentTotal,
+  getLeaseMonthlyTotal,
+  getOptionalServicesTotal,
+  getRecurringMonthlyTotal,
+} from "@/app/lib/proposal-commercial-summary";
 import type {
   PerKitPricingRow,
   PoolPricingRow,
@@ -8,6 +15,14 @@ import type {
 export type ProposalPdfViewModel = {
   proposalNumber: string;
   customerVisibleCustomFields: QuoteRecord["customFields"];
+  pricingSnapshotItems: Array<{
+    key: string;
+    label: string;
+    value: number;
+    formattedValue: string;
+    tone: "default" | "accent";
+  }>;
+  oneTimeTotal: number;
   proposalDate: string;
   documentTitle: string;
   documentSubtitle: string;
@@ -51,6 +66,7 @@ export type ProposalPdfViewModel = {
   terms: QuoteRecord["terms"];
   approval: QuoteRecord["approval"];
   documentation: QuoteRecord["documentation"];
+  revisionVersion: string;
 };
 
 export function formatCurrency(value: number, currencyCode = "USD") {
@@ -70,33 +86,13 @@ function getSectionARows(sectionA: QuoteRecord["sections"]["sectionA"]) {
   return sectionA.mode === "pool" ? sectionA.poolRows : sectionA.perKitRows;
 }
 
-function getSectionATotal(rows: Array<PoolPricingRow | PerKitPricingRow>) {
-  return Number(rows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2));
-}
-
-function getSectionBTotal(quote: QuoteRecord) {
-  return Number(quote.sections.sectionB.lineItems.reduce((sum, row) => sum + row.totalPrice, 0).toFixed(2));
-}
-
-function getSectionCTotal(quote: QuoteRecord) {
-  return Number(quote.sections.sectionC.lineItems.reduce((sum, row) => sum + row.totalPrice, 0).toFixed(2));
-}
-
-function getLeaseMonthly(quote: QuoteRecord, recurringMonthlyTotal: number, equipmentTotal: number) {
-  if (quote.metadata.quoteType !== "lease") return 0;
-  if (!quote.metadata.hasActiveDataAgreement) return 0;
-  const marginPercent = quote.metadata.leaseMarginPercent ?? 35;
-  const leaseBase = equipmentTotal * (1 + marginPercent / 100);
-  const term = quote.metadata.leaseTermMonths ?? 12;
-  return Number((recurringMonthlyTotal + leaseBase / term).toFixed(2));
-}
 
 export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewModel {
   const sectionARows = getSectionARows(quote.sections.sectionA);
-  const recurringMonthlyTotal = getSectionATotal(sectionARows);
-  const equipmentTotal = getSectionBTotal(quote);
-  const serviceTotal = getSectionCTotal(quote);
-  const leaseMonthly = getLeaseMonthly(quote, recurringMonthlyTotal, equipmentTotal);
+  const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
+  const equipmentTotal = getEquipmentTotal(quote);
+  const serviceTotal = getOptionalServicesTotal(quote);
+  const leaseMonthly = getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
 
   const executiveSummaryBlocks = [quote.executiveSummary.customerContext, quote.executiveSummary.body]
     .map((value) => value?.trim())
@@ -104,6 +100,14 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
   const customerVisibleCustomFields = (quote.customFields ?? []).filter(
     (field) => field.visibility === "customer" && (field.label.trim().length > 0 || field.value.trim().length > 0),
   );
+  const pricingSnapshotItems = buildProposalCommercialSummary(quote).map((item) => ({
+    key: item.key,
+    label: item.label,
+    value: item.value,
+    formattedValue: formatCurrency(item.value, quote.metadata.currencyCode || "USD"),
+    tone: item.tone ?? "default",
+  }));
+  const oneTimeTotal = equipmentTotal + (quote.sections.sectionC.enabled ? serviceTotal : 0);
   const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => paragraph.trim().length > 0);
   const executiveSummaryParagraphs = executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary;
 
@@ -123,6 +127,8 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
   return {
     proposalNumber: quote.metadata.proposalNumber,
     customerVisibleCustomFields,
+    pricingSnapshotItems,
+    oneTimeTotal,
     proposalDate: quote.metadata.proposalDate,
     documentTitle: quote.metadata.documentTitle,
     documentSubtitle: quote.metadata.documentSubtitle,
@@ -170,5 +176,6 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     terms: quote.terms,
     approval: quote.approval,
     documentation: quote.documentation,
+    revisionVersion: quote.metadata.revisionVersion,
   };
 }
