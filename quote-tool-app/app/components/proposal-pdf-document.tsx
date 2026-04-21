@@ -17,6 +17,7 @@ import type { QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 Font.registerHyphenationCallback((word) => [word]);
 
 const INET_LOGO_SRC = `${process.cwd()}\\public\\inet-logo.png`;
+const FOOTER_HEX_SRC = `${process.cwd()}\\public\\proposal-footer-hex.jpg`;
 
 const styles = StyleSheet.create({
   page: {
@@ -31,7 +32,7 @@ const styles = StyleSheet.create({
   },
   pageWithBand: {
     position: "relative",
-    paddingBottom: 74,
+    paddingBottom: 106,
   },
   pageFrame: {
     position: "absolute",
@@ -292,27 +293,11 @@ const styles = StyleSheet.create({
     left: -12,
     right: -12,
     bottom: -10,
-    height: 56,
-    backgroundColor: "#a70a10",
+    height: 88,
   },
-  bottomBandInner: {
-    position: "absolute",
-    left: 28,
-    right: 28,
-    top: 10,
-    height: 2,
-    backgroundColor: "#d86e6e",
-  },
-  bottomBandText: {
-    position: "absolute",
-    left: 28,
-    right: 28,
-    top: 22,
-    fontSize: 8,
-    fontWeight: 700,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    color: "rgba(255,255,255,0.92)",
+  bottomBandImage: {
+    width: "100%",
+    height: "100%",
   },
   dateCard: {
     minWidth: 108,
@@ -808,8 +793,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
         </View>
 
         <View style={styles.bottomBand} fixed>
-          <View style={styles.bottomBandInner} />
-          <Text style={styles.bottomBandText}>Confidential commercial proposal prepared for review and approval.</Text>
+          <Image src={FOOTER_HEX_SRC} style={styles.bottomBandImage} />
         </View>
       </Page>
 
@@ -1245,8 +1229,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
         </View>
 
         <View style={styles.bottomBand} fixed>
-          <View style={styles.bottomBandInner} />
-          <Text style={styles.bottomBandText}>Confidential commercial proposal prepared for review and approval.</Text>
+          <Image src={FOOTER_HEX_SRC} style={styles.bottomBandImage} />
         </View>
       </Page>
     </>

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { AuthHelpLinks, AuthMarketingPanel, AuthSignInStatusCard, useAuth } from "@/app/components/auth-shell";
+import { useAuth } from "@/app/components/auth-shell";
 import { ProductLogo } from "@/app/components/product-logo";
 
 function LoginForm() {
@@ -52,8 +52,6 @@ function LoginForm() {
         </p>
       </div>
 
-      <AuthSignInStatusCard />
-
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="auth-field">
           <span>Work email</span>
@@ -72,8 +70,6 @@ function LoginForm() {
         </button>
       </form>
 
-      <AuthHelpLinks />
-
       <div className="auth-footer-note">
         Need access? <Link href="/signup">Request access</Link>. Need to reset your password? <Link href="/forgot-password">Reset it here</Link>.
       </div>
@@ -84,8 +80,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <main className="auth-shell">
-      <div className="auth-layout">
-        <AuthMarketingPanel />
+      <div className="auth-layout auth-layout-single-column">
         <Suspense fallback={<section className="auth-form-panel auth-form-panel-single">Loading sign-in…</section>}>
           <LoginForm />
         </Suspense>

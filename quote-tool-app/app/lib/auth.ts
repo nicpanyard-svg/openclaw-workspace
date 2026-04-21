@@ -129,7 +129,8 @@ const seededAccessRequests: AccessRequestRecord[] = [
 ];
 
 function stripPassword(user: AuthUser & { password: string }): AuthUser {
-  const { password: _password, ...safeUser } = user;
+  const { password, ...safeUser } = user;
+  void password;
   return safeUser;
 }
 

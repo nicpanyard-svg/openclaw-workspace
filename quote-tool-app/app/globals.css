@@ -209,6 +209,12 @@ body {
   grid-template-columns: minmax(0, 1.1fr) minmax(380px, 460px);
 }
 
+.auth-layout-single-column {
+  max-width: 460px;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: center;
+}
+
 .auth-marketing-panel,
 .auth-form-panel,
 .auth-simple-card,
@@ -2058,8 +2064,13 @@ body {
   position: relative;
   z-index: 1;
   margin: 0.18in -0.52in -0.42in;
-  padding: 18px 0.52in 22px;
-  background: linear-gradient(90deg, #7f0f13 0%, #a70a10 50%, #7f0f13 100%);
+  min-height: 118px;
+  overflow: hidden;
+  background-color: #ffffff;
+  background-image: url("/proposal-footer-hex.jpg");
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .page-bottom-band {
@@ -2074,23 +2085,8 @@ body {
   gap: 0.18in;
 }
 
-.cover-band::before,
-.page-bottom-band::before {
-  content: "";
-  position: absolute;
-  left: 0.52in;
-  right: 0.52in;
-  top: 10px;
-  height: 2px;
-  background: rgba(216, 110, 110, 0.9);
-}
-
 .cover-band-copy {
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  display: none;
 }
 
 .proposal-header {
@@ -2904,7 +2900,7 @@ body {
   .page-bottom-band {
     flex: 0 0 auto;
     margin: 0;
-    padding: 14px 0.4in 16px;
+    min-height: 86px;
     break-inside: avoid;
     page-break-inside: avoid;
     page-break-before: avoid;
@@ -2924,9 +2920,6 @@ body {
     right: 0.24in;
     bottom: 0;
     margin: 0;
-    padding-left: 0.4in;
-    padding-right: 0.4in;
-    padding-bottom: 14px;
   }
 
   .proposal-closing-page .approval-block {

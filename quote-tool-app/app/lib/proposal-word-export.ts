@@ -167,6 +167,48 @@ function imageParagraph(image: DocxImage, align: "left" | "center" | "right" = "
   </w:p>`;
 }
 
+function imageSection(image: DocxImage, align: "left" | "center" | "right" = "center", spacingBefore = 120, spacingAfter = 0) {
+  return `<w:p>
+    <w:pPr>
+      <w:jc w:val="${align}"/>
+      <w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}"/>
+    </w:pPr>
+    <w:r>
+      <w:drawing>
+        <wp:inline distT="0" distB="0" distL="0" distR="0"
+          xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+          <wp:extent cx="${image.widthEmu}" cy="${image.heightEmu}"/>
+          <wp:docPr id="${image.docPrId}" name="${xmlEscape(image.fileName)}" descr="${xmlEscape(image.altText)}"/>
+          <wp:cNvGraphicFramePr>
+            <a:graphicFrameLocks noChangeAspect="1" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/>
+          </wp:cNvGraphicFramePr>
+          <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+              <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                <pic:nvPicPr>
+                  <pic:cNvPr id="${image.docPrId}" name="${xmlEscape(image.fileName)}" descr="${xmlEscape(image.altText)}"/>
+                  <pic:cNvPicPr/>
+                </pic:nvPicPr>
+                <pic:blipFill>
+                  <a:blip r:embed="${image.relId}"/>
+                  <a:stretch><a:fillRect/></a:stretch>
+                </pic:blipFill>
+                <pic:spPr>
+                  <a:xfrm>
+                    <a:off x="0" y="0"/>
+                    <a:ext cx="${image.widthEmu}" cy="${image.heightEmu}"/>
+                  </a:xfrm>
+                  <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                </pic:spPr>
+              </pic:pic>
+            </a:graphicData>
+          </a:graphic>
+        </wp:inline>
+      </w:drawing>
+    </w:r>
+  </w:p>`;
+}
+
 function table(rows: TableRow[], totalWidth = 9000) {
   if (!rows.length) return "";
 
@@ -476,7 +518,7 @@ function buildAppXml() {
   );
 }
 
-function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxImage; customerLogo?: DocxImage }) {
+function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxImage; customerLogo?: DocxImage; footerHex: DocxImage }) {
   const currencyCode = quote.metadata.currencyCode || "USD";
   const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
   const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
@@ -557,6 +599,7 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
       9000,
     ),
   );
+  blocks.push(imageSection(images.footerHex, "center", 160, 0));
 
   blocks.push(paragraph("Proposal Information", { bold: true, sizeHalfPoints: 30, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
   blocks.push(paragraph(`Proposal #${quote.documentation.proposalNumberLabel}`, { bold: true }));
@@ -829,6 +872,7 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
       9000,
     ),
   );
+  blocks.push(imageSection(images.footerHex, "center", 160, 0));
 
   return xmlDocument(
     `<w:document
@@ -862,16 +906,18 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
 
 export async function buildProposalWordDocument(quote: QuoteRecord) {
   const inetAsset = await loadImageAsset("/inet-logo.png");
+  const footerAsset = await loadImageAsset("/proposal-footer-hex.jpg");
   const inetLogo = makeDocxImage(inetAsset, `inet-logo.${inetAsset.extension}`, "rIdImage1", 1, "iNet logo", 180, 64);
+  const footerHex = makeDocxImage(footerAsset, `proposal-footer-hex.${footerAsset.extension}`, "rIdImage2", 2, "Hex footer artwork", 624, 118);
 
   let customerLogo: DocxImage | undefined;
   if (quote.customer.logoDataUrl) {
     const asset = await loadImageAsset(quote.customer.logoDataUrl);
-    customerLogo = makeDocxImage(asset, `customer-logo.${asset.extension}`, "rIdImage2", 2, `${quote.customer.name} logo`, 180, 72);
+    customerLogo = makeDocxImage(asset, `customer-logo.${asset.extension}`, "rIdImage3", 3, `${quote.customer.name} logo`, 180, 72);
   }
 
-  const allImages = [inetLogo, ...(customerLogo ? [customerLogo] : [])];
-  const documentXml = buildProposalDocumentXml(quote, { inetLogo, customerLogo });
+  const allImages = [inetLogo, footerHex, ...(customerLogo ? [customerLogo] : [])];
+  const documentXml = buildProposalDocumentXml(quote, { inetLogo, customerLogo, footerHex });
 
   const zipEntries: ZipEntry[] = [
     { name: "[Content_Types].xml", data: encodeUtf8(buildContentTypesXml(allImages)) },
