@@ -389,9 +389,11 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
                 <tr key={row.id} className="keep-together">
                   <td>
                     <div className="proposal-cell-title">{row.itemName}</div>
-                    <div className="proposal-cell-subtitle">
-                      {[row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • ") || "Hardware line item"}
-                    </div>
+                    {([row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).length > 0) ? (
+                      <div className="proposal-cell-subtitle">
+                        {[row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • ")}
+                      </div>
+                    ) : null}
                     {row.description && <div className="proposal-cell-note">{row.description}</div>}
                   </td>
                   <td>{row.quantity}</td>

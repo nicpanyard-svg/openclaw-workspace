@@ -193,6 +193,58 @@ function imageSection(image: DocxImage, align: "left" | "center" | "right" = "ce
   </w:p>`;
 }
 
+function anchoredImageSection(image: DocxImage, offsetXPx = 0, offsetYPx = 0) {
+  const offsetX = pxToEmu(offsetXPx);
+  const offsetY = pxToEmu(offsetYPx);
+
+  return `<w:p>
+    <w:r>
+      <w:drawing>
+        <wp:anchor simplePos="0" relativeHeight="0" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"
+          distT="0" distB="0" distL="0" distR="0"
+          xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+          <wp:simplePos x="0" y="0"/>
+          <wp:positionH relativeFrom="page">
+            <wp:posOffset>${offsetX}</wp:posOffset>
+          </wp:positionH>
+          <wp:positionV relativeFrom="page">
+            <wp:align>bottom</wp:align>
+            <wp:posOffset>-${offsetY}</wp:posOffset>
+          </wp:positionV>
+          <wp:extent cx="${image.widthEmu}" cy="${image.heightEmu}"/>
+          <wp:effectExtent l="0" t="0" r="0" b="0"/>
+          <wp:wrapNone/>
+          <wp:docPr id="${image.docPrId}" name="${xmlEscape(image.fileName)}" descr="${xmlEscape(image.altText)}"/>
+          <wp:cNvGraphicFramePr>
+            <a:graphicFrameLocks noChangeAspect="1" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/>
+          </wp:cNvGraphicFramePr>
+          <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+              <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                <pic:nvPicPr>
+                  <pic:cNvPr id="${image.docPrId}" name="${xmlEscape(image.fileName)}" descr="${xmlEscape(image.altText)}"/>
+                  <pic:cNvPicPr/>
+                </pic:nvPicPr>
+                <pic:blipFill>
+                  <a:blip r:embed="${image.relId}"/>
+                  <a:stretch><a:fillRect/></a:stretch>
+                </pic:blipFill>
+                <pic:spPr>
+                  <a:xfrm>
+                    <a:off x="0" y="0"/>
+                    <a:ext cx="${image.widthEmu}" cy="${image.heightEmu}"/>
+                  </a:xfrm>
+                  <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                </pic:spPr>
+              </pic:pic>
+            </a:graphicData>
+          </a:graphic>
+        </wp:anchor>
+      </w:drawing>
+    </w:r>
+  </w:p>`;
+}
+
 function table(rows: TableRow[], totalWidth = 9000) {
   if (!rows.length) return "";
 
@@ -562,7 +614,7 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
       9000,
     ),
   );
-  blocks.push(imageSection(images.footerHex, "center", 160, 0));
+  blocks.push(anchoredImageSection(images.footerHex, 18, 12));
 
   blocks.push(paragraph("Proposal Information", { bold: true, sizeHalfPoints: 30, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
   blocks.push(paragraph(`Proposal #${model.documentation.proposalNumberLabel}`, { bold: true }));
@@ -709,7 +761,9 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
                 width: 4300,
                 content: [
                   paragraph(row.itemName, { bold: true }),
-                  paragraph([row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • ") || "Hardware line item", { color: "60707F" }),
+                  ...([row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).length > 0
+                    ? [paragraph([row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • "), { color: "60707F" })]
+                    : []),
                   row.description ? paragraph(row.description, { color: "60707F" }) : "",
                 ].join(""),
               },
@@ -840,7 +894,7 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
       9000,
     ),
   );
-  blocks.push(imageSection(images.footerHex, "center", 160, 0));
+  blocks.push(anchoredImageSection(images.footerHex, 18, 12));
 
   return xmlDocument(
     `<w:document
@@ -876,7 +930,7 @@ export async function buildProposalWordDocument(quote: QuoteRecord) {
   const inetAsset = await loadImageAsset("/inet-logo.png");
   const footerAsset = await loadImageAsset("/proposal-footer-hex.jpg");
   const inetLogo = makeDocxImage(inetAsset, `inet-logo.${inetAsset.extension}`, "rIdImage1", 1, "iNet logo", 180, 64);
-  const footerHex = makeDocxImage(footerAsset, `proposal-footer-hex.${footerAsset.extension}`, "rIdImage2", 2, "Hex footer artwork", 624, 118);
+  const footerHex = makeDocxImage(footerAsset, `proposal-footer-hex.${footerAsset.extension}`, "rIdImage2", 2, "Hex footer artwork", 2400, 1180);
 
   let customerLogo: DocxImage | undefined;
   if (quote.customer.logoDataUrl) {

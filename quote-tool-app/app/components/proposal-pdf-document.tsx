@@ -79,6 +79,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-end",
     gap: 18,
+    marginBottom: 8,
   },
   sectionHeading: {
     marginBottom: 14,
@@ -106,8 +107,8 @@ const styles = StyleSheet.create({
   sectionRule: {
     width: "100%",
     height: 2,
-    marginTop: 14,
-    marginBottom: 16,
+    marginTop: 8,
+    marginBottom: 12,
     backgroundColor: "#ae0910",
     opacity: 0.22,
   },
@@ -314,7 +315,7 @@ const styles = StyleSheet.create({
   summaryGrid: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   summaryPanel: {
     flex: 1,
@@ -322,8 +323,8 @@ const styles = StyleSheet.create({
     borderColor: "#d7dde5",
     borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.97)",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
   summaryPanelValue: {
     marginTop: 5,
@@ -1075,7 +1076,9 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
                 <Cell style={styles.colWide}>
                   <View style={styles.td}>
                     <Text style={styles.tdStrong}>{row.itemName}</Text>
-                    <Text style={styles.tdSub}>{[row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • ") || "Hardware line item"}</Text>
+                    {[row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).length > 0 ? (
+                      <Text style={styles.tdSub}>{[row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • ")}</Text>
+                    ) : null}
                     {row.description ? <Text style={styles.tdNote}>{row.description}</Text> : null}
                   </View>
                 </Cell>
