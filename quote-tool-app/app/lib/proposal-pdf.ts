@@ -99,7 +99,7 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value?.length));
   const customerVisibleCustomFields = (quote.customFields ?? []).filter(
-    (field) => field.visibility === "customer" && (field.label.trim().length > 0 || field.value.trim().length > 0),
+    (field) => field.visibility === "customer" && field.label.trim().length > 0 && field.value.trim().length > 0,
   );
   const contentPresence = getQuoteContentPresence(quote);
   const pricingSnapshotItems = buildProposalCommercialSummary(quote).map((item) => ({

@@ -38,7 +38,7 @@ export function hasExecutiveSummaryContent(quote: QuoteRecord) {
 
 export function hasCustomerVisibleCustomFieldData(quote: QuoteRecord) {
   return (quote.customFields ?? []).some(
-    (field) => field.visibility === "customer" && (field.label.trim().length > 0 || field.value.trim().length > 0),
+    (field) => field.visibility === "customer" && field.label.trim().length > 0 && field.value.trim().length > 0,
   );
 }
 

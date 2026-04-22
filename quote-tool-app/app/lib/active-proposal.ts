@@ -54,7 +54,7 @@ export function resolveActiveProposalQuote(): {
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, resolvedId);
   }
 
-  const quote = activeProposal?.quote ?? savedQuote ?? createBlankQuoteRecord();
+  const quote = savedQuote ?? activeProposal?.quote ?? createBlankQuoteRecord();
 
   window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(quote));
 

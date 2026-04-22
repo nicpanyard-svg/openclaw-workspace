@@ -54,6 +54,9 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
   quote.executiveSummary.paragraphs = [];
 
   quote.sections.sectionA.enabled = true;
+  quote.sections.sectionA.poolRows = [];
+  quote.sections.sectionA.perKitRows = [];
+  quote.sections.sectionA.explanatoryParagraphs = [];
   quote.sections.sectionA.computed.monthlyRecurringTotal = 0;
   quote.sections.sectionB.enabled = false;
   quote.sections.sectionB.lineItems = [];
@@ -63,10 +66,7 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
   quote.sections.sectionC.lineItems = [];
   quote.sections.sectionC.computed.serviceTotal = 0;
 
-  quote.customFields = (quote.customFields ?? []).map((field) => ({
-    ...field,
-    value: "",
-  }));
+  quote.customFields = [];
 
   quote.revisionHistory = [
     {

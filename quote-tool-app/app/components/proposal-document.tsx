@@ -57,7 +57,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
     ...shipToSource.lines,
   ]);
   const customerVisibleCustomFields = (quote.customFields ?? []).filter(
-    (field) => field.visibility === "customer" && (field.label.trim().length > 0 || field.value.trim().length > 0),
+    (field) => field.visibility === "customer" && field.label.trim().length > 0 && field.value.trim().length > 0,
   );
   const contentPresence = getQuoteContentPresence(quote);
   const commercialSummaryItems = buildProposalCommercialSummary(quote);

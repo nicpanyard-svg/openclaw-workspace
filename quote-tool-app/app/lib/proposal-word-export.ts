@@ -680,7 +680,8 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
   if ((model.customerVisibleCustomFields ?? []).length) {
     blocks.push(paragraph("Additional Proposal Details", { bold: true, color: "7A042E", spacingBefore: 200, spacingAfter: 80 }));
     (model.customerVisibleCustomFields ?? []).forEach((field) => {
-      blocks.push(paragraph(`${field.label || "Detail"}${field.value ? ` ${field.value}` : ""}`, { spacingAfter: 60 }));
+      if (!field.label?.trim() || !field.value?.trim()) return;
+      blocks.push(paragraph(`${field.label} ${field.value}`, { spacingAfter: 60 }));
     });
   }
 

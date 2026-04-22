@@ -186,10 +186,6 @@ export function createProposalCopy(params: {
   const proposalNumber = `${params.proposal.quote.metadata.proposalNumber || "RCT"}-COPY`;
 
   const blankQuote = createBlankQuoteRecord(sourceQuote);
-  const clearedCustomFields = (sourceQuote.customFields ?? []).map((field) => ({
-    ...field,
-    value: "",
-  }));
 
   return {
     id,
@@ -210,7 +206,7 @@ export function createProposalCopy(params: {
         proposalDateLabel: blankQuote.metadata.proposalDate,
         proposalNumberLabel: proposalNumber,
       },
-      customFields: clearedCustomFields,
+      customFields: blankQuote.customFields,
       internal: {
         ...blankQuote.internal,
         quoteId: id,
