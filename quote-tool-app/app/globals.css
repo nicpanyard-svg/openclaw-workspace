@@ -2179,6 +2179,8 @@ body {
 
 .proposal-summary-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .proposal-detail-grid,
@@ -2963,7 +2965,8 @@ body {
   .proposal-grand-totals.print-keep-group,
   .approval-action-row.print-keep-group,
   .approval-signature-grid.print-keep-group,
-  .proposal-highlight-grid.print-keep-group {
+  .proposal-highlight-grid.print-keep-group,
+  .proposal-summary-grid.print-keep-group {
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -2996,6 +2999,8 @@ body {
   .proposal-section-title {
     margin-top: 4px;
     line-height: 1.08;
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   .proposal-closing-page .proposal-section-title {
@@ -3004,7 +3009,9 @@ body {
   }
 
   .section-title-rule {
-    margin: 8px 0 10px;
+    margin: 8px 0 8px;
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   .proposal-closing-page .section-title-rule {
