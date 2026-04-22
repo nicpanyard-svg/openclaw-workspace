@@ -2174,7 +2174,7 @@ body {
 .proposal-grand-totals,
 .approval-signature-grid {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .proposal-summary-grid {
@@ -2185,7 +2185,7 @@ body {
 .proposal-address-grid,
 .proposal-callout-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .proposal-callout-grid-full {
@@ -2958,7 +2958,6 @@ body {
     page-break-before: avoid;
   }
 
-  .proposal-detail-grid.print-keep-group,
   .proposal-address-grid.print-keep-group,
   .cover-customer-grid.print-keep-group,
   .proposal-grand-totals.print-keep-group,
@@ -2969,9 +2968,14 @@ body {
     page-break-inside: avoid;
   }
 
+  .proposal-detail-grid.print-keep-group {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
   .proposal-header {
-    margin-bottom: 8px;
-    padding-bottom: 7px;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
     font-size: 9px;
   }
 
