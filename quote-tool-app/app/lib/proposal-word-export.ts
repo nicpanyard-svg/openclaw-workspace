@@ -835,30 +835,51 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
 
   blocks.push(paragraph("Summary of proposed pricing", { bold: true, sizeHalfPoints: 30, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
   blocks.push(paragraph("Ready for commercial approval", { bold: true, color: "7A042E", spacingAfter: 100 }));
+  const summaryCells: TableCell[] = [
+    {
+      width: 3000,
+      content: `${paragraph("Recurring monthly", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(model.recurringMonthlyTotal, model.currencyCode), { bold: true })}`,
+    },
+  ];
+
+  if (model.sectionBEnabled) {
+    summaryCells.push({
+      width: 3000,
+      content: `${paragraph("One-time equipment", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(model.equipmentTotal, model.currencyCode), { bold: true })}`,
+    });
+  }
+
+  if (model.sectionCEnabled) {
+    summaryCells.push({
+      width: 3000,
+      content: `${paragraph("Field services", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(model.serviceTotal, model.currencyCode), { bold: true })}`,
+    });
+    summaryCells.push({
+      width: 3000,
+      content: `${paragraph("One-time total", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(model.oneTimeTotal, model.currencyCode), { bold: true })}`,
+    });
+  }
+
+  if (model.quoteType === "lease") {
+    summaryCells.push({
+      width: 3000,
+      content: `${paragraph("Estimated lease monthly", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(model.leaseMonthly, model.currencyCode), { bold: true })}`,
+    });
+  }
+
   blocks.push(
     table(
       [
         {
-          cells: [
-            { width: 3000, content: `${paragraph("Recurring monthly", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(model.recurringMonthlyTotal, model.currencyCode), { bold: true })}` },
-            { width: 3000, content: `${paragraph("One-time equipment", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(model.equipmentTotal, model.currencyCode), { bold: true })}` },
-            {
-              width: 3000,
-              content: `${paragraph(model.sectionCEnabled ? "One-time total" : "Proposal status", { bold: true, color: "7A042E" })}${paragraph(
-                model.sectionCEnabled ? formatCurrency(model.oneTimeTotal, model.currencyCode) : quote.metadata.status,
-                { bold: true },
-              )}`,
-            },
-          ],
+          cells: summaryCells.map((cell) => ({
+            ...cell,
+            width: Math.floor(9000 / summaryCells.length),
+          })),
         },
       ],
       9000,
     ),
   );
-
-  if (model.sectionCEnabled) {
-    blocks.push(paragraph(`Field services: ${formatCurrency(model.serviceTotal, model.currencyCode)}`, { bold: true, spacingBefore: 120 }));
-  }
 
   if (model.quoteType === "lease") {
     blocks.push(paragraph(`Estimated lease monthly: ${formatCurrency(model.leaseMonthly, model.currencyCode)}`, { bold: true, spacingBefore: 120 }));

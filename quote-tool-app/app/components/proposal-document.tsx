@@ -4,6 +4,7 @@ import {
   getEquipmentTotal,
   getLeaseMonthlyTotal,
   getOptionalServicesTotal,
+  getQuoteContentPresence,
   getRecurringMonthlyTotal,
 } from "@/app/lib/proposal-commercial-summary";
 import type { QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
@@ -58,6 +59,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
   const customerVisibleCustomFields = (quote.customFields ?? []).filter(
     (field) => field.visibility === "customer" && (field.label.trim().length > 0 || field.value.trim().length > 0),
   );
+  const contentPresence = getQuoteContentPresence(quote);
   const commercialSummaryItems = buildProposalCommercialSummary(quote);
   const pricingSnapshotItems = commercialSummaryItems.map((item) => ({
     ...item,
@@ -236,7 +238,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           </div>
         </div>
 
-        {quote.executiveSummary.enabled && executiveSummaryParagraphs.length > 0 && (
+        {quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent && executiveSummaryParagraphs.length > 0 && (
           <div className="proposal-copy proposal-copy-card">
             <div className="proposal-mini-heading">{quote.executiveSummary.heading?.trim() || "Executive Summary"}</div>
             {executiveSummaryParagraphs.map((paragraph, index) => (
@@ -281,7 +283,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </div>
       </section>
 
-      {quote.sections.sectionA.enabled && (
+      {quote.sections.sectionA.enabled && contentPresence.hasSectionAContent && (
         <section className="proposal-page" data-page-label={recurringServicesPageLabel ?? "Page"}>
           <div className="proposal-header">
             <span>Recurring services</span>
@@ -361,7 +363,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </section>
       )}
 
-      {quote.sections.sectionB.enabled && (
+      {quote.sections.sectionB.enabled && contentPresence.hasSectionBContent && (
         <section className="proposal-page" data-page-label={equipmentPageLabel ?? "Page"}>
           <div className="proposal-header">
             <span>Equipment and accessories</span>
@@ -421,7 +423,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </section>
       )}
 
-      {quote.sections.sectionC.enabled && (
+      {quote.sections.sectionC.enabled && contentPresence.hasSectionCContent && (
         <section className="proposal-page" data-page-label={fieldServicesPageLabel ?? "Page"}>
           <div className="proposal-header">
             <span>Field services</span>
@@ -537,11 +539,13 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
             <div className="grand-total-label">Recurring monthly</div>
             <div className="grand-total-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
           </div>
-          <div className="grand-total-card print-keep-block">
-            <div className="grand-total-label">One-time equipment</div>
-            <div className="grand-total-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
-          </div>
-          {quote.sections.sectionC.enabled && (
+          {contentPresence.hasSectionBContent && (
+            <div className="grand-total-card print-keep-block">
+              <div className="grand-total-label">One-time equipment</div>
+              <div className="grand-total-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
+            </div>
+          )}
+          {contentPresence.hasSectionCContent && (
             <>
               <div className="grand-total-card print-keep-block">
                 <div className="grand-total-label">Field services</div>

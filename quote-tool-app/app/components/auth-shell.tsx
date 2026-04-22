@@ -196,7 +196,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
           </div>
           <nav className="app-shell-nav" aria-label="Workspace navigation">
             <Link href="/">Dashboard</Link>
-            <Link href="/new">Builder</Link>
+            <Link href="/new?mode=new">Builder</Link>
             <Link href="/proposal">Preview</Link>
             <Link href="/access">Access {user.canManageUsers ? `(${pendingAccessCount})` : ""}</Link>
           </nav>

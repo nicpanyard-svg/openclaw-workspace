@@ -12,7 +12,7 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
 
   try {
     const parsed = JSON.parse(value) as QuoteRecord;
-    if (!parsed?.metadata?.proposalNumber || !parsed?.sections?.sectionA || !parsed?.customer?.name) {
+    if (!parsed?.metadata?.proposalNumber || !parsed?.sections?.sectionA || !parsed?.customer) {
       return null;
     }
 

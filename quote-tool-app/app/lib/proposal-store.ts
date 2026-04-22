@@ -1,4 +1,5 @@
 import type { QuoteRecord, QuoteStatus } from "@/app/lib/quote-record";
+import { createBlankQuoteRecord } from "@/app/lib/quote-template";
 
 export const PROPOSAL_STORE_KEY = "rapidquote:proposal-store";
 export const ACTIVE_PROPOSAL_ID_KEY = "rapidquote:active-proposal-id";
@@ -184,22 +185,7 @@ export function createProposalCopy(params: {
   const id = `proposal_${Date.now()}`;
   const proposalNumber = `${params.proposal.quote.metadata.proposalNumber || "RCT"}-COPY`;
 
-  const clearedCustomer = {
-    ...sourceQuote.customer,
-    name: "",
-    logoText: "",
-    logoDataUrl: undefined,
-    contactName: "",
-    contactPhone: "",
-    contactEmail: "",
-    addressLines: [],
-  };
-
-  const clearedAddress = {
-    companyName: "",
-    attention: "",
-    lines: [],
-  };
+  const blankQuote = createBlankQuoteRecord(sourceQuote);
   const clearedCustomFields = (sourceQuote.customFields ?? []).map((field) => ({
     ...field,
     value: "",
@@ -209,38 +195,24 @@ export function createProposalCopy(params: {
     id,
     recordVersion: 1,
     quote: {
-      ...sourceQuote,
+      ...blankQuote,
       metadata: {
-        ...sourceQuote.metadata,
+        ...blankQuote.metadata,
         proposalNumber,
         documentTitle: `${sourceTitle} Copy`,
-        customerShortName: "",
-        status: "draft",
         ownerUserId: owner.id,
         ownerName: owner.name,
-        accountId: undefined,
-        accountName: undefined,
         lastTouchedAt: now,
       },
       documentation: {
-        ...sourceQuote.documentation,
+        ...blankQuote.documentation,
         proposalTitle: `${sourceTitle} Copy`,
-        proposalDateLabel: sourceQuote.metadata.proposalDate,
+        proposalDateLabel: blankQuote.metadata.proposalDate,
         proposalNumberLabel: proposalNumber,
-      },
-      customer: clearedCustomer,
-      billTo: clearedAddress,
-      shipTo: clearedAddress,
-      shippingSameAsBillTo: true,
-      executiveSummary: {
-        ...sourceQuote.executiveSummary,
-        customerContext: "",
-        body: "",
-        paragraphs: [],
       },
       customFields: clearedCustomFields,
       internal: {
-        ...sourceQuote.internal,
+        ...blankQuote.internal,
         quoteId: id,
         quoteStatus: "draft",
         crmOwnerLabel: owner.name,
@@ -251,7 +223,7 @@ export function createProposalCopy(params: {
         internalNotes: "",
       },
       integrations: {
-        ...sourceQuote.integrations,
+        ...blankQuote.integrations,
         connectors: sourceQuote.integrations.connectors.map((connector) => ({
           ...connector,
           status: connector.enabled ? "configured" : "disconnected",

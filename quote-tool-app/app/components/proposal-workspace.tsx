@@ -299,7 +299,7 @@ export function ProposalWorkspace() {
           </div>
           <div className="workspace-actions workspace-dashboard-actions">
             <Link href="/signup" className="workspace-secondary-button">Request access</Link>
-            <Link href="/new" className="workspace-primary-button">+ New Proposal</Link>
+            <Link href="/new?mode=new" className="workspace-primary-button">+ New Proposal</Link>
           </div>
         </section>
 
@@ -520,7 +520,7 @@ function DashboardGroup({
                     <button type="button" className="workspace-secondary-button" onClick={() => onCopyProposal(proposal)}>
                       Copy Proposal
                     </button>
-                    <Link href="/new" className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
+                    <Link href={`/new?proposalId=${proposal.id}`} className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
                       Open Editor
                     </Link>
                     <Link href="/proposal" className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
@@ -555,7 +555,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
 
     window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
-    window.location.href = "/new";
+    window.location.href = `/new?proposalId=${copiedProposal.id}`;
   };
   const summary = buildProposalSummary(proposal);
   const latestActivity = proposal.activity[proposal.activity.length - 1] ?? null;
@@ -575,7 +575,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
             <button type="button" className="workspace-secondary-button" onClick={copyProposal}>Copy Proposal</button>
             <Link href="/" className="workspace-secondary-button">Dashboard</Link>
             <Link href="/proposal" className="workspace-secondary-button">Preview Proposal</Link>
-            <Link href="/new" className="workspace-primary-button">Open Editor</Link>
+            <Link href={`/new?proposalId=${proposal.id}`} className="workspace-primary-button">Open Editor</Link>
           </div>
         </section>
 
@@ -591,7 +591,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
             </div>
             <div className="workspace-focus-actions">
               <Link href="/proposal" className="workspace-secondary-button">Preview Proposal</Link>
-              <Link href="/new" className="workspace-primary-button workspace-primary-button-small">Open Editor</Link>
+              <Link href={`/new?proposalId=${proposal.id}`} className="workspace-primary-button workspace-primary-button-small">Open Editor</Link>
             </div>
           </div>
         </section>

@@ -18,6 +18,7 @@ import {
   serializeQuoteRecord,
 } from "@/app/lib/proposal-state";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
+import { createBlankQuoteRecord } from "@/app/lib/quote-template";
 
 export function resolveActiveProposalQuote(): {
   quote: QuoteRecord;
@@ -27,7 +28,7 @@ export function resolveActiveProposalQuote(): {
 } {
   if (typeof window === "undefined") {
     return {
-      quote: sampleQuoteRecord,
+      quote: createBlankQuoteRecord(),
       usingSavedData: false,
       activeProposalId: null,
       activeProposal: null,
@@ -53,7 +54,7 @@ export function resolveActiveProposalQuote(): {
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, resolvedId);
   }
 
-  const quote = activeProposal?.quote ?? savedQuote ?? sampleQuoteRecord;
+  const quote = activeProposal?.quote ?? savedQuote ?? createBlankQuoteRecord();
 
   window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(quote));
 

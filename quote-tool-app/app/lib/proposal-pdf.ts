@@ -3,6 +3,7 @@ import {
   getEquipmentTotal,
   getLeaseMonthlyTotal,
   getOptionalServicesTotal,
+  getQuoteContentPresence,
   getRecurringMonthlyTotal,
 } from "@/app/lib/proposal-commercial-summary";
 import type {
@@ -100,6 +101,7 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
   const customerVisibleCustomFields = (quote.customFields ?? []).filter(
     (field) => field.visibility === "customer" && (field.label.trim().length > 0 || field.value.trim().length > 0),
   );
+  const contentPresence = getQuoteContentPresence(quote);
   const pricingSnapshotItems = buildProposalCommercialSummary(quote).map((item) => ({
     key: item.key,
     label: item.label,
@@ -107,7 +109,7 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     formattedValue: formatCurrency(item.value, quote.metadata.currencyCode || "USD"),
     tone: item.tone ?? "default",
   }));
-  const oneTimeTotal = equipmentTotal + (quote.sections.sectionC.enabled ? serviceTotal : 0);
+  const oneTimeTotal = equipmentTotal + (contentPresence.hasSectionCContent ? serviceTotal : 0);
   const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => paragraph.trim().length > 0);
   const executiveSummaryParagraphs = executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary;
 
@@ -147,10 +149,10 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     billToLines,
     shipToLines,
     shippingSameAsBillTo: quote.shippingSameAsBillTo,
-    executiveSummaryEnabled: quote.executiveSummary.enabled,
+    executiveSummaryEnabled: quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent,
     executiveSummaryHeading: quote.executiveSummary.heading?.trim() || "Executive Summary",
     executiveSummaryParagraphs,
-    sectionAEnabled: quote.sections.sectionA.enabled,
+    sectionAEnabled: quote.sections.sectionA.enabled && contentPresence.hasSectionAContent,
     sectionATitle: quote.sections.sectionA.title,
     sectionAIntro:
       quote.sections.sectionA.introText ||
@@ -158,13 +160,13 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     sectionAExplanatoryParagraphs: quote.sections.sectionA.explanatoryParagraphs ?? [],
     sectionARows,
     recurringMonthlyTotal,
-    sectionBEnabled: quote.sections.sectionB.enabled,
+    sectionBEnabled: quote.sections.sectionB.enabled && contentPresence.hasSectionBContent,
     sectionBTitle: quote.sections.sectionB.title,
     sectionBIntro:
       quote.sections.sectionB.introText || "The prices below reflect one-time hardware and accessory charges.",
     equipmentRows: quote.sections.sectionB.lineItems,
     equipmentTotal,
-    sectionCEnabled: quote.sections.sectionC.enabled,
+    sectionCEnabled: quote.sections.sectionC.enabled && contentPresence.hasSectionCContent,
     sectionCTitle: quote.sections.sectionC.title,
     sectionCIntro:
       quote.sections.sectionC.introText || "Field services can be included as budgetary or final pricing.",

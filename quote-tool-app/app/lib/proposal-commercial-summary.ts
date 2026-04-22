@@ -1,4 +1,4 @@
-import type { QuoteRecord } from "@/app/lib/quote-record";
+import type { EquipmentPricingRow, PerKitPricingRow, PoolPricingRow, QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
 export type CommercialSummaryItemTone = "default" | "accent";
 
@@ -11,6 +11,50 @@ export type ProposalCommercialSummaryItem = {
 
 function getSectionARows(sectionA: QuoteRecord["sections"]["sectionA"]) {
   return sectionA.mode === "pool" ? sectionA.poolRows : sectionA.perKitRows;
+}
+
+export function hasSectionARows(rows: Array<PoolPricingRow | PerKitPricingRow>) {
+  return rows.some((row) => {
+    if (row.rowType === "support") {
+      return Boolean(row.description?.trim() || row.includedText?.some((item) => item.trim().length > 0));
+    }
+
+    return Boolean((row.description?.trim().length ?? 0) > 0) && ((row.totalMonthlyRate ?? row.monthlyRate ?? row.unitPrice ?? 0) > 0 || (row.quantity ?? 0) > 0);
+  });
+}
+
+export function hasEquipmentRows(rows: EquipmentPricingRow[]) {
+  return rows.some((row) => Boolean(row.itemName?.trim().length) && ((row.totalPrice ?? 0) > 0 || row.quantity > 0));
+}
+
+export function hasServiceRows(rows: ServicePricingRow[]) {
+  return rows.some((row) => Boolean(row.description?.trim().length) && ((row.totalPrice ?? 0) > 0 || row.quantity > 0));
+}
+
+export function hasExecutiveSummaryContent(quote: QuoteRecord) {
+  return [quote.executiveSummary.customerContext, quote.executiveSummary.body, ...(quote.executiveSummary.paragraphs ?? [])]
+    .some((entry) => (entry ?? "").trim().length > 0);
+}
+
+export function hasCustomerVisibleCustomFieldData(quote: QuoteRecord) {
+  return (quote.customFields ?? []).some(
+    (field) => field.visibility === "customer" && (field.label.trim().length > 0 || field.value.trim().length > 0),
+  );
+}
+
+export function getQuoteContentPresence(quote: QuoteRecord) {
+  const sectionARows = getSectionARows(quote.sections.sectionA);
+  const hasSectionAContent = hasSectionARows(sectionARows);
+  const hasSectionBContent = hasEquipmentRows(quote.sections.sectionB.lineItems);
+  const hasSectionCContent = hasServiceRows(quote.sections.sectionC.lineItems);
+
+  return {
+    hasSectionAContent,
+    hasSectionBContent,
+    hasSectionCContent,
+    hasExecutiveSummaryContent: hasExecutiveSummaryContent(quote),
+    hasCustomerVisibleCustomFieldData: hasCustomerVisibleCustomFieldData(quote),
+  };
 }
 
 export function getRecurringMonthlyTotal(quote: QuoteRecord) {
@@ -66,6 +110,7 @@ export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalComm
   const optionalServicesTotal = getOptionalServicesTotal(quote);
   const combinedOneTimeTotal = getCombinedOneTimeTotal(quote, equipmentTotal, optionalServicesTotal);
   const leaseMonthlyTotal = getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
+  const presence = getQuoteContentPresence(quote);
 
   const items: ProposalCommercialSummaryItem[] = [
     {
@@ -75,7 +120,7 @@ export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalComm
     },
   ];
 
-  if (equipmentTotal > 0 || quote.sections.sectionB.enabled) {
+  if (presence.hasSectionBContent) {
     items.push({
       key: "one-time-equipment",
       label: "One-time equipment",
@@ -83,7 +128,7 @@ export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalComm
     });
   }
 
-  if (quote.sections.sectionC.enabled) {
+  if (presence.hasSectionCContent) {
     items.push({
       key: "field-services",
       label: "Field services",
