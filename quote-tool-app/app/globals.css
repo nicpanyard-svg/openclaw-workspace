@@ -2742,7 +2742,7 @@ body {
     box-shadow: none;
     margin: 0;
     width: 100%;
-    min-height: auto;
+    min-height: 10.84in;
     page-break-after: always;
     break-after: page;
     overflow: visible;
@@ -2787,11 +2787,11 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0;
-    min-height: auto;
+    min-height: 10.84in;
   }
 
   .cover-page {
-    min-height: auto;
+    min-height: 10.84in;
     padding: 0.15in 0.22in 0;
   }
 
@@ -2911,7 +2911,7 @@ body {
   }
 
   .proposal-closing-page {
-    min-height: auto;
+    min-height: 10.84in;
     padding: 0.16in 0.22in 0;
     position: relative;
     padding-bottom: 0.84in;
