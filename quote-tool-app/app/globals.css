@@ -2976,6 +2976,37 @@ body {
     page-break-inside: auto;
   }
 
+  .proposal-info-page .proposal-title-block {
+    display: block;
+  }
+
+  .proposal-info-page .proposal-date-card {
+    width: fit-content;
+    margin-top: 8px;
+    margin-left: auto;
+  }
+
+  .proposal-info-page .proposal-summary-grid {
+    display: block;
+  }
+
+  .proposal-info-page .proposal-summary-grid > .proposal-summary-panel + .proposal-summary-panel {
+    margin-top: 10px;
+  }
+
+  .proposal-info-page .proposal-title-block,
+  .proposal-info-page .section-title-rule,
+  .proposal-info-page .proposal-summary-grid {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .proposal-info-page .proposal-detail-grid,
+  .proposal-info-page .proposal-address-grid {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
   .proposal-header {
     margin-bottom: 6px;
     padding-bottom: 6px;

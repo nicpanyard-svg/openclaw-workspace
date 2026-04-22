@@ -161,7 +161,7 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
         </div>
       </section>
 
-      <section className="proposal-page" data-page-label={proposalInfoPageLabel}>
+      <section className="proposal-page proposal-info-page" data-page-label={proposalInfoPageLabel}>
         <div className="proposal-header">
           <span>Proposal details</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
