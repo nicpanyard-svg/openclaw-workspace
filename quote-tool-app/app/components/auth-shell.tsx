@@ -113,7 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (typeof window !== "undefined") {
         window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(result.session));
-        router.refresh();
       }
 
       return { ok: true };
