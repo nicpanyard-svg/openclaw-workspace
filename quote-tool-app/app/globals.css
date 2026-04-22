@@ -2201,6 +2201,8 @@ body {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #7d8996;
+  break-after: avoid;
+  page-break-after: avoid;
 }
 
 .summary-panel-value,
@@ -3001,10 +3003,24 @@ body {
     page-break-after: avoid;
   }
 
-  .proposal-info-page .proposal-detail-grid,
-  .proposal-info-page .proposal-address-grid {
+  .proposal-info-page .proposal-detail-grid {
     break-inside: auto;
     page-break-inside: auto;
+  }
+
+  .proposal-info-page .proposal-address-grid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .proposal-info-page .proposal-address-grid > .proposal-copy-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .proposal-info-page .proposal-address-grid .proposal-mini-heading {
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   .proposal-header {
@@ -3184,6 +3200,11 @@ body {
   .grand-total-card {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .proposal-copy-card p {
+    orphans: 2;
+    widows: 2;
   }
 
   .proposal-closing-page {

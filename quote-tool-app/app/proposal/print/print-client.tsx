@@ -9,7 +9,7 @@ import { ProposalPrintTrigger } from "@/app/components/proposal-print-trigger";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 
-export function ProposalPrintClient() {
+export function ProposalPrintClient({ autoPrintOnly = false }: { autoPrintOnly?: boolean }) {
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -32,13 +32,13 @@ export function ProposalPrintClient() {
 
   return (
     <div className="proposal-route-shell proposal-print-shell">
-      <ProposalPrintTrigger />
+      {autoPrintOnly ? <ProposalPrintTrigger /> : null}
       <div className="proposal-toolbar no-print">
         <div>
           <div className="proposal-toolbar-label">Print-ready document</div>
           <div className="proposal-toolbar-title">Print Proposal</div>
           <div className="proposal-toolbar-subtitle">
-            This uses the exact same proposal document and saved state as the HTML preview. The print dialog opens automatically once.
+            This uses the exact same proposal document and saved state as the HTML preview. Use this page as the manual print fallback if direct PDF download is unavailable.
           </div>
         </div>
         <div className="proposal-toolbar-actions">

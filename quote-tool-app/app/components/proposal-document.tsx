@@ -1,4 +1,3 @@
-import Image from "next/image";
 import {
   buildProposalCommercialSummary,
   getEquipmentTotal,
@@ -11,6 +10,9 @@ import type { QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
 type ProposalDocumentProps = {
   quote: QuoteRecord;
+  assetOverrides?: {
+    inetLogoSrc?: string;
+  };
 };
 
 function formatCurrency(value: number, currencyCode = "USD") {
@@ -32,7 +34,7 @@ function cleanLines(lines: string[]) {
   return lines.map((line) => line.trim()).filter(Boolean);
 }
 
-export function ProposalDocument({ quote }: ProposalDocumentProps) {
+export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProps) {
   const currencyCode = quote.metadata.currencyCode || "USD";
   const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
   const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
@@ -83,13 +85,12 @@ export function ProposalDocument({ quote }: ProposalDocumentProps) {
           <div className="cover-topbar">
             <div className="cover-brand-row">
               <div className="cover-brand-lockup">
-                <Image
-                  src="/inet-logo.png"
+                <img
+                  src={assetOverrides?.inetLogoSrc ?? "/inet-logo.png"}
                   alt="iNet logo"
                   className="cover-brand-logo h-auto w-auto"
                   width={208}
                   height={64}
-                  priority
                 />
                 <div className="cover-brand-subtitle">iNet Communications Proposal</div>
               </div>

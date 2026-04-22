@@ -29,7 +29,7 @@ function ProposalPage() {
   const quote = quoteOverride ?? resolved?.quote ?? null;
   const usingSavedData = resolved?.usingSavedData ?? false;
 
-  const handlePrintPdf = () => {
+  const handlePrintPdf = async () => {
     if (!quote) return;
 
     const nextQuote: QuoteRecord = {
@@ -48,17 +48,44 @@ function ProposalPage() {
     setQuoteOverride(nextQuote);
     persistPreviewQuote(nextQuote, { markAsSent: true });
 
-    const opened = window.open("/proposal/print", "_blank");
-
-    if (!opened) {
-      window.alert("Unable to open the print tab right now. If your browser blocked the new tab, allow popups/new tabs for this site and try again.");
-      return;
-    }
-
     try {
-      opened.opener = null;
+      const response = await fetch("/api/proposal-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ quote: nextQuote }),
+      });
+
+      if (!response.ok) {
+        throw new Error("PDF generation failed.");
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const safeProposalNumber = nextQuote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
+
+      link.href = objectUrl;
+      link.download = `${safeProposalNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      return;
     } catch {
-      // Ignore cross-browser noopener assignment issues once the tab is already open.
+      const opened = window.open("/proposal/print", "_blank");
+
+      if (!opened) {
+        window.alert("Unable to download the PDF or open the print tab right now. If your browser blocked the new tab, allow popups/new tabs for this site and try again.");
+        return;
+      }
+
+      try {
+        opened.opener = null;
+      } catch {
+        // Ignore cross-browser noopener assignment issues once the tab is already open.
+      }
     }
   };
 
@@ -115,8 +142,8 @@ function ProposalPage() {
             <button type="button" className="proposal-secondary-button" onClick={handleExportWord}>
               Export Word
             </button>
-            <button type="button" className="proposal-print-button" onClick={handlePrintPdf}>
-              Print PDF
+            <button type="button" className="proposal-print-button" onClick={() => void handlePrintPdf()}>
+              Download PDF
             </button>
           </div>
         </div>
