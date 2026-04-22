@@ -527,14 +527,6 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
         <h2 className="proposal-section-title">Summary of proposed pricing</h2>
         <div className="section-title-rule" />
 
-        <div className="proposal-closing-hero print-keep-block">
-          <div>
-            <div className="proposal-callout-label">Approval summary</div>
-            <div className="proposal-closing-hero-title">Ready for commercial approval</div>
-          </div>
-          <div className="proposal-closing-hero-chip">Final review</div>
-        </div>
-
         <div className="proposal-grand-totals print-keep-group">
           <div className="grand-total-card print-keep-block">
             <div className="grand-total-label">Recurring monthly</div>
@@ -589,21 +581,6 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
           <div className="approval-copy">
             By signing below, the customer confirms review and acceptance of the pricing and scope described in this
             proposal, subject to any mutually agreed revisions or final contract documents.
-          </div>
-
-          <div className="approval-action-row print-keep-group">
-            <div className="approval-action-item print-keep-block">
-              <span>Scope</span>
-              <strong>Reviewed and accepted</strong>
-            </div>
-            <div className="approval-action-item print-keep-block">
-              <span>Commercials</span>
-              <strong>Approved to proceed</strong>
-            </div>
-            <div className="approval-action-item print-keep-block">
-              <span>Next step</span>
-              <strong>Release for order processing</strong>
-            </div>
           </div>
 
           <div className="approval-signature-grid approval-signature-grid-three-up print-keep-group">
