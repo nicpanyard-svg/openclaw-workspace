@@ -2744,7 +2744,7 @@ body {
     page-break-after: always;
     break-after: page;
     overflow: visible;
-    padding: 0.18in 0.22in 0.24in;
+    padding: 0.14in 0.22in 0.22in;
   }
 
   .proposal-page:last-child {
@@ -3000,7 +3000,7 @@ body {
   }
 
   .section-title-rule {
-    margin: 12px 0 14px;
+    margin: 8px 0 10px;
   }
 
   .proposal-closing-page .section-title-rule {
@@ -3027,7 +3027,7 @@ body {
   .proposal-highlight-card,
   .proposal-closing-hero,
   .approval-action-item {
-    padding: 12px 14px;
+    padding: 10px 12px;
   }
 
   .proposal-closing-page .proposal-closing-hero,
@@ -3104,7 +3104,7 @@ body {
   }
 
   .proposal-table {
-    margin-top: 10px;
+    margin-top: 8px;
     font-size: 10.5px;
   }
 
