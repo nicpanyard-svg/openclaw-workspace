@@ -95,6 +95,30 @@ const users: Array<AuthUser & { password: string }> = [
     canManageUsers: false,
     password: "RapidQuote!26",
   },
+  {
+    id: "tracy-poindexter",
+    name: "Tracy Poindexter",
+    email: "tracy.poindexter@inetlte.com",
+    title: "Account Executive",
+    team: "Sales",
+    role: "sales",
+    status: "active",
+    initials: "TP",
+    canManageUsers: false,
+    password: "RapidQuote!27",
+  },
+  {
+    id: "mathew-clayton",
+    name: "Mathew Clayton",
+    email: "mathew.clayton@inetlte.com",
+    title: "Account Executive",
+    team: "Sales",
+    role: "sales",
+    status: "active",
+    initials: "MC",
+    canManageUsers: false,
+    password: "RapidQuote!28",
+  },
 ];
 
 const seededAccessRequests: AccessRequestRecord[] = [
