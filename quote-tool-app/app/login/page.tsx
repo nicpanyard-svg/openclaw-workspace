@@ -34,6 +34,7 @@ function LoginForm() {
     }
 
     router.replace(nextRoute);
+    router.refresh();
   };
 
   return (
