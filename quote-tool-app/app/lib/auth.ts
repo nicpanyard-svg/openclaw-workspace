@@ -110,7 +110,7 @@ const users: Array<AuthUser & { password: string }> = [
   {
     id: "mathew-clayton",
     name: "Mathew Clayton",
-    email: "mathew.clayton@inetlte.com",
+    email: "mattew.clayton@inetlte.com",
     title: "Account Executive",
     team: "Sales",
     role: "sales",
