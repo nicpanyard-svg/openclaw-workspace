@@ -119,6 +119,18 @@ const users: Array<AuthUser & { password: string }> = [
     canManageUsers: false,
     password: "RapidQuote!28",
   },
+  {
+    id: "xavier-trevino",
+    name: "Xavier Trevino",
+    email: "xavier.trevino@inetlte.com",
+    title: "Account Executive",
+    team: "Sales",
+    role: "sales",
+    status: "active",
+    initials: "XT",
+    canManageUsers: false,
+    password: "RapidQuote!29",
+  },
 ];
 
 const seededAccessRequests: AccessRequestRecord[] = [
