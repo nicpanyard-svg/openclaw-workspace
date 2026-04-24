@@ -50,36 +50,45 @@ function sanitizeNextRoute(next: string | null, pathname: string) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [accessRequests, setAccessRequests] = useState<AccessRequestRecord[]>(getSeededAccessRequests);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
     setIsHydrated(true);
-  }, []);
-
-  const session = useMemo<AuthSession | null>(() => {
-    if (!isHydrated) return null;
 
     const savedSession = deserializeAuthSession(window.localStorage.getItem(AUTH_STORAGE_KEY));
     if (savedSession && !isSessionExpired(savedSession)) {
-      return savedSession;
-    }
-
-    if (savedSession) {
+      setSession(savedSession);
+    } else if (savedSession) {
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
-    }
-
-    return null;
-  }, [isHydrated]);
-
-  const accessRequests = useMemo<AccessRequestRecord[]>(() => {
-    if (!isHydrated) {
-      return getSeededAccessRequests();
     }
 
     const savedAccessRequests = deserializeAccessRequests(window.localStorage.getItem(ACCESS_REQUESTS_STORAGE_KEY));
     window.localStorage.setItem(ACCESS_REQUESTS_STORAGE_KEY, JSON.stringify(savedAccessRequests));
-    return savedAccessRequests;
+    setAccessRequests(savedAccessRequests);
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === AUTH_STORAGE_KEY) {
+        const nextSession = deserializeAuthSession(event.newValue);
+        setSession(nextSession && !isSessionExpired(nextSession) ? nextSession : null);
+        return;
+      }
+
+      if (event.key === ACCESS_REQUESTS_STORAGE_KEY) {
+        setAccessRequests(deserializeAccessRequests(event.newValue));
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, [isHydrated]);
 
   const isReady = isHydrated;
@@ -91,7 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const routeIsAuthPage = authRoutes.includes(pathname);
 
     if (routeRequiresAuth && !session) {
-      router.replace(`/login?next=${encodeURIComponent(sanitizeNextRoute(pathname, pathname))}`);
+      const loginRoute = `/login?next=${encodeURIComponent(sanitizeNextRoute(pathname, pathname))}`;
+      router.replace(loginRoute);
+
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.replace(loginRoute);
+      }
       return;
     }
 
@@ -111,6 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: result.error };
       }
 
+      setSession(result.session);
+
       if (typeof window !== "undefined") {
         window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(result.session));
       }
@@ -118,14 +134,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { ok: true };
     },
     signOut() {
+      setSession(null);
+
       if (typeof window !== "undefined") {
         window.localStorage.removeItem(AUTH_STORAGE_KEY);
+        window.location.replace("/login");
+        return;
       }
+
       router.replace("/login");
       router.refresh();
     },
     submitAccessRequest(request: AccessRequestRecord) {
       const nextRequests = [request, ...accessRequests];
+      setAccessRequests(nextRequests);
 
       if (typeof window !== "undefined") {
         window.localStorage.setItem(ACCESS_REQUESTS_STORAGE_KEY, JSON.stringify(nextRequests));
