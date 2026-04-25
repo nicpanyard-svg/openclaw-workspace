@@ -137,6 +137,28 @@ export type QuoteInternalMeta = {
   workspaceOwnerName?: string;
 };
 
+export type QuoteCommercialCostInputs = {
+  oneTimeEquipmentCost: number;
+  oneTimeLaborCost: number;
+  oneTimeOtherCost: number;
+  recurringVendorCost: number;
+  recurringSupportCost: number;
+  recurringOtherCost: number;
+};
+
+export type QuoteCommercialMeta = {
+  optionLabel: string;
+  comparisonGroup?: string;
+  notes?: string;
+};
+
+export type QuoteCommercialState = {
+  internalOnly: true;
+  phase: "margin-foundation";
+  meta: QuoteCommercialMeta;
+  costs: QuoteCommercialCostInputs;
+};
+
 export type QuoteDocumentationDetails = {
   proposalTitle: string;
   proposalDateLabel: string;
@@ -208,6 +230,7 @@ export type QuoteDocumentRules = {
 
 export type QuoteRecord = {
   metadata: QuoteMetadata;
+  commercial: QuoteCommercialState;
   documentation: QuoteDocumentationDetails;
   approval: QuoteApprovalDetails;
   terms: QuoteTermsSection;

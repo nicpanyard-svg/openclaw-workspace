@@ -1,4 +1,5 @@
 import type { QuoteRecord, QuoteStatus } from "@/app/lib/quote-record";
+import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import { createBlankQuoteRecord } from "@/app/lib/quote-template";
 
 export const PROPOSAL_STORE_KEY = "rapidquote:proposal-store";
@@ -34,6 +35,8 @@ export type ProposalSummary = {
   totalMonthly: number;
   equipmentTotal: number;
   optionalServicesTotal: number;
+  totalGrossProfit: number;
+  totalGrossMarginPercent: number;
 };
 
 export type SavedProposalRecord = {
@@ -101,6 +104,7 @@ export function computeQuoteTotals(quote: QuoteRecord) {
 
 export function buildProposalSummary(proposal: SavedProposalRecord): ProposalSummary {
   const totals = computeQuoteTotals(proposal.quote);
+  const commercial = buildCommercialMetrics(proposal.quote);
 
   return {
     id: proposal.id,
@@ -116,6 +120,8 @@ export function buildProposalSummary(proposal: SavedProposalRecord): ProposalSum
     totalMonthly: totals.totalMonthly,
     equipmentTotal: totals.equipmentTotal,
     optionalServicesTotal: totals.optionalServicesTotal,
+    totalGrossProfit: commercial.totalGrossProfit,
+    totalGrossMarginPercent: commercial.totalGrossMarginPercent,
   };
 }
 

@@ -1,4 +1,5 @@
 import { createDefaultIntegrationState } from "@/app/lib/crm";
+import { createDefaultCommercialState } from "@/app/lib/commercial-model";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 
 export const PROPOSAL_STORAGE_KEY = "quote-tool-app:proposal-state";
@@ -31,6 +32,18 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
 
     return {
       ...parsed,
+      commercial: {
+        ...createDefaultCommercialState(),
+        ...parsed.commercial,
+        meta: {
+          ...createDefaultCommercialState().meta,
+          ...parsed.commercial?.meta,
+        },
+        costs: {
+          ...createDefaultCommercialState().costs,
+          ...parsed.commercial?.costs,
+        },
+      },
       internal: {
         crmOwnerLabel: parsed.internal?.crmOwnerLabel,
         crmSyncReady: parsed.internal?.crmSyncReady,

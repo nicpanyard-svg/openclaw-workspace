@@ -1,4 +1,5 @@
 import type { QuoteRecord } from "@/app/lib/quote-record";
+import { createDefaultCommercialState } from "@/app/lib/commercial-model";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 function deepClone<T>(value: T): T {
@@ -23,6 +24,7 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
   quote.metadata.accountName = undefined;
   quote.metadata.status = "draft";
   quote.metadata.lastTouchedAt = now.toISOString();
+  quote.commercial = createDefaultCommercialState();
 
   quote.documentation.proposalTitle = quote.metadata.documentTitle;
   quote.documentation.proposalDateLabel = proposalDate;

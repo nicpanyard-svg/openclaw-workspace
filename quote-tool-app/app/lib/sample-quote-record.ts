@@ -1,4 +1,5 @@
 import { createDefaultIntegrationState } from "@/app/lib/crm";
+import { createDefaultCommercialState } from "@/app/lib/commercial-model";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 
 export const sampleQuoteRecord: QuoteRecord = {
@@ -21,6 +22,22 @@ export const sampleQuoteRecord: QuoteRecord = {
     accountId: "acct-cz-usa",
     accountName: "CZ USA",
     lastTouchedAt: "2026-04-17T19:00:00.000Z",
+  },
+  commercial: {
+    ...createDefaultCommercialState(),
+    meta: {
+      optionLabel: "Option 1",
+      comparisonGroup: "CZ USA base",
+      notes: "Internal gross margin tracking only. This block does not appear in the customer proposal or PDF.",
+    },
+    costs: {
+      oneTimeEquipmentCost: 3650,
+      oneTimeLaborCost: 950,
+      oneTimeOtherCost: 225,
+      recurringVendorCost: 640,
+      recurringSupportCost: 120,
+      recurringOtherCost: 45,
+    },
   },
   documentation: {
     proposalTitle: "CZ USA",

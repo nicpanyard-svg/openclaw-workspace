@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
+import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
@@ -504,6 +505,11 @@ function DashboardGroup({
                     <strong>{formatCurrency(summary.optionalServicesTotal)}</strong>
                     <em>{hasOptionalServices ? "Upsell value included" : "No optional services added"}</em>
                   </div>
+                  <div className="proposal-commercial-card proposal-commercial-card-optional">
+                    <span>Gross margin</span>
+                    <strong>{summary.totalGrossMarginPercent.toFixed(1)}%</strong>
+                    <em>{formatCurrency(summary.totalGrossProfit)} internal GP</em>
+                  </div>
                 </div>
 
                 <div className="proposal-list-footer proposal-list-footer-visual">
@@ -558,6 +564,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
     window.location.href = `/new?proposalId=${copiedProposal.id}`;
   };
   const summary = buildProposalSummary(proposal);
+  const commercial = buildCommercialMetrics(proposal.quote);
   const latestActivity = proposal.activity[proposal.activity.length - 1] ?? null;
   const lastTouched = proposal.quote.metadata.lastTouchedAt ? formatDateTime(proposal.quote.metadata.lastTouchedAt) : formatDateTime(proposal.updatedAt);
 
@@ -633,6 +640,10 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
               <div className="detail-card"><span>Equipment</span><strong>{formatCurrency(summary.equipmentTotal)}</strong><em>Section B</em></div>
               <div className="detail-card"><span>Optional services</span><strong>{formatCurrency(summary.optionalServicesTotal)}</strong><em>Section C</em></div>
               <div className="detail-card"><span>Prepared by</span><strong>{proposal.quote.inet.contactName}</strong><em>{proposal.quote.inet.contactEmail}</em></div>
+              <div className="detail-card"><span>Gross profit</span><strong>{formatCurrency(commercial.totalGrossProfit)}</strong><em>Internal only</em></div>
+              <div className="detail-card"><span>Gross margin</span><strong>{commercial.totalGrossMarginPercent.toFixed(1)}%</strong><em>Revenue vs cost</em></div>
+              <div className="detail-card"><span>Recurring margin</span><strong>{commercial.recurringGrossMarginPercent.toFixed(1)}%</strong><em>Monthly GP {formatCurrency(commercial.recurringGrossProfit)}</em></div>
+              <div className="detail-card"><span>Option label</span><strong>{proposal.quote.commercial.meta.optionLabel}</strong><em>{proposal.quote.commercial.meta.comparisonGroup || "Internal comparison"}</em></div>
             </div>
           </section>
 
