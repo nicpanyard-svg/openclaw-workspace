@@ -1,5 +1,6 @@
 import { createDefaultIntegrationState } from "@/app/lib/crm";
 import { createDefaultCommercialState } from "@/app/lib/commercial-model";
+import { createDefaultMajorProjectState } from "@/app/lib/major-project";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 
 export const sampleQuoteRecord: QuoteRecord = {
@@ -14,6 +15,7 @@ export const sampleQuoteRecord: QuoteRecord = {
     currencyCode: "USD",
     status: "draft",
     quoteType: "purchase",
+    workflowMode: "quick_quote",
     leaseTermMonths: 12,
     leaseMarginPercent: 35,
     hasActiveDataAgreement: false,
@@ -38,6 +40,44 @@ export const sampleQuoteRecord: QuoteRecord = {
       recurringSupportCost: 120,
       recurringOtherCost: 45,
     },
+  },
+  majorProject: {
+    ...createDefaultMajorProjectState(),
+    summary: {
+      ...createDefaultMajorProjectState().summary,
+      projectName: "CZ USA multi-site rollout",
+      projectDescription: "Major-project commercial model for a structured multi-site Starlink deployment.",
+      assumptions: "Use this internal mode when sites, terms, and per-site economics should drive the downstream proposal sections.",
+    },
+    commercial: {
+      ...createDefaultMajorProjectState().commercial,
+      siteCount: 2,
+      activeSites: 2,
+      monthlyRatePerSite: 645,
+      oneTimeHardwarePerSite: 2074,
+      oneTimeInstallPerSite: 856,
+      oneTimeOtherPerSite: 112.5,
+      recurringVendorPerSite: 320,
+      recurringSupportPerSite: 60,
+      recurringOtherPerSite: 22.5,
+      optionalServicesAmount: 1712,
+    },
+    options: [
+      {
+        id: "major-option-1",
+        label: "Option 1",
+        description: "Base deployment structure",
+        siteCount: 2,
+        monthlyRatePerSite: 645,
+        hardwarePerSite: 2074,
+        installPerSite: 856,
+        otherOneTimePerSite: 112.5,
+        vendorRecurringPerSite: 320,
+        supportRecurringPerSite: 60,
+        otherRecurringPerSite: 22.5,
+      },
+    ],
+    activeOptionId: "major-option-1",
   },
   documentation: {
     proposalTitle: "CZ USA",

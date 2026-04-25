@@ -4,6 +4,7 @@ export type CurrencyCode = "USD" | "CAD" | "EUR" | string;
 export type QuoteStatus = "draft" | "in_review" | "sent";
 export type SectionAMode = "pool" | "per_kit";
 export type QuoteType = "purchase" | "lease";
+export type QuoteWorkflowMode = "quick_quote" | "major_project";
 
 export type QuoteTextBlock = {
   enabled: boolean;
@@ -116,6 +117,7 @@ export type QuoteMetadata = {
   currencyCode: CurrencyCode;
   status: QuoteStatus;
   quoteType: QuoteType;
+  workflowMode?: QuoteWorkflowMode;
   leaseTermMonths?: 12 | 24 | 36;
   leaseMarginPercent?: number;
   hasActiveDataAgreement?: boolean;
@@ -228,9 +230,114 @@ export type QuoteDocumentRules = {
   avoidOrphanedSectionHeaders: true;
 };
 
+export type MajorProjectLineType =
+  | "hardware"
+  | "software"
+  | "subscription"
+  | "installation"
+  | "service"
+  | "support"
+  | "managed_service"
+  | "shipping"
+  | "tax"
+  | "other";
+
+export type MajorProjectRevenueSchedule = "one_time" | "recurring";
+export type MajorProjectCostBasis = "vendor_quote" | "msrp" | "estimate" | "internal_labor" | "blended" | "other";
+export type MajorProjectResaleBasis = "fixed_fee" | "cost_plus" | "target_margin" | "pass_through" | "bundle" | "other";
+
+export type MajorProjectLineItem = {
+  id: string;
+  vendor: string;
+  manufacturer?: string;
+  category: string;
+  lineType: MajorProjectLineType;
+  description: string;
+  quantity: number;
+  unit: string;
+  customerUnitPrice: number;
+  customerExtendedPrice: number;
+  vendorUnitCost: number;
+  vendorExtendedCost: number;
+  schedule: MajorProjectRevenueSchedule;
+  costBasis: MajorProjectCostBasis;
+  resaleBasis: MajorProjectResaleBasis;
+  laborBucket?: string;
+  serviceBucket?: string;
+  passThrough: boolean;
+  notes?: string;
+};
+
+export type MajorProjectVendorSummary = {
+  vendor: string;
+  manufacturer?: string;
+  oneTimeRevenue: number;
+  recurringRevenue: number;
+  oneTimeCost: number;
+  recurringCost: number;
+};
+
+export type MajorProjectOption = {
+  id: string;
+  label: string;
+  description?: string;
+  siteCount: number;
+  monthlyRatePerSite: number;
+  hardwarePerSite: number;
+  installPerSite: number;
+  otherOneTimePerSite: number;
+  vendorRecurringPerSite: number;
+  supportRecurringPerSite: number;
+  otherRecurringPerSite: number;
+  lineItems?: MajorProjectLineItem[];
+  vendorSummary?: MajorProjectVendorSummary[];
+};
+
+export type MajorProjectSummary = {
+  projectName: string;
+  projectDescription: string;
+  versionLabel: string;
+  paymentTerms: string;
+  billingStart: string;
+  assumptions: string;
+};
+
+export type MajorProjectCommercialInputs = {
+  termMonths: number;
+  serviceMix: "managed-network" | "starlink-pool" | "starlink-per-site" | "hybrid";
+  siteCount: number;
+  activeSites: number;
+  monthlyRatePerSite: number;
+  oneTimeHardwarePerSite: number;
+  oneTimeInstallPerSite: number;
+  oneTimeOtherPerSite: number;
+  recurringVendorPerSite: number;
+  recurringSupportPerSite: number;
+  recurringOtherPerSite: number;
+  includeHardware: boolean;
+  includeInstallation: boolean;
+  includeOptionalServices: boolean;
+  installationLabel: string;
+  equipmentLabel: string;
+  recurringLabel: string;
+  optionalServicesLabel: string;
+  optionalServicesAmount: number;
+  overageRatePerGb: number;
+  terminalFeePerSite: number;
+};
+
+export type MajorProjectState = {
+  enabled: boolean;
+  summary: MajorProjectSummary;
+  commercial: MajorProjectCommercialInputs;
+  options: MajorProjectOption[];
+  activeOptionId: string;
+};
+
 export type QuoteRecord = {
   metadata: QuoteMetadata;
   commercial: QuoteCommercialState;
+  majorProject: MajorProjectState;
   documentation: QuoteDocumentationDetails;
   approval: QuoteApprovalDetails;
   terms: QuoteTermsSection;

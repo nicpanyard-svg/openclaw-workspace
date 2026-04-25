@@ -1,5 +1,6 @@
 import { createDefaultIntegrationState } from "@/app/lib/crm";
 import { createDefaultCommercialState } from "@/app/lib/commercial-model";
+import { createDefaultMajorProjectState } from "@/app/lib/major-project";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 
 export const PROPOSAL_STORAGE_KEY = "quote-tool-app:proposal-state";
@@ -32,6 +33,10 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
 
     return {
       ...parsed,
+      metadata: {
+        ...parsed.metadata,
+        workflowMode: parsed.metadata?.workflowMode ?? "quick_quote",
+      },
       commercial: {
         ...createDefaultCommercialState(),
         ...parsed.commercial,
@@ -43,6 +48,20 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
           ...createDefaultCommercialState().costs,
           ...parsed.commercial?.costs,
         },
+      },
+      majorProject: {
+        ...createDefaultMajorProjectState(),
+        ...parsed.majorProject,
+        summary: {
+          ...createDefaultMajorProjectState().summary,
+          ...parsed.majorProject?.summary,
+        },
+        commercial: {
+          ...createDefaultMajorProjectState().commercial,
+          ...parsed.majorProject?.commercial,
+        },
+        options: parsed.majorProject?.options?.length ? parsed.majorProject.options : createDefaultMajorProjectState().options,
+        activeOptionId: parsed.majorProject?.activeOptionId ?? parsed.majorProject?.options?.[0]?.id ?? createDefaultMajorProjectState().activeOptionId,
       },
       internal: {
         crmOwnerLabel: parsed.internal?.crmOwnerLabel,

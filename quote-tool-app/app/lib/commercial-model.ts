@@ -1,4 +1,5 @@
 import type { QuoteCommercialState, QuoteRecord } from "@/app/lib/quote-record";
+import { buildMajorProjectMetrics, ensureMajorProjectState } from "@/app/lib/major-project";
 
 export function createDefaultCommercialState(): QuoteCommercialState {
   return {
@@ -39,13 +40,20 @@ export function ensureCommercialState(quote: QuoteRecord): QuoteRecord {
 }
 
 export function buildCommercialMetrics(quote: QuoteRecord) {
-  const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
-  const recurringRevenue = Number(sectionARows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2));
-  const oneTimeEquipmentRevenue = Number(quote.sections.sectionB.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? 0), 0).toFixed(2));
-  const oneTimeServicesRevenue = Number(quote.sections.sectionC.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? 0), 0).toFixed(2));
+  const hydratedQuote = ensureCommercialState(ensureMajorProjectState(quote));
+  const sectionARows = hydratedQuote.sections.sectionA.mode === "pool" ? hydratedQuote.sections.sectionA.poolRows : hydratedQuote.sections.sectionA.perKitRows;
+  const quickRecurringRevenue = Number(sectionARows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2));
+  const quickOneTimeEquipmentRevenue = Number(hydratedQuote.sections.sectionB.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? 0), 0).toFixed(2));
+  const quickOneTimeServicesRevenue = Number(hydratedQuote.sections.sectionC.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? 0), 0).toFixed(2));
+
+  const majorProjectMetrics = buildMajorProjectMetrics(hydratedQuote);
+  const useMajorProjectRevenue = hydratedQuote.metadata.workflowMode === "major_project" && Boolean(hydratedQuote.majorProject?.enabled);
+  const recurringRevenue = useMajorProjectRevenue ? Number(majorProjectMetrics.recurringRevenue.toFixed(2)) : quickRecurringRevenue;
+  const oneTimeEquipmentRevenue = useMajorProjectRevenue ? Number(majorProjectMetrics.oneTimeRevenue.toFixed(2)) : quickOneTimeEquipmentRevenue;
+  const oneTimeServicesRevenue = useMajorProjectRevenue ? 0 : quickOneTimeServicesRevenue;
   const oneTimeRevenue = Number((oneTimeEquipmentRevenue + oneTimeServicesRevenue).toFixed(2));
 
-  const costs = ensureCommercialState(quote).commercial.costs;
+  const costs = hydratedQuote.commercial.costs;
   const recurringCost = Number((costs.recurringVendorCost + costs.recurringSupportCost + costs.recurringOtherCost).toFixed(2));
   const oneTimeCost = Number((costs.oneTimeEquipmentCost + costs.oneTimeLaborCost + costs.oneTimeOtherCost).toFixed(2));
 
