@@ -20,6 +20,51 @@ import {
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 import { createBlankQuoteRecord } from "@/app/lib/quote-template";
 
+function quoteMatchesProposal(quote: QuoteRecord | null, proposal: SavedProposalRecord | null) {
+  if (!quote || !proposal) return false;
+
+  const quoteProposalId = quote.internal?.savedProposalId ?? quote.internal?.quoteId ?? null;
+  return quoteProposalId === proposal.id;
+}
+
+export function resolvePreferredQuote(options: {
+  savedQuote?: QuoteRecord | null;
+  activeProposal?: SavedProposalRecord | null;
+  fallbackQuote?: QuoteRecord;
+}): {
+  quote: QuoteRecord;
+  source: "session" | "proposal" | "fallback";
+} {
+  const savedQuote = options.savedQuote ?? null;
+  const activeProposal = options.activeProposal ?? null;
+
+  if (activeProposal && quoteMatchesProposal(savedQuote, activeProposal)) {
+    return {
+      quote: savedQuote as QuoteRecord,
+      source: "session" as const,
+    };
+  }
+
+  if (activeProposal) {
+    return {
+      quote: activeProposal.quote,
+      source: "proposal" as const,
+    };
+  }
+
+  if (savedQuote) {
+    return {
+      quote: savedQuote,
+      source: "session" as const,
+    };
+  }
+
+  return {
+    quote: options.fallbackQuote ?? createBlankQuoteRecord(),
+    source: "fallback" as const,
+  };
+}
+
 export function resolveActiveProposalQuote(): {
   quote: QuoteRecord;
   usingSavedData: boolean;
@@ -54,7 +99,11 @@ export function resolveActiveProposalQuote(): {
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, resolvedId);
   }
 
-  const quote = savedQuote ?? activeProposal?.quote ?? createBlankQuoteRecord();
+  const { quote } = resolvePreferredQuote({
+    savedQuote,
+    activeProposal,
+    fallbackQuote: createBlankQuoteRecord(),
+  });
 
   window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(quote));
 
