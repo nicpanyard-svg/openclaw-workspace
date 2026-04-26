@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   },
   outputFileTracingRoot: workspaceRoot,
   serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+  outputFileTracingIncludes: {
+    "/api/proposal-pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
+  },
 };
 
 export default nextConfig;
