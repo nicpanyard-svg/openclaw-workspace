@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     root: workspaceRoot,
   },
   outputFileTracingRoot: workspaceRoot,
+  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
 };
 
 export default nextConfig;
