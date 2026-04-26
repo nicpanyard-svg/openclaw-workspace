@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
 import crypto from "node:crypto";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 
-const EXPORT_CACHE_DIR = path.join(process.cwd(), "tmp", "proposal-pdf-cache");
+const EXPORT_CACHE_DIR = path.join(os.tmpdir(), "proposal-pdf-cache");
 const MAX_EXPORT_AGE_MS = 1000 * 60 * 10;
 
 function buildCachePath(token: string) {
