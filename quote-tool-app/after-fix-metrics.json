@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "bodySnippet": "INET COMMUNICATIONS PROPOSAL\nPROPOSAL\n#RQ-PDF-PAGEBREAK\n2026-04-22\nBudgetary Estimate\nBUDGETARY ESTIMATE\nPDF Page Break Test Proposal\nManaged Communications Services\nPREPARED FOR\nCZ USA\nLong Address Customer\nJordan Example\n555-1000\njordan@example.com\n100 Long Industrial Parkway\nKansas City, Kansas 66117\nUnited States\nPREPARED BY\nNick Panyard\niNet\n555-0200\nnick.panyard@inetlte.com\nGalleria Tower 2\n5051 Westheimer Road, Suite 1700\nHouston, TX 77056\nMONTHLY RECURRING\n$1,290.55\nONE-TIME EQUIPMENT\n$5",
+  "pageTop": 1040.625,
+  "pageBottom": 2319.421875,
+  "gridTop": 1788.5,
+  "gridBottom": 1998.25,
+  "gridHeight": 209.75,
+  "headings": [
+    "Bill To",
+    "Ship To"
+  ],
+  "cards": [
+    {
+      "top": 1788.5,
+      "bottom": 1998.25,
+      "height": 209.75,
+      "breakInside": "avoid",
+      "text": "Bill ToLong Address CustomerJordan ExamplePO Box 171073Kansas City, Kansas 66117United States"
+    },
+    {
+      "top": 1788.5,
+      "bottom": 1998.25,
+      "height": 209.75,
+      "breakInside": "avoid",
+      "text": "Ship ToLong Address CustomerJordan ExamplePO Box 171073Kansas City, Kansas 66117United StatesSame as Bill To"
+    }
+  ],
+  "gridBreakInside": "auto",
+  "headingBreakAfter": "auto"
+}

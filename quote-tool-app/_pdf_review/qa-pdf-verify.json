@@ -1,0 +1,150 @@
+{
+  "results": [
+    {
+      "name": "purchase-core",
+      "hasPrintProposal": true,
+      "hasPreparedFor": true,
+      "hasApproval": true,
+      "pageCountApprox": 6
+    },
+    {
+      "name": "with-field-services",
+      "hasPrintProposal": false,
+      "hasPreparedFor": false,
+      "hasApproval": false,
+      "pageCountApprox": 0
+    },
+    {
+      "name": "lease-no-logo",
+      "hasPrintProposal": true,
+      "hasPreparedFor": true,
+      "hasApproval": true,
+      "pageCountApprox": 6
+    }
+  ],
+  "pdfResult": {
+    "ok": true,
+    "status": 200,
+    "contentType": "application/pdf",
+    "contentDisposition": "attachment; filename=\"RCT001.pdf\"",
+    "byteLength": 150156,
+    "bytes": [
+      37,
+      80,
+      68,
+      70,
+      45,
+      49,
+      46,
+      52,
+      10,
+      37,
+      211,
+      235,
+      233,
+      225,
+      10,
+      49,
+      32,
+      48,
+      32,
+      111,
+      98,
+      106,
+      10,
+      60,
+      60,
+      47,
+      84,
+      105,
+      116,
+      108,
+      101,
+      32,
+      40,
+      82,
+      97,
+      112,
+      105,
+      100,
+      81,
+      117,
+      111,
+      116,
+      101,
+      32,
+      124,
+      32,
+      83,
+      101,
+      99,
+      117,
+      114,
+      101,
+      32,
+      80,
+      114,
+      111,
+      112,
+      111,
+      115,
+      97,
+      108,
+      32,
+      87,
+      111
+    ],
+    "textPreview": null
+  },
+  "consoleMessages": [
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    }
+  ],
+  "pageErrors": []
+}

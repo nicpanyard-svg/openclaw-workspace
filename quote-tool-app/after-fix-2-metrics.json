@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "pageTop": 1040.625,
+  "pageBottom": 2319.421875,
+  "customBottom": 1778.5,
+  "gridTop": 1788.5,
+  "gridBottom": 1998.25,
+  "spaceBeforeGrid": 747.875,
+  "remainingAfterGrid": 321.171875,
+  "cards": [
+    {
+      "top": 1788.5,
+      "bottom": 1998.25,
+      "height": 209.75,
+      "breakInside": "avoid",
+      "text": "Bill ToBoundary Test CustomerMorgan ExamplePO Box 171073Kansas City, Kansas 66117United States"
+    },
+    {
+      "top": 1788.5,
+      "bottom": 1998.25,
+      "height": 209.75,
+      "breakInside": "avoid",
+      "text": "Ship ToBoundary Test CustomerMorgan ExamplePO Box 171073Kansas City, Kansas 66117United StatesSame a"
+    }
+  ]
+}

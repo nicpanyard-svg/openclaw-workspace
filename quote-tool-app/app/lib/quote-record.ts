@@ -238,6 +238,8 @@ export type MajorProjectLineType =
   | "service"
   | "support"
   | "managed_service"
+  | "optional_service"
+  | "internal_labor"
   | "shipping"
   | "tax"
   | "other";
@@ -246,13 +248,14 @@ export type MajorProjectRevenueSchedule = "one_time" | "recurring";
 export type MajorProjectCostBasis = "vendor_quote" | "msrp" | "estimate" | "internal_labor" | "blended" | "other";
 export type MajorProjectResaleBasis = "fixed_fee" | "cost_plus" | "target_margin" | "pass_through" | "bundle" | "other";
 
-export type MajorProjectLineItem = {
+export type MajorProjectComponent = {
   id: string;
+  internalName: string;
+  customerFacingLabel?: string;
   vendor: string;
   manufacturer?: string;
   category: string;
   lineType: MajorProjectLineType;
-  description: string;
   quantity: number;
   unit: string;
   customerUnitPrice: number;
@@ -265,7 +268,31 @@ export type MajorProjectLineItem = {
   laborBucket?: string;
   serviceBucket?: string;
   passThrough: boolean;
+  bundleAssignmentId?: string;
   notes?: string;
+};
+
+export type MajorProjectBundle = {
+  id: string;
+  internalName: string;
+  customerFacingLabel: string;
+  description?: string;
+  componentIds: string[];
+  includedCostComponentIds?: string[];
+  includedRevenueComponentIds?: string[];
+  schedule?: MajorProjectRevenueSchedule | "mixed";
+  category?: string;
+};
+
+export type MajorProjectCustomerQuoteLine = {
+  id: string;
+  label: string;
+  description?: string;
+  bundleIds: string[];
+  includedCostComponentIds?: string[];
+  includedRevenueComponentIds?: string[];
+  schedule?: MajorProjectRevenueSchedule | "mixed";
+  presentationCategory?: "recurring" | "hardware" | "services" | "other";
 };
 
 export type MajorProjectVendorSummary = {
@@ -289,7 +316,9 @@ export type MajorProjectOption = {
   vendorRecurringPerSite: number;
   supportRecurringPerSite: number;
   otherRecurringPerSite: number;
-  lineItems?: MajorProjectLineItem[];
+  components?: MajorProjectComponent[];
+  bundles?: MajorProjectBundle[];
+  customerQuoteLines?: MajorProjectCustomerQuoteLine[];
   vendorSummary?: MajorProjectVendorSummary[];
 };
 

@@ -101,7 +101,7 @@ export async function GET() {
             });
             // Queue reply asking for availability — close the meeting fast
             const firstName = matchedLead.name.split(' ')[0];
-            fetch('http://localhost:3000/api/mike/queue', {
+            fetch('http://localhost:3002/api/mike/queue', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -126,7 +126,7 @@ export async function GET() {
             }).catch(() => {/* best-effort */});
 
             // Queue notification to Nick
-            fetch('http://localhost:3000/api/mike/queue', {
+            fetch('http://localhost:3002/api/mike/queue', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -171,3 +171,4 @@ export async function GET() {
     return Response.json({ error: message }, { status: 502 });
   }
 }
+

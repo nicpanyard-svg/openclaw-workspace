@@ -1,0 +1,231 @@
+{
+  "steps": [
+    {
+      "name": "login_page_load",
+      "url": "http://localhost:3000/login",
+      "hasSignIn": true
+    },
+    {
+      "name": "bad_login_error",
+      "ok": true
+    },
+    {
+      "name": "forgot_password_known_user",
+      "msgPresent": true
+    },
+    {
+      "name": "reset_short_password_validation",
+      "ok": true
+    },
+    {
+      "name": "reset_mismatch_validation",
+      "ok": true
+    },
+    {
+      "name": "reset_success_surface",
+      "ok": true
+    },
+    {
+      "name": "signup_external_denied_surface",
+      "ok": true
+    },
+    {
+      "name": "signup_internal_pending_surface",
+      "ok": true
+    },
+    {
+      "name": "login_success",
+      "url": "http://localhost:3000/",
+      "hasDashboard": false
+    },
+    {
+      "name": "access_non_admin",
+      "text": "NP\nNick Panyard\nAccount Executive • Sales\nDashboard\nBuilder\nPreview\nAccess\nSign out\nACCESS AND ONBOARDING\nYour access status\nREQUESTER VIEW\n\nThis page shows where your request stands, what review state it is in, and what the admin lane will eventually automate.\n\nNew request\nBack to dashboard\nPENDING REVIEW\n0\n\nRequests waiting on an admin decision or provisioning handoff.\n\nNEED MORE INFO\n0\n\nRequests blocked on manager confirmation, scope clarification, or policy review.\n\nAPPROVED\n0\n\nAccounts ready for invite, activation, or backend provisioning work.\n\nWHAT BACKEND ADDS NEXT\nAudit + provisioning\n\nDirectory sync, role grants, email delivery, and reviewer actions belong underneath this surface later.\n\nPRODUCT DIRECTION\nHow this should behave on top of real auth\n\nRequests should enter a durable queue, route to the right reviewer, preserve notes, enforce role boundaries, and notify the requester at each state change. This page now gives the product a visible place for all of that to happen.\n\nQUEUE BEHAVIOR\nOne review lane\nEvery signup request lands in one visible queue with timestamps, notes, and status.\nADMIN ACTIONS\nApprove, deny, request info\nThose are the core states a backend workflow should support first.\nUSER EXPERIENCE\nAlways know next step\nThe requester should never wonder whether the system received the request or who owns it.\nSECURITY POSTURE\nInternal-first access\nExternal users stay outside the workspace until policy and tenant controls are ready.\nCURRENT QUEUE\nAccess requests\n\nThis is the visible admin/requester surface for multi-user onboarding. It is intentionally product-complete even though the true workflow engine is still coming behind it.\n\nNo access requests to show yet."
+    },
+    {
+      "name": "builder_persistence_after_reload",
+      "proposalNumber": "RQ-QA-001",
+      "customerName": "QA Test Energy",
+      "hasSummary": true
+    },
+    {
+      "name": "copy_proposal_builder_state",
+      "customerName": "",
+      "proposalNumber": "RQ-QA-001-COPY",
+      "title": "RapidQuote QA Proposal Copy"
+    },
+    {
+      "name": "preview_page",
+      "hasTitle": true,
+      "hasCustomer": false,
+      "hasCustomField": false,
+      "hasPreparedBy": true
+    },
+    {
+      "name": "word_export",
+      "files": [
+        "RQ-QA-001-COPY.docx"
+      ]
+    },
+    {
+      "name": "print_page",
+      "hasPrintTitle": true,
+      "hasCustomer": false
+    },
+    {
+      "name": "dashboard_open_editor",
+      "url": "http://localhost:3000/"
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 171ms"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 175ms"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 142ms"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "warn",
+      "text": "Image with src \"/inet-logo.png\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\"eager\"` property if this image is above the fold.\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "warn",
+      "text": "Image with src \"/inet-logo.png\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\"eager\"` property if this image is above the fold.\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 146ms"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "warn",
+      "text": "Image with src \"/inet-logo.png\" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: \"auto\"' or 'height: \"auto\"' to maintain the aspect ratio."
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 187ms"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 109ms"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 153ms"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "warn",
+      "text": "Image with src \"/inet-logo.png\" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: \"auto\"' or 'height: \"auto\"' to maintain the aspect ratio."
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    }
+  ],
+  "pageErrors": []
+}

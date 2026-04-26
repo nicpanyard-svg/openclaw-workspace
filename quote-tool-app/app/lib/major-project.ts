@@ -1,15 +1,106 @@
-import type { MajorProjectLineItem, MajorProjectOption, QuoteRecord } from "@/app/lib/quote-record";
+import type {
+  MajorProjectBundle,
+  MajorProjectComponent,
+  MajorProjectCustomerQuoteLine,
+  MajorProjectOption,
+  QuoteRecord,
+} from "@/app/lib/quote-record";
 
 export type MajorProjectServiceMix = "managed-network" | "starlink-pool" | "starlink-per-site" | "hybrid";
+export type MajorProjectValidationSeverity = "error" | "warning";
 
-function createDefaultMajorProjectLineItem(): MajorProjectLineItem {
+export type MajorProjectValidationIssue = {
+  code:
+    | "duplicate_component_ids"
+    | "duplicate_bundle_ids"
+    | "duplicate_quote_line_ids"
+    | "bundle_missing_components"
+    | "bundle_component_conflict"
+    | "component_in_multiple_bundles"
+    | "component_bundle_assignment_mismatch"
+    | "quote_line_missing_bundles"
+    | "quote_line_missing_components"
+    | "quote_line_without_backing_economics"
+    | "component_unmapped_to_bundle"
+    | "component_unmapped_to_quote_line"
+    | "component_duplicate_quote_line_coverage"
+    | "bundle_not_presented"
+    | "missing_customer_quote_lines";
+  severity: MajorProjectValidationSeverity;
+  message: string;
+  componentIds?: string[];
+  bundleIds?: string[];
+  quoteLineIds?: string[];
+};
+
+export type MajorProjectValidationSummary = {
+  valid: boolean;
+  errorCount: number;
+  warningCount: number;
+  issues: MajorProjectValidationIssue[];
+  uncoveredComponentIds: string[];
+  unpresentedBundleIds: string[];
+  quoteLinesWithoutEconomics: string[];
+};
+
+export type MajorProjectBundleMetrics = MajorProjectBundle & {
+  resolvedComponentIds: string[];
+  oneTimeRevenue: number;
+  recurringRevenue: number;
+  oneTimeCost: number;
+  recurringCost: number;
+};
+
+export type MajorProjectCustomerQuoteLineMetrics = MajorProjectCustomerQuoteLine & {
+  resolvedBundleIds: string[];
+  resolvedCostComponentIds: string[];
+  resolvedRevenueComponentIds: string[];
+  oneTimeRevenue: number;
+  recurringRevenue: number;
+  oneTimeCost: number;
+  recurringCost: number;
+  costComponents: MajorProjectComponent[];
+  revenueComponents: MajorProjectComponent[];
+};
+
+export type MajorProjectMetrics = {
+  siteCount: number;
+  components: MajorProjectComponent[];
+  bundles: MajorProjectBundleMetrics[];
+  customerQuoteLines: MajorProjectCustomerQuoteLineMetrics[];
+  vendorSummary: Array<{
+    vendor: string;
+    manufacturer?: string;
+    oneTimeRevenue: number;
+    recurringRevenue: number;
+    oneTimeCost: number;
+    recurringCost: number;
+  }>;
+  validation: MajorProjectValidationSummary;
+  hasThreeLayerModel: boolean;
+  recurringRevenue: number;
+  hardwareRevenue: number;
+  installRevenue: number;
+  otherOneTimeRevenue: number;
+  optionalServicesRevenue: number;
+  oneTimeRevenue: number;
+  recurringCost: number;
+  oneTimeCost: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalGrossProfit: number;
+  totalGrossMarginPercent: number;
+};
+
+function createDefaultComponent(): MajorProjectComponent {
   return {
-    id: "major-line-1",
+    id: "major-component-1",
+    internalName: "",
+    customerFacingLabel: "",
     vendor: "",
     manufacturer: "",
     category: "third-party hardware",
     lineType: "hardware",
-    description: "",
     quantity: 1,
     unit: "ea",
     customerUnitPrice: 0,
@@ -22,50 +113,114 @@ function createDefaultMajorProjectLineItem(): MajorProjectLineItem {
     laborBucket: "",
     serviceBucket: "",
     passThrough: false,
+    bundleAssignmentId: "",
     notes: "",
   };
 }
 
-function normalizeLineItem(lineItem: Partial<MajorProjectLineItem> | undefined, index: number): MajorProjectLineItem {
-  const defaults = createDefaultMajorProjectLineItem();
-  const quantity = Math.max(Number(lineItem?.quantity ?? defaults.quantity) || defaults.quantity, 0);
-  const customerUnitPrice = Number(lineItem?.customerUnitPrice ?? defaults.customerUnitPrice) || 0;
-  const vendorUnitCost = Number(lineItem?.vendorUnitCost ?? defaults.vendorUnitCost) || 0;
-  const customerExtendedPrice = lineItem?.customerExtendedPrice ?? Number((quantity * customerUnitPrice).toFixed(2));
-  const vendorExtendedCost = lineItem?.vendorExtendedCost ?? Number((quantity * vendorUnitCost).toFixed(2));
-
+function createDefaultBundle(): MajorProjectBundle {
   return {
-    ...defaults,
-    ...lineItem,
-    id: lineItem?.id ?? `major-line-${index + 1}`,
-    quantity,
-    customerUnitPrice,
-    customerExtendedPrice: Number(customerExtendedPrice.toFixed(2)),
-    vendorUnitCost,
-    vendorExtendedCost: Number(vendorExtendedCost.toFixed(2)),
+    id: "major-bundle-1",
+    internalName: "Base solution bundle",
+    customerFacingLabel: "Integrated solution bundle",
+    description: "",
+    componentIds: [],
+    includedCostComponentIds: [],
+    includedRevenueComponentIds: [],
+    schedule: "mixed",
+    category: "solution",
   };
 }
 
-function computeOptionVendorSummary(option: MajorProjectOption) {
+function createDefaultCustomerQuoteLine(): MajorProjectCustomerQuoteLine {
+  return {
+    id: "major-quote-line-1",
+    label: "Integrated solution package",
+    description: "",
+    bundleIds: [],
+    includedCostComponentIds: [],
+    includedRevenueComponentIds: [],
+    schedule: "mixed",
+    presentationCategory: "other",
+  };
+}
+
+function uniqueIds(ids: Array<string | undefined | null>) {
+  return Array.from(new Set(ids.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
+}
+
+function roundCurrency(value: number) {
+  return Number(value.toFixed(2));
+}
+
+function normalizeComponent(component: Partial<MajorProjectComponent> | undefined, index: number): MajorProjectComponent {
+  const defaults = createDefaultComponent();
+  const quantity = Math.max(Number(component?.quantity ?? defaults.quantity) || defaults.quantity, 0);
+  const customerUnitPrice = Number(component?.customerUnitPrice ?? defaults.customerUnitPrice) || 0;
+  const vendorUnitCost = Number(component?.vendorUnitCost ?? defaults.vendorUnitCost) || 0;
+  const customerExtendedPrice = component?.customerExtendedPrice ?? roundCurrency(quantity * customerUnitPrice);
+  const vendorExtendedCost = component?.vendorExtendedCost ?? roundCurrency(quantity * vendorUnitCost);
+
+  return {
+    ...defaults,
+    ...component,
+    id: component?.id ?? `major-component-${index + 1}`,
+    internalName: component?.internalName ?? defaults.internalName,
+    bundleAssignmentId: component?.bundleAssignmentId?.trim() ?? "",
+    quantity,
+    customerUnitPrice,
+    customerExtendedPrice: roundCurrency(customerExtendedPrice),
+    vendorUnitCost,
+    vendorExtendedCost: roundCurrency(vendorExtendedCost),
+  };
+}
+
+function normalizeBundle(bundle: Partial<MajorProjectBundle> | undefined, index: number): MajorProjectBundle {
+  const defaults = createDefaultBundle();
+  const componentIds = uniqueIds(bundle?.componentIds ?? []);
+
+  return {
+    ...defaults,
+    ...bundle,
+    id: bundle?.id ?? `major-bundle-${index + 1}`,
+    componentIds,
+    includedCostComponentIds: uniqueIds(bundle?.includedCostComponentIds?.length ? bundle.includedCostComponentIds : componentIds),
+    includedRevenueComponentIds: uniqueIds(bundle?.includedRevenueComponentIds?.length ? bundle.includedRevenueComponentIds : componentIds),
+  };
+}
+
+function normalizeCustomerQuoteLine(line: Partial<MajorProjectCustomerQuoteLine> | undefined, index: number): MajorProjectCustomerQuoteLine {
+  const defaults = createDefaultCustomerQuoteLine();
+  return {
+    ...defaults,
+    ...line,
+    id: line?.id ?? `major-quote-line-${index + 1}`,
+    bundleIds: uniqueIds(line?.bundleIds ?? []),
+    includedCostComponentIds: uniqueIds(line?.includedCostComponentIds ?? []),
+    includedRevenueComponentIds: uniqueIds(line?.includedRevenueComponentIds ?? []),
+  };
+}
+
+function buildVendorSummary(components: MajorProjectComponent[]) {
   const summaryMap = new Map<string, { vendor: string; manufacturer?: string; oneTimeRevenue: number; recurringRevenue: number; oneTimeCost: number; recurringCost: number }>();
 
-  for (const lineItem of option.lineItems ?? []) {
-    const key = `${lineItem.vendor || "Unassigned vendor"}::${lineItem.manufacturer || ""}`;
+  for (const component of components) {
+    const key = `${component.vendor || "Unassigned vendor"}::${component.manufacturer || ""}`;
     const current = summaryMap.get(key) ?? {
-      vendor: lineItem.vendor || "Unassigned vendor",
-      manufacturer: lineItem.manufacturer || undefined,
+      vendor: component.vendor || "Unassigned vendor",
+      manufacturer: component.manufacturer || undefined,
       oneTimeRevenue: 0,
       recurringRevenue: 0,
       oneTimeCost: 0,
       recurringCost: 0,
     };
 
-    if (lineItem.schedule === "recurring") {
-      current.recurringRevenue += lineItem.customerExtendedPrice;
-      current.recurringCost += lineItem.vendorExtendedCost;
+    if (component.schedule === "recurring") {
+      current.recurringRevenue += component.customerExtendedPrice;
+      current.recurringCost += component.vendorExtendedCost;
     } else {
-      current.oneTimeRevenue += lineItem.customerExtendedPrice;
-      current.oneTimeCost += lineItem.vendorExtendedCost;
+      current.oneTimeRevenue += component.customerExtendedPrice;
+      current.oneTimeCost += component.vendorExtendedCost;
     }
 
     summaryMap.set(key, current);
@@ -73,16 +228,19 @@ function computeOptionVendorSummary(option: MajorProjectOption) {
 
   return Array.from(summaryMap.values()).map((entry) => ({
     ...entry,
-    oneTimeRevenue: Number(entry.oneTimeRevenue.toFixed(2)),
-    recurringRevenue: Number(entry.recurringRevenue.toFixed(2)),
-    oneTimeCost: Number(entry.oneTimeCost.toFixed(2)),
-    recurringCost: Number(entry.recurringCost.toFixed(2)),
+    oneTimeRevenue: roundCurrency(entry.oneTimeRevenue),
+    recurringRevenue: roundCurrency(entry.recurringRevenue),
+    oneTimeCost: roundCurrency(entry.oneTimeCost),
+    recurringCost: roundCurrency(entry.recurringCost),
   }));
 }
 
 function normalizeOption(option: Partial<MajorProjectOption> | undefined, index: number): MajorProjectOption {
-  const normalizedLineItems = (option?.lineItems ?? []).map((lineItem, lineIndex) => normalizeLineItem(lineItem, lineIndex));
-  const normalizedOption: MajorProjectOption = {
+  const components = (option?.components ?? []).map((component, componentIndex) => normalizeComponent(component, componentIndex));
+  const bundles = (option?.bundles ?? []).map((bundle, bundleIndex) => normalizeBundle(bundle, bundleIndex));
+  const customerQuoteLines = (option?.customerQuoteLines ?? []).map((line, lineIndex) => normalizeCustomerQuoteLine(line, lineIndex));
+
+  return {
     id: option?.id ?? `major-option-${index + 1}`,
     label: option?.label ?? `Option ${index + 1}`,
     description: option?.description,
@@ -94,49 +252,333 @@ function normalizeOption(option: Partial<MajorProjectOption> | undefined, index:
     vendorRecurringPerSite: Number(option?.vendorRecurringPerSite ?? 0) || 0,
     supportRecurringPerSite: Number(option?.supportRecurringPerSite ?? 0) || 0,
     otherRecurringPerSite: Number(option?.otherRecurringPerSite ?? 0) || 0,
-    lineItems: normalizedLineItems,
-    vendorSummary: [],
+    components,
+    bundles,
+    customerQuoteLines,
+    vendorSummary: buildVendorSummary(components),
   };
-
-  normalizedOption.vendorSummary = computeOptionVendorSummary(normalizedOption);
-  return normalizedOption;
 }
 
-function sumLineItems(lineItems: MajorProjectLineItem[], schedule: "one_time" | "recurring", predicate?: (lineItem: MajorProjectLineItem) => boolean) {
-  return lineItems.reduce((sum, lineItem) => {
-    if (lineItem.schedule !== schedule) return sum;
-    if (predicate && !predicate(lineItem)) return sum;
-    return sum + lineItem.customerExtendedPrice;
+function sumComponents(components: MajorProjectComponent[], schedule: "one_time" | "recurring", value: "revenue" | "cost", predicate?: (component: MajorProjectComponent) => boolean) {
+  return components.reduce((sum, component) => {
+    if (component.schedule !== schedule) return sum;
+    if (predicate && !predicate(component)) return sum;
+    return sum + (value === "revenue" ? component.customerExtendedPrice : component.vendorExtendedCost);
   }, 0);
 }
 
-function sumLineCosts(lineItems: MajorProjectLineItem[], schedule: "one_time" | "recurring", predicate?: (lineItem: MajorProjectLineItem) => boolean) {
-  return lineItems.reduce((sum, lineItem) => {
-    if (lineItem.schedule !== schedule) return sum;
-    if (predicate && !predicate(lineItem)) return sum;
-    return sum + lineItem.vendorExtendedCost;
+function componentsForIds(componentsById: Map<string, MajorProjectComponent>, ids: string[] | undefined) {
+  return uniqueIds(ids ?? []).map((id) => componentsById.get(id)).filter((component): component is MajorProjectComponent => Boolean(component));
+}
+
+function dedupeComponents(components: MajorProjectComponent[]) {
+  const map = new Map<string, MajorProjectComponent>();
+  for (const component of components) map.set(component.id, component);
+  return Array.from(map.values());
+}
+
+function costOrRevenueTotal(components: MajorProjectComponent[], schedule: "one_time" | "recurring", value: "revenue" | "cost") {
+  return components.reduce((sum, component) => {
+    if (component.schedule !== schedule) return sum;
+    return sum + (value === "revenue" ? component.customerExtendedPrice : component.vendorExtendedCost);
   }, 0);
 }
 
-function buildLineItemMetrics(option: MajorProjectOption | null) {
-  const lineItems = option?.lineItems ?? [];
-  const recurringRevenue = Number(sumLineItems(lineItems, "recurring").toFixed(2));
-  const oneTimeRevenue = Number(sumLineItems(lineItems, "one_time").toFixed(2));
-  const recurringCost = Number(sumLineCosts(lineItems, "recurring").toFixed(2));
-  const oneTimeCost = Number(sumLineCosts(lineItems, "one_time").toFixed(2));
+function collectDuplicateIds(items: Array<{ id: string }>) {
+  const counts = new Map<string, number>();
+  for (const item of items) counts.set(item.id, (counts.get(item.id) ?? 0) + 1);
+  return Array.from(counts.entries()).filter(([, count]) => count > 1).map(([id]) => id);
+}
+
+function buildResolvedBundleComponentIds(option: MajorProjectOption, bundle: MajorProjectBundle) {
+  const explicitIds = uniqueIds(bundle.componentIds);
+  const assignedIds = (option.components ?? [])
+    .filter((component) => component.bundleAssignmentId && component.bundleAssignmentId === bundle.id)
+    .map((component) => component.id);
+
+  return uniqueIds([...explicitIds, ...assignedIds]);
+}
+
+function buildMajorProjectPresentation(option: MajorProjectOption) {
+  const components = option.components ?? [];
+  const bundles = option.bundles ?? [];
+  const customerQuoteLines = option.customerQuoteLines ?? [];
+  const componentsById = new Map<string, MajorProjectComponent>(components.map((component) => [component.id, component]));
+  const bundlesById = new Map<string, MajorProjectBundle>(bundles.map((bundle) => [bundle.id, bundle]));
+
+  const bundleResolvedComponentIds = new Map<string, string[]>();
+  const bundlesWithMetrics: MajorProjectBundleMetrics[] = bundles.map((bundle) => {
+    const resolvedComponentIds = buildResolvedBundleComponentIds(option, bundle);
+    bundleResolvedComponentIds.set(bundle.id, resolvedComponentIds);
+
+    const defaultComponents = componentsForIds(componentsById, resolvedComponentIds);
+    const costComponents = componentsForIds(componentsById, bundle.includedCostComponentIds?.length ? bundle.includedCostComponentIds : resolvedComponentIds);
+    const revenueComponents = componentsForIds(componentsById, bundle.includedRevenueComponentIds?.length ? bundle.includedRevenueComponentIds : resolvedComponentIds);
+
+    return {
+      ...bundle,
+      resolvedComponentIds,
+      oneTimeRevenue: roundCurrency(costOrRevenueTotal(revenueComponents.length ? revenueComponents : defaultComponents, "one_time", "revenue")),
+      recurringRevenue: roundCurrency(costOrRevenueTotal(revenueComponents.length ? revenueComponents : defaultComponents, "recurring", "revenue")),
+      oneTimeCost: roundCurrency(costOrRevenueTotal(costComponents.length ? costComponents : defaultComponents, "one_time", "cost")),
+      recurringCost: roundCurrency(costOrRevenueTotal(costComponents.length ? costComponents : defaultComponents, "recurring", "cost")),
+    };
+  });
+
+  const quoteLinesWithMetrics: MajorProjectCustomerQuoteLineMetrics[] = customerQuoteLines.map((line) => {
+    const resolvedBundleIds = uniqueIds(line.bundleIds.filter((bundleId) => bundlesById.has(bundleId)));
+    const bundledCostComponents = resolvedBundleIds.flatMap((bundleId) => {
+      const bundle = bundlesById.get(bundleId);
+      const resolvedIds = bundleResolvedComponentIds.get(bundleId) ?? [];
+      return componentsForIds(componentsById, bundle?.includedCostComponentIds?.length ? bundle.includedCostComponentIds : resolvedIds);
+    });
+    const bundledRevenueComponents = resolvedBundleIds.flatMap((bundleId) => {
+      const bundle = bundlesById.get(bundleId);
+      const resolvedIds = bundleResolvedComponentIds.get(bundleId) ?? [];
+      return componentsForIds(componentsById, bundle?.includedRevenueComponentIds?.length ? bundle.includedRevenueComponentIds : resolvedIds);
+    });
+    const explicitCostComponents = componentsForIds(componentsById, line.includedCostComponentIds);
+    const explicitRevenueComponents = componentsForIds(componentsById, line.includedRevenueComponentIds);
+    const costComponents = dedupeComponents([...bundledCostComponents, ...explicitCostComponents]);
+    const revenueComponents = dedupeComponents([...bundledRevenueComponents, ...explicitRevenueComponents]);
+
+    return {
+      ...line,
+      resolvedBundleIds,
+      resolvedCostComponentIds: costComponents.map((component) => component.id),
+      resolvedRevenueComponentIds: revenueComponents.map((component) => component.id),
+      oneTimeRevenue: roundCurrency(costOrRevenueTotal(revenueComponents, "one_time", "revenue")),
+      recurringRevenue: roundCurrency(costOrRevenueTotal(revenueComponents, "recurring", "revenue")),
+      oneTimeCost: roundCurrency(costOrRevenueTotal(costComponents, "one_time", "cost")),
+      recurringCost: roundCurrency(costOrRevenueTotal(costComponents, "recurring", "cost")),
+      costComponents,
+      revenueComponents,
+    };
+  });
 
   return {
-    hasStructuredLineItems: lineItems.length > 0,
-    lineItems,
-    recurringRevenue,
-    oneTimeRevenue,
-    recurringCost,
-    oneTimeCost,
-    oneTimeHardwareRevenue: Number(sumLineItems(lineItems, "one_time", (lineItem) => lineItem.lineType === "hardware").toFixed(2)),
-    oneTimeInstallRevenue: Number(sumLineItems(lineItems, "one_time", (lineItem) => lineItem.lineType === "installation").toFixed(2)),
-    oneTimeOtherRevenue: Number(sumLineItems(lineItems, "one_time", (lineItem) => lineItem.lineType !== "hardware" && lineItem.lineType !== "installation").toFixed(2)),
-    recurringVendorCost: Number(sumLineCosts(lineItems, "recurring", (lineItem) => !lineItem.passThrough).toFixed(2)),
-    recurringPassThroughRevenue: Number(sumLineItems(lineItems, "recurring", (lineItem) => lineItem.passThrough).toFixed(2)),
+    bundlesWithMetrics,
+    quoteLinesWithMetrics,
+    bundleResolvedComponentIds,
+  };
+}
+
+function buildMajorProjectValidation(option: MajorProjectOption, presentation: ReturnType<typeof buildMajorProjectPresentation>): MajorProjectValidationSummary {
+  const components = option.components ?? [];
+  const bundles = option.bundles ?? [];
+  const quoteLines = presentation.quoteLinesWithMetrics;
+  const issues: MajorProjectValidationIssue[] = [];
+
+  const duplicateComponentIds = collectDuplicateIds(components);
+  if (duplicateComponentIds.length) {
+    issues.push({
+      code: "duplicate_component_ids",
+      severity: "error",
+      message: `Duplicate component ids found: ${duplicateComponentIds.join(", ")}`,
+      componentIds: duplicateComponentIds,
+    });
+  }
+
+  const duplicateBundleIds = collectDuplicateIds(bundles);
+  if (duplicateBundleIds.length) {
+    issues.push({
+      code: "duplicate_bundle_ids",
+      severity: "error",
+      message: `Duplicate bundle ids found: ${duplicateBundleIds.join(", ")}`,
+      bundleIds: duplicateBundleIds,
+    });
+  }
+
+  const duplicateQuoteLineIds = collectDuplicateIds(quoteLines);
+  if (duplicateQuoteLineIds.length) {
+    issues.push({
+      code: "duplicate_quote_line_ids",
+      severity: "error",
+      message: `Duplicate quote line ids found: ${duplicateQuoteLineIds.join(", ")}`,
+      quoteLineIds: duplicateQuoteLineIds,
+    });
+  }
+
+  const componentToBundleIds = new Map<string, string[]>();
+
+  for (const bundle of bundles) {
+    const resolvedIds = presentation.bundleResolvedComponentIds.get(bundle.id) ?? [];
+    if (!resolvedIds.length) {
+      issues.push({
+        code: "bundle_missing_components",
+        severity: "warning",
+        message: `Bundle \"${bundle.customerFacingLabel || bundle.internalName || bundle.id}\" has no resolved components.`,
+        bundleIds: [bundle.id],
+      });
+    }
+
+    for (const componentId of resolvedIds) {
+      componentToBundleIds.set(componentId, [...(componentToBundleIds.get(componentId) ?? []), bundle.id]);
+    }
+
+    const orphanedIds = uniqueIds([
+      ...(bundle.componentIds ?? []),
+      ...(bundle.includedCostComponentIds ?? []),
+      ...(bundle.includedRevenueComponentIds ?? []),
+    ]).filter((componentId) => !components.some((component) => component.id === componentId));
+
+    if (orphanedIds.length) {
+      issues.push({
+        code: "bundle_component_conflict",
+        severity: "error",
+        message: `Bundle \"${bundle.customerFacingLabel || bundle.internalName || bundle.id}\" references missing components: ${orphanedIds.join(", ")}`,
+        bundleIds: [bundle.id],
+        componentIds: orphanedIds,
+      });
+    }
+  }
+
+  for (const [componentId, bundleIds] of componentToBundleIds.entries()) {
+    if (bundleIds.length > 1) {
+      issues.push({
+        code: "component_in_multiple_bundles",
+        severity: "error",
+        message: `Component ${componentId} resolves into multiple bundles: ${bundleIds.join(", ")}`,
+        componentIds: [componentId],
+        bundleIds,
+      });
+    }
+  }
+
+  for (const component of components) {
+    const resolvedBundleIds = componentToBundleIds.get(component.id) ?? [];
+    if (component.bundleAssignmentId && !bundles.some((bundle) => bundle.id === component.bundleAssignmentId)) {
+      issues.push({
+        code: "component_bundle_assignment_mismatch",
+        severity: "error",
+        message: `Component \"${component.internalName || component.id}\" points to missing bundle ${component.bundleAssignmentId}.`,
+        componentIds: [component.id],
+        bundleIds: [component.bundleAssignmentId],
+      });
+      continue;
+    }
+
+    if (component.bundleAssignmentId && resolvedBundleIds.length && !resolvedBundleIds.includes(component.bundleAssignmentId)) {
+      issues.push({
+        code: "component_bundle_assignment_mismatch",
+        severity: "error",
+        message: `Component \"${component.internalName || component.id}\" is assigned to bundle ${component.bundleAssignmentId} but resolves through ${resolvedBundleIds.join(", ")}.`,
+        componentIds: [component.id],
+        bundleIds: [component.bundleAssignmentId, ...resolvedBundleIds],
+      });
+    }
+
+    if (!resolvedBundleIds.length) {
+      issues.push({
+        code: "component_unmapped_to_bundle",
+        severity: "warning",
+        message: `Component \"${component.internalName || component.id}\" is not mapped to any internal bundle.`,
+        componentIds: [component.id],
+      });
+    }
+  }
+
+  if (components.length && !quoteLines.length) {
+    issues.push({
+      code: "missing_customer_quote_lines",
+      severity: "warning",
+      message: "Major Project has internal components but no customer-facing quote lines yet.",
+    });
+  }
+
+  const componentToQuoteLineIds = new Map<string, string[]>();
+  for (const quoteLine of quoteLines) {
+    const missingBundleIds = uniqueIds(quoteLine.bundleIds).filter((bundleId) => !bundles.some((bundle) => bundle.id === bundleId));
+    if (missingBundleIds.length) {
+      issues.push({
+        code: "quote_line_missing_bundles",
+        severity: "error",
+        message: `Quote line \"${quoteLine.label || quoteLine.id}\" references missing bundles: ${missingBundleIds.join(", ")}`,
+        quoteLineIds: [quoteLine.id],
+        bundleIds: missingBundleIds,
+      });
+    }
+
+    const explicitIds = uniqueIds([...(quoteLine.includedCostComponentIds ?? []), ...(quoteLine.includedRevenueComponentIds ?? [])]);
+    const missingComponentIds = explicitIds.filter((componentId) => !components.some((component) => component.id === componentId));
+    if (missingComponentIds.length) {
+      issues.push({
+        code: "quote_line_missing_components",
+        severity: "error",
+        message: `Quote line \"${quoteLine.label || quoteLine.id}\" references missing components: ${missingComponentIds.join(", ")}`,
+        quoteLineIds: [quoteLine.id],
+        componentIds: missingComponentIds,
+      });
+    }
+
+    const coveredIds = uniqueIds([...quoteLine.resolvedCostComponentIds, ...quoteLine.resolvedRevenueComponentIds]);
+    for (const componentId of coveredIds) {
+      componentToQuoteLineIds.set(componentId, [...(componentToQuoteLineIds.get(componentId) ?? []), quoteLine.id]);
+    }
+
+    if (!coveredIds.length || (quoteLine.oneTimeRevenue + quoteLine.recurringRevenue + quoteLine.oneTimeCost + quoteLine.recurringCost) <= 0) {
+      issues.push({
+        code: "quote_line_without_backing_economics",
+        severity: "error",
+        message: `Quote line \"${quoteLine.label || quoteLine.id}\" has no backing economics.`,
+        quoteLineIds: [quoteLine.id],
+      });
+    }
+  }
+
+  for (const component of components) {
+    const quoteLineIds = componentToQuoteLineIds.get(component.id) ?? [];
+    if (!quoteLineIds.length) {
+      issues.push({
+        code: "component_unmapped_to_quote_line",
+        severity: "warning",
+        message: `Component \"${component.internalName || component.id}\" is not surfaced through any customer-facing quote line.`,
+        componentIds: [component.id],
+      });
+    }
+    if (quoteLineIds.length > 1) {
+      issues.push({
+        code: "component_duplicate_quote_line_coverage",
+        severity: "warning",
+        message: `Component \"${component.internalName || component.id}\" rolls into multiple quote lines: ${quoteLineIds.join(", ")}`,
+        componentIds: [component.id],
+        quoteLineIds,
+      });
+    }
+  }
+
+  const unpresentedBundleIds = bundles
+    .filter((bundle) => !quoteLines.some((quoteLine) => quoteLine.resolvedBundleIds.includes(bundle.id)))
+    .map((bundle) => bundle.id);
+
+  for (const bundleId of unpresentedBundleIds) {
+    issues.push({
+      code: "bundle_not_presented",
+      severity: "warning",
+      message: `Bundle ${bundleId} is internal-only and does not appear on a customer-facing quote line.`,
+      bundleIds: [bundleId],
+    });
+  }
+
+  const uncoveredComponentIds = components
+    .filter((component) => !(componentToQuoteLineIds.get(component.id) ?? []).length)
+    .map((component) => component.id);
+
+  const quoteLinesWithoutEconomics = quoteLines
+    .filter((quoteLine) => (quoteLine.oneTimeRevenue + quoteLine.recurringRevenue + quoteLine.oneTimeCost + quoteLine.recurringCost) <= 0)
+    .map((quoteLine) => quoteLine.id);
+
+  const errorCount = issues.filter((issue) => issue.severity === "error").length;
+  const warningCount = issues.length - errorCount;
+
+  return {
+    valid: errorCount === 0,
+    errorCount,
+    warningCount,
+    issues,
+    uncoveredComponentIds,
+    unpresentedBundleIds,
+    quoteLinesWithoutEconomics,
   };
 }
 
@@ -149,7 +591,7 @@ export function createDefaultMajorProjectState() {
       versionLabel: "Commercial Model v1",
       paymentTerms: "Net 30",
       billingStart: "Upon delivery and activation",
-      assumptions: "Internal systems-integration commercial worksheet for multi-vendor projects. Proposal output is generated downstream from this structure.",
+      assumptions: "Internal systems-integration commercial worksheet for multi-vendor projects. Internal components are the economics; bundles and customer labels are presentation layers.",
     },
     commercial: {
       termMonths: 36,
@@ -180,13 +622,6 @@ export function createDefaultMajorProjectState() {
         label: "Option 1",
         description: "Base deployment structure",
         siteCount: 1,
-        monthlyRatePerSite: 0,
-        hardwarePerSite: 0,
-        installPerSite: 0,
-        otherOneTimePerSite: 0,
-        vendorRecurringPerSite: 0,
-        supportRecurringPerSite: 0,
-        otherRecurringPerSite: 0,
       }, 0),
     ],
     activeOptionId: "major-option-1",
@@ -222,11 +657,22 @@ export function ensureMajorProjectState(quote: QuoteRecord): QuoteRecord {
   };
 }
 
-export function buildMajorProjectMetrics(quote: QuoteRecord) {
+export function buildMajorProjectMetrics(quote: QuoteRecord): MajorProjectMetrics {
   const safeQuote = ensureMajorProjectState(quote);
   const state = safeQuote.majorProject;
   const activeOption = getActiveMajorProjectOption(safeQuote);
-  const lineItemMetrics = buildLineItemMetrics(activeOption);
+  const components = activeOption?.components ?? [];
+  const hasThreeLayerModel = components.length > 0;
+  const presentation = activeOption ? buildMajorProjectPresentation(activeOption) : { bundlesWithMetrics: [], quoteLinesWithMetrics: [], bundleResolvedComponentIds: new Map<string, string[]>() };
+  const validation = activeOption ? buildMajorProjectValidation(activeOption, presentation) : {
+    valid: true,
+    errorCount: 0,
+    warningCount: 0,
+    issues: [],
+    uncoveredComponentIds: [],
+    unpresentedBundleIds: [],
+    quoteLinesWithoutEconomics: [],
+  };
   const siteCount = Math.max(activeOption?.siteCount ?? state.commercial.siteCount, 0);
 
   const fallbackRecurringRevenue = siteCount * (activeOption?.monthlyRatePerSite ?? state.commercial.monthlyRatePerSite);
@@ -246,34 +692,37 @@ export function buildMajorProjectMetrics(quote: QuoteRecord) {
     + (activeOption?.otherOneTimePerSite ?? state.commercial.oneTimeOtherPerSite)
   );
 
-  const recurringRevenue = lineItemMetrics.hasStructuredLineItems ? lineItemMetrics.recurringRevenue : fallbackRecurringRevenue;
-  const hardwareRevenue = lineItemMetrics.hasStructuredLineItems ? lineItemMetrics.oneTimeHardwareRevenue : fallbackHardwareRevenue;
-  const installRevenue = lineItemMetrics.hasStructuredLineItems ? lineItemMetrics.oneTimeInstallRevenue : fallbackInstallRevenue;
-  const otherOneTimeRevenue = lineItemMetrics.hasStructuredLineItems ? lineItemMetrics.oneTimeOtherRevenue : fallbackOtherOneTimeRevenue;
-  const optionalServicesRevenue = lineItemMetrics.hasStructuredLineItems ? 0 : fallbackOptionalServicesRevenue;
-  const oneTimeRevenue = lineItemMetrics.hasStructuredLineItems ? lineItemMetrics.oneTimeRevenue : fallbackOneTimeRevenue;
-  const recurringCost = lineItemMetrics.hasStructuredLineItems ? lineItemMetrics.recurringCost : fallbackRecurringCost;
-  const oneTimeCost = lineItemMetrics.hasStructuredLineItems ? lineItemMetrics.oneTimeCost : fallbackOneTimeCost;
-  const totalRevenue = recurringRevenue + oneTimeRevenue;
-  const totalCost = recurringCost + oneTimeCost;
-  const totalGrossProfit = totalRevenue - totalCost;
+  const recurringRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "recurring", "revenue")) : fallbackRecurringRevenue;
+  const oneTimeRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue")) : fallbackOneTimeRevenue;
+  const recurringCost = hasThreeLayerModel ? roundCurrency(sumComponents(components, "recurring", "cost")) : fallbackRecurringCost;
+  const oneTimeCost = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "cost")) : fallbackOneTimeCost;
+  const hardwareRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "hardware")) : fallbackHardwareRevenue;
+  const installRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "installation" || component.lineType === "internal_labor")) : fallbackInstallRevenue;
+  const otherOneTimeRevenue = hasThreeLayerModel ? roundCurrency(oneTimeRevenue - hardwareRevenue - installRevenue) : fallbackOtherOneTimeRevenue;
+  const optionalServicesRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "optional_service")) : fallbackOptionalServicesRevenue;
+  const totalRevenue = roundCurrency(recurringRevenue + oneTimeRevenue);
+  const totalCost = roundCurrency(recurringCost + oneTimeCost);
+  const totalGrossProfit = roundCurrency(totalRevenue - totalCost);
 
   return {
     siteCount,
-    lineItems: lineItemMetrics.lineItems,
+    components,
+    bundles: presentation.bundlesWithMetrics,
+    customerQuoteLines: presentation.quoteLinesWithMetrics,
     vendorSummary: activeOption?.vendorSummary ?? [],
-    hasStructuredLineItems: lineItemMetrics.hasStructuredLineItems,
-    recurringRevenue: Number(recurringRevenue.toFixed(2)),
-    hardwareRevenue: Number(hardwareRevenue.toFixed(2)),
-    installRevenue: Number(installRevenue.toFixed(2)),
-    otherOneTimeRevenue: Number(otherOneTimeRevenue.toFixed(2)),
-    optionalServicesRevenue: Number(optionalServicesRevenue.toFixed(2)),
-    oneTimeRevenue: Number(oneTimeRevenue.toFixed(2)),
-    recurringCost: Number(recurringCost.toFixed(2)),
-    oneTimeCost: Number(oneTimeCost.toFixed(2)),
-    totalRevenue: Number(totalRevenue.toFixed(2)),
-    totalCost: Number(totalCost.toFixed(2)),
-    totalGrossProfit: Number(totalGrossProfit.toFixed(2)),
+    validation,
+    hasThreeLayerModel,
+    recurringRevenue: roundCurrency(recurringRevenue),
+    hardwareRevenue: roundCurrency(hardwareRevenue),
+    installRevenue: roundCurrency(installRevenue),
+    otherOneTimeRevenue: roundCurrency(otherOneTimeRevenue),
+    optionalServicesRevenue: roundCurrency(optionalServicesRevenue),
+    oneTimeRevenue: roundCurrency(oneTimeRevenue),
+    recurringCost: roundCurrency(recurringCost),
+    oneTimeCost: roundCurrency(oneTimeCost),
+    totalRevenue,
+    totalCost,
+    totalGrossProfit,
     totalGrossMarginPercent: totalRevenue > 0 ? (totalGrossProfit / totalRevenue) * 100 : 0,
   };
 }
@@ -283,17 +732,9 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   const state = safeQuote.majorProject;
   const activeOption = getActiveMajorProjectOption(safeQuote);
   const metrics = buildMajorProjectMetrics(safeQuote);
-  const lineItems = metrics.lineItems;
   const siteCount = metrics.siteCount;
-  const recurringPerSite = activeOption?.monthlyRatePerSite ?? state.commercial.monthlyRatePerSite;
-  const hardwarePerSite = activeOption?.hardwarePerSite ?? state.commercial.oneTimeHardwarePerSite;
-  const installPerSite = activeOption?.installPerSite ?? state.commercial.oneTimeInstallPerSite;
-  const otherOneTimePerSite = activeOption?.otherOneTimePerSite ?? state.commercial.oneTimeOtherPerSite;
-  const vendorRecurringPerSite = activeOption?.vendorRecurringPerSite ?? state.commercial.recurringVendorPerSite;
-  const supportRecurringPerSite = activeOption?.supportRecurringPerSite ?? state.commercial.recurringSupportPerSite;
-  const otherRecurringPerSite = activeOption?.otherRecurringPerSite ?? state.commercial.recurringOtherPerSite;
-
   const next = JSON.parse(JSON.stringify(safeQuote)) as QuoteRecord;
+
   next.metadata.workflowMode = "major_project";
   next.metadata.documentSubtitle = next.metadata.documentSubtitle || "Major Project Commercial Proposal";
   next.sections.sectionA.enabled = true;
@@ -306,24 +747,47 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   next.sections.sectionA.explanatoryParagraphs = compact([
     state.summary.projectDescription,
     state.summary.assumptions,
-    metrics.hasStructuredLineItems ? "Internal model supports multi-vendor cost and margin analysis; proposal output is rolled up for customer presentation." : "",
+    metrics.hasThreeLayerModel ? "Customer-facing quote lines are presentation only; internal components remain the commercial source of truth." : "",
+    metrics.validation.errorCount > 0 ? `Internal validation flagged ${metrics.validation.errorCount} mapping issue${metrics.validation.errorCount === 1 ? "" : "s"}; review the commercial worksheet before sending.` : "",
   ]);
   next.sections.sectionA.mode = state.commercial.serviceMix === "starlink-pool" ? "pool" : "per_kit";
 
-  const recurringRowDescription = `${state.commercial.recurringLabel} — ${activeOption?.label ?? state.summary.versionLabel}`;
+  const recurringDisplayLabel = metrics.customerQuoteLines.find((line) => line.presentationCategory === "recurring")?.label
+    ?? state.commercial.recurringLabel
+    ?? activeOption?.label
+    ?? state.summary.versionLabel;
+
+  const recurringDescription = `${recurringDisplayLabel} — ${activeOption?.label ?? state.summary.versionLabel}`;
+  const supportIncludedText = compact([
+    `${siteCount} site${siteCount === 1 ? "" : "s"} under commercial management`,
+    state.summary.paymentTerms ? `Payment terms: ${state.summary.paymentTerms}` : "",
+    state.summary.billingStart ? `Billing start: ${state.summary.billingStart}` : "",
+    metrics.hasThreeLayerModel ? `${metrics.bundles.length} bundle${metrics.bundles.length === 1 ? "" : "s"} / ${metrics.vendorSummary.length} vendor bucket${metrics.vendorSummary.length === 1 ? "" : "s"} in internal worksheet` : "",
+  ]);
+
+  const recurringRow = {
+    id: "major_recurring",
+    rowType: "service" as const,
+    description: recurringDescription,
+    quantity: siteCount,
+    unitLabel: "site",
+    unitPrice: siteCount > 0 ? roundCurrency(metrics.recurringRevenue / siteCount) : 0,
+    monthlyRate: siteCount > 0 ? roundCurrency(metrics.recurringRevenue / siteCount) : 0,
+    totalMonthlyRate: roundCurrency(metrics.recurringRevenue),
+    sourceLabel: metrics.hasThreeLayerModel ? "Major Project model (customer-facing recurring rollup)" : "Major Project model",
+  };
+
+  const supportRow = {
+    id: "major_support",
+    rowType: "support" as const,
+    description: "Program support and reporting",
+    includedText: supportIncludedText,
+    sourceLabel: "Major Project model",
+  };
+
   if (next.sections.sectionA.mode === "pool") {
     next.sections.sectionA.poolRows = [
-      {
-        id: "major_recurring",
-        rowType: "service",
-        description: recurringRowDescription,
-        quantity: siteCount,
-        unitLabel: "site",
-        unitPrice: recurringPerSite,
-        monthlyRate: recurringPerSite,
-        totalMonthlyRate: Number((siteCount * recurringPerSite).toFixed(2)),
-        sourceLabel: metrics.hasStructuredLineItems ? "Major Project model (rolled up from line items)" : "Major Project model",
-      },
+      recurringRow,
       ...(state.commercial.terminalFeePerSite > 0 ? [{
         id: "major_terminal_fee",
         rowType: "terminal_fee" as const,
@@ -332,7 +796,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         unitLabel: "site",
         unitPrice: state.commercial.terminalFeePerSite,
         monthlyRate: state.commercial.terminalFeePerSite,
-        totalMonthlyRate: Number((siteCount * state.commercial.terminalFeePerSite).toFixed(2)),
+        totalMonthlyRate: roundCurrency(siteCount * state.commercial.terminalFeePerSite),
         sourceLabel: "Major Project model",
       }] : []),
       ...(state.commercial.overageRatePerGb > 0 ? [{
@@ -346,33 +810,12 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         totalMonthlyRate: state.commercial.overageRatePerGb,
         sourceLabel: "Major Project model",
       }] : []),
-      {
-        id: "major_support",
-        rowType: "support",
-        description: "Program support and reporting",
-        includedText: compact([
-          `${siteCount} site${siteCount === 1 ? "" : "s"} under commercial management`,
-          state.summary.paymentTerms ? `Payment terms: ${state.summary.paymentTerms}` : "",
-          state.summary.billingStart ? `Billing start: ${state.summary.billingStart}` : "",
-          metrics.hasStructuredLineItems ? `${metrics.vendorSummary.length} vendor bucket${metrics.vendorSummary.length === 1 ? "" : "s"} rolled into internal margin model` : "",
-        ]),
-        sourceLabel: "Major Project model",
-      },
+      supportRow,
     ];
     next.sections.sectionA.perKitRows = [];
   } else {
     next.sections.sectionA.perKitRows = [
-      {
-        id: "major_recurring",
-        rowType: "service",
-        description: recurringRowDescription,
-        quantity: siteCount,
-        unitLabel: "site",
-        unitPrice: recurringPerSite,
-        monthlyRate: recurringPerSite,
-        totalMonthlyRate: Number((siteCount * recurringPerSite).toFixed(2)),
-        sourceLabel: metrics.hasStructuredLineItems ? "Major Project model (rolled up from line items)" : "Major Project model",
-      },
+      recurringRow,
       ...(state.commercial.terminalFeePerSite > 0 ? [{
         id: "major_terminal_fee",
         rowType: "terminal_fee" as const,
@@ -381,125 +824,86 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         unitLabel: "site",
         unitPrice: state.commercial.terminalFeePerSite,
         monthlyRate: state.commercial.terminalFeePerSite,
-        totalMonthlyRate: Number((siteCount * state.commercial.terminalFeePerSite).toFixed(2)),
+        totalMonthlyRate: roundCurrency(siteCount * state.commercial.terminalFeePerSite),
         sourceLabel: "Major Project model",
       }] : []),
-      {
-        id: "major_support",
-        rowType: "support",
-        description: "Program support and reporting",
-        includedText: compact([
-          `${siteCount} site${siteCount === 1 ? "" : "s"} under commercial management`,
-          state.summary.paymentTerms ? `Payment terms: ${state.summary.paymentTerms}` : "",
-          state.summary.billingStart ? `Billing start: ${state.summary.billingStart}` : "",
-          metrics.hasStructuredLineItems ? `${metrics.vendorSummary.length} vendor bucket${metrics.vendorSummary.length === 1 ? "" : "s"} rolled into internal margin model` : "",
-        ]),
-        sourceLabel: "Major Project model",
-      },
+      supportRow,
     ];
     next.sections.sectionA.poolRows = [];
   }
 
-  const oneTimeHardwareRows = lineItems.filter((lineItem) => lineItem.schedule === "one_time" && lineItem.lineType === "hardware");
-  next.sections.sectionB.enabled = metrics.hasStructuredLineItems
-    ? oneTimeHardwareRows.length > 0
-    : state.commercial.includeHardware && hardwarePerSite > 0;
+  const hardwareQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory === "hardware" && line.oneTimeRevenue > 0);
+  next.sections.sectionB.enabled = hardwareQuoteLines.length > 0 || (!metrics.hasThreeLayerModel && state.commercial.includeHardware && metrics.hardwareRevenue > 0);
   next.sections.sectionB.builderLabel = "Major project hardware";
   next.sections.sectionB.title = state.commercial.equipmentLabel;
-  next.sections.sectionB.introText = metrics.hasStructuredLineItems
-    ? "Hardware totals are rolled up from internal multi-vendor major project line items."
+  next.sections.sectionB.introText = metrics.hasThreeLayerModel
+    ? "Customer-facing hardware is rolled up from internal bundles and components."
     : "Hardware totals are generated from the major project commercial model.";
-  next.sections.sectionB.lineItems = metrics.hasStructuredLineItems
-    ? oneTimeHardwareRows.map((lineItem) => ({
-      id: lineItem.id,
+  next.sections.sectionB.lineItems = metrics.hasThreeLayerModel
+    ? hardwareQuoteLines.map((line, index) => ({
+      id: line.id,
       sourceType: "custom" as const,
-      itemName: lineItem.description,
-      itemCategory: lineItem.category,
-      terminalType: undefined,
-      partNumber: undefined,
-      quantity: lineItem.quantity,
-      unitPrice: lineItem.customerUnitPrice,
-      totalPrice: lineItem.customerExtendedPrice,
-      description: compact([lineItem.vendor, lineItem.manufacturer]).join(" • ") || activeOption?.description || state.summary.projectDescription,
-      sourceLabel: lineItem.vendor || "Major Project model",
+      itemName: line.label,
+      itemCategory: "Bundle",
+      quantity: 1,
+      unitPrice: line.oneTimeRevenue,
+      totalPrice: line.oneTimeRevenue,
+      description: line.description || `Bundle ${index + 1}`,
+      sourceLabel: "Major Project customer bundle",
     }))
     : next.sections.sectionB.enabled ? [{
       id: "major_hardware",
       sourceType: "custom",
       itemName: state.commercial.equipmentLabel,
       itemCategory: "Major Project",
-      terminalType: undefined,
-      partNumber: undefined,
       quantity: siteCount,
-      unitPrice: hardwarePerSite,
-      totalPrice: Number((siteCount * hardwarePerSite).toFixed(2)),
+      unitPrice: siteCount > 0 ? roundCurrency(metrics.hardwareRevenue / siteCount) : 0,
+      totalPrice: metrics.hardwareRevenue,
       description: activeOption?.description || state.summary.projectDescription,
       sourceLabel: "Major Project model",
     }] : [];
 
-  const serviceLineItems = lineItems.filter((lineItem) => lineItem.schedule === "one_time" && lineItem.lineType !== "hardware");
-  next.sections.sectionC.enabled = metrics.hasStructuredLineItems
-    ? serviceLineItems.length > 0
-    : (state.commercial.includeInstallation && installPerSite > 0)
-      || otherOneTimePerSite > 0
-      || (state.commercial.includeOptionalServices && state.commercial.optionalServicesAmount > 0);
+  const serviceQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory !== "hardware" && line.presentationCategory !== "recurring" && line.oneTimeRevenue > 0);
+  next.sections.sectionC.enabled = serviceQuoteLines.length > 0 || (!metrics.hasThreeLayerModel && (metrics.installRevenue > 0 || metrics.otherOneTimeRevenue > 0 || metrics.optionalServicesRevenue > 0));
   next.sections.sectionC.builderLabel = "Major project services";
   next.sections.sectionC.title = "Major project field services";
-  next.sections.sectionC.introText = metrics.hasStructuredLineItems
-    ? "Services and allowances are rolled up from internal multi-vendor major project line items."
+  next.sections.sectionC.introText = metrics.hasThreeLayerModel
+    ? "Customer-facing services are rolled up from internal bundles and components."
     : "Services and allowances are generated from the major project commercial model.";
-  next.sections.sectionC.lineItems = metrics.hasStructuredLineItems
-    ? serviceLineItems.map((lineItem) => ({
-      id: lineItem.id,
+  next.sections.sectionC.lineItems = metrics.hasThreeLayerModel
+    ? serviceQuoteLines.map((line) => ({
+      id: line.id,
       sourceType: "custom" as const,
-      description: lineItem.description,
-      quantity: lineItem.quantity,
-      unitPrice: lineItem.customerUnitPrice,
-      totalPrice: lineItem.customerExtendedPrice,
-      unitLabel: lineItem.unit,
-      notes: compact([
-        lineItem.vendor ? `Vendor: ${lineItem.vendor}` : "",
-        lineItem.passThrough ? "Pass-through" : "Margin-bearing",
-        lineItem.laborBucket ? `Labor bucket: ${lineItem.laborBucket}` : "",
-        lineItem.serviceBucket ? `Service bucket: ${lineItem.serviceBucket}` : "",
-      ]).join(" • "),
-      serviceCategory: lineItem.lineType === "installation" ? "installation" : "custom",
-      pricingStage: "budgetary",
-      sourceLabel: lineItem.vendor || "Major Project model",
+      description: line.label,
+      quantity: 1,
+      unitPrice: line.oneTimeRevenue,
+      totalPrice: line.oneTimeRevenue,
+      notes: line.description || "Customer-facing bundle rollup",
+      serviceCategory: "custom" as const,
+      pricingStage: "budgetary" as const,
+      sourceLabel: "Major Project customer bundle",
     }))
     : compactItems([
-      state.commercial.includeInstallation && installPerSite > 0 ? {
+      metrics.installRevenue > 0 ? {
         id: "major_installation",
         sourceType: "custom" as const,
         description: state.commercial.installationLabel,
         quantity: siteCount,
-        unitPrice: installPerSite,
-        totalPrice: Number((siteCount * installPerSite).toFixed(2)),
+        unitPrice: siteCount > 0 ? roundCurrency(metrics.installRevenue / siteCount) : 0,
+        totalPrice: metrics.installRevenue,
         notes: activeOption?.description || "Generated from major project model",
         serviceCategory: "installation" as const,
         pricingStage: "budgetary" as const,
         sourceLabel: "Major Project model",
       } : null,
-      otherOneTimePerSite > 0 ? {
+      metrics.otherOneTimeRevenue > 0 ? {
         id: "major_other_onetime",
         sourceType: "custom" as const,
         description: "Other one-time project allowance",
-        quantity: siteCount,
-        unitPrice: otherOneTimePerSite,
-        totalPrice: Number((siteCount * otherOneTimePerSite).toFixed(2)),
-        notes: "Generated from major project model",
-        serviceCategory: "custom" as const,
-        pricingStage: "budgetary" as const,
-        sourceLabel: "Major Project model",
-      } : null,
-      state.commercial.includeOptionalServices && state.commercial.optionalServicesAmount > 0 ? {
-        id: "major_optional_services",
-        sourceType: "custom" as const,
-        description: state.commercial.optionalServicesLabel,
         quantity: 1,
-        unitPrice: state.commercial.optionalServicesAmount,
-        totalPrice: Number(state.commercial.optionalServicesAmount.toFixed(2)),
-        notes: "Program-level engineering or management allowance",
+        unitPrice: metrics.otherOneTimeRevenue,
+        totalPrice: metrics.otherOneTimeRevenue,
+        notes: "Generated from major project model",
         serviceCategory: "custom" as const,
         pricingStage: "budgetary" as const,
         sourceLabel: "Major Project model",
@@ -510,26 +914,25 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   next.commercial.meta.comparisonGroup = state.summary.projectName || "Major Project";
   next.commercial.meta.notes = compact([
     state.summary.assumptions,
-    metrics.hasStructuredLineItems ? "Commercial model includes multi-vendor line-level margin structure." : "",
+    metrics.hasThreeLayerModel ? "Internal components are economics; customer bundle labels are presentation only." : "",
   ]).join(" ");
-  next.commercial.costs.oneTimeEquipmentCost = metrics.hasStructuredLineItems
-    ? Number(metrics.lineItems.filter((lineItem) => lineItem.schedule === "one_time" && lineItem.lineType === "hardware").reduce((sum, lineItem) => sum + lineItem.vendorExtendedCost, 0).toFixed(2))
-    : Number((siteCount * hardwarePerSite).toFixed(2));
-  next.commercial.costs.oneTimeLaborCost = metrics.hasStructuredLineItems
-    ? Number(metrics.lineItems.filter((lineItem) => lineItem.schedule === "one_time" && (lineItem.lineType === "installation" || lineItem.lineType === "service" || lineItem.lineType === "support" || lineItem.lineType === "managed_service")).reduce((sum, lineItem) => sum + lineItem.vendorExtendedCost, 0).toFixed(2))
-    : Number((siteCount * installPerSite).toFixed(2));
-  next.commercial.costs.oneTimeOtherCost = metrics.hasStructuredLineItems
-    ? Number(metrics.lineItems.filter((lineItem) => lineItem.schedule === "one_time" && lineItem.lineType !== "hardware" && lineItem.lineType !== "installation" && lineItem.lineType !== "service" && lineItem.lineType !== "support" && lineItem.lineType !== "managed_service").reduce((sum, lineItem) => sum + lineItem.vendorExtendedCost, 0).toFixed(2))
-    : Number((siteCount * otherOneTimePerSite).toFixed(2));
-  next.commercial.costs.recurringVendorCost = metrics.hasStructuredLineItems
-    ? Number(metrics.lineItems.filter((lineItem) => lineItem.schedule === "recurring" && (lineItem.lineType === "subscription" || lineItem.lineType === "software" || lineItem.lineType === "hardware")).reduce((sum, lineItem) => sum + lineItem.vendorExtendedCost, 0).toFixed(2))
-    : Number((siteCount * vendorRecurringPerSite).toFixed(2));
-  next.commercial.costs.recurringSupportCost = metrics.hasStructuredLineItems
-    ? Number(metrics.lineItems.filter((lineItem) => lineItem.schedule === "recurring" && (lineItem.lineType === "support" || lineItem.lineType === "managed_service")).reduce((sum, lineItem) => sum + lineItem.vendorExtendedCost, 0).toFixed(2))
-    : Number((siteCount * supportRecurringPerSite).toFixed(2));
-  next.commercial.costs.recurringOtherCost = metrics.hasStructuredLineItems
-    ? Number(metrics.lineItems.filter((lineItem) => lineItem.schedule === "recurring" && lineItem.lineType !== "subscription" && lineItem.lineType !== "software" && lineItem.lineType !== "hardware" && lineItem.lineType !== "support" && lineItem.lineType !== "managed_service").reduce((sum, lineItem) => sum + lineItem.vendorExtendedCost, 0).toFixed(2))
-    : Number((siteCount * otherRecurringPerSite).toFixed(2));
+
+  if (metrics.hasThreeLayerModel) {
+    const components = metrics.components;
+    next.commercial.costs.oneTimeEquipmentCost = roundCurrency(sumComponents(components, "one_time", "cost", (component) => component.lineType === "hardware"));
+    next.commercial.costs.oneTimeLaborCost = roundCurrency(sumComponents(components, "one_time", "cost", (component) => component.lineType === "installation" || component.lineType === "internal_labor" || component.lineType === "service" || component.lineType === "support" || component.lineType === "managed_service" || component.lineType === "optional_service"));
+    next.commercial.costs.oneTimeOtherCost = roundCurrency(metrics.oneTimeCost - next.commercial.costs.oneTimeEquipmentCost - next.commercial.costs.oneTimeLaborCost);
+    next.commercial.costs.recurringVendorCost = roundCurrency(sumComponents(components, "recurring", "cost", (component) => component.lineType === "hardware" || component.lineType === "software" || component.lineType === "subscription"));
+    next.commercial.costs.recurringSupportCost = roundCurrency(sumComponents(components, "recurring", "cost", (component) => component.lineType === "support" || component.lineType === "managed_service"));
+    next.commercial.costs.recurringOtherCost = roundCurrency(metrics.recurringCost - next.commercial.costs.recurringVendorCost - next.commercial.costs.recurringSupportCost);
+  } else {
+    next.commercial.costs.oneTimeEquipmentCost = roundCurrency(siteCount * (activeOption?.hardwarePerSite ?? state.commercial.oneTimeHardwarePerSite));
+    next.commercial.costs.oneTimeLaborCost = roundCurrency(siteCount * (activeOption?.installPerSite ?? state.commercial.oneTimeInstallPerSite));
+    next.commercial.costs.oneTimeOtherCost = roundCurrency(siteCount * (activeOption?.otherOneTimePerSite ?? state.commercial.oneTimeOtherPerSite));
+    next.commercial.costs.recurringVendorCost = roundCurrency(siteCount * (activeOption?.vendorRecurringPerSite ?? state.commercial.recurringVendorPerSite));
+    next.commercial.costs.recurringSupportCost = roundCurrency(siteCount * (activeOption?.supportRecurringPerSite ?? state.commercial.recurringSupportPerSite));
+    next.commercial.costs.recurringOtherCost = roundCurrency(siteCount * (activeOption?.otherRecurringPerSite ?? state.commercial.recurringOtherPerSite));
+  }
 
   next.sections.sectionA.computed.monthlyRecurringTotal = next.sections.sectionA.mode === "pool"
     ? next.sections.sectionA.poolRows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0)

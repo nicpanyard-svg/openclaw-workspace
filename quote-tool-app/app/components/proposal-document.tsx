@@ -223,6 +223,14 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
           </div>
         </div>
 
+      </section>
+
+      <section className="proposal-page proposal-info-page proposal-info-address-page proposal-page-force-new-sheet" data-page-label={proposalInfoPageLabel}>
+        <div className="proposal-header">
+          <span>Proposal details</span>
+          <span>Proposal #{quote.metadata.proposalNumber}</span>
+        </div>
+
         <div className="proposal-address-grid print-keep-group">
           <div className="proposal-copy proposal-copy-card print-keep-block">
             <div className="proposal-mini-heading">{quote.documentation.billToHeading ?? "Bill To"}</div>

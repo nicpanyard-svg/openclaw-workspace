@@ -1,0 +1,38 @@
+{
+  "bodyHeight": 7129,
+  "pages": [
+    {
+      "label": "Page 1",
+      "top": 0,
+      "height": 1041
+    },
+    {
+      "label": "Page 2",
+      "top": 1041,
+      "height": 1871
+    },
+    {
+      "label": "Page 3",
+      "top": 2912,
+      "height": 1041
+    },
+    {
+      "label": "Page 4",
+      "top": 3953,
+      "height": 1041
+    },
+    {
+      "label": "Page 5",
+      "top": 4993,
+      "height": 1041
+    },
+    {
+      "label": "Page 6",
+      "top": 6034,
+      "height": 1095
+    }
+  ],
+  "detailHeaderTop": 1058,
+  "closingHeaderTop": 6049,
+  "text": "INET COMMUNICATIONS PROPOSAL\nPROPOSAL\n#RCT001\nApril 2, 2026\nBudgetary Estimate\nBUDGETARY ESTIMATE\nBudgetary Estimate\nManaged Communications Services\nPREPARED FOR\nCZ USA\nCZ USA\nScott Duncan\n913-413-179"
+}

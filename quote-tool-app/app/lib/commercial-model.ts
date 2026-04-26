@@ -49,8 +49,10 @@ export function buildCommercialMetrics(quote: QuoteRecord) {
   const majorProjectMetrics = buildMajorProjectMetrics(hydratedQuote);
   const useMajorProjectRevenue = hydratedQuote.metadata.workflowMode === "major_project" && Boolean(hydratedQuote.majorProject?.enabled);
   const recurringRevenue = useMajorProjectRevenue ? Number(majorProjectMetrics.recurringRevenue.toFixed(2)) : quickRecurringRevenue;
-  const oneTimeEquipmentRevenue = useMajorProjectRevenue ? Number(majorProjectMetrics.oneTimeRevenue.toFixed(2)) : quickOneTimeEquipmentRevenue;
-  const oneTimeServicesRevenue = useMajorProjectRevenue ? 0 : quickOneTimeServicesRevenue;
+  const oneTimeEquipmentRevenue = useMajorProjectRevenue ? Number(majorProjectMetrics.hardwareRevenue.toFixed(2)) : quickOneTimeEquipmentRevenue;
+  const oneTimeServicesRevenue = useMajorProjectRevenue
+    ? Number((majorProjectMetrics.oneTimeRevenue - majorProjectMetrics.hardwareRevenue).toFixed(2))
+    : quickOneTimeServicesRevenue;
   const oneTimeRevenue = Number((oneTimeEquipmentRevenue + oneTimeServicesRevenue).toFixed(2));
 
   const costs = hydratedQuote.commercial.costs;

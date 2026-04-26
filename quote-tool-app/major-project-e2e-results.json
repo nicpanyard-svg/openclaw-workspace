@@ -1,0 +1,113 @@
+{
+  "steps": [
+    {
+      "name": "login",
+      "url": "http://localhost:3003/"
+    },
+    {
+      "name": "new_builder_loaded",
+      "hasMajorProjectToggle": true
+    },
+    {
+      "name": "major_project_enabled",
+      "workflow": true
+    },
+    {
+      "name": "components_added",
+      "mapping": null
+    },
+    {
+      "name": "bundles_added",
+      "mapping": null
+    },
+    {
+      "name": "quote_lines_added",
+      "mapping": null
+    },
+    {
+      "name": "after_reload",
+      "proposalNumber": "RCT-DRAFT-1777157578781",
+      "projectName": null,
+      "sites": null,
+      "mapping": null
+    },
+    {
+      "name": "preview_loaded",
+      "url": "http://localhost:3003/proposal",
+      "hasCustomer": false,
+      "hasTitle": false,
+      "hasRecurringLine": false,
+      "hasHardwareLine": false,
+      "hasProgramMgmt": false
+    },
+    {
+      "name": "fatal_error",
+      "message": "TimeoutError: Timed out after waiting 20000ms",
+      "url": "http://localhost:3003/proposal"
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "warn",
+      "text": "Image with src \"/inet-logo.png\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\"eager\"` property if this image is above the fold.\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading"
+    },
+    {
+      "type": "warn",
+      "text": "The specified value \"Starlink\" cannot be parsed, or is out of range."
+    },
+    {
+      "type": "warn",
+      "text": "The specified value \"iNet Services\" cannot be parsed, or is out of range."
+    },
+    {
+      "type": "warn",
+      "text": "The specified value \"iNet\" cannot be parsed, or is out of range."
+    },
+    {
+      "type": "warn",
+      "text": "The specified value \"iNet\" cannot be parsed, or is out of range."
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "warn",
+      "text": "Image with src \"/inet-logo.png\" was detected as the Largest Contentful Paint (LCP). Please add the `loading=\"eager\"` property if this image is above the fold.\nRead more: https://nextjs.org/docs/app/api-reference/components/image#loading"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 329ms"
+    }
+  ],
+  "pageErrors": [],
+  "downloads": []
+}

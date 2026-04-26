@@ -938,6 +938,85 @@ body {
   gap: 14px;
 }
 
+.major-project-toolbar {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(0, auto));
+  align-items: end;
+}
+
+.major-project-toolbar-search {
+  min-width: 0;
+}
+
+.major-project-toolbar-stat {
+  min-width: 92px;
+  border: 1px solid #d9e1e8;
+  border-radius: 18px;
+  background: white;
+  padding: 10px 14px;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+}
+
+.major-project-toolbar-stat strong {
+  font-size: 18px;
+  color: #16202b;
+}
+
+.major-project-toolbar-stat span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7d8894;
+}
+
+.major-project-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.major-project-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #eef3f7;
+  color: #40505f;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.major-project-preview-handoff {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.major-project-preview-handoff-card,
+.major-project-margin-card {
+  border: 1px solid #e2e8ee;
+  border-radius: 16px;
+  background: white;
+  padding: 14px;
+}
+
+.major-project-preview-handoff-card span {
+  display: block;
+  font-size: 12px;
+  color: #6b7784;
+}
+
+.major-project-preview-handoff-card strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 18px;
+  color: #16202b;
+}
+
 .workspace-section-stack {
   margin-top: 22px;
   display: grid;
@@ -3008,12 +3087,28 @@ body {
     page-break-inside: auto;
   }
 
+  .proposal-page-force-new-sheet {
+    break-before: page;
+    page-break-before: always;
+  }
+
   .proposal-info-page .proposal-address-grid {
+    display: table;
+    table-layout: fixed;
+    width: calc(100% + 10px);
+    margin-top: 10px;
+    margin-left: -5px;
+    margin-right: -5px;
+    border-collapse: separate;
+    border-spacing: 10px 0;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
   .proposal-info-page .proposal-address-grid > .proposal-copy-card {
+    display: table-cell;
+    width: 50%;
+    vertical-align: top;
     break-inside: avoid;
     page-break-inside: avoid;
   }
