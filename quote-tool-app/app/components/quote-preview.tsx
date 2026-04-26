@@ -557,8 +557,7 @@ export default function QuotePreview() {
     const searchParams = new URLSearchParams(window.location.search);
     const requestedProposalId = searchParams.get("proposalId");
     const savedQuote = deserializeQuoteRecord(window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY));
-    const hasRecoverableDraft = Boolean(savedQuote?.internal?.savedProposalId || savedQuote?.internal?.quoteId || activeProposalId || requestedProposalId);
-    const forceNewDraft = searchParams.get("mode") === "new" && !hasRecoverableDraft;
+    const forceNewDraft = searchParams.get("mode") === "new";
     const matchedProposal = forceNewDraft
       ? null
       : getActiveProposal(store, requestedProposalId ?? activeProposalId ?? savedQuote?.internal?.savedProposalId ?? savedQuote?.internal?.quoteId ?? null);
