@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ProductLogo } from "@/app/components/product-logo";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { resolvePreferredQuote } from "@/app/lib/active-proposal";
@@ -47,6 +47,7 @@ type DataQuickAddUnit = "GB" | "TB";
 type ServiceStage = "budgetary" | "final";
 type ServiceCategory = "site_inspection" | "installation" | "custom";
 type MajorProjectEditorTab = "components" | "bundles" | "quote_lines";
+type MajorProjectStepStatus = "current" | "complete" | "locked";
 type MajorProjectScheduleFilter = "all" | "one_time" | "recurring";
 
 const emptyEquipmentDraft: EquipmentDraft = {
@@ -506,6 +507,59 @@ function createMajorProjectQuoteLineDraft(index: number): MajorProjectCustomerQu
   };
 }
 
+function MajorProjectStepCard({
+  step,
+  title,
+  summary,
+  detail,
+  status,
+  count,
+  onOpen,
+  children,
+}: {
+  step: string;
+  title: string;
+  summary: string;
+  detail: string;
+  status: MajorProjectStepStatus;
+  count: number;
+  onOpen?: () => void;
+  children?: ReactNode;
+}) {
+  const isCurrent = status === "current";
+  const isLocked = status === "locked";
+  const toneClass = isCurrent
+    ? "border-[#b00000] bg-[#fff6f6]"
+    : isLocked
+      ? "border-[#e6eaef] bg-[#f8fafc]"
+      : "border-[#d7e3db] bg-[#f7fcf8]";
+
+  return (
+    <section className={`rounded-[20px] border p-4 md:p-5 ${toneClass}`}>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Step {step}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h4 className="text-[20px] font-semibold tracking-[-0.03em] text-[#16202b]">{title}</h4>
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${isCurrent ? "bg-[#b00000] text-white" : isLocked ? "bg-[#edf1f5] text-[#708090]" : "bg-[#dff2e4] text-[#1f6a37]"}`}>
+              {isCurrent ? "Now" : isLocked ? "Locked" : "Done"}
+            </span>
+            <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-[#5f6c78]">{count} item{count === 1 ? "" : "s"}</span>
+          </div>
+          <p className="mt-2 text-[13px] text-[#44515d]">{summary}</p>
+          <p className="mt-1 text-[12px] text-[#708090]">{detail}</p>
+        </div>
+        {!isCurrent ? (
+          <button type="button" className="pill-button self-start" onClick={onOpen} disabled={isLocked}>
+            {isLocked ? "Finish earlier step first" : "Open step"}
+          </button>
+        ) : null}
+      </div>
+      {isCurrent ? <div className="mt-4">{children}</div> : null}
+    </section>
+  );
+}
+
 export default function QuotePreview() {
   const { user } = useAuth();
   const router = useRouter();
@@ -728,6 +782,37 @@ export default function QuotePreview() {
       return summary;
     }, { recurring: 0, hardware: 0, services: 0 });
   }, [majorProjectMetrics.customerQuoteLines]);
+  const hasComponentsStepContent = activeMajorOptionComponents.length > 0;
+  const hasBundleStepContent = activeMajorOptionBundles.length > 0;
+  const hasQuoteLineStepContent = activeMajorOptionQuoteLines.length > 0;
+  const bundleCoverageCount = majorProjectMetrics.bundles.filter((bundle) => bundle.resolvedComponentIds.length > 0).length;
+  const presentedBundleCount = activeMajorOptionBundles.length - majorProjectMetrics.validation.unpresentedBundleIds.length;
+  const componentsStepStatus: MajorProjectStepStatus = majorProjectEditorTab === "components" ? "current" : hasComponentsStepContent ? "complete" : "current";
+  const bundlesStepStatus: MajorProjectStepStatus = !hasComponentsStepContent
+    ? "locked"
+    : majorProjectEditorTab === "bundles"
+      ? "current"
+      : hasBundleStepContent && bundleCoverageCount > 0
+        ? "complete"
+        : "current";
+  const quoteLinesStepStatus: MajorProjectStepStatus = !hasComponentsStepContent || !hasBundleStepContent || bundleCoverageCount === 0
+    ? "locked"
+    : majorProjectEditorTab === "quote_lines"
+      ? "current"
+      : hasQuoteLineStepContent && presentedBundleCount > 0
+        ? "complete"
+        : "current";
+
+  useEffect(() => {
+    if (!isMajorProject) return;
+    if (majorProjectEditorTab === "bundles" && !hasComponentsStepContent) {
+      setMajorProjectEditorTab("components");
+      return;
+    }
+    if (majorProjectEditorTab === "quote_lines" && (!hasComponentsStepContent || !hasBundleStepContent || bundleCoverageCount === 0)) {
+      setMajorProjectEditorTab(hasComponentsStepContent ? "bundles" : "components");
+    }
+  }, [bundleCoverageCount, hasBundleStepContent, hasComponentsStepContent, isMajorProject, majorProjectEditorTab]);
 
   const filteredSectionACatalog = useMemo(() => {
     return sectionACatalog.filter((item) => {
@@ -843,9 +928,14 @@ export default function QuotePreview() {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option) return draft;
       const nextIndex = (option.components?.length ?? 0) + 1;
-      option.components = [...(option.components ?? []), createMajorProjectComponentDraft(nextIndex, bundleId)];
+      const resolvedBundleId = bundleId || option.bundles?.[0]?.id || "";
+      if (!option.bundles?.length) {
+        option.bundles = [createMajorProjectBundleDraft(1)];
+      }
+      option.components = [...(option.components ?? []), createMajorProjectComponentDraft(nextIndex, resolvedBundleId || option.bundles?.[0]?.id || "")];
       return draft;
     });
+    setMajorProjectEditorTab("components");
   };
 
   const duplicateMajorProjectComponent = (componentId: string) => {
@@ -900,9 +990,16 @@ export default function QuotePreview() {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option) return draft;
       const nextIndex = (option.bundles?.length ?? 0) + 1;
-      option.bundles = [...(option.bundles ?? []), createMajorProjectBundleDraft(nextIndex)];
+      const nextBundle = createMajorProjectBundleDraft(nextIndex);
+      const unassignedComponentIds = (option.components ?? []).filter((component) => !component.bundleAssignmentId).map((component) => component.id);
+      nextBundle.componentIds = unassignedComponentIds;
+      nextBundle.includedCostComponentIds = unassignedComponentIds;
+      nextBundle.includedRevenueComponentIds = unassignedComponentIds;
+      option.components = (option.components ?? []).map((component) => component.bundleAssignmentId ? component : { ...component, bundleAssignmentId: nextBundle.id });
+      option.bundles = [...(option.bundles ?? []), nextBundle];
       return draft;
     });
+    setMajorProjectEditorTab("bundles");
   };
 
   const duplicateMajorProjectBundle = (bundleId: string) => {
@@ -949,9 +1046,18 @@ export default function QuotePreview() {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option) return draft;
       const nextIndex = (option.customerQuoteLines?.length ?? 0) + 1;
-      option.customerQuoteLines = [...(option.customerQuoteLines ?? []), createMajorProjectQuoteLineDraft(nextIndex)];
+      const nextLine = createMajorProjectQuoteLineDraft(nextIndex);
+      const firstUnusedBundle = (option.bundles ?? []).find((bundle) => !(option.customerQuoteLines ?? []).some((line) => (line.bundleIds ?? []).includes(bundle.id)));
+      if (firstUnusedBundle) {
+        nextLine.label = firstUnusedBundle.customerFacingLabel || firstUnusedBundle.internalName || nextLine.label;
+        nextLine.bundleIds = [firstUnusedBundle.id];
+        nextLine.schedule = firstUnusedBundle.schedule ?? "mixed";
+        nextLine.presentationCategory = firstUnusedBundle.schedule === "recurring" ? "recurring" : "hardware";
+      }
+      option.customerQuoteLines = [...(option.customerQuoteLines ?? []), nextLine];
       return draft;
     });
+    setMajorProjectEditorTab("quote_lines");
   };
 
   const duplicateMajorProjectQuoteLine = (quoteLineId: string) => {
@@ -1856,26 +1962,27 @@ export default function QuotePreview() {
                     </div>
                   </div>
 
-                  <div className="rounded-[18px] border border-[#e7d8db] bg-white p-4">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                      <div>
-                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Authoring workflow</div>
-                        <h4 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#16202b]">Build the offer in three passes</h4>
-                        <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Start with internal components, group them into internal bundles, then decide what the customer will actually see on the quote. The proposal and PDF still flow from Section A / B / C downstream.</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {([
-                          ["components", `1. Components (${activeMajorOptionComponents.length})`],
-                          ["bundles", `2. Bundles (${activeMajorOptionBundles.length})`],
-                          ["quote_lines", `3. Quote lines (${activeMajorOptionQuoteLines.length})`],
-                        ] as Array<[MajorProjectEditorTab, string]>).map(([tab, label]) => (
-                          <button key={tab} type="button" className={`pill-button ${majorProjectEditorTab === tab ? "pill-button-active" : ""}`} onClick={() => setMajorProjectEditorTab(tab)}>{label}</button>
-                        ))}
+                  <div className="space-y-4 rounded-[18px] border border-[#e7d8db] bg-white p-4">
+                    <div className="rounded-[18px] border border-[#efe3e5] bg-[#fffafa] p-4">
+                      <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Authoring workflow</div>
+                      <h4 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#16202b]">Build the offer in order</h4>
+                      <div className="mt-3 grid gap-3 md:grid-cols-3 text-[13px] text-[#44515d]">
+                        <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">1. Internal components</strong><span>Real economics live here.</span></div>
+                        <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">2. Internal bundles</strong><span>Group components into sellable packages.</span></div>
+                        <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">3. Customer output</strong><span>Choose what lands in Sections A, B, and C.</span></div>
                       </div>
                     </div>
 
-                    {majorProjectEditorTab === "components" && (
-                      <div className="mt-4 space-y-4">
+                    <MajorProjectStepCard
+                      step="1"
+                      title="Internal components"
+                      count={activeMajorOptionComponents.length}
+                      status={componentsStepStatus}
+                      summary="Enter the real parts, services, labor, cost, and sell price first."
+                      detail="Everything downstream rolls up from these rows."
+                      onOpen={() => setMajorProjectEditorTab("components")}
+                    >
+                      <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
                           <div>
                             <strong className="text-[#16202b]">Internal components are the source of truth.</strong>
@@ -1935,12 +2042,18 @@ export default function QuotePreview() {
                               <label className="builder-field compact"><span>Customer unit price</span><input type="number" step="0.01" value={component.customerUnitPrice} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(e.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /></label>
                               <label className="builder-field compact"><span>Vendor unit cost</span><input type="number" step="0.01" value={component.vendorUnitCost} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const vendorUnitCost = Math.max(parseNumber(e.target.value), 0); return { ...current, vendorUnitCost, vendorExtendedCost: Number((current.quantity * vendorUnitCost).toFixed(2)) }; })} /></label>
                             </div>
-                            <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-                              <label className="builder-field compact"><span>Cost basis</span><select value={component.costBasis} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, costBasis: e.target.value as MajorProjectComponent["costBasis"] }))}><option value="vendor_quote">Vendor quote</option><option value="msrp">MSRP</option><option value="estimate">Estimate</option><option value="internal_labor">Internal labor</option><option value="blended">Blended</option><option value="other">Other</option></select></label>
-                              <label className="builder-field compact"><span>Resale basis</span><select value={component.resaleBasis} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, resaleBasis: e.target.value as MajorProjectComponent["resaleBasis"] }))}><option value="fixed_fee">Fixed fee</option><option value="cost_plus">Cost plus</option><option value="target_margin">Target margin</option><option value="pass_through">Pass through</option><option value="bundle">Bundle</option><option value="other">Other</option></select></label>
-                              <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={component.passThrough} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, passThrough: e.target.checked }))} /> Pass-through</label>
-                            </div>
-                            <label className="builder-field compact mt-3"><span>Notes</span><textarea rows={2} value={component.notes ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, notes: e.target.value }))} /></label>
+                            <details className="mt-3 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
+                              <summary className="cursor-pointer list-none text-[14px] font-semibold text-[#16202b]">
+                                More controls
+                                <span className="ml-2 text-[12px] font-normal text-[#6a7682]">Basis, pass-through, and notes.</span>
+                              </summary>
+                              <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                                <label className="builder-field compact"><span>Cost basis</span><select value={component.costBasis} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, costBasis: e.target.value as MajorProjectComponent["costBasis"] }))}><option value="vendor_quote">Vendor quote</option><option value="msrp">MSRP</option><option value="estimate">Estimate</option><option value="internal_labor">Internal labor</option><option value="blended">Blended</option><option value="other">Other</option></select></label>
+                                <label className="builder-field compact"><span>Resale basis</span><select value={component.resaleBasis} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, resaleBasis: e.target.value as MajorProjectComponent["resaleBasis"] }))}><option value="fixed_fee">Fixed fee</option><option value="cost_plus">Cost plus</option><option value="target_margin">Target margin</option><option value="pass_through">Pass through</option><option value="bundle">Bundle</option><option value="other">Other</option></select></label>
+                                <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={component.passThrough} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, passThrough: e.target.checked }))} /> Pass-through</label>
+                              </div>
+                              <label className="builder-field compact mt-3"><span>Notes</span><textarea rows={2} value={component.notes ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, notes: e.target.value }))} /></label>
+                            </details>
                             <div className="mt-3 grid gap-3 lg:grid-cols-4 text-[12px] text-[#5f6c78]">
                               <div className="rounded-[14px] bg-white px-3 py-2">Revenue {formatCurrency(componentRevenue, currencyCode)}</div>
                               <div className="rounded-[14px] bg-white px-3 py-2">Cost {formatCurrency(componentCost, currencyCode)}</div>
@@ -1950,10 +2063,18 @@ export default function QuotePreview() {
                           </div>
                         );})}
                       </div>
-                    )}
+                    </MajorProjectStepCard>
 
-                    {majorProjectEditorTab === "bundles" && (
-                      <div className="mt-4 space-y-4">
+                    <MajorProjectStepCard
+                      step="2"
+                      title="Internal bundles"
+                      count={activeMajorOptionBundles.length}
+                      status={bundlesStepStatus}
+                      summary="Package the component rows into internal groups before anything turns customer-facing."
+                      detail="Each bundle should cleanly collect the economics it represents."
+                      onOpen={() => setMajorProjectEditorTab("bundles")}
+                    >
+                      <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
                           <div><strong className="text-[#16202b]">Bundles are your internal grouping layer.</strong><div className="mt-1">Use them to collect the economic components that should roll together before anything becomes customer-facing.</div></div>
                           <button type="button" className="pill-button pill-button-active" onClick={addMajorProjectBundle}>Add bundle</button>
@@ -1993,10 +2114,18 @@ export default function QuotePreview() {
                           );
                         })}
                       </div>
-                    )}
+                    </MajorProjectStepCard>
 
-                    {majorProjectEditorTab === "quote_lines" && (
-                      <div className="mt-4 space-y-4">
+                    <MajorProjectStepCard
+                      step="3"
+                      title="Customer quote lines"
+                      count={activeMajorOptionQuoteLines.length}
+                      status={quoteLinesStepStatus}
+                      summary="Choose which bundles show up for the customer and where they land in the proposal."
+                      detail="Sections A, B, and C are downstream output only."
+                      onOpen={() => setMajorProjectEditorTab("quote_lines")}
+                    >
+                      <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
                           <div><strong className="text-[#16202b]">Customer quote lines are the presentation layer.</strong><div className="mt-1">Pick which bundles and any explicit component overrides should feed Section A, B, or C downstream.</div></div>
                           <button type="button" className="pill-button pill-button-active" onClick={addMajorProjectQuoteLine}>Add quote line</button>
@@ -2038,32 +2167,36 @@ export default function QuotePreview() {
                                   ))}
                                 </div>
                               </div>
-                              <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                                <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4">
-                                  <div className="text-[14px] font-semibold text-[#16202b]">Explicit revenue overrides</div>
-                                  <div className="mt-2 text-[12px] text-[#6a7682]">Only use this when the bundle rollup is not enough.</div>
-                                  <div className="mt-3 grid gap-2">
-                                    {componentOptions.map((component) => (
-                                      <label key={`${line.id}-rev-${component.id}`} className="inline-flex items-center gap-3 rounded-[14px] border border-[#e5eaf0] bg-[#fbfcfe] px-3 py-2 text-[13px] text-[#24303b]"><input type="checkbox" checked={explicitRevenueIds.has(component.id)} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, includedRevenueComponentIds: e.target.checked ? [...new Set([...(current.includedRevenueComponentIds ?? []), component.id])] : (current.includedRevenueComponentIds ?? []).filter((id) => id !== component.id) }))} /> {component.label}</label>
-                                    ))}
+                              <details className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
+                                <summary className="cursor-pointer list-none text-[14px] font-semibold text-[#16202b]">
+                                  Advanced overrides
+                                  <span className="ml-2 text-[12px] font-normal text-[#6a7682]">Use only when the normal bundle rollup needs a manual exception.</span>
+                                </summary>
+                                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                                  <div>
+                                    <div className="text-[13px] font-semibold text-[#16202b]">Revenue overrides</div>
+                                    <div className="mt-3 grid gap-2">
+                                      {componentOptions.map((component) => (
+                                        <label key={`${line.id}-rev-${component.id}`} className="inline-flex items-center gap-3 rounded-[14px] border border-[#e5eaf0] bg-[#fbfcfe] px-3 py-2 text-[13px] text-[#24303b]"><input type="checkbox" checked={explicitRevenueIds.has(component.id)} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, includedRevenueComponentIds: e.target.checked ? [...new Set([...(current.includedRevenueComponentIds ?? []), component.id])] : (current.includedRevenueComponentIds ?? []).filter((id) => id !== component.id) }))} /> {component.label}</label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-[13px] font-semibold text-[#16202b]">Cost overrides</div>
+                                    <div className="mt-3 grid gap-2">
+                                      {componentOptions.map((component) => (
+                                        <label key={`${line.id}-cost-${component.id}`} className="inline-flex items-center gap-3 rounded-[14px] border border-[#e5eaf0] bg-[#fbfcfe] px-3 py-2 text-[13px] text-[#24303b]"><input type="checkbox" checked={explicitCostIds.has(component.id)} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, includedCostComponentIds: e.target.checked ? [...new Set([...(current.includedCostComponentIds ?? []), component.id])] : (current.includedCostComponentIds ?? []).filter((id) => id !== component.id) }))} /> {component.label}</label>
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4">
-                                  <div className="text-[14px] font-semibold text-[#16202b]">Explicit cost overrides</div>
-                                  <div className="mt-2 text-[12px] text-[#6a7682]">Lets internal economics differ from the customer rollup when needed.</div>
-                                  <div className="mt-3 grid gap-2">
-                                    {componentOptions.map((component) => (
-                                      <label key={`${line.id}-cost-${component.id}`} className="inline-flex items-center gap-3 rounded-[14px] border border-[#e5eaf0] bg-[#fbfcfe] px-3 py-2 text-[13px] text-[#24303b]"><input type="checkbox" checked={explicitCostIds.has(component.id)} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, includedCostComponentIds: e.target.checked ? [...new Set([...(current.includedCostComponentIds ?? []), component.id])] : (current.includedCostComponentIds ?? []).filter((id) => id !== component.id) }))} /> {component.label}</label>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
+                              </details>
                               <div className="mt-3 grid gap-3 md:grid-cols-4 text-[12px] text-[#5f6c78]"><div className="rounded-[14px] bg-white px-3 py-2">Recurring revenue {formatCurrency(metrics?.recurringRevenue ?? 0, currencyCode)}</div><div className="rounded-[14px] bg-white px-3 py-2">One-time revenue {formatCurrency(metrics?.oneTimeRevenue ?? 0, currencyCode)}</div><div className="rounded-[14px] bg-white px-3 py-2">Recurring cost {formatCurrency(metrics?.recurringCost ?? 0, currencyCode)}</div><div className="rounded-[14px] bg-white px-3 py-2">One-time cost {formatCurrency(metrics?.oneTimeCost ?? 0, currencyCode)}</div></div>
                             </div>
                           );
                         })}
                       </div>
-                    )}
+                    </MajorProjectStepCard>
                   </div>
 
                   <div className="mt-4 rounded-[18px] border border-[#dbe3ea] bg-[#f8fafc] p-4">
