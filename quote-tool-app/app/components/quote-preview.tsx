@@ -14,6 +14,7 @@ import { PROPOSAL_STORAGE_KEY, deserializeQuoteRecord, serializeQuoteRecord } fr
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import {
+  CUSTOMER_PROFILE_STORE_FALLBACK_KEY,
   CUSTOMER_PROFILE_STORE_KEY,
   applyCustomerProfileToQuote,
   createCustomerProfileFromQuote,
@@ -58,6 +59,7 @@ type ServiceCategory = "site_inspection" | "installation" | "custom";
 type MajorProjectEditorTab = "components" | "bundles" | "quote_lines";
 type MajorProjectStepStatus = "current" | "complete" | "locked";
 type MajorProjectScheduleFilter = "all" | "one_time" | "recurring";
+type CustomerEntryMode = "start" | "select" | "create" | "review";
 
 const emptyEquipmentDraft: EquipmentDraft = {
   itemName: "",
@@ -578,6 +580,7 @@ export default function QuotePreview() {
   const [customerProfiles, setCustomerProfiles] = useState<SavedCustomerProfile[]>([]);
   const [selectedCustomerProfileId, setSelectedCustomerProfileId] = useState("");
   const [autoUpdateCustomerProfile, setAutoUpdateCustomerProfile] = useState(false);
+  const [customerEntryMode, setCustomerEntryMode] = useState<CustomerEntryMode>("start");
   const [equipmentSearch, setEquipmentSearch] = useState("");
   const [equipmentCategoryFilter, setEquipmentCategoryFilter] = useState("All");
   const [customEquipmentDraft, setCustomEquipmentDraft] = useState<EquipmentDraft>(emptyEquipmentDraft);
@@ -623,7 +626,9 @@ export default function QuotePreview() {
     const searchParams = new URLSearchParams(window.location.search);
     const requestedProposalId = searchParams.get("proposalId");
     const savedQuote = deserializeQuoteRecord(window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY));
-    const savedCustomerProfiles = deserializeCustomerProfiles(window.localStorage.getItem(CUSTOMER_PROFILE_STORE_KEY));
+    const savedCustomerProfiles = deserializeCustomerProfiles(
+      window.localStorage.getItem(CUSTOMER_PROFILE_STORE_KEY) ?? window.localStorage.getItem(CUSTOMER_PROFILE_STORE_FALLBACK_KEY),
+    );
     const forceNewDraft = searchParams.get("mode") === "new";
     const matchedProposal = forceNewDraft
       ? null
@@ -650,6 +655,7 @@ export default function QuotePreview() {
     setCustomSectionFields(nextQuote.customFields ?? []);
     setCustomerProfiles(savedCustomerProfiles);
     setSelectedCustomerProfileId(nextQuote.internal.savedCustomerProfileId ?? "");
+    setCustomerEntryMode(nextQuote.customer.name.trim() ? "review" : savedCustomerProfiles.length ? "start" : "create");
     setIsHydrated(true);
   }, [user]);
 
@@ -860,7 +866,9 @@ export default function QuotePreview() {
 
   const persistCustomerProfiles = (profiles: SavedCustomerProfile[]) => {
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(CUSTOMER_PROFILE_STORE_KEY, serializeCustomerProfiles(profiles));
+      const serializedProfiles = serializeCustomerProfiles(profiles);
+      window.localStorage.setItem(CUSTOMER_PROFILE_STORE_KEY, serializedProfiles);
+      window.localStorage.setItem(CUSTOMER_PROFILE_STORE_FALLBACK_KEY, serializedProfiles);
     }
     setCustomerProfiles(profiles);
   };
@@ -869,6 +877,14 @@ export default function QuotePreview() {
     () => customerProfiles.find((profile) => profile.id === selectedCustomerProfileId) ?? null,
     [customerProfiles, selectedCustomerProfileId],
   );
+  const customerEntryComplete = Boolean(quote.customer.name.trim());
+  const customerHeadline = quote.customer.name.trim() || quote.metadata.accountName?.trim() || "No customer selected";
+  const customerSubline = compactList([
+    quote.customer.contactName,
+    quote.customer.contactEmail,
+    quote.customer.contactPhone,
+  ]).join(" • ");
+  const customerServiceAddress = compactList(quote.customer.addressLines).join(", ");
 
   const updateMajorProjectQuote = (updater: (draft: QuoteRecord) => QuoteRecord) => {
     updateQuote((current) => applyMajorProjectToQuote(updater(ensureMajorProjectState(current))));
@@ -1445,7 +1461,25 @@ export default function QuotePreview() {
       applyCustomerProfileToQuote(draft, profile);
       return draft;
     });
+    setCustomerEntryMode("review");
     setWorkflowNotice(`Autofilled proposal details from ${profile.companyName}.`);
+  };
+
+  const finishCustomerEntry = () => {
+    if (!quote.customer.name.trim()) {
+      setWorkflowNotice("Add a customer name before continuing into quote building.");
+      setCustomerEntryMode("create");
+      return;
+    }
+
+    updateQuote((draft) => {
+      draft.metadata.accountName = draft.metadata.accountName?.trim() || draft.customer.name.trim();
+      draft.customer.logoText = draft.metadata.customerShortName?.trim() || draft.customer.logoText || draft.customer.name.trim();
+      return draft;
+    });
+
+    setCustomerEntryMode("review");
+    setWorkflowNotice(`Customer locked in for this draft: ${quote.customer.name.trim()}.`);
   };
 
   const persistProposalState = () => {
@@ -1600,70 +1634,203 @@ export default function QuotePreview() {
         <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
           <div className="space-y-6">
             <section className="builder-panel">
+              <div className="builder-panel-header"><div><div className="builder-eyebrow">Step 1</div><h2 className="builder-title">Customer entry</h2></div></div>
+
+              <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#f7fafc] p-4 text-[14px] leading-[1.6] text-[#435160]">
+                Start every draft by either selecting a saved customer or creating a lightweight customer record for this quote. Once that is done, the rest of the builder stays focused on the quote itself.
+              </div>
+
+              {customerEntryMode === "start" ? (
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <button
+                    type="button"
+                    className="rounded-[24px] border border-[#dde3e8] bg-white p-5 text-left shadow-[0_12px_28px_rgba(75,88,106,0.08)] transition hover:-translate-y-[1px] hover:border-[#c7d5e3]"
+                    onClick={() => setCustomerEntryMode("select")}
+                  >
+                    <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Saved profile</div>
+                    <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Select Customer</div>
+                    <p className="mt-2 text-[14px] leading-[1.55] text-[#5c6772]">Pull in an existing customer profile and keep moving. Good fit when the account already exists in RapidQuote.</p>
+                    <div className="mt-4 text-[13px] font-medium text-[#2e5b85]">{customerProfiles.length} saved customer profile{customerProfiles.length === 1 ? "" : "s"} available</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-[24px] border border-[#dde3e8] bg-white p-5 text-left shadow-[0_12px_28px_rgba(75,88,106,0.08)] transition hover:-translate-y-[1px] hover:border-[#c7d5e3]"
+                    onClick={() => setCustomerEntryMode("create")}
+                  >
+                    <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">New draft</div>
+                    <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Create Customer</div>
+                    <p className="mt-2 text-[14px] leading-[1.55] text-[#5c6772]">Add just the customer details this quote needs now: company, contact, service address, and billing/shipping basics.</p>
+                    <div className="mt-4 text-[13px] font-medium text-[#2e5b85]">Lightweight by design — not a CRM detour</div>
+                  </button>
+                </div>
+              ) : null}
+
+              {customerEntryMode === "select" ? (
+                <div className="mt-5 rounded-[22px] border border-[#dde3e8] bg-white p-4 md:p-5">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                    <div>
+                      <div className="builder-eyebrow">Select customer</div>
+                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Choose a saved customer</h3>
+                      <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Pick a saved customer to fill the quote instantly, then continue with either Quick Quote or Major Project.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <button type="button" className="pill-button" onClick={() => setCustomerEntryMode("start")}>Back</button>
+                      <button type="button" className="pill-button" onClick={() => setCustomerEntryMode("create")}>Create instead</button>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_auto] lg:items-end">
+                    <label className="builder-field">
+                      <span>Saved customer</span>
+                      <select value={selectedCustomerProfileId} onChange={(e) => setSelectedCustomerProfileId(e.target.value)}>
+                        <option value="">Select a saved customer</option>
+                        {customerProfiles.map((profile) => (
+                          <option key={profile.id} value={profile.id}>
+                            {profile.companyName}{profile.mainContactName ? ` — ${profile.mainContactName}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <button type="button" className="pill-button pill-button-active" disabled={!selectedCustomerProfileId} onClick={() => applySelectedCustomerProfile(selectedCustomerProfileId)}>
+                      Use selected customer
+                    </button>
+                  </div>
+
+                  {selectedCustomerProfile ? (
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Main contact</strong>{selectedCustomerProfile.mainContactName || "Not set"}<br />{selectedCustomerProfile.mainContactEmail || "No email"}<br />{selectedCustomerProfile.mainContactPhone || "No phone"}</div>
+                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Billing</strong>{selectedCustomerProfile.billingAddress.companyName || selectedCustomerProfile.companyName}<br />{selectedCustomerProfile.billingAddress.lines.join(", ") || "No billing address"}</div>
+                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Shipping / service</strong>{selectedCustomerProfile.shippingSameAsBillTo ? "Matches billing" : selectedCustomerProfile.shippingAddress.lines.join(", ") || "No shipping address"}<br />Owner default: {selectedCustomerProfile.defaultOwnerName || "Not set"}</div>
+                    </div>
+                  ) : customerProfiles.length === 0 ? (
+                    <div className="mt-4 rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No saved customer profiles yet. Create one from this draft, then reuse it next time.</div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {(customerEntryMode === "create" || customerEntryMode === "review") ? (
+                <div className="mt-5 rounded-[22px] border border-[#dde3e8] bg-white p-4 md:p-5">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="builder-eyebrow">{customerEntryMode === "review" ? "Customer selected" : "Create customer"}</div>
+                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">{customerEntryMode === "review" ? customerHeadline : "Customer details for this quote"}</h3>
+                      <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
+                        {customerEntryMode === "review"
+                          ? "The quote now carries this customer data through the proposal, preview, and PDF outputs."
+                          : "Keep this tight: add only the customer details the quote needs, then move on to pricing and scope."}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {customerEntryMode === "review" ? (
+                        <>
+                          <button type="button" className="pill-button" onClick={() => setCustomerEntryMode("select")}>Select different customer</button>
+                          <button type="button" className="pill-button" onClick={() => setCustomerEntryMode("create")}>Edit customer</button>
+                        </>
+                      ) : (
+                        <>
+                          <button type="button" className="pill-button" onClick={() => setCustomerEntryMode(customerEntryComplete ? "review" : "start")}>Cancel</button>
+                          <button type="button" className="pill-button pill-button-active" onClick={finishCustomerEntry}>Use this customer</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {customerEntryMode === "review" ? (
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Contact</strong>{customerSubline || "No contact details yet"}</div>
+                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Service address</strong>{customerServiceAddress || "No service address yet"}</div>
+                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Saved profile</strong>{selectedCustomerProfile ? selectedCustomerProfile.companyName : "Not linked yet"}<br />{selectedCustomerProfileId ? "Auto-update available on save" : "Save this customer when ready"}</div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <label className="builder-field"><span>Customer name</span><input value={quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.customer.name = e.target.value; draft.metadata.accountName = draft.metadata.accountName?.trim() ? draft.metadata.accountName : e.target.value; draft.billTo.companyName = draft.billTo.companyName?.trim() ? draft.billTo.companyName : e.target.value; if (draft.shippingSameAsBillTo) draft.shipTo.companyName = draft.billTo.companyName; return draft; })} /></label>
+                        <label className="builder-field"><span>Contact name</span><input value={quote.customer.contactName} onChange={(e) => updateQuote((draft) => { draft.customer.contactName = e.target.value; draft.billTo.attention = draft.billTo.attention?.trim() ? draft.billTo.attention : e.target.value; if (draft.shippingSameAsBillTo) draft.shipTo.attention = draft.billTo.attention; return draft; })} /></label>
+                        <label className="builder-field"><span>Contact phone</span><input value={quote.customer.contactPhone} onChange={(e) => updateQuote((draft) => { draft.customer.contactPhone = e.target.value; return draft; })} /></label>
+                        <label className="builder-field"><span>Contact email</span><input value={quote.customer.contactEmail} onChange={(e) => updateQuote((draft) => { draft.customer.contactEmail = e.target.value; return draft; })} /></label>
+                      </div>
+
+                      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+                        <label className="builder-field"><span>Account name</span><input value={quote.metadata.accountName ?? quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.metadata.accountName = e.target.value; return draft; })} /></label>
+                        <label className="builder-field"><span>Customer short name</span><input value={quote.metadata.customerShortName} onChange={(e) => updateQuote((draft) => { draft.metadata.customerShortName = e.target.value; draft.customer.logoText = e.target.value; return draft; })} /></label>
+                      </div>
+
+                      <div className="mt-4 rounded-[20px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
+                        <div className="builder-eyebrow">Service address</div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="builder-field compact md:col-span-2"><span>Address line 1</span><input value={quote.customer.addressLines[0] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[0] = e.target.value; return draft; })} /></label>
+                          <label className="builder-field compact md:col-span-2"><span>Address line 2</span><input value={quote.customer.addressLines[1] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[1] = e.target.value; return draft; })} /></label>
+                          <label className="builder-field compact md:col-span-2"><span>Address line 3</span><input value={quote.customer.addressLines[2] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[2] = e.target.value; return draft; })} /></label>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                        <AddressEditor
+                          title="Bill To"
+                          address={quote.billTo}
+                          onChange={(next) => updateQuote((draft) => {
+                            draft.billTo = next;
+                            if (draft.shippingSameAsBillTo) draft.shipTo = JSON.parse(JSON.stringify(next));
+                            return draft;
+                          })}
+                        />
+
+                        <div className="space-y-4">
+                          <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]">
+                            <input
+                              type="checkbox"
+                              checked={quote.shippingSameAsBillTo}
+                              onChange={(e) => updateQuote((draft) => {
+                                draft.shippingSameAsBillTo = e.target.checked;
+                                if (e.target.checked) {
+                                  draft.shipTo = JSON.parse(JSON.stringify(draft.billTo));
+                                }
+                                return draft;
+                              })}
+                            />
+                            Ship to same as bill to
+                          </label>
+
+                          <AddressEditor
+                            title="Ship To"
+                            address={quote.shippingSameAsBillTo ? quote.billTo : quote.shipTo}
+                            disabled={quote.shippingSameAsBillTo}
+                            onChange={(next) => updateQuote((draft) => {
+                              draft.shipTo = next;
+                              return draft;
+                            })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <button type="button" className="pill-button" onClick={() => saveCustomerProfile()}>
+                          {selectedCustomerProfile ? "Update saved customer" : "Save customer profile"}
+                        </button>
+
+                        <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#f8fbfd] px-4 py-3 text-[13px] font-medium text-[#24303b]">
+                          <input
+                            type="checkbox"
+                            checked={autoUpdateCustomerProfile && Boolean(selectedCustomerProfileId)}
+                            disabled={!selectedCustomerProfileId}
+                            onChange={(e) => setAutoUpdateCustomerProfile(e.target.checked)}
+                          />
+                          Update saved customer on draft save
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : null}
+            </section>
+
+            <section className="builder-panel">
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Quote setup</div><h2 className="builder-title">Quote details</h2></div></div>
 
               <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#f7fafc] p-4 text-[14px] leading-[1.6] text-[#435160]">
                 RapidQuote tracks proposal status only: <strong>Draft</strong>, <strong>In Review</strong>, and <strong>Sent</strong>. If the opportunity moves beyond proposal work, manage it in <strong>Salesforce</strong> instead of closing it inside RapidQuote.
-              </div>
-
-              <div className="mt-4 rounded-[20px] border border-[#dde3e8] bg-white p-4 md:p-5">
-                <div className="builder-eyebrow">Saved customers</div>
-                <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                  <div>
-                    <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Reuse customer basics fast</h3>
-                    <p className="mt-2 max-w-[780px] text-[13px] leading-[1.5] text-[#60707f]">
-                      Pick a saved customer to autofill quote details, or save the current quote details for reuse later. This stays intentionally lightweight so RapidQuote speeds up quoting without turning into a CRM.
-                    </p>
-                  </div>
-                  <div className="rounded-[16px] border border-[#e2e7ec] bg-[#f8fbfd] px-4 py-3 text-[12px] font-medium text-[#51606d]">
-                    {customerProfiles.length} saved customer profile{customerProfiles.length === 1 ? "" : "s"}
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_auto_auto] lg:items-end">
-                  <label className="builder-field">
-                    <span>Saved customer</span>
-                    <select
-                      value={selectedCustomerProfileId}
-                      onChange={(e) => {
-                        const nextId = e.target.value;
-                        setSelectedCustomerProfileId(nextId);
-                        if (nextId) {
-                          applySelectedCustomerProfile(nextId);
-                        }
-                      }}
-                    >
-                      <option value="">Start from this quote</option>
-                      {customerProfiles.map((profile) => (
-                        <option key={profile.id} value={profile.id}>
-                          {profile.companyName}{profile.mainContactName ? ` — ${profile.mainContactName}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <button type="button" className="pill-button" onClick={() => saveCustomerProfile()}>
-                    {selectedCustomerProfile ? "Update saved customer" : "Save customer"}
-                  </button>
-
-                  <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#f8fbfd] px-4 py-3 text-[13px] font-medium text-[#24303b]">
-                    <input
-                      type="checkbox"
-                      checked={autoUpdateCustomerProfile && Boolean(selectedCustomerProfileId)}
-                      disabled={!selectedCustomerProfileId}
-                      onChange={(e) => setAutoUpdateCustomerProfile(e.target.checked)}
-                    />
-                    Update saved customer on draft save
-                  </label>
-                </div>
-
-                {selectedCustomerProfile ? (
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Main contact</strong>{selectedCustomerProfile.mainContactName || "Not set"}<br />{selectedCustomerProfile.mainContactEmail || "No email"}<br />{selectedCustomerProfile.mainContactPhone || "No phone"}</div>
-                    <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Billing</strong>{selectedCustomerProfile.billingAddress.companyName || selectedCustomerProfile.companyName}<br />{selectedCustomerProfile.billingAddress.lines.join(", ") || "No billing address"}</div>
-                    <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Shipping / service</strong>{selectedCustomerProfile.shippingSameAsBillTo ? "Matches billing" : selectedCustomerProfile.shippingAddress.lines.join(", ") || "No shipping address"}<br />Owner default: {selectedCustomerProfile.defaultOwnerName || "Not set"}</div>
-                  </div>
-                ) : null}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1682,31 +1849,15 @@ export default function QuotePreview() {
 
               <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-2">
                 <label className="builder-field"><span>Proposal subtitle</span><input value={quote.metadata.documentSubtitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentSubtitle = e.target.value; return draft; })} /></label>
-                <label className="builder-field"><span>Customer short name</span><input value={quote.metadata.customerShortName} onChange={(e) => updateQuote((draft) => { draft.metadata.customerShortName = e.target.value; draft.customer.logoText = e.target.value; return draft; })} /></label>
+                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]"><span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Customer on this draft</span><strong className="mt-1 block text-[16px] text-[#16202b]">{customerHeadline}</strong><span className="mt-1 block">{customerSubline || "Use Customer entry above to edit customer details."}</span></div>
               </div>
 
               <div className="mt-5 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
                 <div className="builder-eyebrow">Contacts</div>
-                <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal and address details</h3>
-                <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Update these details once and they carry through to the proposal cover and contact pages.</p>
+                <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Sales-side proposal details</h3>
+                <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Customer basics now live in Customer entry above. This section stays focused on iNet details and any final billing/shipping adjustments needed for the quote.</p>
 
-                <div className="mt-4 grid gap-4 xl:grid-cols-2">
-                  <div className="space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
-                    <div>
-                      <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Customer</div>
-                      <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Contact and address</div>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <label className="builder-field compact"><span>Customer name</span><input value={quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.customer.name = e.target.value; draft.billTo.companyName = e.target.value; if (draft.shippingSameAsBillTo) draft.shipTo.companyName = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact"><span>Contact name</span><input value={quote.customer.contactName} onChange={(e) => updateQuote((draft) => { draft.customer.contactName = e.target.value; draft.billTo.attention = e.target.value; if (draft.shippingSameAsBillTo) draft.shipTo.attention = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact"><span>Contact phone</span><input value={quote.customer.contactPhone} onChange={(e) => updateQuote((draft) => { draft.customer.contactPhone = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact"><span>Contact email</span><input value={quote.customer.contactEmail} onChange={(e) => updateQuote((draft) => { draft.customer.contactEmail = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact md:col-span-2"><span>Address line 1</span><input value={quote.customer.addressLines[0] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[0] = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact md:col-span-2"><span>Address line 2</span><input value={quote.customer.addressLines[1] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[1] = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact md:col-span-2"><span>Address line 3</span><input value={quote.customer.addressLines[2] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[2] = e.target.value; return draft; })} /></label>
-                    </div>
-                  </div>
-
+                <div className="mt-4">
                   <div className="space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                     <div className="flex items-start gap-3">
                       <Image src="/inet-logo.png" alt="iNet logo" width={120} height={34} className="workspace-logo-inline h-auto w-auto object-contain" />

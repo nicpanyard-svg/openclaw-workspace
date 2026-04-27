@@ -277,6 +277,63 @@ function dedupeComponents(components: MajorProjectComponent[]) {
   return Array.from(map.values());
 }
 
+function normalizeLookupText(value: string | undefined | null) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function lineMatchesText(line: MajorProjectCustomerQuoteLine, ...values: Array<string | undefined>) {
+  const searchTerms = uniqueIds([
+    normalizeLookupText(line.label),
+    normalizeLookupText(line.description),
+  ]).filter((value) => value.length >= 4);
+
+  if (!searchTerms.length) return false;
+
+  const haystack = values.map((value) => normalizeLookupText(value)).filter(Boolean).join(" ");
+  return searchTerms.some((term) => haystack.includes(term) || term.includes(haystack));
+}
+
+function inferBundleIdsForQuoteLine(line: MajorProjectCustomerQuoteLine, bundles: MajorProjectBundle[]) {
+  if (line.bundleIds.length > 0) return uniqueIds(line.bundleIds);
+
+  const labelMatches = bundles.filter((bundle) => lineMatchesText(line, bundle.customerFacingLabel, bundle.internalName, bundle.description));
+  if (labelMatches.length) {
+    return uniqueIds(labelMatches.map((bundle) => bundle.id));
+  }
+
+  const scheduleMatches = bundles.filter((bundle) => {
+    if (line.schedule !== "mixed" && bundle.schedule !== "mixed" && bundle.schedule !== line.schedule) {
+      return false;
+    }
+    if (line.presentationCategory === "recurring") {
+      return bundle.schedule === "recurring";
+    }
+    if (line.presentationCategory === "hardware") {
+      return bundle.schedule !== "recurring";
+    }
+    return true;
+  });
+
+  return scheduleMatches.length === 1 ? [scheduleMatches[0].id] : [];
+}
+
+function inferComponentsForQuoteLine(line: MajorProjectCustomerQuoteLine, components: MajorProjectComponent[]) {
+  const labelMatches = components.filter((component) => lineMatchesText(line, component.customerFacingLabel, component.internalName, component.notes));
+  if (labelMatches.length) {
+    return labelMatches;
+  }
+
+  const scheduleMatches = components.filter((component) => {
+    if (line.schedule !== "mixed" && component.schedule !== line.schedule) return false;
+    if (line.presentationCategory === "recurring") return component.schedule === "recurring";
+    if (line.presentationCategory === "hardware") return component.lineType === "hardware" && component.schedule !== "recurring";
+    if (line.presentationCategory === "services") return component.lineType !== "hardware" && component.schedule !== "recurring";
+    return false;
+  });
+
+  return scheduleMatches.length === 1 ? scheduleMatches : [];
+}
+
 function costOrRevenueTotal(components: MajorProjectComponent[], schedule: "one_time" | "recurring", value: "revenue" | "cost") {
   return components.reduce((sum, component) => {
     if (component.schedule !== schedule) return sum;
@@ -326,7 +383,8 @@ function buildMajorProjectPresentation(option: MajorProjectOption) {
   });
 
   const quoteLinesWithMetrics: MajorProjectCustomerQuoteLineMetrics[] = customerQuoteLines.map((line) => {
-    const resolvedBundleIds = uniqueIds(line.bundleIds.filter((bundleId) => bundlesById.has(bundleId)));
+    const inferredBundleIds = inferBundleIdsForQuoteLine(line, bundles);
+    const resolvedBundleIds = uniqueIds(inferredBundleIds.filter((bundleId) => bundlesById.has(bundleId)));
     const bundledCostComponents = resolvedBundleIds.flatMap((bundleId) => {
       const bundle = bundlesById.get(bundleId);
       const resolvedIds = bundleResolvedComponentIds.get(bundleId) ?? [];
@@ -339,11 +397,15 @@ function buildMajorProjectPresentation(option: MajorProjectOption) {
     });
     const explicitCostComponents = componentsForIds(componentsById, line.includedCostComponentIds);
     const explicitRevenueComponents = componentsForIds(componentsById, line.includedRevenueComponentIds);
-    const costComponents = dedupeComponents([...bundledCostComponents, ...explicitCostComponents]);
-    const revenueComponents = dedupeComponents([...bundledRevenueComponents, ...explicitRevenueComponents]);
+    const inferredComponents = inferComponentsForQuoteLine(line, components);
+    const fallbackCostComponents = !bundledCostComponents.length && !explicitCostComponents.length ? inferredComponents : [];
+    const fallbackRevenueComponents = !bundledRevenueComponents.length && !explicitRevenueComponents.length ? inferredComponents : [];
+    const costComponents = dedupeComponents([...bundledCostComponents, ...explicitCostComponents, ...fallbackCostComponents]);
+    const revenueComponents = dedupeComponents([...bundledRevenueComponents, ...explicitRevenueComponents, ...fallbackRevenueComponents]);
 
     return {
       ...line,
+      bundleIds: resolvedBundleIds,
       resolvedBundleIds,
       resolvedCostComponentIds: costComponents.map((component) => component.id),
       resolvedRevenueComponentIds: revenueComponents.map((component) => component.id),

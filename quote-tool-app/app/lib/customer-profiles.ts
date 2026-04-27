@@ -1,6 +1,7 @@
 import type { QuoteRecord } from "@/app/lib/quote-record";
 
 export const CUSTOMER_PROFILE_STORE_KEY = "rapidquote:customer-profiles";
+export const CUSTOMER_PROFILE_STORE_FALLBACK_KEY = "quote-tool-app:customer-profiles";
 
 export type SavedCustomerProfile = {
   id: string;
@@ -31,13 +32,47 @@ export function serializeCustomerProfiles(profiles: SavedCustomerProfile[]) {
   return JSON.stringify(profiles);
 }
 
+function normalizeProfile(profile: Partial<SavedCustomerProfile> | null | undefined): SavedCustomerProfile | null {
+  if (!profile?.id || !profile.companyName?.trim()) return null;
+
+  const createdAt = profile.createdAt ?? new Date().toISOString();
+  const updatedAt = profile.updatedAt ?? createdAt;
+
+  return {
+    id: profile.id,
+    companyName: profile.companyName.trim(),
+    customerShortName: profile.customerShortName?.trim() ?? "",
+    billingAddress: {
+      companyName: profile.billingAddress?.companyName?.trim() ?? profile.companyName.trim(),
+      attention: profile.billingAddress?.attention?.trim() ?? profile.mainContactName?.trim() ?? "",
+      lines: cleanLines(profile.billingAddress?.lines),
+    },
+    shippingAddress: {
+      companyName: profile.shippingAddress?.companyName?.trim() ?? profile.billingAddress?.companyName?.trim() ?? profile.companyName.trim(),
+      attention: profile.shippingAddress?.attention?.trim() ?? profile.billingAddress?.attention?.trim() ?? profile.mainContactName?.trim() ?? "",
+      lines: cleanLines(profile.shippingAddress?.lines),
+    },
+    shippingSameAsBillTo: profile.shippingSameAsBillTo ?? false,
+    serviceAddressLines: cleanLines(profile.serviceAddressLines),
+    mainContactName: profile.mainContactName?.trim() ?? "",
+    mainContactEmail: profile.mainContactEmail?.trim() ?? "",
+    mainContactPhone: profile.mainContactPhone?.trim() ?? "",
+    defaultOwnerUserId: profile.defaultOwnerUserId?.trim() || undefined,
+    defaultOwnerName: profile.defaultOwnerName?.trim() || undefined,
+    createdAt,
+    updatedAt,
+  };
+}
+
 export function deserializeCustomerProfiles(value: string | null | undefined): SavedCustomerProfile[] {
   if (!value) return [];
 
   try {
-    const parsed = JSON.parse(value) as SavedCustomerProfile[];
+    const parsed = JSON.parse(value) as Partial<SavedCustomerProfile>[];
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((profile) => profile?.id && profile.companyName);
+    return parsed
+      .map((profile) => normalizeProfile(profile))
+      .filter((profile): profile is SavedCustomerProfile => Boolean(profile));
   } catch {
     return [];
   }
