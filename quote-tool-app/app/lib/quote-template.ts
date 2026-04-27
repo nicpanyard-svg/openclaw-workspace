@@ -85,6 +85,7 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
   quote.internal.internalNotes = "";
   quote.internal.crmSyncReady = false;
   quote.internal.savedProposalId = undefined;
+  quote.internal.savedCustomerProfileId = undefined;
 
   quote.integrations.quoteReferences = {};
   quote.integrations.lastSyncSummary = "New draft started from a clean quote template.";

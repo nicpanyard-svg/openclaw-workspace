@@ -135,6 +135,7 @@ export type QuoteInternalMeta = {
   crmOwnerLabel?: string;
   crmSyncReady?: boolean;
   savedProposalId?: string;
+  savedCustomerProfileId?: string;
   workspaceOwnerId?: string;
   workspaceOwnerName?: string;
 };

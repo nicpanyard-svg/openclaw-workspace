@@ -13,6 +13,15 @@ import { resolvePreferredQuote } from "@/app/lib/active-proposal";
 import { PROPOSAL_STORAGE_KEY, deserializeQuoteRecord, serializeQuoteRecord } from "@/app/lib/proposal-state";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
+import {
+  CUSTOMER_PROFILE_STORE_KEY,
+  applyCustomerProfileToQuote,
+  createCustomerProfileFromQuote,
+  deserializeCustomerProfiles,
+  serializeCustomerProfiles,
+  upsertCustomerProfile,
+  type SavedCustomerProfile,
+} from "@/app/lib/customer-profiles";
 import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState, getActiveMajorProjectOption } from "@/app/lib/major-project";
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
 import {
@@ -566,6 +575,9 @@ export default function QuotePreview() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [quote, setQuote] = useState<QuoteRecord>(createBlankQuoteRecord());
   const [activeProposal, setActiveProposal] = useState<SavedProposalRecord | null>(null);
+  const [customerProfiles, setCustomerProfiles] = useState<SavedCustomerProfile[]>([]);
+  const [selectedCustomerProfileId, setSelectedCustomerProfileId] = useState("");
+  const [autoUpdateCustomerProfile, setAutoUpdateCustomerProfile] = useState(false);
   const [equipmentSearch, setEquipmentSearch] = useState("");
   const [equipmentCategoryFilter, setEquipmentCategoryFilter] = useState("All");
   const [customEquipmentDraft, setCustomEquipmentDraft] = useState<EquipmentDraft>(emptyEquipmentDraft);
@@ -611,6 +623,7 @@ export default function QuotePreview() {
     const searchParams = new URLSearchParams(window.location.search);
     const requestedProposalId = searchParams.get("proposalId");
     const savedQuote = deserializeQuoteRecord(window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY));
+    const savedCustomerProfiles = deserializeCustomerProfiles(window.localStorage.getItem(CUSTOMER_PROFILE_STORE_KEY));
     const forceNewDraft = searchParams.get("mode") === "new";
     const matchedProposal = forceNewDraft
       ? null
@@ -635,8 +648,16 @@ export default function QuotePreview() {
     setActiveProposal(matchedProposal);
     setQuote(nextQuote);
     setCustomSectionFields(nextQuote.customFields ?? []);
+    setCustomerProfiles(savedCustomerProfiles);
+    setSelectedCustomerProfileId(nextQuote.internal.savedCustomerProfileId ?? "");
     setIsHydrated(true);
   }, [user]);
+
+  useEffect(() => {
+    if (!selectedCustomerProfileId) {
+      setAutoUpdateCustomerProfile(false);
+    }
+  }, [selectedCustomerProfileId]);
 
   const currencyCode = quote.metadata.currencyCode || "USD";
   const workflowMode = quote.metadata.workflowMode ?? "quick_quote";
@@ -836,6 +857,18 @@ export default function QuotePreview() {
   }, [quote.sections.sectionB.lineItems]);
 
   const updateQuote = (updater: (current: QuoteRecord) => QuoteRecord) => setQuote((current) => ensureMajorProjectState(updater(cloneQuote(current))));
+
+  const persistCustomerProfiles = (profiles: SavedCustomerProfile[]) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CUSTOMER_PROFILE_STORE_KEY, serializeCustomerProfiles(profiles));
+    }
+    setCustomerProfiles(profiles);
+  };
+
+  const selectedCustomerProfile = useMemo(
+    () => customerProfiles.find((profile) => profile.id === selectedCustomerProfileId) ?? null,
+    [customerProfiles, selectedCustomerProfileId],
+  );
 
   const updateMajorProjectQuote = (updater: (draft: QuoteRecord) => QuoteRecord) => {
     updateQuote((current) => applyMajorProjectToQuote(updater(ensureMajorProjectState(current))));
@@ -1381,6 +1414,40 @@ export default function QuotePreview() {
     reader.readAsDataURL(file);
   };
 
+  const saveCustomerProfile = (profileId?: string) => {
+    if (!quote.customer.name.trim()) {
+      setWorkflowNotice("Add a customer name before saving a reusable customer profile.");
+      return null;
+    }
+
+    const resolvedProfileId = profileId ?? selectedCustomerProfileId ?? undefined;
+    const nextProfile = createCustomerProfileFromQuote(quote, resolvedProfileId);
+    const nextProfiles = upsertCustomerProfile(customerProfiles, nextProfile);
+    persistCustomerProfiles(nextProfiles);
+    setSelectedCustomerProfileId(nextProfile.id);
+    setQuote((current) => ({
+      ...current,
+      internal: {
+        ...current.internal,
+        savedCustomerProfileId: nextProfile.id,
+      },
+    }));
+    setWorkflowNotice(profileId || selectedCustomerProfileId ? "Saved customer profile updated." : "Saved customer profile created.");
+    return nextProfile;
+  };
+
+  const applySelectedCustomerProfile = (profileId: string) => {
+    const profile = customerProfiles.find((entry) => entry.id === profileId);
+    if (!profile) return;
+
+    setSelectedCustomerProfileId(profile.id);
+    updateQuote((draft) => {
+      applyCustomerProfileToQuote(draft, profile);
+      return draft;
+    });
+    setWorkflowNotice(`Autofilled proposal details from ${profile.companyName}.`);
+  };
+
   const persistProposalState = () => {
     if (typeof window === "undefined") return null;
 
@@ -1434,6 +1501,15 @@ export default function QuotePreview() {
 
     window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, proposalId);
+
+    if (autoUpdateCustomerProfile && (selectedCustomerProfileId || nextQuote.customer.name.trim())) {
+      const nextProfile = createCustomerProfileFromQuote(nextQuote, selectedCustomerProfileId || undefined);
+      const nextProfiles = upsertCustomerProfile(customerProfiles, nextProfile);
+      persistCustomerProfiles(nextProfiles);
+      nextQuote.internal.savedCustomerProfileId = nextProfile.id;
+      updatedProposal.quote.internal.savedCustomerProfileId = nextProfile.id;
+      setSelectedCustomerProfileId(nextProfile.id);
+    }
 
     const nextUrl = `/new?proposalId=${proposalId}`;
     if (window.location.pathname !== "/new" || window.location.search !== `?proposalId=${proposalId}`) {
@@ -1528,6 +1604,66 @@ export default function QuotePreview() {
 
               <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#f7fafc] p-4 text-[14px] leading-[1.6] text-[#435160]">
                 RapidQuote tracks proposal status only: <strong>Draft</strong>, <strong>In Review</strong>, and <strong>Sent</strong>. If the opportunity moves beyond proposal work, manage it in <strong>Salesforce</strong> instead of closing it inside RapidQuote.
+              </div>
+
+              <div className="mt-4 rounded-[20px] border border-[#dde3e8] bg-white p-4 md:p-5">
+                <div className="builder-eyebrow">Saved customers</div>
+                <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Reuse customer basics fast</h3>
+                    <p className="mt-2 max-w-[780px] text-[13px] leading-[1.5] text-[#60707f]">
+                      Pick a saved customer to autofill quote details, or save the current quote details for reuse later. This stays intentionally lightweight so RapidQuote speeds up quoting without turning into a CRM.
+                    </p>
+                  </div>
+                  <div className="rounded-[16px] border border-[#e2e7ec] bg-[#f8fbfd] px-4 py-3 text-[12px] font-medium text-[#51606d]">
+                    {customerProfiles.length} saved customer profile{customerProfiles.length === 1 ? "" : "s"}
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_auto_auto] lg:items-end">
+                  <label className="builder-field">
+                    <span>Saved customer</span>
+                    <select
+                      value={selectedCustomerProfileId}
+                      onChange={(e) => {
+                        const nextId = e.target.value;
+                        setSelectedCustomerProfileId(nextId);
+                        if (nextId) {
+                          applySelectedCustomerProfile(nextId);
+                        }
+                      }}
+                    >
+                      <option value="">Start from this quote</option>
+                      {customerProfiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.companyName}{profile.mainContactName ? ` — ${profile.mainContactName}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <button type="button" className="pill-button" onClick={() => saveCustomerProfile()}>
+                    {selectedCustomerProfile ? "Update saved customer" : "Save customer"}
+                  </button>
+
+                  <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#f8fbfd] px-4 py-3 text-[13px] font-medium text-[#24303b]">
+                    <input
+                      type="checkbox"
+                      checked={autoUpdateCustomerProfile && Boolean(selectedCustomerProfileId)}
+                      disabled={!selectedCustomerProfileId}
+                      onChange={(e) => setAutoUpdateCustomerProfile(e.target.checked)}
+                    />
+                    Update saved customer on draft save
+                  </label>
+                </div>
+
+                {selectedCustomerProfile ? (
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Main contact</strong>{selectedCustomerProfile.mainContactName || "Not set"}<br />{selectedCustomerProfile.mainContactEmail || "No email"}<br />{selectedCustomerProfile.mainContactPhone || "No phone"}</div>
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Billing</strong>{selectedCustomerProfile.billingAddress.companyName || selectedCustomerProfile.companyName}<br />{selectedCustomerProfile.billingAddress.lines.join(", ") || "No billing address"}</div>
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Shipping / service</strong>{selectedCustomerProfile.shippingSameAsBillTo ? "Matches billing" : selectedCustomerProfile.shippingAddress.lines.join(", ") || "No shipping address"}<br />Owner default: {selectedCustomerProfile.defaultOwnerName || "Not set"}</div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
