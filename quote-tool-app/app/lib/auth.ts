@@ -131,6 +131,18 @@ const users: Array<AuthUser & { password: string }> = [
     canManageUsers: false,
     password: "RapidQuote!29",
   },
+  {
+    id: "michael-lam",
+    name: "Michael Lam",
+    email: "michael.lam@inetlte.com",
+    title: "Account Executive",
+    team: "Sales",
+    role: "sales",
+    status: "active",
+    initials: "ML",
+    canManageUsers: false,
+    password: "RapidQuote!30",
+  },
 ];
 
 const seededAccessRequests: AccessRequestRecord[] = [
