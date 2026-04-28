@@ -323,15 +323,27 @@ function inferComponentsForQuoteLine(line: MajorProjectCustomerQuoteLine, compon
     return labelMatches;
   }
 
-  const scheduleMatches = components.filter((component) => {
+  return components.filter((component) => {
     if (line.schedule !== "mixed" && component.schedule !== line.schedule) return false;
-    if (line.presentationCategory === "recurring") return component.schedule === "recurring";
-    if (line.presentationCategory === "hardware") return component.lineType === "hardware" && component.schedule !== "recurring";
-    if (line.presentationCategory === "services") return component.lineType !== "hardware" && component.schedule !== "recurring";
+
+    if (line.presentationCategory === "recurring") {
+      return component.schedule === "recurring";
+    }
+
+    if (line.presentationCategory === "hardware") {
+      return component.schedule !== "recurring" && ["hardware", "shipping", "tax"].includes(component.lineType);
+    }
+
+    if (line.presentationCategory === "services") {
+      return component.schedule !== "recurring" && !["hardware", "shipping", "tax"].includes(component.lineType);
+    }
+
+    if (line.presentationCategory === "other") {
+      return component.schedule !== "recurring";
+    }
+
     return false;
   });
-
-  return scheduleMatches.length === 1 ? scheduleMatches : [];
 }
 
 function costOrRevenueTotal(components: MajorProjectComponent[], schedule: "one_time" | "recurring", value: "revenue" | "cost") {

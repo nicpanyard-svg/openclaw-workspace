@@ -30,8 +30,8 @@ function getPricingLabel(row: ServicePricingRow) {
   return "Budgetary";
 }
 
-function cleanLines(lines: string[]) {
-  return lines.map((line) => line.trim()).filter(Boolean);
+function cleanLines(lines: Array<string | null | undefined>) {
+  return lines.map((line) => (line ?? "").trim()).filter(Boolean);
 }
 
 export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProps) {
@@ -44,7 +44,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
   const executiveSummaryBlocks = [quote.executiveSummary.customerContext, quote.executiveSummary.body]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value?.length));
-  const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => paragraph.trim().length > 0);
+  const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => (paragraph ?? "").trim().length > 0);
   const executiveSummaryParagraphs = executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary;
   const billToLines = cleanLines([
     quote.billTo.companyName ?? "",
@@ -59,7 +59,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
     ...shipToSource.lines,
   ]);
   const customerVisibleCustomFields = (quote.customFields ?? []).filter(
-    (field) => field.visibility === "customer" && field.label.trim().length > 0 && field.value.trim().length > 0,
+    (field) => field.visibility === "customer" && (field.label ?? "").trim().length > 0 && (field.value ?? "").trim().length > 0,
   );
   const contentPresence = getQuoteContentPresence(quote);
   const commercialSummaryItems = buildProposalCommercialSummary(quote);

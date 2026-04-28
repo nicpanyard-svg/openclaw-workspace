@@ -10,7 +10,13 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { resolvePreferredQuote } from "@/app/lib/active-proposal";
-import { PROPOSAL_STORAGE_KEY, deserializeQuoteRecord, serializeQuoteRecord } from "@/app/lib/proposal-state";
+import {
+  PROPOSAL_STORAGE_FALLBACK_KEY,
+  PROPOSAL_STORAGE_KEY,
+  deserializeQuoteRecord,
+  persistQuoteRecord,
+  serializeQuoteRecord,
+} from "@/app/lib/proposal-state";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import {
@@ -625,7 +631,9 @@ export default function QuotePreview() {
 
     const searchParams = new URLSearchParams(window.location.search);
     const requestedProposalId = searchParams.get("proposalId");
-    const savedQuote = deserializeQuoteRecord(window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY));
+    const savedQuote = deserializeQuoteRecord(
+      window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY) ?? window.localStorage.getItem(PROPOSAL_STORAGE_FALLBACK_KEY),
+    );
     const savedCustomerProfiles = deserializeCustomerProfiles(
       window.localStorage.getItem(CUSTOMER_PROFILE_STORE_KEY) ?? window.localStorage.getItem(CUSTOMER_PROFILE_STORE_FALLBACK_KEY),
     );
@@ -648,7 +656,7 @@ export default function QuotePreview() {
       window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, matchedProposal.id);
     }
 
-    window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(nextQuote));
+    persistQuoteRecord(nextQuote);
 
     setActiveProposal(matchedProposal);
     setQuote(nextQuote);
@@ -1098,10 +1106,21 @@ export default function QuotePreview() {
       const nextLine = createMajorProjectQuoteLineDraft(nextIndex);
       const firstUnusedBundle = (option.bundles ?? []).find((bundle) => !(option.customerQuoteLines ?? []).some((line) => (line.bundleIds ?? []).includes(bundle.id)));
       if (firstUnusedBundle) {
+        const bundleComponentIds = (firstUnusedBundle.componentIds ?? []).length
+          ? firstUnusedBundle.componentIds
+          : (option.components ?? [])
+            .filter((component) => component.bundleAssignmentId === firstUnusedBundle.id)
+            .map((component) => component.id);
+        const bundledComponents = (option.components ?? []).filter((component) => bundleComponentIds.includes(component.id));
+        const hasRecurring = bundledComponents.some((component) => component.schedule === "recurring");
+        const hasOneTime = bundledComponents.some((component) => component.schedule === "one_time");
+
         nextLine.label = firstUnusedBundle.customerFacingLabel || firstUnusedBundle.internalName || nextLine.label;
         nextLine.bundleIds = [firstUnusedBundle.id];
-        nextLine.schedule = firstUnusedBundle.schedule ?? "mixed";
-        nextLine.presentationCategory = firstUnusedBundle.schedule === "recurring" ? "recurring" : "hardware";
+        nextLine.includedCostComponentIds = (firstUnusedBundle.includedCostComponentIds?.length ? firstUnusedBundle.includedCostComponentIds : bundleComponentIds);
+        nextLine.includedRevenueComponentIds = (firstUnusedBundle.includedRevenueComponentIds?.length ? firstUnusedBundle.includedRevenueComponentIds : bundleComponentIds);
+        nextLine.schedule = hasRecurring && hasOneTime ? "mixed" : hasRecurring ? "recurring" : "one_time";
+        nextLine.presentationCategory = hasRecurring && !hasOneTime ? "recurring" : "hardware";
       }
       option.customerQuoteLines = [...(option.customerQuoteLines ?? []), nextLine];
       return draft;
@@ -1498,7 +1517,7 @@ export default function QuotePreview() {
       },
     };
 
-    window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(nextQuote));
+    persistQuoteRecord(nextQuote);
 
     const currentStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY)) ?? getDefaultProposalStore(
       createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }),
@@ -1585,7 +1604,7 @@ export default function QuotePreview() {
 
     window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
-    window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(copiedProposal.quote));
+    persistQuoteRecord(copiedProposal.quote);
     setActiveProposal(copiedProposal);
     setQuote(copiedProposal.quote);
   };

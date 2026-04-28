@@ -79,8 +79,8 @@ export function formatCurrency(value: number, currencyCode = "USD") {
   }).format(value);
 }
 
-function cleanLines(lines: string[]) {
-  return lines.map((line) => line.trim()).filter(Boolean);
+function cleanLines(lines: Array<string | null | undefined>) {
+  return lines.map((line) => (line ?? "").trim()).filter(Boolean);
 }
 
 function getSectionARows(sectionA: QuoteRecord["sections"]["sectionA"]) {
@@ -99,7 +99,7 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value?.length));
   const customerVisibleCustomFields = (quote.customFields ?? []).filter(
-    (field) => field.visibility === "customer" && field.label.trim().length > 0 && field.value.trim().length > 0,
+    (field) => field.visibility === "customer" && (field.label ?? "").trim().length > 0 && (field.value ?? "").trim().length > 0,
   );
   const contentPresence = getQuoteContentPresence(quote);
   const pricingSnapshotItems = buildProposalCommercialSummary(quote).map((item) => ({
@@ -110,7 +110,7 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     tone: item.tone ?? "default",
   }));
   const oneTimeTotal = equipmentTotal + (contentPresence.hasSectionCContent ? serviceTotal : 0);
-  const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => paragraph.trim().length > 0);
+  const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => (paragraph ?? "").trim().length > 0);
   const executiveSummaryParagraphs = executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary;
 
   const billToLines = cleanLines([
