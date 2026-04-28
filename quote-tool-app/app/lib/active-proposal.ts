@@ -13,9 +13,10 @@ import {
   type SavedProposalRecord,
 } from "@/app/lib/proposal-store";
 import {
+  PROPOSAL_STORAGE_FALLBACK_KEY,
   PROPOSAL_STORAGE_KEY,
   deserializeQuoteRecord,
-  serializeQuoteRecord,
+  persistQuoteRecord,
 } from "@/app/lib/proposal-state";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 import { createBlankQuoteRecord } from "@/app/lib/quote-template";
@@ -80,7 +81,9 @@ export function resolveActiveProposalQuote(): {
     };
   }
 
-  const savedQuote = deserializeQuoteRecord(window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY));
+  const savedQuote = deserializeQuoteRecord(
+    window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY) ?? window.localStorage.getItem(PROPOSAL_STORAGE_FALLBACK_KEY),
+  );
   const activeId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
   const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
   const fallbackStore = getDefaultProposalStore(
@@ -105,7 +108,7 @@ export function resolveActiveProposalQuote(): {
     fallbackQuote: createBlankQuoteRecord(),
   });
 
-  window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(quote));
+  persistQuoteRecord(quote);
 
   return {
     quote,
@@ -133,7 +136,7 @@ export function persistPreviewQuote(quote: QuoteRecord, options?: { markAsSent?:
     },
   };
 
-  window.sessionStorage.setItem(PROPOSAL_STORAGE_KEY, serializeQuoteRecord(nextQuote));
+  persistQuoteRecord(nextQuote);
 
   const activeId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
   const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
