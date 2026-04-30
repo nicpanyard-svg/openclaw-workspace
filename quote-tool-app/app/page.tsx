@@ -1,10 +1,10 @@
 import { AuthGate } from "@/app/components/auth-shell";
-import { ProposalWorkspace } from "@/app/components/proposal-workspace";
+import { RapidQuoteFrontDoor } from "@/app/components/rapidquote-front-door";
 
 export default function Home() {
   return (
     <AuthGate>
-      <ProposalWorkspace />
+      <RapidQuoteFrontDoor />
     </AuthGate>
   );
 }

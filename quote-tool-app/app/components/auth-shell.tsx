@@ -32,7 +32,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const protectedRoutes = ["/", "/new", "/proposal", "/proposals", "/access"];
+const protectedRoutes = ["/", "/new", "/proposal", "/proposals", "/workspace", "/access"];
 const authRoutes = ["/login", "/signup", "/forgot-password", "/reset-password"];
 
 function sanitizeNextRoute(next: string | null, pathname: string) {
@@ -216,7 +216,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
             </div>
           </div>
           <nav className="app-shell-nav" aria-label="Workspace navigation">
-            <Link href="/">Dashboard</Link>
+            <Link href="/">Start</Link>
+            <Link href="/workspace">Workspace</Link>
             <Link href="/new?mode=new">Builder</Link>
             <Link href="/proposal">Preview</Link>
             <Link href="/access">Access {user.canManageUsers ? `(${pendingAccessCount})` : ""}</Link>

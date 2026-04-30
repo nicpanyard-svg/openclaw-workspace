@@ -66,6 +66,7 @@ type MajorProjectEditorTab = "components" | "bundles" | "quote_lines";
 type MajorProjectStepStatus = "current" | "complete" | "locked";
 type MajorProjectScheduleFilter = "all" | "one_time" | "recurring";
 type CustomerEntryMode = "start" | "select" | "create" | "review";
+type EntryIntent = "new-customer" | "select-customer" | null;
 
 const emptyEquipmentDraft: EquipmentDraft = {
   itemName: "",
@@ -116,6 +117,21 @@ function computeServiceRow(row: ServicePricingRow): ServicePricingRow {
     ...row,
     totalPrice: Number((row.quantity * row.unitPrice).toFixed(2)),
   };
+}
+
+function resolveCustomerEntryMode(params: {
+  intent: EntryIntent;
+  hasCustomer: boolean;
+  savedProfileCount: number;
+}) {
+  const { intent, hasCustomer, savedProfileCount } = params;
+
+  if (hasCustomer) return "review" satisfies CustomerEntryMode;
+  if (intent === "new-customer") return "create" satisfies CustomerEntryMode;
+  if (intent === "select-customer") {
+    return (savedProfileCount > 0 ? "select" : "create") satisfies CustomerEntryMode;
+  }
+  return (savedProfileCount > 0 ? "start" : "create") satisfies CustomerEntryMode;
 }
 
 function computeSectionARow<T extends PoolPricingRow | PerKitPricingRow>(row: T): T {
@@ -638,6 +654,11 @@ export default function QuotePreview() {
       window.localStorage.getItem(CUSTOMER_PROFILE_STORE_KEY) ?? window.localStorage.getItem(CUSTOMER_PROFILE_STORE_FALLBACK_KEY),
     );
     const forceNewDraft = searchParams.get("mode") === "new";
+    const entryIntent = (searchParams.get("entry") as EntryIntent) ?? null;
+    const requestedCustomerProfileId = searchParams.get("customerProfileId");
+    const requestedCustomerProfile = requestedCustomerProfileId
+      ? savedCustomerProfiles.find((profile) => profile.id === requestedCustomerProfileId) ?? null
+      : null;
     const matchedProposal = forceNewDraft
       ? null
       : getActiveProposal(store, requestedProposalId ?? activeProposalId ?? savedQuote?.internal?.savedProposalId ?? savedQuote?.internal?.quoteId ?? null);
@@ -649,6 +670,10 @@ export default function QuotePreview() {
         fallbackQuote: createBlankQuoteRecord(),
       }).quote;
     const nextQuote = ensureMajorProjectState(cloneQuote(resolvedQuote));
+
+    if (requestedCustomerProfile) {
+      applyCustomerProfileToQuote(nextQuote, requestedCustomerProfile);
+    }
 
     if (forceNewDraft) {
       window.localStorage.removeItem(ACTIVE_PROPOSAL_ID_KEY);
@@ -662,8 +687,12 @@ export default function QuotePreview() {
     setQuote(nextQuote);
     setCustomSectionFields(nextQuote.customFields ?? []);
     setCustomerProfiles(savedCustomerProfiles);
-    setSelectedCustomerProfileId(nextQuote.internal.savedCustomerProfileId ?? "");
-    setCustomerEntryMode(nextQuote.customer.name.trim() ? "review" : savedCustomerProfiles.length ? "start" : "create");
+    setSelectedCustomerProfileId(requestedCustomerProfile?.id ?? nextQuote.internal.savedCustomerProfileId ?? "");
+    setCustomerEntryMode(requestedCustomerProfile ? "review" : resolveCustomerEntryMode({
+      intent: entryIntent,
+      hasCustomer: Boolean(nextQuote.customer.name.trim()),
+      savedProfileCount: savedCustomerProfiles.length,
+    }));
     setIsHydrated(true);
   }, [user]);
 
@@ -885,7 +914,7 @@ export default function QuotePreview() {
     () => customerProfiles.find((profile) => profile.id === selectedCustomerProfileId) ?? null,
     [customerProfiles, selectedCustomerProfileId],
   );
-  const customerEntryComplete = Boolean(quote.customer.name.trim());
+  const customerEntryComplete = customerEntryMode === "review" && Boolean(quote.customer.name.trim());
   const customerHeadline = quote.customer.name.trim() || quote.metadata.accountName?.trim() || "No customer selected";
   const customerSubline = compactList([
     quote.customer.contactName,
@@ -893,6 +922,7 @@ export default function QuotePreview() {
     quote.customer.contactPhone,
   ]).join(" • ");
   const customerServiceAddress = compactList(quote.customer.addressLines).join(", ");
+  const builderLocked = !customerEntryComplete;
 
   const updateMajorProjectQuote = (updater: (draft: QuoteRecord) => QuoteRecord) => {
     updateQuote((current) => applyMajorProjectToQuote(updater(ensureMajorProjectState(current))));
@@ -1504,6 +1534,11 @@ export default function QuotePreview() {
   const persistProposalState = () => {
     if (typeof window === "undefined") return null;
 
+    if (!customerEntryComplete) {
+      setWorkflowNotice("Finish customer intake before saving, previewing, or copying this proposal.");
+      return null;
+    }
+
     const preparedQuote = isMajorProject ? applyMajorProjectToQuote(quote) : quote;
     const nextQuote = {
       ...preparedQuote,
@@ -1581,7 +1616,8 @@ export default function QuotePreview() {
   };
 
   const handlePreviewProposal = () => {
-    persistProposalState();
+    const persisted = persistProposalState();
+    if (!persisted) return;
 
     if (majorProjectHasBlockingErrors) {
       setWorkflowNotice(`Preview blocked until ${majorProjectMetrics.validation.errorCount} Major Project validation error${majorProjectMetrics.validation.errorCount === 1 ? " is" : "s are"} fixed.`);
@@ -1604,6 +1640,7 @@ export default function QuotePreview() {
 
     window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
+    window.history.replaceState({}, "", `/new?proposalId=${copiedProposal.id}`);
     persistQuoteRecord(copiedProposal.quote);
     setActiveProposal(copiedProposal);
     setQuote(copiedProposal.quote);
@@ -1636,11 +1673,11 @@ export default function QuotePreview() {
             <Link href="/" className="pill-button">
               My Proposals
             </Link>
-            <button type="button" className="pill-button pill-button-active" onClick={handlePreviewProposal}>
+            <button type="button" className="pill-button pill-button-active" onClick={handlePreviewProposal} disabled={!customerEntryComplete}>
               Preview Proposal
             </button>
-            <button type="button" className="pill-button" onClick={persistProposalState}>Save Draft</button>
-            <button type="button" className="pill-button" onClick={copyProposalFromBuilder}>Copy Proposal</button>
+            <button type="button" className="pill-button" onClick={persistProposalState} disabled={!customerEntryComplete}>Save Draft</button>
+            <button type="button" className="pill-button" onClick={copyProposalFromBuilder} disabled={!customerEntryComplete}>Copy Proposal</button>
           </div>
 
           {(workflowNotice || majorProjectHasBlockingErrors) && (
@@ -1845,6 +1882,20 @@ export default function QuotePreview() {
               ) : null}
             </section>
 
+            {builderLocked ? (
+              <section className="builder-panel">
+                <div className="builder-panel-header"><div><div className="builder-eyebrow">Step 2 locked</div><h2 className="builder-title">Finish customer intake first</h2></div></div>
+                <div className="rounded-[22px] border border-dashed border-[#d7dde4] bg-[#fbfcfe] p-5 text-[14px] leading-[1.6] text-[#51606d]">
+                  Quote setup, commercial sections, and proposal outputs unlock after you either create a customer or apply a saved customer profile.
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4"><strong className="block text-[#16202b]">1. Customer</strong>Add company and contact basics.</div>
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4"><strong className="block text-[#16202b]">2. Service + billing</strong>Confirm service address, bill-to, and ship-to.</div>
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4"><strong className="block text-[#16202b]">3. Continue building</strong>Once saved, the full quote builder opens automatically.</div>
+                  </div>
+                </div>
+              </section>
+            ) : (
+            <>
             <section className="builder-panel">
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Quote setup</div><h2 className="builder-title">Quote details</h2></div></div>
 
@@ -2765,9 +2816,21 @@ export default function QuotePreview() {
                 <div className="mt-5 space-y-3">{quote.sections.sectionC.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Service row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">Optional field service</div></div><RowActions totalRows={quote.sections.sectionC.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(targetPosition) => moveServiceRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} /></div><div className="grid gap-3 lg:grid-cols-[2fr_.7fr_.8fr_1fr]"><label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateServiceRow(row.id, "description", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateServiceRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateServiceRow(row.id, "unitPrice", e.target.value)} /></label><label className="builder-field compact"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(e) => updateServiceRow(row.id, "pricingStage", e.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label></div><label className="builder-field compact mt-3"><span>Notes</span><input value={row.notes ?? ""} onChange={(e) => updateServiceRow(row.id, "notes", e.target.value)} /></label><div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.serviceCategory === "site_inspection" ? "Site inspection" : row.serviceCategory === "installation" ? "Installation" : "Custom service"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div>)}</div>
               </section>
             )}
+            </>
+            )}
           </div>
 
           <aside className="space-y-6">
+            {builderLocked ? (
+              <section className="builder-panel sticky top-6">
+                <div className="builder-panel-header"><div><div className="builder-eyebrow">Customer intake</div><h2 className="builder-title">What’s ready so far</h2></div></div>
+                <div className="space-y-4 text-[14px] text-[#32404c]">
+                  <div className="summary-block"><div className="summary-label">Customer</div><div className="summary-value">{customerHeadline}</div><div className="summary-subvalue">{customerSubline || "No customer selected yet"}</div></div>
+                  <div className="summary-block"><div className="summary-label">Service address</div><div className="summary-value">{customerServiceAddress || "Not set yet"}</div><div className="summary-subvalue">Complete the intake card on the left to continue.</div></div>
+                  <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">Once the customer is selected, RapidQuote unlocks quote setup, pricing, preview, and PDF output.</div>
+                </div>
+              </section>
+            ) : (
             <section className="builder-panel sticky top-6">
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Proposal summary</div><h2 className="builder-title">PDF-ready summary</h2></div></div>
               <div className="space-y-5 text-[14px] text-[#32404c]">
@@ -2787,6 +2850,7 @@ export default function QuotePreview() {
                 <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">Keep it simple: build the quote, review the proposal, and send it with confidence.</div>
               </div>
             </section>
+            )}
           </aside>
         </div>
       </div>
