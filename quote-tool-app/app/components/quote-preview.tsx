@@ -1489,6 +1489,7 @@ export default function QuotePreview() {
     const nextProfile = createCustomerProfileFromQuote(quote, resolvedProfileId);
     const nextProfiles = upsertCustomerProfile(customerProfiles, nextProfile);
     persistCustomerProfiles(nextProfiles);
+    setCustomerProfiles(nextProfiles);
     setSelectedCustomerProfileId(nextProfile.id);
     setQuote((current) => ({
       ...current,
@@ -1594,6 +1595,7 @@ export default function QuotePreview() {
       const nextProfile = createCustomerProfileFromQuote(nextQuote, selectedCustomerProfileId || undefined);
       const nextProfiles = upsertCustomerProfile(customerProfiles, nextProfile);
       persistCustomerProfiles(nextProfiles);
+      setCustomerProfiles(nextProfiles);
       nextQuote.internal.savedCustomerProfileId = nextProfile.id;
       updatedProposal.quote.internal.savedCustomerProfileId = nextProfile.id;
       setSelectedCustomerProfileId(nextProfile.id);
