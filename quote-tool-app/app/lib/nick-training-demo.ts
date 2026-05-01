@@ -124,8 +124,33 @@ function buildQuickQuote(): QuoteRecord {
       totalPrice: 300,
       sourceLabel: "Training demo",
     },
+    {
+      id: "demo_quick_dual_wan_router",
+      sourceType: "standard",
+      itemName: "Dual-WAN Router",
+      itemCategory: "Router",
+      quantity: 4,
+      unitPrice: 995,
+      totalPrice: 3980,
+      description: "Router for Starlink plus LTE failover or blended connectivity packages.",
+      sourceLabel: "Training demo",
+    },
+    {
+      id: "demo_quick_install_materials",
+      sourceType: "standard",
+      itemName: "Install Materials Kit",
+      itemCategory: "Install Materials",
+      quantity: 4,
+      unitPrice: 350,
+      totalPrice: 1400,
+      description: "Cable management, mounting hardware, weatherproofing, and job-site materials allowance.",
+      sourceLabel: "Training demo",
+    },
   ];
-  quote.sections.sectionB.computed.equipmentTotal = 2696;
+  quote.sections.sectionB.builderLabel = "Router and install materials";
+  quote.sections.sectionB.title = "Router, terminal, and install materials";
+  quote.sections.sectionB.introText = "The prices below reflect one-time connectivity hardware, router, and installation material charges.";
+  quote.sections.sectionB.computed.equipmentTotal = 8076;
   quote.sections.sectionC.enabled = true;
   quote.sections.sectionC.lineItems = [
     {
@@ -140,6 +165,9 @@ function buildQuickQuote(): QuoteRecord {
       sourceLabel: "Training demo",
     },
   ];
+  quote.sections.sectionC.builderLabel = "Install and site services";
+  quote.sections.sectionC.title = "Install and site services";
+  quote.sections.sectionC.introText = "Use this section for site inspections, installation allowance, configuration labor, and other simple service rows.";
   quote.sections.sectionC.computed.serviceTotal = 850;
   quote.executiveSummary.customerContext = "Training demo quick quote for a small Starlink deployment.";
   quote.executiveSummary.body = "Use this record to practice the fast customer-to-quote workflow: confirm the customer, adjust monthly service, add hardware, and preview the customer-facing proposal.";

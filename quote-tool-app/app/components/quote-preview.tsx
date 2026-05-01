@@ -2000,28 +2000,44 @@ export default function QuotePreview() {
                   <div>
                     <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Choose the quote path first</h3>
                     <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                      Quick Quote keeps the current lightweight builder for standard deals. Major Project turns the commercial model into the primary input and pushes customer proposal pages downstream from that structure.
+                      Quick Quote is only for standard Starlink/LTE connectivity deals with router, install materials, and simple field-service rows. Major Project keeps the full components → bundles → customer quote lines workflow.
                     </p>
                   </div>
                   <div className={`rounded-[16px] border px-4 py-3 text-[13px] ${isMajorProject ? "border-[#ead9db] bg-[#fff7f7] text-[#7a042e]" : "border-[#dde3e8] bg-white text-[#5f6c78]"}`}>
-                    {isMajorProject ? "Major Project is driving the downstream proposal sections." : "Quick Quote is driving the proposal sections directly."}
+                    {isMajorProject ? "Major Project uses components → bundles → customer quote lines." : "Quick Quote builds standard connectivity quotes from simple line items."}
                   </div>
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <ToggleCard
                     label="Quick Quote"
-                    description="Best for standard deals where the rep edits service, hardware, and field-service rows directly."
+                    description="Best for Starlink/LTE service, router, install materials, and simple install or site-inspection rows."
                     active={!isMajorProject}
                     onClick={() => updateQuote((draft) => { draft.metadata.workflowMode = "quick_quote"; return draft; })}
                   />
                   <ToggleCard
                     label="Major Project"
-                    description="Best for multi-site or structured commercial work. Build the deal from sites, per-site rates, one-time costs, terms, and options."
+                    description="Best for structured projects. Build from internal components, group into bundles, then choose the customer-facing quote lines."
                     active={isMajorProject}
                     onClick={() => updateMajorProjectQuote((draft) => { draft.metadata.workflowMode = "major_project"; if (draft.majorProject) draft.majorProject.enabled = true; return draft; })}
                   />
                 </div>
               </div>
+
+              {!isMajorProject && (
+                <div className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#fbfcfe] p-4 md:p-5">
+                  <div className="builder-eyebrow">Quick Quote workflow</div>
+                  <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Standard connectivity package</h3>
+                  <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
+                    Build the quote from line items, but keep the path tight: service first, router and materials second, install or site inspection third, then preview.
+                  </p>
+                  <div className="mt-4 grid gap-3 md:grid-cols-4 text-[13px] text-[#44515d]">
+                    <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">1. Service</strong><span>Starlink, LTE/UniSIM, or both.</span></div>
+                    <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">2. Hardware</strong><span>Terminal, router, mount, cable.</span></div>
+                    <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">3. Labor</strong><span>Install materials, site walk, install allowance.</span></div>
+                    <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">4. Preview</strong><span>Clean customer proposal.</span></div>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {([
@@ -2139,12 +2155,12 @@ export default function QuotePreview() {
               )}
 
               <div className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#f8fbfd] p-4 md:p-5">
-                <div className="builder-eyebrow">Internal commercial</div>
+                <div className="builder-eyebrow">Internal commercial{!isMajorProject ? " / Advanced" : ""}</div>
                 <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                   <div>
-                    <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Margin foundation</h3>
+                    <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">{!isMajorProject ? "Advanced margin controls" : "Margin foundation"}</h3>
                     <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                      Internal-only deal economics mapped from the workbook structure: revenue stays tied to builder sections, cost stays separate, and margins roll up automatically.
+                      Internal-only economics. Quick Quote users can ignore this unless they need cost/margin inputs; Major Project users can use the fuller commercial model below.
                     </p>
                   </div>
                   <div className="rounded-[16px] border border-[#dde3e8] bg-white px-4 py-3 text-[13px] text-[#5f6c78]">
@@ -2623,12 +2639,12 @@ export default function QuotePreview() {
 
             <section className="builder-panel">
               <div className="builder-panel-header">
-                <div><div className="builder-eyebrow">Sections</div><h2 className="builder-title">Proposal Sections</h2></div>
+                <div><div className="builder-eyebrow">Quick Quote sections</div><h2 className="builder-title">Service, hardware, and labor</h2></div>
                 <div className="flex flex-wrap gap-2">
                   <SectionToggle label="Executive Summary" enabled={quote.executiveSummary.enabled} onChange={(next) => updateQuote((draft) => { draft.executiveSummary.enabled = next; return draft; })} />
-                  <SectionToggle label="Monthly Service" enabled={quote.sections.sectionA.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionA.enabled = next; return draft; })} />
-                  <SectionToggle label="Hardware" enabled={quote.sections.sectionB.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionB.enabled = next; return draft; })} />
-                  <SectionToggle label="Field Services" enabled={quote.sections.sectionC.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionC.enabled = next; return draft; })} />
+                  <SectionToggle label="Connectivity service" enabled={quote.sections.sectionA.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionA.enabled = next; return draft; })} />
+                  <SectionToggle label="Router & install materials" enabled={quote.sections.sectionB.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionB.enabled = next; return draft; })} />
+                  <SectionToggle label="Install / site services" enabled={quote.sections.sectionC.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionC.enabled = next; return draft; })} />
                 </div>
               </div>
               <p className="text-[14px] leading-[1.5] text-[#5c6772]">Keep section names clear so the proposal is easy to scan and easy to explain.</p>
@@ -2715,7 +2731,7 @@ export default function QuotePreview() {
             {!isMajorProject && quote.sections.sectionA.enabled && (
               <section className="builder-panel">
                 <div className="builder-panel-header">
-                  <div><div className="builder-eyebrow">Section A</div><h2 className="builder-title">{quote.sections.sectionA.builderLabel}</h2></div>
+                  <div><div className="builder-eyebrow">Quick Quote step 1</div><h2 className="builder-title">Connectivity service line items</h2><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Use this for Starlink, LTE/UniSIM, terminal access fees, support, and data pools or blocks.</p></div>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" className={`pill-button ${quote.sections.sectionA.mode === "pool" ? "pill-button-active" : ""}`} onClick={() => updateQuote((draft) => { draft.sections.sectionA.mode = "pool"; return draft; })}>Pool pricing</button>
                     <button type="button" className={`pill-button ${quote.sections.sectionA.mode === "per_kit" ? "pill-button-active" : ""}`} onClick={() => updateQuote((draft) => { draft.sections.sectionA.mode = "per_kit"; return draft; })}>Per-kit pricing</button>
@@ -2765,7 +2781,7 @@ export default function QuotePreview() {
             {!isMajorProject && quote.sections.sectionB.enabled && (
               <section className="builder-panel">
                 <div className="builder-panel-header">
-                  <div><div className="builder-eyebrow">Section B</div><h2 className="builder-title">{quote.sections.sectionB.builderLabel}</h2></div>
+                  <div><div className="builder-eyebrow">Quick Quote step 2</div><h2 className="builder-title">Router and install materials</h2><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Add Starlink terminals when needed, plus routers, mounts, cables, and field-ready install materials.</p></div>
                   <div className="rounded-[18px] border border-[#ead9db] bg-[#fff7f7] px-4 py-3 text-[13px] text-[#6d4950]">Pick from recommended hardware, add a custom item, or fine-tune the current list without clutter.</div>
                 </div>
 
@@ -2790,8 +2806,8 @@ export default function QuotePreview() {
 
                 <div className="mt-5 grid gap-4 xl:grid-cols-[1.3fr_.9fr]">
                   <div className="rounded-[24px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="builder-eyebrow">Recommended items</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Hardware Picker</h3></div><div className="text-[13px] text-[#66717d]">{filteredEquipmentCatalog.length} match(es)</div></div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_.8fr]"><label className="builder-field compact"><span>Search Hardware</span><input placeholder="mini, mount, cable..." value={equipmentSearch} onChange={(e) => setEquipmentSearch(e.target.value)} /></label><label className="builder-field compact"><span>Category</span><select value={equipmentCategoryFilter} onChange={(e) => setEquipmentCategoryFilter(e.target.value)}>{equipmentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label></div>
+                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="builder-eyebrow">Recommended items</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Router and materials picker</h3></div><div className="text-[13px] text-[#66717d]">{filteredEquipmentCatalog.length} match(es)</div></div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_.8fr]"><label className="builder-field compact"><span>Search Hardware</span><input placeholder="router, mini, mount, cable..." value={equipmentSearch} onChange={(e) => setEquipmentSearch(e.target.value)} /></label><label className="builder-field compact"><span>Category</span><select value={equipmentCategoryFilter} onChange={(e) => setEquipmentCategoryFilter(e.target.value)}>{equipmentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label></div>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">{filteredEquipmentCatalog.map((item) => <div key={item.id} className="rounded-[20px] border border-[#d9e0e7] bg-white p-4 shadow-[0_8px_20px_rgba(31,42,52,0.05)]"><div className="flex items-start justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{item.category}</div><h4 className="mt-1 text-[16px] font-semibold text-[#16202b]">{item.label}</h4></div></div><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">{item.description ?? "Recommended equipment item."}</p><div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[#66717d]">{item.terminalType && <span className="rounded-full bg-[#f6f8fb] px-3 py-1">Type: {item.terminalType}</span>}<span className="rounded-full bg-[#f6f8fb] px-3 py-1">Recommended</span></div><button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={() => addEquipmentRow(item.id)}>Add to Hardware Rows</button></div>)}</div>
                   </div>
 
@@ -2811,7 +2827,7 @@ export default function QuotePreview() {
 
             {!isMajorProject && quote.sections.sectionC.enabled && (
               <section className="builder-panel">
-                <div className="builder-panel-header"><div><div className="builder-eyebrow">Section C</div><h2 className="builder-title">{quote.sections.sectionC.builderLabel}</h2></div><button type="button" className="pill-button pill-button-active" onClick={addServiceRow}>Add service row</button></div>
+                <div className="builder-panel-header"><div><div className="builder-eyebrow">Quick Quote step 3</div><h2 className="builder-title">Install and site service line items</h2><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Use this for site inspection, install allowance, configuration labor, and other simple service rows.</p></div><button type="button" className="pill-button pill-button-active" onClick={addServiceRow}>Add service row</button></div>
                 <p className="text-[14px] leading-[1.5] text-[#5c6772]">This section covers site inspection and installation pricing in both budgetary and final states.</p>
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="builder-field"><span>Section title</span><input value={quote.sections.sectionC.title} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.title = e.target.value; draft.sections.sectionC.builderLabel = e.target.value; return draft; })} /></label>
