@@ -2153,9 +2153,9 @@ export default function QuotePreview() {
                   <div className="builder-eyebrow">Major Project mode</div>
                   <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
-                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Add products first</h3>
+                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Set the basics, then build the quote</h3>
                       <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                        Start by adding the real products, services, labor, and bundles. Once the products are in, RapidQuote rolls them into customer quote lines and the internal margin view below.
+                        Start with project basics and option setup. Then add products, bundle them, create customer quote lines, and review the live rollup at the end.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -2211,51 +2211,6 @@ export default function QuotePreview() {
                         <label className="builder-field compact"><span>Other recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.otherRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("otherRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
                       </div>
 
-                      <div className="rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Major Project rollup</div>
-                        <div className="mt-3 space-y-2">
-                          <div className="flex items-center justify-between gap-3"><span>Sites in active option</span><strong>{majorProjectMetrics.siteCount}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>Recurring revenue</span><strong>{formatCurrency(majorProjectMetrics.recurringRevenue, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>One-time revenue</span><strong>{formatCurrency(majorProjectMetrics.oneTimeRevenue, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>Total revenue</span><strong>{formatCurrency(majorProjectMetrics.totalRevenue, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>Total cost</span><strong>{formatCurrency(majorProjectMetrics.totalCost, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3 text-[#b00000]"><span>Gross margin</span><strong>{formatPercent(majorProjectMetrics.totalGrossMarginPercent)}</strong></div>
-                        </div>
-                      </div>
-
-                      <div className={`rounded-[18px] border p-4 text-[13px] ${majorProjectSectionTone(majorProjectMetrics.validation.errorCount > 0, majorProjectMetrics.validation.warningCount > 0)}`}>
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="text-[12px] font-bold uppercase tracking-[0.14em] opacity-70">Mapping integrity</div>
-                            <div className="mt-1 text-[16px] font-semibold text-[#16202b]">{majorProjectMetrics.validation.valid ? "Mapping is structurally clean" : "Mapping needs attention"}</div>
-                          </div>
-                          <div className="text-right text-[12px] font-semibold">
-                            <div>{majorProjectMetrics.validation.errorCount} error{majorProjectMetrics.validation.errorCount === 1 ? "" : "s"}</div>
-                            <div>{majorProjectMetrics.validation.warningCount} warning{majorProjectMetrics.validation.warningCount === 1 ? "" : "s"}</div>
-                          </div>
-                        </div>
-                        <div className="mt-3 grid gap-2 text-[12px] md:grid-cols-3">
-                          <div className="rounded-[14px] bg-white/70 px-3 py-2"><strong>{majorProjectMetrics.components.length}</strong> components</div>
-                          <div className="rounded-[14px] bg-white/70 px-3 py-2"><strong>{majorProjectMetrics.bundles.length}</strong> bundles</div>
-                          <div className="rounded-[14px] bg-white/70 px-3 py-2"><strong>{majorProjectMetrics.customerQuoteLines.length}</strong> quote lines</div>
-                        </div>
-                        {majorProjectMetrics.validation.issues.length > 0 ? (
-                          <div className="mt-3 space-y-2">
-                            {majorProjectMetrics.validation.issues.slice(0, 6).map((issue, index) => (
-                              <div key={`${issue.code}-${index}`} className="rounded-[14px] border border-current/10 bg-white/75 px-3 py-2">
-                                <div className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-70">{issue.severity}</div>
-                                <div className="mt-1 leading-[1.45]">{issue.message}</div>
-                              </div>
-                            ))}
-                            {majorProjectMetrics.validation.issues.length > 6 ? (
-                              <div className="text-[12px] opacity-75">+ {majorProjectMetrics.validation.issues.length - 6} more mapping issue(s)</div>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <div className="mt-3 text-[12px] leading-[1.45]">Every component is being used as the economic source, bundles are resolving cleanly, and customer quote lines have backing economics.</div>
-                        )}
-                      </div>
-                    </div>
                   </div>
 
                   <div className="space-y-4 rounded-[18px] border border-[#e7d8db] bg-white p-4">
@@ -2493,6 +2448,63 @@ export default function QuotePreview() {
                         })}
                       </div>
                     </MajorProjectStepCard>
+                  </div>
+
+                  <div className="mt-4 rounded-[18px] border border-[#dbe3ea] bg-[#f8fafc] p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Project rollup</div>
+                        <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Live totals and mapping check</div>
+                      </div>
+                      <div className="text-[12px] text-[#5d6976]">Updates as components, bundles, and customer quote lines are built.</div>
+                    </div>
+                    <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                      <div className="rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
+                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Major Project rollup</div>
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center justify-between gap-3"><span>Sites in active option</span><strong>{majorProjectMetrics.siteCount}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>Recurring revenue</span><strong>{formatCurrency(majorProjectMetrics.recurringRevenue, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>One-time revenue</span><strong>{formatCurrency(majorProjectMetrics.oneTimeRevenue, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>Total revenue</span><strong>{formatCurrency(majorProjectMetrics.totalRevenue, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>Total cost</span><strong>{formatCurrency(majorProjectMetrics.totalCost, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3 text-[#b00000]"><span>Gross margin</span><strong>{formatPercent(majorProjectMetrics.totalGrossMarginPercent)}</strong></div>
+                        </div>
+                      </div>
+
+                      <div className={`rounded-[18px] border p-4 text-[13px] ${majorProjectSectionTone(majorProjectMetrics.validation.errorCount > 0, majorProjectMetrics.validation.warningCount > 0)}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-[12px] font-bold uppercase tracking-[0.14em] opacity-70">Mapping integrity</div>
+                            <div className="mt-1 text-[16px] font-semibold text-[#16202b]">{majorProjectMetrics.validation.valid ? "Mapping is structurally clean" : "Mapping needs attention"}</div>
+                          </div>
+                          <div className="text-right text-[12px] font-semibold">
+                            <div>{majorProjectMetrics.validation.errorCount} error{majorProjectMetrics.validation.errorCount === 1 ? "" : "s"}</div>
+                            <div>{majorProjectMetrics.validation.warningCount} warning{majorProjectMetrics.validation.warningCount === 1 ? "" : "s"}</div>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid gap-2 text-[12px] md:grid-cols-3">
+                          <div className="rounded-[14px] bg-white/70 px-3 py-2"><strong>{majorProjectMetrics.components.length}</strong> components</div>
+                          <div className="rounded-[14px] bg-white/70 px-3 py-2"><strong>{majorProjectMetrics.bundles.length}</strong> bundles</div>
+                          <div className="rounded-[14px] bg-white/70 px-3 py-2"><strong>{majorProjectMetrics.customerQuoteLines.length}</strong> quote lines</div>
+                        </div>
+                        {majorProjectMetrics.validation.issues.length > 0 ? (
+                          <div className="mt-3 space-y-2">
+                            {majorProjectMetrics.validation.issues.slice(0, 6).map((issue, index) => (
+                              <div key={`${issue.code}-${index}`} className="rounded-[14px] border border-current/10 bg-white/75 px-3 py-2">
+                                <div className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-70">{issue.severity}</div>
+                                <div className="mt-1 leading-[1.45]">{issue.message}</div>
+                              </div>
+                            ))}
+                            {majorProjectMetrics.validation.issues.length > 6 ? (
+                              <div className="text-[12px] opacity-75">+ {majorProjectMetrics.validation.issues.length - 6} more mapping issue(s)</div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div className="mt-3 text-[12px] leading-[1.45]">Every component is being used as the economic source, bundles are resolving cleanly, and customer quote lines have backing economics.</div>
+                        )}
+                      </div>
+                    </div>
+                    </div>
                   </div>
 
                   <div className="mt-4 rounded-[18px] border border-[#dbe3ea] bg-[#f8fafc] p-4">
