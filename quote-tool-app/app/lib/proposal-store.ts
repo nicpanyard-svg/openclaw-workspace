@@ -1,6 +1,5 @@
 import type { QuoteRecord, QuoteStatus } from "@/app/lib/quote-record";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
-import { createBlankQuoteRecord } from "@/app/lib/quote-template";
 
 export const PROPOSAL_STORE_KEY = "rapidquote:proposal-store";
 export const ACTIVE_PROPOSAL_ID_KEY = "rapidquote:active-proposal-id";
@@ -191,30 +190,28 @@ export function createProposalCopy(params: {
   const id = `proposal_${Date.now()}`;
   const proposalNumber = `${params.proposal.quote.metadata.proposalNumber || "RCT"}-COPY`;
 
-  const blankQuote = createBlankQuoteRecord(sourceQuote);
-
   return {
     id,
     recordVersion: 1,
     quote: {
-      ...blankQuote,
+      ...sourceQuote,
       metadata: {
-        ...blankQuote.metadata,
+        ...sourceQuote.metadata,
         proposalNumber,
         documentTitle: `${sourceTitle} Copy`,
+        status: "draft",
         ownerUserId: owner.id,
         ownerName: owner.name,
         lastTouchedAt: now,
       },
       documentation: {
-        ...blankQuote.documentation,
+        ...sourceQuote.documentation,
         proposalTitle: `${sourceTitle} Copy`,
-        proposalDateLabel: blankQuote.metadata.proposalDate,
+        proposalDateLabel: sourceQuote.metadata.proposalDate,
         proposalNumberLabel: proposalNumber,
       },
-      customFields: blankQuote.customFields,
       internal: {
-        ...blankQuote.internal,
+        ...sourceQuote.internal,
         quoteId: id,
         quoteStatus: "draft",
         crmOwnerLabel: owner.name,
@@ -222,17 +219,16 @@ export function createProposalCopy(params: {
         savedProposalId: id,
         workspaceOwnerId: owner.id,
         workspaceOwnerName: owner.name,
-        internalNotes: "",
       },
       integrations: {
-        ...blankQuote.integrations,
+        ...sourceQuote.integrations,
         connectors: sourceQuote.integrations.connectors.map((connector) => ({
           ...connector,
           status: connector.enabled ? "configured" : "disconnected",
           lastValidatedAt: undefined,
         })),
         quoteReferences: {},
-        lastSyncSummary: "Copy reset for a new customer draft. Reconnect CRM references after the new customer is selected.",
+        lastSyncSummary: "Copy created from the source proposal. Reconnect CRM references before syncing.",
       },
     },
     owner,
@@ -248,7 +244,7 @@ export function createProposalCopy(params: {
       {
         id: `activity_copied_${Date.now()}`,
         type: "created",
-        message: `Proposal copied from ${params.proposal.quote.metadata.proposalNumber || sourceTitle} and reset for a new customer draft`,
+        message: `Proposal copied from ${params.proposal.quote.metadata.proposalNumber || sourceTitle} with customer, pricing, and proposal sections preserved`,
         at: now,
         by: { id: currentUser.id, name: currentUser.name },
       },

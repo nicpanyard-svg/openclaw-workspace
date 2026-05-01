@@ -96,7 +96,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isReady) return;
 
-    const routeRequiresAuth = protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+    const routeIsServerPdfPrint = pathname === "/proposal/print" && typeof window !== "undefined" && Boolean(new URLSearchParams(window.location.search).get("token"));
+    const routeRequiresAuth = !routeIsServerPdfPrint && protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
     const routeIsAuthPage = authRoutes.includes(pathname);
 
     if (routeRequiresAuth && !session) {

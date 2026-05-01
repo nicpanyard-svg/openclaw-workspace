@@ -21,6 +21,8 @@ export type MajorProjectValidationIssue = {
     | "quote_line_missing_bundles"
     | "quote_line_missing_components"
     | "quote_line_without_backing_economics"
+    | "missing_source_components"
+    | "missing_source_bundles"
     | "component_unmapped_to_bundle"
     | "component_unmapped_to_quote_line"
     | "component_duplicate_quote_line_coverage"
@@ -473,6 +475,30 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
     });
   }
 
+  if (!components.length) {
+    issues.push({
+      code: "missing_source_components",
+      severity: "error",
+      message: "Major Project needs at least one internal component before pricing can be generated.",
+    });
+  }
+
+  if (!bundles.length) {
+    issues.push({
+      code: "missing_source_bundles",
+      severity: "error",
+      message: "Major Project needs at least one internal bundle before pricing can be generated.",
+    });
+  }
+
+  if (!quoteLines.length) {
+    issues.push({
+      code: "missing_customer_quote_lines",
+      severity: "error",
+      message: "Major Project needs at least one customer-facing quote line before pricing can be generated.",
+    });
+  }
+
   const componentToBundleIds = new Map<string, string[]>();
 
   for (const bundle of bundles) {
@@ -550,14 +576,6 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
         componentIds: [component.id],
       });
     }
-  }
-
-  if (components.length && !quoteLines.length) {
-    issues.push({
-      code: "missing_customer_quote_lines",
-      severity: "warning",
-      message: "Major Project has internal components but no customer-facing quote lines yet.",
-    });
   }
 
   const componentToQuoteLineIds = new Map<string, string[]>();
@@ -748,40 +766,14 @@ export function buildMajorProjectMetrics(quote: QuoteRecord): MajorProjectMetric
     quoteLinesWithoutEconomics: [],
   };
   const siteCount = Math.max(activeOption?.siteCount ?? state.commercial.siteCount, 0);
-  const quoteSectionARows = safeQuote.sections.sectionA.mode === "pool" ? safeQuote.sections.sectionA.poolRows : safeQuote.sections.sectionA.perKitRows;
-  const quoteRecurringRevenue = roundCurrency(quoteSectionARows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0));
-  const quoteHardwareRevenue = roundCurrency(safeQuote.sections.sectionB.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? row.quantity * row.unitPrice), 0));
-  const quoteInstallRevenue = roundCurrency(safeQuote.sections.sectionC.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? row.quantity * row.unitPrice), 0));
-
-  const assumptionRecurringRevenue = siteCount * (activeOption?.monthlyRatePerSite ?? state.commercial.monthlyRatePerSite);
-  const assumptionHardwareRevenue = state.commercial.includeHardware ? siteCount * (activeOption?.hardwarePerSite ?? state.commercial.oneTimeHardwarePerSite) : 0;
-  const assumptionInstallRevenue = state.commercial.includeInstallation ? siteCount * (activeOption?.installPerSite ?? state.commercial.oneTimeInstallPerSite) : 0;
-  const assumptionOtherOneTimeRevenue = siteCount * (activeOption?.otherOneTimePerSite ?? state.commercial.oneTimeOtherPerSite);
-  const fallbackRecurringRevenue = assumptionRecurringRevenue > 0 ? assumptionRecurringRevenue : quoteRecurringRevenue;
-  const fallbackHardwareRevenue = assumptionHardwareRevenue > 0 ? assumptionHardwareRevenue : quoteHardwareRevenue;
-  const fallbackInstallRevenue = assumptionInstallRevenue > 0 ? assumptionInstallRevenue : quoteInstallRevenue;
-  const fallbackOtherOneTimeRevenue = assumptionOtherOneTimeRevenue;
-  const fallbackOptionalServicesRevenue = state.commercial.includeOptionalServices ? state.commercial.optionalServicesAmount : 0;
-  const fallbackOneTimeRevenue = fallbackHardwareRevenue + fallbackInstallRevenue + fallbackOtherOneTimeRevenue + fallbackOptionalServicesRevenue;
-  const fallbackRecurringCost = siteCount * (
-    (activeOption?.vendorRecurringPerSite ?? state.commercial.recurringVendorPerSite)
-    + (activeOption?.supportRecurringPerSite ?? state.commercial.recurringSupportPerSite)
-    + (activeOption?.otherRecurringPerSite ?? state.commercial.recurringOtherPerSite)
-  );
-  const fallbackOneTimeCost = siteCount * (
-    (activeOption?.hardwarePerSite ?? state.commercial.oneTimeHardwarePerSite)
-    + (activeOption?.installPerSite ?? state.commercial.oneTimeInstallPerSite)
-    + (activeOption?.otherOneTimePerSite ?? state.commercial.oneTimeOtherPerSite)
-  );
-
-  const recurringRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "recurring", "revenue")) : fallbackRecurringRevenue;
-  const oneTimeRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue")) : fallbackOneTimeRevenue;
-  const recurringCost = hasThreeLayerModel ? roundCurrency(sumComponents(components, "recurring", "cost")) : fallbackRecurringCost;
-  const oneTimeCost = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "cost")) : fallbackOneTimeCost;
-  const hardwareRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "hardware")) : fallbackHardwareRevenue;
-  const installRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "installation" || component.lineType === "internal_labor")) : fallbackInstallRevenue;
-  const otherOneTimeRevenue = hasThreeLayerModel ? roundCurrency(oneTimeRevenue - hardwareRevenue - installRevenue) : fallbackOtherOneTimeRevenue;
-  const optionalServicesRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "optional_service")) : fallbackOptionalServicesRevenue;
+  const recurringRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "recurring", "revenue")) : 0;
+  const oneTimeRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue")) : 0;
+  const recurringCost = hasThreeLayerModel ? roundCurrency(sumComponents(components, "recurring", "cost")) : 0;
+  const oneTimeCost = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "cost")) : 0;
+  const hardwareRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "hardware")) : 0;
+  const installRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "installation" || component.lineType === "internal_labor")) : 0;
+  const otherOneTimeRevenue = hasThreeLayerModel ? roundCurrency(oneTimeRevenue - hardwareRevenue - installRevenue) : 0;
+  const optionalServicesRevenue = hasThreeLayerModel ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "optional_service")) : 0;
   const totalRevenue = roundCurrency(recurringRevenue + oneTimeRevenue);
   const totalCost = roundCurrency(recurringCost + oneTimeCost);
   const totalGrossProfit = roundCurrency(totalRevenue - totalCost);
@@ -1008,12 +1000,12 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     next.commercial.costs.recurringSupportCost = roundCurrency(sumComponents(components, "recurring", "cost", (component) => component.lineType === "support" || component.lineType === "managed_service"));
     next.commercial.costs.recurringOtherCost = roundCurrency(metrics.recurringCost - next.commercial.costs.recurringVendorCost - next.commercial.costs.recurringSupportCost);
   } else {
-    next.commercial.costs.oneTimeEquipmentCost = roundCurrency(siteCount * (activeOption?.hardwarePerSite ?? state.commercial.oneTimeHardwarePerSite));
-    next.commercial.costs.oneTimeLaborCost = roundCurrency(siteCount * (activeOption?.installPerSite ?? state.commercial.oneTimeInstallPerSite));
-    next.commercial.costs.oneTimeOtherCost = roundCurrency(siteCount * (activeOption?.otherOneTimePerSite ?? state.commercial.oneTimeOtherPerSite));
-    next.commercial.costs.recurringVendorCost = roundCurrency(siteCount * (activeOption?.vendorRecurringPerSite ?? state.commercial.recurringVendorPerSite));
-    next.commercial.costs.recurringSupportCost = roundCurrency(siteCount * (activeOption?.supportRecurringPerSite ?? state.commercial.recurringSupportPerSite));
-    next.commercial.costs.recurringOtherCost = roundCurrency(siteCount * (activeOption?.otherRecurringPerSite ?? state.commercial.recurringOtherPerSite));
+    next.commercial.costs.oneTimeEquipmentCost = 0;
+    next.commercial.costs.oneTimeLaborCost = 0;
+    next.commercial.costs.oneTimeOtherCost = 0;
+    next.commercial.costs.recurringVendorCost = 0;
+    next.commercial.costs.recurringSupportCost = 0;
+    next.commercial.costs.recurringOtherCost = 0;
   }
 
   next.sections.sectionA.computed.monthlyRecurringTotal = next.sections.sectionA.mode === "pool"

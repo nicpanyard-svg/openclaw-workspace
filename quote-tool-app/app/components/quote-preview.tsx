@@ -2214,6 +2214,7 @@ export default function QuotePreview() {
                         </div>
                       </details>
                     </div>
+                  </div>
 
                   <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
                     <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] p-3">
@@ -2505,7 +2506,6 @@ export default function QuotePreview() {
                           <div className="mt-3 text-[12px] leading-[1.45]">Every component is being used as the economic source, bundles are resolving cleanly, and customer quote lines have backing economics.</div>
                         )}
                       </div>
-                    </div>
                     </div>
                   </div>
 
