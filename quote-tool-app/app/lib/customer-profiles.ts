@@ -7,6 +7,7 @@ export type SavedCustomerProfile = {
   id: string;
   companyName: string;
   customerShortName: string;
+  logoDataUrl?: string;
   billingAddress: {
     companyName: string;
     attention: string;
@@ -42,6 +43,7 @@ function normalizeProfile(profile: Partial<SavedCustomerProfile> | null | undefi
     id: profile.id,
     companyName: profile.companyName.trim(),
     customerShortName: profile.customerShortName?.trim() ?? "",
+    logoDataUrl: profile.logoDataUrl?.trim() || undefined,
     billingAddress: {
       companyName: profile.billingAddress?.companyName?.trim() ?? profile.companyName.trim(),
       attention: profile.billingAddress?.attention?.trim() ?? profile.mainContactName?.trim() ?? "",
@@ -89,6 +91,7 @@ export function createCustomerProfileFromQuote(quote: QuoteRecord, profileId?: s
     id: profileId || quote.internal.savedCustomerProfileId || `customer_${Date.now()}`,
     companyName: quote.customer.name.trim(),
     customerShortName: (quote.metadata.customerShortName ?? "").trim(),
+    logoDataUrl: quote.customer.logoDataUrl,
     billingAddress: {
       companyName: (quote.billTo.companyName ?? quote.customer.name).trim(),
       attention: (quote.billTo.attention ?? quote.customer.contactName).trim(),
@@ -114,6 +117,7 @@ export function createCustomerProfileFromQuote(quote: QuoteRecord, profileId?: s
 export function applyCustomerProfileToQuote(quote: QuoteRecord, profile: SavedCustomerProfile) {
   quote.customer.name = profile.companyName;
   quote.customer.logoText = profile.customerShortName || profile.companyName;
+  quote.customer.logoDataUrl = profile.logoDataUrl;
   quote.customer.contactName = profile.mainContactName;
   quote.customer.contactEmail = profile.mainContactEmail;
   quote.customer.contactPhone = profile.mainContactPhone;

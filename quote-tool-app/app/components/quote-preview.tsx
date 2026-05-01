@@ -1804,6 +1804,7 @@ export default function QuotePreview() {
                       <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Contact</strong>{customerSubline || "No contact details yet"}</div>
                       <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Service address</strong>{customerServiceAddress || "No service address yet"}</div>
                       <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Saved profile</strong>{selectedCustomerProfile ? selectedCustomerProfile.companyName : "Not linked yet"}<br />{selectedCustomerProfileId ? "Auto-update available on save" : "Save this customer when ready"}</div>
+                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Customer logo</strong>{quote.customer.logoDataUrl ? <img src={quote.customer.logoDataUrl} alt="Customer logo preview" className="customer-logo-preview mt-3" /> : "No logo yet"}</div>
                     </div>
                   ) : (
                     <>
@@ -1817,6 +1818,17 @@ export default function QuotePreview() {
                       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-2">
                         <label className="builder-field"><span>Account name</span><input value={quote.metadata.accountName ?? quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.metadata.accountName = e.target.value; return draft; })} /></label>
                         <label className="builder-field"><span>Customer short name</span><input value={quote.metadata.customerShortName} onChange={(e) => updateQuote((draft) => { draft.metadata.customerShortName = e.target.value; draft.customer.logoText = e.target.value; return draft; })} /></label>
+                      </div>
+
+                      <div className="mt-4 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                        <div className="builder-eyebrow">Customer branding</div>
+                        <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Customer logo</div>
+                        <button type="button" className="customer-logo-dropzone mt-3 w-full text-left" onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); onCustomerLogoSelected(e.dataTransfer.files?.[0]); }}>
+                          <div className="text-[14px] font-semibold text-[#17212c]">Drag and drop a logo here</div>
+                          <div className="mt-1 text-[13px] text-[#63707d]">Or click to browse. PNG, JPG, or SVG exported as image works best.</div>
+                          {quote.customer.logoDataUrl && <img src={quote.customer.logoDataUrl} alt="Customer logo preview" className="customer-logo-preview mt-4" />}
+                        </button>
+                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onCustomerLogoSelected(e.target.files?.[0])} />
                       </div>
 
                       <div className="mt-4 rounded-[20px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
@@ -2634,16 +2646,6 @@ export default function QuotePreview() {
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <label className="builder-field"><span>Section A provider option</span><select value={quote.metadata.customerProvider} onChange={(e) => updateQuote((draft) => { draft.metadata.customerProvider = e.target.value as QuoteRecord["metadata"]["customerProvider"]; return draft; })}><option value="Starlink">Starlink</option><option value="UniSIM">UniSIM</option><option value="T-Mobile">T-Mobile</option></select></label>
-                <div className="rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                  <div className="builder-eyebrow">Customer branding</div>
-                  <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Customer logo upload</div>
-                  <button type="button" className="customer-logo-dropzone mt-3 w-full text-left" onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); onCustomerLogoSelected(e.dataTransfer.files?.[0]); }}>
-                    <div className="text-[14px] font-semibold text-[#17212c]">Drag and drop a logo here</div>
-                    <div className="mt-1 text-[13px] text-[#63707d]">Or click to browse. PNG, JPG, or SVG exported as image works best.</div>
-                    {quote.customer.logoDataUrl && <img src={quote.customer.logoDataUrl} alt="Customer logo preview" className="customer-logo-preview mt-4" />}
-                  </button>
-                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onCustomerLogoSelected(e.target.files?.[0])} />
-                </div>
               </div>
             </section>
 
