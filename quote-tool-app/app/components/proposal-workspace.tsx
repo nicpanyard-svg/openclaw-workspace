@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 function formatCurrency(value: number) {
@@ -137,7 +138,7 @@ export function ProposalWorkspace() {
         }
       : fallbackStore.currentUser;
 
-    const nextStore = saved
+    const baseStore = saved
       ? {
           ...saved,
           currentUser: sessionUser,
@@ -146,9 +147,8 @@ export function ProposalWorkspace() {
           ...fallbackStore,
           currentUser: sessionUser,
         };
-    if (!saved) {
-      window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
-    }
+    const nextStore = ensureNickTrainingDemoProposalStore(baseStore);
+    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
 
     const savedActiveProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
     const resolvedActiveProposalId = getActiveProposalId(nextStore, savedActiveProposalId);
@@ -252,6 +252,46 @@ export function ProposalWorkspace() {
   const activeFilterCount = [ownerFilter !== "mine", statusFilter !== "all", searchQuery.trim().length > 0].filter(Boolean).length;
   const visibleTotalMonthly = proposals.reduce((sum, entry) => sum + entry.summary.totalMonthly, 0);
   const visibleEquipmentTotal = proposals.reduce((sum, entry) => sum + entry.summary.equipmentTotal, 0);
+  const openQuoteRollups = useMemo(() => {
+    const openProposals = proposals.filter(({ proposal }) => ["draft", "in_review", "sent"].includes(proposal.status));
+    const rollups = {
+      standardProducts: 0,
+      accessories: 0,
+      customHardware: 0,
+      terminalTypes: {} as Record<string, number>,
+    };
+
+    openProposals.forEach(({ proposal }) => {
+      proposal.quote.sections.sectionB.lineItems.forEach((item) => {
+        const quantity = Number.isFinite(item.quantity) ? item.quantity : 0;
+        const category = item.itemCategory?.toLowerCase() ?? "";
+        const terminalType = item.terminalType?.trim();
+
+        if (item.sourceType === "custom") {
+          rollups.customHardware += quantity;
+        } else if (category.includes("accessory") || category.includes("mount") || category.includes("cable")) {
+          rollups.accessories += quantity;
+        } else {
+          rollups.standardProducts += quantity;
+        }
+
+        if (terminalType) {
+          rollups.terminalTypes[terminalType] = (rollups.terminalTypes[terminalType] ?? 0) + quantity;
+        }
+      });
+    });
+
+    const terminalTypeSummary = Object.entries(rollups.terminalTypes)
+      .sort(([, a], [, b]) => b - a)
+      .map(([terminalType, quantity]) => `${terminalType}: ${quantity}`)
+      .join(" • ");
+
+    return {
+      ...rollups,
+      openProposalCount: openProposals.length,
+      terminalTypeSummary: terminalTypeSummary || "No terminal types selected yet",
+    };
+  }, [proposals]);
 
   const setActiveProposal = (proposalId: string) => {
     if (typeof window !== "undefined") {
@@ -291,8 +331,8 @@ export function ProposalWorkspace() {
               <ProductLogo width={188} height={54} className="workspace-brand-logo product-logo workspace-queue-logo" priority />
               <div className="workspace-brand-heading-row workspace-dashboard-heading-row">
                 <div>
-                  <div className="workspace-eyebrow">RapidQuote dashboard</div>
-                  <h1 className="workspace-title">Welcome back, {currentOwner.name.split(" ")[0]}.</h1>
+                  <div className="workspace-eyebrow">RapidQuote workspace</div>
+                  <h1 className="workspace-title">Manage open proposals, {currentOwner.name.split(" ")[0]}.</h1>
                 </div>
                 <span className="workspace-user-chip">{currentOwner.team} • {currentOwner.role}</span>
               </div>
@@ -309,7 +349,7 @@ export function ProposalWorkspace() {
             <div className="workspace-launchpad-card workspace-launchpad-card-primary">
               <div className="workspace-support-label">Your lane</div>
               <strong>{myOpenCount} active proposals</strong>
-              <p className="workspace-support-copy">Draft, in-review, and sent proposals assigned to you right now.</p>
+              <p className="workspace-support-copy">This is the control room for ownership, review status, totals, and follow-through — not customer intake.</p>
             </div>
             <div className="workspace-launchpad-card">
               <div className="workspace-support-label">In review</div>
@@ -329,13 +369,42 @@ export function ProposalWorkspace() {
           <StatFilterCard label="My Proposals" value={stats.mine} note="Show only proposals in your lane" active={ownerFilter === "mine" && statusFilter === "all"} onClick={() => { setOwnerFilter("mine"); setStatusFilter("all"); }} />
         </section>
 
+        <section className="workspace-panel workspace-launchpad-panel">
+          <div className="workspace-eyebrow">Open quote rollups</div>
+          <h2 className="workspace-section-title">Hardware exposure across active proposals</h2>
+          <p className="workspace-panel-copy">
+            Counts roll up Section B hardware on draft, review, and sent proposals so Nick can see standard products, accessories, custom hardware, and terminal demand before quotes close.
+          </p>
+          <div className="workspace-launchpad-grid mt-4">
+            <div className="workspace-launchpad-card">
+              <div className="workspace-support-label">Open proposals</div>
+              <strong>{openQuoteRollups.openProposalCount}</strong>
+            </div>
+            <div className="workspace-launchpad-card">
+              <div className="workspace-support-label">Standard products</div>
+              <strong>{openQuoteRollups.standardProducts}</strong>
+            </div>
+            <div className="workspace-launchpad-card">
+              <div className="workspace-support-label">Accessories</div>
+              <strong>{openQuoteRollups.accessories}</strong>
+            </div>
+            <div className="workspace-launchpad-card">
+              <div className="workspace-support-label">Custom hardware</div>
+              <strong>{openQuoteRollups.customHardware}</strong>
+            </div>
+          </div>
+          <div className="workspace-results-summary mt-4">
+            <div className="workspace-results-summary-copy"><strong>Terminal types</strong> • {openQuoteRollups.terminalTypeSummary}</div>
+          </div>
+        </section>
+
         <section className="workspace-panel workspace-dashboard-panel">
           <div className="workspace-panel-topbar workspace-dashboard-topbar">
             <div>
               <div className="workspace-eyebrow">Dashboard</div>
               <h2 className="workspace-section-title">Proposal launchpad</h2>
               <p className="workspace-panel-copy">
-                Search by customer, title, owner, next step, or proposal number. Then use the sections below to focus on proposals in review and proposals that still need concrete follow-through.
+                Search saved proposal records by customer, title, owner, next step, or proposal number. Use this page after intake when the proposal already exists.
               </p>
             </div>
             <div className="workspace-filter-stack">

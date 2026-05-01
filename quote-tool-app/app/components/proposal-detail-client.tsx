@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { ProposalDetailView } from "@/app/components/proposal-workspace";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, type ProposalStoreData } from "@/app/lib/proposal-store";
+import { ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 export default function ProposalDetailClient({ proposalId }: { proposalId: string }) {
@@ -15,11 +16,9 @@ export default function ProposalDetailClient({ proposalId }: { proposalId: strin
     }
 
     const saved = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
-    const nextStore = saved ?? fallbackStore;
+    const nextStore = ensureNickTrainingDemoProposalStore(saved ?? fallbackStore);
 
-    if (!saved) {
-      window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
-    }
+    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
 
     const resolvedProposal = getProposalById(nextStore, proposalId) ?? nextStore.proposals[0] ?? null;
     if (resolvedProposal) {

@@ -29,6 +29,7 @@ import {
   upsertCustomerProfile,
   type SavedCustomerProfile,
 } from "@/app/lib/customer-profiles";
+import { ensureNickTrainingDemoProfiles, ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
 import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState, getActiveMajorProjectOption } from "@/app/lib/major-project";
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
 import {
@@ -631,7 +632,7 @@ export default function QuotePreview() {
         }
       : fallbackStore.currentUser;
 
-    const store = savedStore
+    const baseStore = savedStore
       ? {
           ...savedStore,
           currentUser: sessionUser,
@@ -640,19 +641,19 @@ export default function QuotePreview() {
           ...fallbackStore,
           currentUser: sessionUser,
         };
+    const store = ensureNickTrainingDemoProposalStore(baseStore);
 
-    if (!savedStore) {
-      window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(store));
-    }
+    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(store));
 
     const searchParams = new URLSearchParams(window.location.search);
     const requestedProposalId = searchParams.get("proposalId");
     const savedQuote = deserializeQuoteRecord(
       window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY) ?? window.localStorage.getItem(PROPOSAL_STORAGE_FALLBACK_KEY),
     );
-    const savedCustomerProfiles = deserializeCustomerProfiles(
+    const savedCustomerProfiles = ensureNickTrainingDemoProfiles(deserializeCustomerProfiles(
       window.localStorage.getItem(CUSTOMER_PROFILE_STORE_KEY) ?? window.localStorage.getItem(CUSTOMER_PROFILE_STORE_FALLBACK_KEY),
-    );
+    ));
+    window.localStorage.setItem(CUSTOMER_PROFILE_STORE_KEY, serializeCustomerProfiles(savedCustomerProfiles));
     const forceNewDraft = searchParams.get("mode") === "new";
     const entryIntent = (searchParams.get("entry") as EntryIntent) ?? null;
     const requestedCustomerProfileId = searchParams.get("customerProfileId");

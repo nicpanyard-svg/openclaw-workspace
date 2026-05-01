@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useAuth } from "@/app/components/auth-shell";
-import { CUSTOMER_PROFILE_STORE_FALLBACK_KEY, CUSTOMER_PROFILE_STORE_KEY, deserializeCustomerProfiles, type SavedCustomerProfile } from "@/app/lib/customer-profiles";
-import { PROPOSAL_STORE_KEY, buildProposalSummary, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, mockUsers, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { CUSTOMER_PROFILE_STORE_FALLBACK_KEY, CUSTOMER_PROFILE_STORE_KEY, deserializeCustomerProfiles, serializeCustomerProfiles, type SavedCustomerProfile } from "@/app/lib/customer-profiles";
+import { PROPOSAL_STORE_KEY, buildProposalSummary, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, mockUsers, serializeProposalStore, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { ensureNickTrainingDemoProfiles, ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 function formatCurrency(value: number) {
@@ -48,7 +49,7 @@ export function RapidQuoteFrontDoor() {
       : fallbackStore.currentUser;
 
     const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
-    const nextStore = savedStore
+    const baseStore = savedStore
       ? {
           ...savedStore,
           currentUser: sessionUser,
@@ -57,12 +58,17 @@ export function RapidQuoteFrontDoor() {
           ...fallbackStore,
           currentUser: sessionUser,
         };
+    const nextStore = ensureNickTrainingDemoProposalStore(baseStore);
 
     const savedProfiles = deserializeCustomerProfiles(
       window.localStorage.getItem(CUSTOMER_PROFILE_STORE_KEY) ?? window.localStorage.getItem(CUSTOMER_PROFILE_STORE_FALLBACK_KEY),
     );
+    const nextProfiles = ensureNickTrainingDemoProfiles(savedProfiles);
 
-    setCustomerProfiles(savedProfiles);
+    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
+    window.localStorage.setItem(CUSTOMER_PROFILE_STORE_KEY, serializeCustomerProfiles(nextProfiles));
+
+    setCustomerProfiles(nextProfiles);
     setProposals(nextStore.proposals);
     setIsHydrated(true);
   }, [user]);
@@ -113,10 +119,10 @@ export function RapidQuoteFrontDoor() {
             <div className="flex items-start gap-4">
               <ProductLogo className="mt-1" />
               <div>
-                <div className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#8a95a3]">RapidQuote</div>
-                <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.04em] text-[#16202b]">Start with the customer, then build the quote.</h1>
+                <div className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#8a95a3]">RapidQuote start page</div>
+                <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.04em] text-[#16202b]">Pick the customer first. Then open the quote builder.</h1>
                 <p className="mt-3 max-w-[760px] text-[15px] leading-[1.6] text-[#5d6772]">
-                  Create a new customer, search for an existing customer, or find an open proposal already in motion.
+                  This is the front door for intake: choose/create the customer, then jump into a clean quote or an existing proposal.
                 </p>
               </div>
             </div>

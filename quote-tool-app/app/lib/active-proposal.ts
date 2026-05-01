@@ -19,6 +19,7 @@ import {
   persistQuoteRecord,
 } from "@/app/lib/proposal-state";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
+import { ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
 import { createBlankQuoteRecord } from "@/app/lib/quote-template";
 
 function quoteMatchesProposal(quote: QuoteRecord | null, proposal: SavedProposalRecord | null) {
@@ -89,11 +90,9 @@ export function resolveActiveProposalQuote(): {
   const fallbackStore = getDefaultProposalStore(
     createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }),
   );
-  const store = savedStore ?? fallbackStore;
+  const store = ensureNickTrainingDemoProposalStore(savedStore ?? fallbackStore);
 
-  if (!savedStore) {
-    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(store));
-  }
+  window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(store));
 
   const activeProposal = getActiveProposal(store, activeId);
   const resolvedId = activeProposal?.id ?? null;
