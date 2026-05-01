@@ -158,11 +158,12 @@
     "assignedTo": "ike",
     "priority": "high",
     "label": "Build",
-    "column": "in-progress",
+    "column": "done",
     "description": "Build the first separate internal quote-tool app shell preserving the sample proposal look: cover, executive summary, Section A shell, Section B shell, and documentation details shell. No redesign.",
     "createdAt": "2026-04-13",
-    "lastUpdate": "Started 2026-04-13 19:36 CDT. Jill landed first shell at 2026-04-13 19:59 CDT. Ike reviewing before Step 3.",
-    "startedAt": "2026-04-13 19:36 CDT"
+    "lastUpdate": "2026-05-01: Marked done after RapidQuote production QA confirmed the branded proposal shell is live across builder, preview, PDF, and DOCX paths.",
+    "startedAt": "2026-04-13 19:36 CDT",
+    "completedAt": "2026-05-01"
   },
   {
     "id": "t_quote_3",
@@ -171,11 +172,12 @@
     "assignedTo": "ike",
     "priority": "high",
     "label": "Build",
-    "column": "in-progress",
+    "column": "done",
     "description": "Add basic dynamic fields to the quote shell: company name, proposal number, date, customer info, AE info, and documentation details.",
     "createdAt": "2026-04-13",
     "startedAt": "2026-04-14 08:55 CDT",
-    "lastUpdate": "Started 2026-04-14 08:55 CDT. Quote preview now reads from a shared QuoteRecord model instead of hardcoded page-only demo data."
+    "lastUpdate": "2026-05-01: Marked done after hosted QA confirmed proposal metadata/customer fields flow through saved draft, copy, preview, PDF, and output surfaces.",
+    "completedAt": "2026-05-01"
   },
   {
     "id": "t_quote_4",
