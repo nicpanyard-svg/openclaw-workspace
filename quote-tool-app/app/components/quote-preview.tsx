@@ -1786,6 +1786,9 @@ export default function QuotePreview() {
                         </>
                       ) : (
                         <>
+                          {customerProfiles.length > 0 ? (
+                            <button type="button" className="pill-button" onClick={() => setCustomerEntryMode("select")}>Select saved customer</button>
+                          ) : null}
                           <button type="button" className="pill-button" onClick={() => setCustomerEntryMode(customerEntryComplete ? "review" : "start")}>Cancel</button>
                           <button type="button" className="pill-button pill-button-active" onClick={finishCustomerEntry}>Use this customer</button>
                         </>
