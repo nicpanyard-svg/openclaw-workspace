@@ -1706,7 +1706,7 @@ export default function QuotePreview() {
                     onClick={() => setCustomerEntryMode("select")}
                   >
                     <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Saved profile</div>
-                    <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Select Customer</div>
+                    <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Choose Customer</div>
                     <p className="mt-2 text-[14px] leading-[1.55] text-[#5c6772]">Pull in an existing customer profile and keep moving. Good fit when the account already exists in RapidQuote.</p>
                     <div className="mt-4 text-[13px] font-medium text-[#2e5b85]">{customerProfiles.length} saved customer profile{customerProfiles.length === 1 ? "" : "s"} available</div>
                   </button>
@@ -1728,7 +1728,7 @@ export default function QuotePreview() {
                 <div className="mt-5 rounded-[22px] border border-[#dde3e8] bg-white p-4 md:p-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
-                      <div className="builder-eyebrow">Select customer</div>
+                      <div className="builder-eyebrow">Choose customer</div>
                       <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Choose a saved customer</h3>
                       <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Pick a saved customer to fill the quote instantly, then continue with either Quick Quote or Major Project.</p>
                     </div>
@@ -1789,7 +1789,7 @@ export default function QuotePreview() {
                       ) : (
                         <>
                           {customerProfiles.length > 0 ? (
-                            <button type="button" className="pill-button" onClick={() => setCustomerEntryMode("select")}>Select saved customer</button>
+                            <button type="button" className="pill-button" onClick={() => setCustomerEntryMode("select")}>Choose customer</button>
                           ) : null}
                           <button type="button" className="pill-button" onClick={() => setCustomerEntryMode(customerEntryComplete ? "review" : "start")}>Cancel</button>
                           <button type="button" className="pill-button pill-button-active" onClick={finishCustomerEntry}>Use this customer</button>

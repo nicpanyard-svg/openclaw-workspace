@@ -31,6 +31,7 @@ export function RapidQuoteFrontDoor() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [customerProfiles, setCustomerProfiles] = useState<SavedCustomerProfile[]>([]);
   const [proposals, setProposals] = useState<SavedProposalRecord[]>([]);
+  const [customerSearch, setCustomerSearch] = useState("");
   const [proposalSearch, setProposalSearch] = useState("");
 
   useEffect(() => {
@@ -66,6 +67,22 @@ export function RapidQuoteFrontDoor() {
     setIsHydrated(true);
   }, [user]);
 
+  const filteredCustomerProfiles = useMemo(() => {
+    const query = customerSearch.trim().toLowerCase();
+    return customerProfiles
+      .slice()
+      .sort((a, b) => a.companyName.localeCompare(b.companyName))
+      .filter((profile) => {
+        if (!query) return true;
+        return [
+          profile.companyName,
+          profile.mainContactName,
+          profile.mainContactEmail,
+          profile.serviceAddressLines.join(" "),
+        ].some((value) => value.toLowerCase().includes(query));
+      });
+  }, [customerProfiles, customerSearch]);
+
   const filteredProposals = useMemo(() => {
     const query = proposalSearch.trim().toLowerCase();
     return proposals
@@ -85,6 +102,7 @@ export function RapidQuoteFrontDoor() {
   }, [proposalSearch, proposals]);
 
   const activeProposalCount = proposals.filter((proposal) => ["draft", "in_review", "sent"].includes(proposal.status)).length;
+  const visibleCustomerProfiles = filteredCustomerProfiles.slice(0, 6);
   const recentProposals = filteredProposals.slice(0, 6);
 
   return isHydrated ? (
@@ -98,7 +116,7 @@ export function RapidQuoteFrontDoor() {
                 <div className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#8a95a3]">RapidQuote</div>
                 <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.04em] text-[#16202b]">Start with the customer, then build the quote.</h1>
                 <p className="mt-3 max-w-[760px] text-[15px] leading-[1.6] text-[#5d6772]">
-                  Pick the front door that fits the job: create a customer, reuse a saved customer, or reopen an existing proposal already in motion.
+                  Create a new customer, search for an existing customer, or find an open proposal already in motion.
                 </p>
               </div>
             </div>
@@ -126,14 +144,23 @@ export function RapidQuoteFrontDoor() {
 
           <article className="rounded-[26px] border border-[#dde3e8] bg-white p-5 shadow-[0_12px_28px_rgba(31,42,52,0.06)]">
             <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Path 2</div>
-            <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.03em] text-[#16202b]">Select Existing Customer</h2>
-            <p className="mt-3 text-[14px] leading-[1.55] text-[#5d6772]">Reuse the saved customer profile system that is already in place, then move straight into quote work.</p>
+            <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.03em] text-[#16202b]">Choose Customer</h2>
+            <p className="mt-3 text-[14px] leading-[1.55] text-[#5d6772]">Search saved customers, pick the right account, then move straight into quote work.</p>
             <div className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] px-4 py-4 text-[13px] text-[#51606d]">
               <strong className="block text-[#16202b]">Saved profiles ready</strong>
               {customerProfiles.length > 0 ? `${customerProfiles.length} customer profile${customerProfiles.length === 1 ? " is" : "s are"} available.` : "No saved customer profiles yet — create one first."}
             </div>
+            <label className="mt-4 block text-[13px] font-medium text-[#51606d]">
+              Search customers
+              <input
+                className="mt-2 w-full rounded-[16px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] text-[#16202b] outline-none"
+                placeholder="Company, contact, city, state..."
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+              />
+            </label>
             <div className="mt-4 space-y-2 text-[13px] text-[#60707f]">
-              {customerProfiles.slice(0, 3).map((profile) => (
+              {visibleCustomerProfiles.map((profile) => (
                 <Link key={profile.id} href={`/new?mode=new&entry=select-customer&customerProfileId=${encodeURIComponent(profile.id)}`} className="block rounded-[16px] border border-[#edf1f4] bg-[#fcfdfe] px-3 py-3 transition hover:border-[#b00000] hover:bg-white">
                   <strong className="block text-[#16202b]">{profile.companyName}</strong>
                   <span>{profile.mainContactName || "No contact saved"}</span>
@@ -141,7 +168,7 @@ export function RapidQuoteFrontDoor() {
               ))}
             </div>
             {customerProfiles.length > 0 ? (
-              <Link href="/new?mode=new&entry=select-customer" className="mt-5 inline-flex rounded-full bg-[#16202b] px-5 py-3 text-[14px] font-semibold text-white">Browse saved customers</Link>
+              <Link href="/new?mode=new&entry=select-customer" className="mt-5 inline-flex rounded-full bg-[#16202b] px-5 py-3 text-[14px] font-semibold text-white">Choose from all customers</Link>
             ) : (
               <span className="mt-5 inline-flex rounded-full bg-[#e7ebef] px-5 py-3 text-[14px] font-semibold text-[#73808c]">No saved customers yet</span>
             )}
@@ -149,7 +176,7 @@ export function RapidQuoteFrontDoor() {
 
           <article className="rounded-[26px] border border-[#dde3e8] bg-white p-5 shadow-[0_12px_28px_rgba(31,42,52,0.06)]">
             <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Path 3</div>
-            <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.03em] text-[#16202b]">Open Existing Proposal</h2>
+            <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.03em] text-[#16202b]">Find Open Proposal</h2>
             <p className="mt-3 text-[14px] leading-[1.55] text-[#5d6772]">Jump back into a proposal that already has customer and pricing context attached.</p>
             <div className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] px-4 py-4 text-[13px] text-[#51606d]">
               <strong className="block text-[#16202b]">Workspace</strong>
@@ -165,7 +192,7 @@ export function RapidQuoteFrontDoor() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Existing proposals</div>
-              <h2 className="mt-1 text-[28px] font-semibold tracking-[-0.03em] text-[#16202b]">Open an in-flight proposal</h2>
+              <h2 className="mt-1 text-[28px] font-semibold tracking-[-0.03em] text-[#16202b]">Find an open proposal</h2>
               <p className="mt-2 text-[14px] leading-[1.55] text-[#5d6772]">Search recent records and jump straight into editing or detail review.</p>
             </div>
             <label className="block min-w-[280px] text-[13px] font-medium text-[#51606d]">
