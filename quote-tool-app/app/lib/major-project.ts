@@ -748,11 +748,19 @@ export function buildMajorProjectMetrics(quote: QuoteRecord): MajorProjectMetric
     quoteLinesWithoutEconomics: [],
   };
   const siteCount = Math.max(activeOption?.siteCount ?? state.commercial.siteCount, 0);
+  const quoteSectionARows = safeQuote.sections.sectionA.mode === "pool" ? safeQuote.sections.sectionA.poolRows : safeQuote.sections.sectionA.perKitRows;
+  const quoteRecurringRevenue = roundCurrency(quoteSectionARows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0));
+  const quoteHardwareRevenue = roundCurrency(safeQuote.sections.sectionB.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? row.quantity * row.unitPrice), 0));
+  const quoteInstallRevenue = roundCurrency(safeQuote.sections.sectionC.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? row.quantity * row.unitPrice), 0));
 
-  const fallbackRecurringRevenue = siteCount * (activeOption?.monthlyRatePerSite ?? state.commercial.monthlyRatePerSite);
-  const fallbackHardwareRevenue = state.commercial.includeHardware ? siteCount * (activeOption?.hardwarePerSite ?? state.commercial.oneTimeHardwarePerSite) : 0;
-  const fallbackInstallRevenue = state.commercial.includeInstallation ? siteCount * (activeOption?.installPerSite ?? state.commercial.oneTimeInstallPerSite) : 0;
-  const fallbackOtherOneTimeRevenue = siteCount * (activeOption?.otherOneTimePerSite ?? state.commercial.oneTimeOtherPerSite);
+  const assumptionRecurringRevenue = siteCount * (activeOption?.monthlyRatePerSite ?? state.commercial.monthlyRatePerSite);
+  const assumptionHardwareRevenue = state.commercial.includeHardware ? siteCount * (activeOption?.hardwarePerSite ?? state.commercial.oneTimeHardwarePerSite) : 0;
+  const assumptionInstallRevenue = state.commercial.includeInstallation ? siteCount * (activeOption?.installPerSite ?? state.commercial.oneTimeInstallPerSite) : 0;
+  const assumptionOtherOneTimeRevenue = siteCount * (activeOption?.otherOneTimePerSite ?? state.commercial.oneTimeOtherPerSite);
+  const fallbackRecurringRevenue = assumptionRecurringRevenue > 0 ? assumptionRecurringRevenue : quoteRecurringRevenue;
+  const fallbackHardwareRevenue = assumptionHardwareRevenue > 0 ? assumptionHardwareRevenue : quoteHardwareRevenue;
+  const fallbackInstallRevenue = assumptionInstallRevenue > 0 ? assumptionInstallRevenue : quoteInstallRevenue;
+  const fallbackOtherOneTimeRevenue = assumptionOtherOneTimeRevenue;
   const fallbackOptionalServicesRevenue = state.commercial.includeOptionalServices ? state.commercial.optionalServicesAmount : 0;
   const fallbackOneTimeRevenue = fallbackHardwareRevenue + fallbackInstallRevenue + fallbackOtherOneTimeRevenue + fallbackOptionalServicesRevenue;
   const fallbackRecurringCost = siteCount * (
