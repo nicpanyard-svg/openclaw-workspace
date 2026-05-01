@@ -1485,7 +1485,7 @@ export default function QuotePreview() {
       return null;
     }
 
-    const resolvedProfileId = profileId ?? selectedCustomerProfileId ?? undefined;
+    const resolvedProfileId = profileId || selectedCustomerProfileId || undefined;
     const nextProfile = createCustomerProfileFromQuote(quote, resolvedProfileId);
     const nextProfiles = upsertCustomerProfile(customerProfiles, nextProfile);
     persistCustomerProfiles(nextProfiles);

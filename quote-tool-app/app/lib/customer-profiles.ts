@@ -86,7 +86,7 @@ export function createCustomerProfileFromQuote(quote: QuoteRecord, profileId?: s
   const now = new Date().toISOString();
 
   return {
-    id: profileId ?? quote.internal.savedCustomerProfileId ?? `customer_${Date.now()}`,
+    id: profileId || quote.internal.savedCustomerProfileId || `customer_${Date.now()}`,
     companyName: quote.customer.name.trim(),
     customerShortName: (quote.metadata.customerShortName ?? "").trim(),
     billingAddress: {
