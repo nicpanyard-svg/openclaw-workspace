@@ -2162,93 +2162,14 @@ export default function QuotePreview() {
                 </div>
               )}
 
-              {isMajorProject && (
-              <div className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#f8fbfd] p-4 md:p-5">
-                <div className="builder-eyebrow">Internal commercial</div>
-                <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                  <div>
-                    <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Margin foundation</h3>
-                    <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                      Internal-only economics for structured major quotes. Quick Quote stays clean and does not calculate margin.
-                    </p>
-                  </div>
-                  <div className="rounded-[16px] border border-[#dde3e8] bg-white px-4 py-3 text-[13px] text-[#5f6c78]">
-                    Hidden from customer proposal, preview, and PDF output.
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
-                  <div className="space-y-4 rounded-[18px] border border-[#dde3e8] bg-white p-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label className="builder-field compact">
-                        <span>Option label</span>
-                        <input value={quote.commercial.meta.optionLabel} onChange={(e) => updateQuote((draft) => { draft.commercial.meta.optionLabel = e.target.value; return draft; })} />
-                      </label>
-                      <label className="builder-field compact">
-                        <span>Comparison group</span>
-                        <input value={quote.commercial.meta.comparisonGroup ?? ""} onChange={(e) => updateQuote((draft) => { draft.commercial.meta.comparisonGroup = e.target.value; return draft; })} />
-                      </label>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">One-time cost inputs</div>
-                        <div className="mt-3 grid gap-3">
-                          <label className="builder-field compact"><span>Equipment cost</span><input type="number" step="0.01" value={quote.commercial.costs.oneTimeEquipmentCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.oneTimeEquipmentCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                          <label className="builder-field compact"><span>Labor cost</span><input type="number" step="0.01" value={quote.commercial.costs.oneTimeLaborCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.oneTimeLaborCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                          <label className="builder-field compact"><span>Other one-time cost</span><input type="number" step="0.01" value={quote.commercial.costs.oneTimeOtherCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.oneTimeOtherCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                        </div>
-                      </div>
-
-                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Recurring cost inputs</div>
-                        <div className="mt-3 grid gap-3">
-                          <label className="builder-field compact"><span>Vendor cost / month</span><input type="number" step="0.01" value={quote.commercial.costs.recurringVendorCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.recurringVendorCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                          <label className="builder-field compact"><span>Support cost / month</span><input type="number" step="0.01" value={quote.commercial.costs.recurringSupportCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.recurringSupportCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                          <label className="builder-field compact"><span>Other recurring cost / month</span><input type="number" step="0.01" value={quote.commercial.costs.recurringOtherCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.recurringOtherCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                        </div>
-                      </div>
-                    </div>
-
-                    <label className="builder-field">
-                      <span>Internal notes</span>
-                      <textarea rows={3} value={quote.commercial.meta.notes ?? ""} onChange={(e) => updateQuote((draft) => { draft.commercial.meta.notes = e.target.value; return draft; })} />
-                    </label>
-                  </div>
-
-                  <div className="space-y-4 rounded-[18px] border border-[#dde3e8] bg-white p-4">
-                    <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Commercial summary</div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <CommercialMetricCard label="Recurring revenue" value={formatCurrency(commercialMetrics.recurringRevenue, currencyCode)} note="Pulled from Section A customer pricing" />
-                      <CommercialMetricCard label="Recurring cost" value={formatCurrency(commercialMetrics.recurringCost, currencyCode)} note="Internal monthly cost inputs only" />
-                      <CommercialMetricCard label="One-time revenue" value={formatCurrency(commercialMetrics.oneTimeRevenue, currencyCode)} note="Section B + Section C customer pricing" />
-                      <CommercialMetricCard label="One-time cost" value={formatCurrency(commercialMetrics.oneTimeCost, currencyCode)} note="Internal equipment, labor, and other costs" />
-                      <CommercialMetricCard label="Gross profit" value={formatCurrency(commercialMetrics.totalGrossProfit, currencyCode)} note="Combined recurring + one-time gross profit" accent />
-                      <CommercialMetricCard label="Gross margin" value={formatPercent(commercialMetrics.totalGrossMarginPercent)} note="Gross profit ÷ total revenue" accent />
-                    </div>
-
-                    <div className="rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
-                      <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Rollup detail</div>
-                      <div className="mt-3 space-y-2">
-                        <div className="flex items-center justify-between gap-3"><span>Recurring GP</span><strong>{formatCurrency(commercialMetrics.recurringGrossProfit, currencyCode)} • {formatPercent(commercialMetrics.recurringGrossMarginPercent)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>One-time GP</span><strong>{formatCurrency(commercialMetrics.oneTimeGrossProfit, currencyCode)} • {formatPercent(commercialMetrics.oneTimeGrossMarginPercent)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Total revenue</span><strong>{formatCurrency(commercialMetrics.totalRevenue, currencyCode)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Total cost</span><strong>{formatCurrency(commercialMetrics.totalCost, currencyCode)}</strong></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              )}
-
               {isMajorProject && majorProjectState && (
                 <div className="mt-5 space-y-5 rounded-[22px] border border-[#ead9db] bg-[#fff9f9] p-4 md:p-5">
                   <div className="builder-eyebrow">Major Project mode</div>
                   <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
-                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Commercial model first</h3>
+                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Add products first</h3>
                       <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                        This lane is modeled after the workbook structure without pretending to be Excel. Set project assumptions, shape the active option, and RapidQuote will generate the downstream proposal sections and internal margin view.
+                        Start by adding the real products, services, labor, and bundles. Once the products are in, RapidQuote rolls them into customer quote lines and the internal margin view below.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -2630,6 +2551,85 @@ export default function QuotePreview() {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {isMajorProject && (
+              <div className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#f8fbfd] p-4 md:p-5">
+                <div className="builder-eyebrow">Internal commercial</div>
+                <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Margin foundation</h3>
+                    <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
+                      Internal-only economics for structured major quotes. Complete the product rows above first, then use this margin foundation as the final internal check.
+                    </p>
+                  </div>
+                  <div className="rounded-[16px] border border-[#dde3e8] bg-white px-4 py-3 text-[13px] text-[#5f6c78]">
+                    Hidden from customer proposal, preview, and PDF output.
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
+                  <div className="space-y-4 rounded-[18px] border border-[#dde3e8] bg-white p-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="builder-field compact">
+                        <span>Option label</span>
+                        <input value={quote.commercial.meta.optionLabel} onChange={(e) => updateQuote((draft) => { draft.commercial.meta.optionLabel = e.target.value; return draft; })} />
+                      </label>
+                      <label className="builder-field compact">
+                        <span>Comparison group</span>
+                        <input value={quote.commercial.meta.comparisonGroup ?? ""} onChange={(e) => updateQuote((draft) => { draft.commercial.meta.comparisonGroup = e.target.value; return draft; })} />
+                      </label>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4">
+                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">One-time cost inputs</div>
+                        <div className="mt-3 grid gap-3">
+                          <label className="builder-field compact"><span>Equipment cost</span><input type="number" step="0.01" value={quote.commercial.costs.oneTimeEquipmentCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.oneTimeEquipmentCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
+                          <label className="builder-field compact"><span>Labor cost</span><input type="number" step="0.01" value={quote.commercial.costs.oneTimeLaborCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.oneTimeLaborCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
+                          <label className="builder-field compact"><span>Other one-time cost</span><input type="number" step="0.01" value={quote.commercial.costs.oneTimeOtherCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.oneTimeOtherCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4">
+                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Recurring cost inputs</div>
+                        <div className="mt-3 grid gap-3">
+                          <label className="builder-field compact"><span>Vendor cost / month</span><input type="number" step="0.01" value={quote.commercial.costs.recurringVendorCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.recurringVendorCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
+                          <label className="builder-field compact"><span>Support cost / month</span><input type="number" step="0.01" value={quote.commercial.costs.recurringSupportCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.recurringSupportCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
+                          <label className="builder-field compact"><span>Other recurring cost / month</span><input type="number" step="0.01" value={quote.commercial.costs.recurringOtherCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.recurringOtherCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <label className="builder-field">
+                      <span>Internal notes</span>
+                      <textarea rows={3} value={quote.commercial.meta.notes ?? ""} onChange={(e) => updateQuote((draft) => { draft.commercial.meta.notes = e.target.value; return draft; })} />
+                    </label>
+                  </div>
+
+                  <div className="space-y-4 rounded-[18px] border border-[#dde3e8] bg-white p-4">
+                    <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Commercial summary</div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <CommercialMetricCard label="Recurring revenue" value={formatCurrency(commercialMetrics.recurringRevenue, currencyCode)} note="Pulled from Section A customer pricing" />
+                      <CommercialMetricCard label="Recurring cost" value={formatCurrency(commercialMetrics.recurringCost, currencyCode)} note="Internal monthly cost inputs only" />
+                      <CommercialMetricCard label="One-time revenue" value={formatCurrency(commercialMetrics.oneTimeRevenue, currencyCode)} note="Section B + Section C customer pricing" />
+                      <CommercialMetricCard label="One-time cost" value={formatCurrency(commercialMetrics.oneTimeCost, currencyCode)} note="Internal equipment, labor, and other costs" />
+                      <CommercialMetricCard label="Gross profit" value={formatCurrency(commercialMetrics.totalGrossProfit, currencyCode)} note="Combined recurring + one-time gross profit" accent />
+                      <CommercialMetricCard label="Gross margin" value={formatPercent(commercialMetrics.totalGrossMarginPercent)} note="Gross profit ÷ total revenue" accent />
+                    </div>
+
+                    <div className="rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
+                      <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Rollup detail</div>
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center justify-between gap-3"><span>Recurring GP</span><strong>{formatCurrency(commercialMetrics.recurringGrossProfit, currencyCode)} • {formatPercent(commercialMetrics.recurringGrossMarginPercent)}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>One-time GP</span><strong>{formatCurrency(commercialMetrics.oneTimeGrossProfit, currencyCode)} • {formatPercent(commercialMetrics.oneTimeGrossMarginPercent)}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>Total revenue</span><strong>{formatCurrency(commercialMetrics.totalRevenue, currencyCode)}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>Total cost</span><strong>{formatCurrency(commercialMetrics.totalCost, currencyCode)}</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               )}
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
