@@ -29,10 +29,10 @@ function ProposalPage() {
   const quote = quoteOverride ?? resolved?.quote ?? null;
   const usingSavedData = resolved?.usingSavedData ?? false;
 
-  const handlePrintPdf = async () => {
-    if (!quote) return;
+  const prepareSentQuote = (): QuoteRecord | null => {
+    if (!quote) return null;
 
-    const nextQuote: QuoteRecord = {
+    return {
       ...quote,
       metadata: {
         ...quote.metadata,
@@ -44,24 +44,54 @@ function ProposalPage() {
         quoteStatus: "sent",
       },
     };
+  };
+
+  const generatePdfBlob = async (nextQuote: QuoteRecord) => {
+    const response = await fetch("/api/proposal-pdf", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ quote: nextQuote }),
+    });
+
+    if (!response.ok) {
+      throw new Error("PDF generation failed.");
+    }
+
+    return response.blob();
+  };
+
+  const handleViewPdf = async () => {
+    const nextQuote = prepareSentQuote();
+    if (!nextQuote) return;
 
     setQuoteOverride(nextQuote);
     persistPreviewQuote(nextQuote, { markAsSent: true });
 
     try {
-      const response = await fetch("/api/proposal-pdf", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ quote: nextQuote }),
-      });
+      const blob = await generatePdfBlob(nextQuote);
+      const objectUrl = URL.createObjectURL(blob);
+      const opened = window.open(objectUrl, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 
-      if (!response.ok) {
-        throw new Error("PDF generation failed.");
+      if (!opened) {
+        window.alert("Unable to open the PDF preview tab right now. Allow popups/new tabs for this site and try again.");
       }
+    } catch {
+      window.alert("Unable to generate the PDF preview right now. Please review the HTML preview and try again.");
+    }
+  };
 
-      const blob = await response.blob();
+  const handlePrintPdf = async () => {
+    const nextQuote = prepareSentQuote();
+    if (!nextQuote) return;
+
+    setQuoteOverride(nextQuote);
+    persistPreviewQuote(nextQuote, { markAsSent: true });
+
+    try {
+      const blob = await generatePdfBlob(nextQuote);
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       const safeProposalNumber = nextQuote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
@@ -90,20 +120,8 @@ function ProposalPage() {
   };
 
   const handleExportWord = async () => {
-    if (!quote) return;
-
-    const nextQuote: QuoteRecord = {
-      ...quote,
-      metadata: {
-        ...quote.metadata,
-        status: "sent",
-        lastTouchedAt: new Date().toISOString(),
-      },
-      internal: {
-        ...quote.internal,
-        quoteStatus: "sent",
-      },
-    };
+    const nextQuote = prepareSentQuote();
+    if (!nextQuote) return;
 
     setQuoteOverride(nextQuote);
     persistPreviewQuote(nextQuote, { markAsSent: true });
@@ -141,6 +159,9 @@ function ProposalPage() {
           <div className="proposal-toolbar-actions">
             <button type="button" className="proposal-secondary-button" onClick={handleExportWord}>
               Export Word
+            </button>
+            <button type="button" className="proposal-secondary-button" onClick={() => void handleViewPdf()}>
+              View PDF
             </button>
             <button type="button" className="proposal-print-button" onClick={() => void handlePrintPdf()}>
               Download PDF
