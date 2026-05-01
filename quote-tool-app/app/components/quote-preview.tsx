@@ -569,19 +569,19 @@ function MajorProjectStepCard({
       : "border-[#d7e3db] bg-[#f7fcf8]";
 
   return (
-    <section className={`rounded-[20px] border p-4 md:p-5 ${toneClass}`}>
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <section className={`rounded-[18px] border p-3 md:p-4 ${toneClass}`}>
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div>
           <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Step {step}</div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h4 className="text-[20px] font-semibold tracking-[-0.03em] text-[#16202b]">{title}</h4>
+            <h4 className="text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">{title}</h4>
             <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${isCurrent ? "bg-[#b00000] text-white" : isLocked ? "bg-[#edf1f5] text-[#708090]" : "bg-[#dff2e4] text-[#1f6a37]"}`}>
               {isCurrent ? "Now" : isLocked ? "Locked" : "Done"}
             </span>
             <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-[#5f6c78]">{count} item{count === 1 ? "" : "s"}</span>
           </div>
-          <p className="mt-2 text-[13px] text-[#44515d]">{summary}</p>
-          <p className="mt-1 text-[12px] text-[#708090]">{detail}</p>
+          <p className="mt-1 text-[13px] text-[#44515d]">{summary}</p>
+          <p className="text-[12px] text-[#708090]">{detail}</p>
         </div>
         {!isCurrent ? (
           <button type="button" className="pill-button self-start" onClick={onOpen} disabled={isLocked}>
@@ -589,7 +589,7 @@ function MajorProjectStepCard({
           </button>
         ) : null}
       </div>
-      {isCurrent ? <div className="mt-4">{children}</div> : null}
+      {isCurrent ? <div className="mt-3">{children}</div> : null}
     </section>
   );
 }
@@ -2149,7 +2149,7 @@ export default function QuotePreview() {
               )}
 
               {isMajorProject && majorProjectState && (
-                <div className="mt-5 space-y-5 rounded-[22px] border border-[#ead9db] bg-[#fff9f9] p-4 md:p-5">
+                <div className="mt-5 space-y-3 rounded-[20px] border border-[#ead9db] bg-[#fff9f9] p-3 md:p-4">
                   <div className="builder-eyebrow">Major Project mode</div>
                   <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
@@ -2164,8 +2164,8 @@ export default function QuotePreview() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
-                    <div className="space-y-4 rounded-[18px] border border-[#e7d8db] bg-white p-4">
+                  <div className="mt-3 grid gap-3 lg:grid-cols-[1.1fr_.9fr]">
+                    <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
                       <div className="grid gap-4 md:grid-cols-2">
                         <label className="builder-field compact"><span>Project name</span><input value={majorProjectState.summary.projectName} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.projectName = e.target.value; return draft; })} /></label>
                         <label className="builder-field compact"><span>Version label</span><input value={majorProjectState.summary.versionLabel} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.versionLabel = e.target.value; return draft; })} /></label>
@@ -2194,33 +2194,35 @@ export default function QuotePreview() {
                       </div>
                     </div>
 
-                    <div className="space-y-4 rounded-[18px] border border-[#e7d8db] bg-white p-4">
-                      <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
+                      <div className="grid gap-3 md:grid-cols-2">
                         <label className="builder-field compact"><span>Active option</span><select value={majorProjectState.activeOptionId} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.activeOptionId = e.target.value; return draft; })}>{majorProjectState.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
                         <label className="builder-field compact"><span>Option label</span><input value={activeMajorOption?.label ?? ""} onChange={(e) => updateActiveMajorOption("label", e.target.value)} /></label>
-                        <label className="builder-field compact md:col-span-2"><span>Option description</span><input value={activeMajorOption?.description ?? ""} onChange={(e) => updateActiveMajorOption("description", e.target.value)} /></label>
-                      </div>
-                      <div className="major-project-grid">
                         <label className="builder-field compact"><span>Sites</span><input type="number" value={activeMajorOption?.siteCount ?? 0} onChange={(e) => updateActiveMajorOption("siteCount", Math.max(parseNumber(e.target.value), 0))} /></label>
-                        <label className="builder-field compact"><span>MRR / site</span><input type="number" step="0.01" value={activeMajorOption?.monthlyRatePerSite ?? 0} onChange={(e) => updateActiveMajorOption("monthlyRatePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                        <label className="builder-field compact"><span>Hardware / site</span><input type="number" step="0.01" value={activeMajorOption?.hardwarePerSite ?? 0} onChange={(e) => updateActiveMajorOption("hardwarePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                        <label className="builder-field compact"><span>Install / site</span><input type="number" step="0.01" value={activeMajorOption?.installPerSite ?? 0} onChange={(e) => updateActiveMajorOption("installPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                        <label className="builder-field compact"><span>Other one-time / site</span><input type="number" step="0.01" value={activeMajorOption?.otherOneTimePerSite ?? 0} onChange={(e) => updateActiveMajorOption("otherOneTimePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                        <label className="builder-field compact"><span>Vendor recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.vendorRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("vendorRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                        <label className="builder-field compact"><span>Support recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.supportRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("supportRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                        <label className="builder-field compact"><span>Other recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.otherRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("otherRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                        <label className="builder-field compact"><span>Option description</span><input value={activeMajorOption?.description ?? ""} onChange={(e) => updateActiveMajorOption("description", e.target.value)} /></label>
                       </div>
+                      <details className="rounded-[14px] border border-[#efe3e5] bg-[#fffafa] p-3">
+                        <summary className="cursor-pointer list-none text-[13px] font-semibold text-[#16202b]">Advanced per-site assumptions</summary>
+                        <div className="major-project-grid mt-3">
+                          <label className="builder-field compact"><span>MRR / site</span><input type="number" step="0.01" value={activeMajorOption?.monthlyRatePerSite ?? 0} onChange={(e) => updateActiveMajorOption("monthlyRatePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                          <label className="builder-field compact"><span>Hardware / site</span><input type="number" step="0.01" value={activeMajorOption?.hardwarePerSite ?? 0} onChange={(e) => updateActiveMajorOption("hardwarePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                          <label className="builder-field compact"><span>Install / site</span><input type="number" step="0.01" value={activeMajorOption?.installPerSite ?? 0} onChange={(e) => updateActiveMajorOption("installPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                          <label className="builder-field compact"><span>Other one-time / site</span><input type="number" step="0.01" value={activeMajorOption?.otherOneTimePerSite ?? 0} onChange={(e) => updateActiveMajorOption("otherOneTimePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                          <label className="builder-field compact"><span>Vendor recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.vendorRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("vendorRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                          <label className="builder-field compact"><span>Support recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.supportRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("supportRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                          <label className="builder-field compact"><span>Other recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.otherRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("otherRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                        </div>
+                      </details>
+                    </div>
 
-                  </div>
-
-                  <div className="space-y-4 rounded-[18px] border border-[#e7d8db] bg-white p-4">
-                    <div className="rounded-[18px] border border-[#efe3e5] bg-[#fffafa] p-4">
+                  <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
+                    <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] p-3">
                       <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Authoring workflow</div>
-                      <h4 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#16202b]">Build the offer in order</h4>
-                      <div className="mt-3 grid gap-3 md:grid-cols-3 text-[13px] text-[#44515d]">
-                        <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">1. Internal components</strong><span>Real economics live here.</span></div>
-                        <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">2. Internal bundles</strong><span>Group components into sellable packages.</span></div>
-                        <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">3. Customer output</strong><span>Choose what lands in Sections A, B, and C.</span></div>
+                      <h4 className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">Build the offer in order</h4>
+                      <div className="mt-2 grid gap-2 md:grid-cols-3 text-[12px] text-[#44515d]">
+                        <div className="rounded-[14px] bg-white px-3 py-2"><strong className="block text-[#16202b]">1. Products</strong><span>Parts, services, labor.</span></div>
+                        <div className="rounded-[14px] bg-white px-3 py-2"><strong className="block text-[#16202b]">2. Bundles</strong><span>Package the rows.</span></div>
+                        <div className="rounded-[14px] bg-white px-3 py-2"><strong className="block text-[#16202b]">3. Customer lines</strong><span>Output to proposal.</span></div>
                       </div>
                     </div>
 
