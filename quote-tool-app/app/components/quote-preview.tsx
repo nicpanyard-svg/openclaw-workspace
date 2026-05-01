@@ -1654,9 +1654,6 @@ export default function QuotePreview() {
               <ProductLogo width={156} height={44} className="workspace-brand-logo product-logo workspace-logo-inline shrink-0" priority />
               <div>
                 <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal Editor</h1>
-                <p className="mt-2 max-w-[680px] text-[15px] leading-[1.55] text-[#5a6572]">
-                  This is the builder/editor. Make content changes here, then move to Preview Proposal when you want the customer-facing document. Session-aware ownership is now part of the editing flow so the product can grow into real collaboration.
-                </p>
               </div>
             </div>
 
@@ -1664,7 +1661,7 @@ export default function QuotePreview() {
               <div className="builder-stat-card"><div className="builder-stat-label">Recurring monthly</div><div className="builder-stat-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section A</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">One-time equipment</div><div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section B</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">Optional services</div><div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div><div className="builder-stat-note">Inspection and install totals</div></div>
-              <div className="builder-stat-card"><div className="builder-stat-label">Editor owner</div><div className="builder-stat-value">{user?.initials ?? "RQ"}</div><div className="builder-stat-note">{user ? `${user.name} • ${user.title}` : "Signed-in user context"}</div></div>
+              <div className="builder-stat-card"><div className="builder-stat-label">Quote status</div><div className="builder-stat-value">{quote.metadata.status === "in_review" ? "Review" : quote.metadata.status === "sent" ? "Sent" : "Draft"}</div><div className="builder-stat-note">Proposal workflow</div></div>
             </div>
           </div>
 
@@ -1691,10 +1688,6 @@ export default function QuotePreview() {
             <section className="builder-panel">
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Step 1</div><h2 className="builder-title">Customer entry</h2></div></div>
 
-              <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#f7fafc] p-4 text-[14px] leading-[1.6] text-[#435160]">
-                Start every draft by either selecting a saved customer or creating a lightweight customer record for this quote. Once that is done, the rest of the builder stays focused on the quote itself.
-              </div>
-
               {customerEntryMode === "start" ? (
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <button
@@ -1704,7 +1697,6 @@ export default function QuotePreview() {
                   >
                     <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Saved profile</div>
                     <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Choose Customer</div>
-                    <p className="mt-2 text-[14px] leading-[1.55] text-[#5c6772]">Pull in an existing customer profile and keep moving. Good fit when the account already exists in RapidQuote.</p>
                     <div className="mt-4 text-[13px] font-medium text-[#2e5b85]">{customerProfiles.length} saved customer profile{customerProfiles.length === 1 ? "" : "s"} available</div>
                   </button>
 
@@ -1715,7 +1707,6 @@ export default function QuotePreview() {
                   >
                     <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">New draft</div>
                     <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Create Customer</div>
-                    <p className="mt-2 text-[14px] leading-[1.55] text-[#5c6772]">Add just the customer details this quote needs now: company, contact, service address, and billing/shipping basics.</p>
                     <div className="mt-4 text-[13px] font-medium text-[#2e5b85]">Lightweight by design — not a CRM detour</div>
                   </button>
                 </div>
@@ -1727,7 +1718,6 @@ export default function QuotePreview() {
                     <div>
                       <div className="builder-eyebrow">Choose customer</div>
                       <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Choose a saved customer</h3>
-                      <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Pick a saved customer to fill the quote instantly, then continue with either Quick Quote or Major Project.</p>
                     </div>
                     <div className="flex flex-wrap gap-3">
                       <button type="button" className="pill-button" onClick={() => setCustomerEntryMode("start")}>Back</button>
@@ -1771,11 +1761,6 @@ export default function QuotePreview() {
                     <div>
                       <div className="builder-eyebrow">{customerEntryMode === "review" ? "Customer selected" : "Create customer"}</div>
                       <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">{customerEntryMode === "review" ? customerHeadline : "Customer details for this quote"}</h3>
-                      <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                        {customerEntryMode === "review"
-                          ? "The quote now carries this customer data through the proposal, preview, and PDF outputs."
-                          : "Keep this tight: add only the customer details the quote needs, then move on to pricing and scope."}
-                      </p>
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {customerEntryMode === "review" ? (
@@ -1889,22 +1874,13 @@ export default function QuotePreview() {
               <section className="builder-panel">
                 <div className="builder-panel-header"><div><div className="builder-eyebrow">Step 2 locked</div><h2 className="builder-title">Finish customer intake first</h2></div></div>
                 <div className="rounded-[22px] border border-dashed border-[#d7dde4] bg-[#fbfcfe] p-5 text-[14px] leading-[1.6] text-[#51606d]">
-                  Quote setup, commercial sections, and proposal outputs unlock after you either create a customer or apply a saved customer profile.
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4"><strong className="block text-[#16202b]">1. Customer</strong>Add company and contact basics.</div>
-                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4"><strong className="block text-[#16202b]">2. Service + billing</strong>Confirm service address, bill-to, and ship-to.</div>
-                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4"><strong className="block text-[#16202b]">3. Continue building</strong>Once saved, the full quote builder opens automatically.</div>
-                  </div>
+                  Select or create a customer to unlock quote setup, pricing, preview, and PDF output.
                 </div>
               </section>
             ) : (
             <>
             <section className="builder-panel">
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Quote setup</div><h2 className="builder-title">Quote details</h2></div></div>
-
-              <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#f7fafc] p-4 text-[14px] leading-[1.6] text-[#435160]">
-                RapidQuote tracks proposal status only: <strong>Draft</strong>, <strong>In Review</strong>, and <strong>Sent</strong>. If the opportunity moves beyond proposal work, manage it in <strong>Salesforce</strong> instead of closing it inside RapidQuote.
-              </div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <label className="builder-field"><span>Proposal #</span><input value={quote.metadata.proposalNumber} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalNumber = e.target.value; draft.documentation.proposalNumberLabel = e.target.value; return draft; })} /></label>
@@ -1926,84 +1902,27 @@ export default function QuotePreview() {
               </div>
 
               <div className="mt-5 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
-                <div className="builder-eyebrow">Contacts</div>
-                <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Sales-side proposal details</h3>
-                <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Customer basics now live in Customer entry above. This section stays focused on iNet details and any final billing/shipping adjustments needed for the quote.</p>
-
-                <div className="mt-4">
-                  <div className="space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
-                    <div className="flex items-start gap-3">
-                      <Image src="/inet-logo.png" alt="iNet logo" width={120} height={34} className="workspace-logo-inline h-auto w-auto object-contain" />
-                      <div>
-                        <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">iNet</div>
-                        <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Sales contact and address</div>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <label className="builder-field compact"><span>Prepared by</span><input value={quote.inet.contactName} onChange={(e) => updateQuote((draft) => { draft.inet.contactName = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact"><span>Sales team name</span><input value={quote.inet.name} onChange={(e) => updateQuote((draft) => { draft.inet.name = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact"><span>Sales phone</span><input value={quote.inet.contactPhone} onChange={(e) => updateQuote((draft) => { draft.inet.contactPhone = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact"><span>Sales email</span><input value={quote.inet.contactEmail} onChange={(e) => updateQuote((draft) => { draft.inet.contactEmail = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact md:col-span-2"><span>iNet address line 1</span><input value={quote.inet.addressLines[0] ?? ""} onChange={(e) => updateQuote((draft) => { draft.inet.addressLines[0] = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact md:col-span-2"><span>iNet address line 2</span><input value={quote.inet.addressLines[1] ?? ""} onChange={(e) => updateQuote((draft) => { draft.inet.addressLines[1] = e.target.value; return draft; })} /></label>
-                      <label className="builder-field compact md:col-span-2"><span>iNet address line 3</span><input value={quote.inet.addressLines[2] ?? ""} onChange={(e) => updateQuote((draft) => { draft.inet.addressLines[2] = e.target.value; return draft; })} /></label>
+                <div className="builder-eyebrow">iNet contact</div>
+                <div className="mt-4 space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
+                  <div className="flex items-start gap-3">
+                    <Image src="/inet-logo.png" alt="iNet logo" width={120} height={34} className="workspace-logo-inline h-auto w-auto object-contain" />
+                    <div>
+                      <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">iNet</div>
+                      <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Sales contact</div>
                     </div>
                   </div>
-                </div>
-
-                <div className="mt-4 grid gap-4 xl:grid-cols-2">
-                  <AddressEditor
-                    title="Bill To"
-                    address={quote.billTo}
-                    onChange={(next) => updateQuote((draft) => {
-                      draft.billTo = next;
-                      if (draft.shippingSameAsBillTo) draft.shipTo = JSON.parse(JSON.stringify(next));
-                      return draft;
-                    })}
-                  />
-
-                  <div className="space-y-4">
-                    <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]">
-                      <input
-                        type="checkbox"
-                        checked={quote.shippingSameAsBillTo}
-                        onChange={(e) => updateQuote((draft) => {
-                          draft.shippingSameAsBillTo = e.target.checked;
-                          if (e.target.checked) {
-                            draft.shipTo = JSON.parse(JSON.stringify(draft.billTo));
-                          }
-                          return draft;
-                        })}
-                      />
-                      Ship to same as bill to
-                    </label>
-
-                    <AddressEditor
-                      title="Ship To"
-                      address={quote.shippingSameAsBillTo ? quote.billTo : quote.shipTo}
-                      disabled={quote.shippingSameAsBillTo}
-                      onChange={(next) => updateQuote((draft) => {
-                        draft.shipTo = next;
-                        return draft;
-                      })}
-                    />
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="builder-field compact"><span>Prepared by</span><input value={quote.inet.contactName} onChange={(e) => updateQuote((draft) => { draft.inet.contactName = e.target.value; return draft; })} /></label>
+                    <label className="builder-field compact"><span>Sales team name</span><input value={quote.inet.name} onChange={(e) => updateQuote((draft) => { draft.inet.name = e.target.value; return draft; })} /></label>
+                    <label className="builder-field compact"><span>Sales phone</span><input value={quote.inet.contactPhone} onChange={(e) => updateQuote((draft) => { draft.inet.contactPhone = e.target.value; return draft; })} /></label>
+                    <label className="builder-field compact"><span>Sales email</span><input value={quote.inet.contactEmail} onChange={(e) => updateQuote((draft) => { draft.inet.contactEmail = e.target.value; return draft; })} /></label>
                   </div>
                 </div>
               </div>
 
               <div className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#f8fbfd] p-4 md:p-5">
                 <div className="builder-eyebrow">Workflow mode</div>
-                <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                  <div>
-                    <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Choose the quote path first</h3>
-                    <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                      Quick Quote is only for standard Starlink/LTE connectivity deals with router, install materials, and simple field-service rows. Major Project keeps the full components → bundles → customer quote lines workflow.
-                    </p>
-                  </div>
-                  <div className={`rounded-[16px] border px-4 py-3 text-[13px] ${isMajorProject ? "border-[#ead9db] bg-[#fff7f7] text-[#7a042e]" : "border-[#dde3e8] bg-white text-[#5f6c78]"}`}>
-                    {isMajorProject ? "Major Project uses components → bundles → customer quote lines." : "Quick Quote builds standard connectivity quotes from simple line items."}
-                  </div>
-                </div>
+                <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Quote path</h3>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <ToggleCard
                     label="Quick Quote"
@@ -2640,10 +2559,6 @@ export default function QuotePreview() {
                   <SectionToggle label="Install / site services" enabled={quote.sections.sectionC.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionC.enabled = next; return draft; })} />
                 </div>
               </div>
-              <p className="text-[14px] leading-[1.5] text-[#5c6772]">Keep section names clear so the proposal is easy to scan and easy to explain.</p>
-              <div className="mt-3 rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] leading-[1.5] text-[#5e6974]">
-                Customer details appear in the proposal document. Internal notes stay in the builder/workspace only.
-              </div>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 <label className="builder-field"><span>Section A label</span><input value={quote.sections.sectionA.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.builderLabel = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Section B label</span><input value={quote.sections.sectionB.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.builderLabel = e.target.value; return draft; })} /></label>
@@ -2710,10 +2625,8 @@ export default function QuotePreview() {
                   <button type="button" className="pill-button pill-button-active" onClick={generateExecutiveSummary}>Generate draft summary</button>
                 </div>
               </div>
-              <p className="text-[14px] leading-[1.5] text-[#5c6772]">Create a strong opening summary, then fine-tune it to match the customer conversation.</p>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <label className="builder-field"><span>Summary heading</span><input value={quote.executiveSummary.heading ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.heading = e.target.value; return draft; })} /></label>
-                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#5e6974]">Builds a first draft from the customer, pricing, equipment, and service line items above.</div>
               </div>
               <div className="mt-4 grid gap-4">
                 <label className="builder-field"><span>Customer context</span><textarea rows={3} value={quote.executiveSummary.customerContext ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.customerContext = e.target.value; syncExecutiveSummaryParagraphs(draft); return draft; })} /></label>
@@ -2724,7 +2637,7 @@ export default function QuotePreview() {
             {!isMajorProject && quote.sections.sectionA.enabled && (
               <section className="builder-panel">
                 <div className="builder-panel-header">
-                  <div><div className="builder-eyebrow">Quick Quote step 1</div><h2 className="builder-title">Connectivity service line items</h2><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Use this for Starlink, LTE/UniSIM, terminal access fees, support, and data pools or blocks.</p></div>
+                  <div><div className="builder-eyebrow">Quick Quote step 1</div><h2 className="builder-title">Connectivity service line items</h2></div>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" className={`pill-button ${quote.sections.sectionA.mode === "pool" ? "pill-button-active" : ""}`} onClick={() => updateQuote((draft) => { draft.sections.sectionA.mode = "pool"; return draft; })}>Pool pricing</button>
                     <button type="button" className={`pill-button ${quote.sections.sectionA.mode === "per_kit" ? "pill-button-active" : ""}`} onClick={() => updateQuote((draft) => { draft.sections.sectionA.mode = "per_kit"; return draft; })}>Per-kit pricing</button>
@@ -2774,8 +2687,7 @@ export default function QuotePreview() {
             {!isMajorProject && quote.sections.sectionB.enabled && (
               <section className="builder-panel">
                 <div className="builder-panel-header">
-                  <div><div className="builder-eyebrow">Quick Quote step 2</div><h2 className="builder-title">Router and install materials</h2><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Add Starlink terminals when needed, plus routers, mounts, cables, and field-ready install materials.</p></div>
-                  <div className="rounded-[18px] border border-[#ead9db] bg-[#fff7f7] px-4 py-3 text-[13px] text-[#6d4950]">Pick from recommended hardware, add a custom item, or fine-tune the current list without clutter.</div>
+                  <div><div className="builder-eyebrow">Quick Quote step 2</div><h2 className="builder-title">Router and install materials</h2></div>
                 </div>
 
                 <label className="builder-field"><span>Section note</span><textarea rows={3} value={quote.sections.sectionB.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.introText = e.target.value; return draft; })} /></label>
@@ -2806,7 +2718,7 @@ export default function QuotePreview() {
 
                   <div className="space-y-4">
                     <div className="rounded-[24px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                      <div className="builder-eyebrow">Custom item</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Manual Hardware Row</h3><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Use this when the exact part is missing or you need to quote a placeholder during a live call.</p>
+                      <div className="builder-eyebrow">Custom item</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Manual Hardware Row</h3>
                       <div className="mt-4 grid gap-3 md:grid-cols-2"><label className="builder-field compact"><span>Item name</span><input value={customEquipmentDraft.itemName} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, itemName: e.target.value }))} /></label><label className="builder-field compact"><span>Category</span><input value={customEquipmentDraft.itemCategory} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, itemCategory: e.target.value }))} /></label><label className="builder-field compact"><span>Terminal type</span><input value={customEquipmentDraft.terminalType} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, terminalType: e.target.value }))} /></label><label className="builder-field compact"><span>Part #</span><input value={customEquipmentDraft.partNumber} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, partNumber: e.target.value }))} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={customEquipmentDraft.quantity} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, quantity: e.target.value }))} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={customEquipmentDraft.unitPrice} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, unitPrice: e.target.value }))} /></label></div>
                       <label className="builder-field compact mt-3"><span>Description / notes</span><textarea rows={3} value={customEquipmentDraft.description} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, description: e.target.value }))} /></label>
                       <button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={addCustomEquipmentRow}>Add Custom Hardware Row</button>
@@ -2820,8 +2732,7 @@ export default function QuotePreview() {
 
             {!isMajorProject && quote.sections.sectionC.enabled && (
               <section className="builder-panel">
-                <div className="builder-panel-header"><div><div className="builder-eyebrow">Quick Quote step 3</div><h2 className="builder-title">Install and site service line items</h2><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">Use this for site inspection, install allowance, configuration labor, and other simple service rows.</p></div><button type="button" className="pill-button pill-button-active" onClick={addServiceRow}>Add service row</button></div>
-                <p className="text-[14px] leading-[1.5] text-[#5c6772]">This section covers site inspection and installation pricing in both budgetary and final states.</p>
+                <div className="builder-panel-header"><div><div className="builder-eyebrow">Quick Quote step 3</div><h2 className="builder-title">Install and site service line items</h2></div><button type="button" className="pill-button pill-button-active" onClick={addServiceRow}>Add service row</button></div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="builder-field"><span>Section title</span><input value={quote.sections.sectionC.title} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.title = e.target.value; draft.sections.sectionC.builderLabel = e.target.value; return draft; })} /></label>
                   <label className="builder-field"><span>Section intro / note</span><textarea rows={3} value={quote.sections.sectionC.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.introText = e.target.value; return draft; })} /></label>
