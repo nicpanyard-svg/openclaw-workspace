@@ -184,10 +184,11 @@
     "assignedTo": "ike",
     "priority": "high",
     "label": "Build",
-    "column": "backlog",
+    "column": "done",
     "description": "Implement Section A as either Pool Pricing or Per Kit Data Pricing with defaults, calculations, and template rendering.",
     "createdAt": "2026-04-13",
-    "lastUpdate": "Waiting on Step 3."
+    "lastUpdate": "2026-05-01 heartbeat: Verified Section A supports pool/per-kit modes, catalog/default rows, custom data quick-adds, recurring calculations, and proposal/PDF/DOCX rendering. TypeScript check passed with npx tsc --noEmit.",
+    "completedAt": "2026-05-01"
   },
   {
     "id": "t_quote_5",
@@ -196,10 +197,11 @@
     "assignedTo": "ike",
     "priority": "high",
     "label": "Build",
-    "column": "backlog",
+    "column": "done",
     "description": "Implement dynamic Section B hardware rows with standard catalog plus custom items, quantities, unit price, and total calculations.",
     "createdAt": "2026-04-13",
-    "lastUpdate": "Waiting on Step 3."
+    "lastUpdate": "2026-05-01 heartbeat: Verified Section B supports catalog hardware, accessory suggestions, custom/manual rows, quantity/unit/total calculations, reorder/duplicate/remove controls, and proposal/PDF/DOCX rendering. TypeScript check passed with npx tsc --noEmit.",
+    "completedAt": "2026-05-01"
   },
   {
     "id": "t_quote_6",
@@ -208,10 +210,11 @@
     "assignedTo": "ike",
     "priority": "medium",
     "label": "Build",
-    "column": "backlog",
+    "column": "done",
     "description": "Track open quotes and roll up counts for standard products, accessories, and terminal types across open quotes.",
     "createdAt": "2026-04-13",
-    "lastUpdate": "Waiting on quote persistence model."
+    "lastUpdate": "2026-05-01 heartbeat: Verified workspace open quote rollups summarize active proposals, standard products, accessories, custom hardware, and terminal type demand from Section B hardware. TypeScript check passed with npx tsc --noEmit.",
+    "completedAt": "2026-05-01"
   },
   {
     "id": "t_quote_7",
@@ -220,10 +223,11 @@
     "assignedTo": "ike",
     "priority": "medium",
     "label": "Build",
-    "column": "backlog",
+    "column": "done",
     "description": "Generate DOCX output from the locked branded template with dynamic metadata, Section A, and Section B content.",
     "createdAt": "2026-04-13",
-    "lastUpdate": "Waiting on quote shell + data wiring."
+    "lastUpdate": "2026-05-01 heartbeat: Verified DOCX export is implemented through app/lib/proposal-word-export.ts and the Preview Proposal page Export Word action downloads a .docx from saved proposal data. Previous hosted QA also confirmed Word export controls/download path.",
+    "completedAt": "2026-05-01"
   },
   {
     "id": "t_quote_8",
