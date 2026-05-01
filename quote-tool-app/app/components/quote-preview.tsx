@@ -2009,21 +2009,6 @@ export default function QuotePreview() {
                 </div>
               </div>
 
-              {!isMajorProject && (
-                <div className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#fbfcfe] p-4 md:p-5">
-                  <div className="builder-eyebrow">Quick Quote workflow</div>
-                  <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Standard connectivity package</h3>
-                  <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                    Build the quote from line items, but keep the path tight: service first, router and materials second, install or site inspection third, then preview.
-                  </p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-4 text-[13px] text-[#44515d]">
-                    <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">1. Service</strong><span>Starlink, LTE/UniSIM, or both.</span></div>
-                    <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">2. Hardware</strong><span>Terminal, router, mount, cable.</span></div>
-                    <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">3. Labor</strong><span>Install materials, site walk, install allowance.</span></div>
-                    <div className="rounded-[16px] bg-white px-4 py-3"><strong className="block text-[#16202b]">4. Preview</strong><span>Clean customer proposal.</span></div>
-                  </div>
-                </div>
-              )}
 
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {([
