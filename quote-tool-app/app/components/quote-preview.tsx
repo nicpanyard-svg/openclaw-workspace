@@ -719,9 +719,9 @@ export default function QuotePreview() {
   const leaseMarginPercent = quote.metadata.leaseMarginPercent ?? 35;
 
   const leaseMarginAmount = useMemo(() => {
-    if (quote.metadata.quoteType !== "lease") return 0;
+    if (quote.metadata.quoteType !== "lease" || !isMajorProject) return 0;
     return Number((equipmentTotal * (leaseMarginPercent / 100)).toFixed(2));
-  }, [equipmentTotal, leaseMarginPercent, quote.metadata.quoteType]);
+  }, [equipmentTotal, isMajorProject, leaseMarginPercent, quote.metadata.quoteType]);
 
   const leaseEquipmentBase = useMemo(() => {
     if (quote.metadata.quoteType !== "lease") return 0;
@@ -2066,7 +2066,9 @@ export default function QuotePreview() {
                   <div className="builder-eyebrow">Lease calculator</div>
                   <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Lease pricing builder</h3>
                   <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                    Lease pricing is gated by an active data agreement. Hardware margin is editable, defaults to 35%, and is spread across the selected lease term.
+                    {isMajorProject
+                      ? "Lease pricing is gated by an active data agreement. Hardware margin is editable and spread across the selected lease term."
+                      : "Lease pricing is gated by an active data agreement. Quick Quote spreads the hardware total across the selected term, then adds monthly service."}
                   </p>
 
                   <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
@@ -2099,31 +2101,35 @@ export default function QuotePreview() {
                           </select>
                         </label>
 
-                        <label className="builder-field compact">
-                          <span>Lease margin %</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={leaseMarginPercent}
-                            onChange={(e) => updateQuote((draft) => {
-                              draft.metadata.leaseMarginPercent = Math.max(parseNumber(e.target.value), 0);
-                              return draft;
-                            })}
-                          />
-                        </label>
+                        {isMajorProject && (
+                          <label className="builder-field compact">
+                            <span>Lease margin %</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={leaseMarginPercent}
+                              onChange={(e) => updateQuote((draft) => {
+                                draft.metadata.leaseMarginPercent = Math.max(parseNumber(e.target.value), 0);
+                                return draft;
+                              })}
+                            />
+                          </label>
+                        )}
                       </div>
 
                       <div className={`rounded-[18px] border px-4 py-3 text-[13px] leading-[1.5] ${hasActiveDataAgreement ? "border-[#d9e7dd] bg-[#f5fbf6] text-[#365444]" : "border-[#f0d1d1] bg-[#fff1f1] text-[#7d4b4b]"}`}>
                         {hasActiveDataAgreement
-                          ? `Lease pricing is active. The monthly lease total below now includes the ${leaseMarginPercent}% hardware margin spread across the selected term.`
+                          ? isMajorProject
+                            ? `Lease pricing is active. The monthly lease total below now includes the ${leaseMarginPercent}% hardware margin spread across the selected term.`
+                            : "Lease pricing is active. The monthly lease total below spreads hardware across the selected term and adds recurring monthly service."
                           : "Lease pricing is locked until an active data agreement is confirmed. Turn this on to enable the lease monthly number."}
                       </div>
                     </div>
 
                     <div className="space-y-3 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                       <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Purchase hardware total</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>
-                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Lease margin ({leaseMarginPercent}%)</span><strong>{formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>
+                      {isMajorProject && <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Lease margin ({leaseMarginPercent}%)</span><strong>{formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>}
                       <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Lease hardware base</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
                       <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Selected term</span><strong>{selectedLeaseTerm} months</strong></div>
                       <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Hardware per month</span><strong>{formatCurrency(leaseEquipmentMonthly, currencyCode)}</strong></div>
@@ -2132,10 +2138,10 @@ export default function QuotePreview() {
                         <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Calculation breakdown</div>
                         <div className="mt-2 space-y-2">
                           <div className="flex items-center justify-between gap-3"><span>1. Equipment total</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>2. + Margin ({leaseMarginPercent}%)</span><strong>+ {formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>3. Lease hardware base</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>4. ÷ Term ({selectedLeaseTerm})</span><strong>{formatCurrency(leaseEquipmentMonthly, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>5. + Recurring monthly service</span><strong>+ {formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>
+                          {isMajorProject && <div className="flex items-center justify-between gap-3"><span>2. + Margin ({leaseMarginPercent}%)</span><strong>+ {formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>}
+                          <div className="flex items-center justify-between gap-3"><span>{isMajorProject ? "3." : "2."} Lease hardware base</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>{isMajorProject ? "4." : "3."} ÷ Term ({selectedLeaseTerm})</span><strong>{formatCurrency(leaseEquipmentMonthly, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>{isMajorProject ? "5." : "4."} + Recurring monthly service</span><strong>+ {formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>
                         </div>
                       </div>
                       <div className="border-t border-[#e8edf2] pt-3">
@@ -2145,7 +2151,9 @@ export default function QuotePreview() {
                         </div>
                         <div className="mt-1 text-[13px] text-[#60707f]">
                           {hasActiveDataAgreement
-                            ? `Formula: ${formatCurrency(equipmentTotal, currencyCode)} + ${leaseMarginPercent}% margin = ${formatCurrency(leaseEquipmentBase, currencyCode)}; then ${formatCurrency(leaseEquipmentBase, currencyCode)} ÷ ${selectedLeaseTerm} = ${formatCurrency(leaseEquipmentMonthly, currencyCode)}; then + ${formatCurrency(recurringMonthlyTotal, currencyCode)} recurring monthly service.`
+                            ? isMajorProject
+                              ? `Formula: ${formatCurrency(equipmentTotal, currencyCode)} + ${leaseMarginPercent}% margin = ${formatCurrency(leaseEquipmentBase, currencyCode)}; then ${formatCurrency(leaseEquipmentBase, currencyCode)} ÷ ${selectedLeaseTerm} = ${formatCurrency(leaseEquipmentMonthly, currencyCode)}; then + ${formatCurrency(recurringMonthlyTotal, currencyCode)} recurring monthly service.`
+                              : `Formula: ${formatCurrency(equipmentTotal, currencyCode)} ÷ ${selectedLeaseTerm} = ${formatCurrency(leaseEquipmentMonthly, currencyCode)}; then + ${formatCurrency(recurringMonthlyTotal, currencyCode)} recurring monthly service.`
                             : "This lease calculator stays disabled until the active data agreement box is checked."}
                         </div>
                       </div>
@@ -2154,13 +2162,14 @@ export default function QuotePreview() {
                 </div>
               )}
 
+              {isMajorProject && (
               <div className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#f8fbfd] p-4 md:p-5">
-                <div className="builder-eyebrow">Internal commercial{!isMajorProject ? " / Advanced" : ""}</div>
+                <div className="builder-eyebrow">Internal commercial</div>
                 <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                   <div>
-                    <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">{!isMajorProject ? "Advanced margin controls" : "Margin foundation"}</h3>
+                    <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Margin foundation</h3>
                     <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                      Internal-only economics. Quick Quote users can ignore this unless they need cost/margin inputs; Major Project users can use the fuller commercial model below.
+                      Internal-only economics for structured major quotes. Quick Quote stays clean and does not calculate margin.
                     </p>
                   </div>
                   <div className="rounded-[16px] border border-[#dde3e8] bg-white px-4 py-3 text-[13px] text-[#5f6c78]">
@@ -2230,6 +2239,7 @@ export default function QuotePreview() {
                   </div>
                 </div>
               </div>
+              )}
 
               {isMajorProject && majorProjectState && (
                 <div className="mt-5 space-y-5 rounded-[22px] border border-[#ead9db] bg-[#fff9f9] p-4 md:p-5">
