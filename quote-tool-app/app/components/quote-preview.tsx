@@ -161,11 +161,22 @@ function countSectionAUnits(rows: Array<PoolPricingRow | PerKitPricingRow>) {
   }, 0);
 }
 
+function deriveConnectivityLabel(rows: Array<PoolPricingRow | PerKitPricingRow>) {
+  const text = rows.map((row) => row.description).join(" ").toLowerCase();
+  const labels = [
+    text.includes("starlink") ? "Starlink" : null,
+    text.includes("unisim") || text.includes("lte") ? "LTE/UniSIM" : null,
+    text.includes("t-mobile") ? "T-Mobile" : null,
+  ].filter((label): label is string => Boolean(label));
+
+  return Array.from(new Set(labels)).join(" + ") || "configured";
+}
+
 function buildExecutiveSummaryDraft(quote: QuoteRecord) {
   const customerName = quote.customer.name || quote.metadata.customerShortName || "the customer";
-  const provider = quote.metadata.customerProvider;
   const pricingModel = quote.sections.sectionA.mode === "pool" ? "pooled service" : "per-kit service";
   const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
+  const connectivityLabel = deriveConnectivityLabel(sectionARows);
   const serviceUnits = countSectionAUnits(sectionARows);
   const equipmentRows = quote.sections.sectionB.lineItems;
   const equipmentUnits = equipmentRows.reduce((sum, row) => sum + row.quantity, 0);
@@ -179,7 +190,7 @@ function buildExecutiveSummaryDraft(quote: QuoteRecord) {
   );
 
   const heading = "Executive Summary";
-  const customerContext = `${quote.metadata.documentTitle || "Proposal"} for ${customerName} covering ${provider} connectivity, equipment, and implementation scope as currently configured in the builder.`;
+  const customerContext = `${quote.metadata.documentTitle || "Proposal"} for ${customerName} covering ${connectivityLabel} connectivity, equipment, and implementation scope as currently configured in the builder.`;
 
   const bodyParts = [
     `This draft reflects a ${quote.metadata.quoteType === "lease" ? "lease" : "purchase"} quote structured around ${pricingModel}${serviceUnits ? ` with ${serviceUnits} active service unit${serviceUnits === 1 ? "" : "s"}` : ""}.`,
@@ -2617,9 +2628,6 @@ export default function QuotePreview() {
               </div>
               )}
 
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <label className="builder-field"><span>Section A provider option</span><select value={quote.metadata.customerProvider} onChange={(e) => updateQuote((draft) => { draft.metadata.customerProvider = e.target.value as QuoteRecord["metadata"]["customerProvider"]; return draft; })}><option value="Starlink">Starlink</option><option value="UniSIM">UniSIM</option><option value="T-Mobile">T-Mobile</option></select></label>
-              </div>
             </section>
 
             <section className="builder-panel">
@@ -2705,7 +2713,7 @@ export default function QuotePreview() {
               <p className="text-[14px] leading-[1.5] text-[#5c6772]">Create a strong opening summary, then fine-tune it to match the customer conversation.</p>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <label className="builder-field"><span>Summary heading</span><input value={quote.executiveSummary.heading ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.heading = e.target.value; return draft; })} /></label>
-                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#5e6974]">Builds a first draft from the customer, provider, pricing, equipment, and service selections above.</div>
+                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#5e6974]">Builds a first draft from the customer, pricing, equipment, and service line items above.</div>
               </div>
               <div className="mt-4 grid gap-4">
                 <label className="builder-field"><span>Customer context</span><textarea rows={3} value={quote.executiveSummary.customerContext ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.customerContext = e.target.value; syncExecutiveSummaryParagraphs(draft); return draft; })} /></label>
