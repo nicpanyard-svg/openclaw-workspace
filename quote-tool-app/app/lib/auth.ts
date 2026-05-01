@@ -1,9 +1,12 @@
 export const AUTH_STORAGE_KEY = "rapidquote:auth-session";
 export const ACCESS_REQUESTS_STORAGE_KEY = "rapidquote:access-requests";
+export const USER_DIRECTORY_STORAGE_KEY = "rapidquote:user-directory";
+export const ACCESS_AUDIT_STORAGE_KEY = "rapidquote:access-audit";
 
 export type RapidQuoteRole = "sales" | "sales_ops" | "solutions_engineering" | "admin";
 export type AccountStatus = "active" | "invited" | "pending_admin" | "suspended";
 export type AccessRequestStatus = "pending" | "approved" | "needs_info" | "denied";
+export type AccessAuditAction = "request_approved" | "request_denied" | "request_needs_info" | "user_created" | "role_changed" | "status_changed";
 
 export type AuthUser = {
   id: string;
@@ -16,6 +19,8 @@ export type AuthUser = {
   initials: string;
   canManageUsers: boolean;
 };
+
+export type DirectoryUserRecord = AuthUser & { password: string };
 
 export type AuthSession = {
   user: AuthUser;
@@ -44,9 +49,21 @@ export type AccessRequestRecord = {
   notes?: string;
 };
 
-const EIGHT_HOURS_MS = 1000 * 60 * 60 * 8;
+export type AccessAuditRecord = {
+  id: string;
+  action: AccessAuditAction;
+  actorName: string;
+  actorEmail: string;
+  targetName: string;
+  targetEmail: string;
+  createdAt: string;
+  note: string;
+};
 
-const users: Array<AuthUser & { password: string }> = [
+const EIGHT_HOURS_MS = 1000 * 60 * 60 * 8;
+const DEFAULT_PASSWORD = "RapidQuote!23";
+
+const seededUsers: DirectoryUserRecord[] = [
   {
     id: "nick-panyard",
     name: "Nick Panyard",
@@ -65,7 +82,7 @@ const users: Array<AuthUser & { password: string }> = [
     email: "casey@inetlte.com",
     title: "Sales Ops Lead",
     team: "Revenue Operations",
-    role: "sales_ops",
+    role: "admin",
     status: "active",
     initials: "CM",
     canManageUsers: true,
@@ -184,23 +201,88 @@ const seededAccessRequests: AccessRequestRecord[] = [
     createdAt: "2026-04-16T12:05:00.000Z",
     reviewedAt: "2026-04-16T16:30:00.000Z",
     reviewerName: "Casey Morgan",
-    notes: "External access is not enabled in this phase. Route through exported proposal PDFs instead.",
+    notes: "External access is limited to exported proposal files.",
   },
 ];
 
-function stripPassword(user: AuthUser & { password: string }): AuthUser {
+function stripPassword(user: DirectoryUserRecord): AuthUser {
   const { password, ...safeUser } = user;
   void password;
   return safeUser;
 }
 
+export function normalizeDirectoryUser(user: DirectoryUserRecord): DirectoryUserRecord {
+  return {
+    ...user,
+    email: user.email.trim().toLowerCase(),
+    initials: user.initials || buildInitials(user.name),
+    canManageUsers: user.role === "admin",
+    password: user.password || DEFAULT_PASSWORD,
+  };
+}
+
+export function buildInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "RQ";
+}
+
+export function buildUserId(name: string, email: string) {
+  const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const suffix = email.split("@")[0]?.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || Math.random().toString(36).slice(2, 8);
+  return `${base || "rapidquote-user"}-${suffix}`;
+}
+
+export function roleLabel(role: RapidQuoteRole) {
+  switch (role) {
+    case "admin":
+      return "Admin";
+    case "sales_ops":
+      return "Sales Ops";
+    case "solutions_engineering":
+      return "Solutions Engineering";
+    default:
+      return "Sales";
+  }
+}
+
+export function deserializeDirectoryUsers(value: string | null | undefined): DirectoryUserRecord[] {
+  if (!value) return seededUsers.map(normalizeDirectoryUser);
+
+  try {
+    const parsed = JSON.parse(value) as DirectoryUserRecord[];
+    if (!Array.isArray(parsed)) {
+      return seededUsers.map(normalizeDirectoryUser);
+    }
+
+    const normalized = parsed
+      .filter((user) => user?.id && user?.email && user?.name)
+      .map(normalizeDirectoryUser);
+
+    return normalized.length ? normalized : seededUsers.map(normalizeDirectoryUser);
+  } catch {
+    return seededUsers.map(normalizeDirectoryUser);
+  }
+}
+
 export function getDirectoryUsers(): AuthUser[] {
-  return users.map(stripPassword);
+  return getDirectoryUserRecords().map(stripPassword);
+}
+
+export function getDirectoryUserRecords(): DirectoryUserRecord[] {
+  if (typeof window === "undefined") {
+    return seededUsers.map(normalizeDirectoryUser);
+  }
+
+  return deserializeDirectoryUsers(window.localStorage.getItem(USER_DIRECTORY_STORAGE_KEY));
 }
 
 export function getUserByEmail(email: string): AuthUser | null {
   const normalizedEmail = email.trim().toLowerCase();
-  const match = users.find((user) => user.email.toLowerCase() === normalizedEmail);
+  const match = getDirectoryUserRecords().find((user) => user.email.toLowerCase() === normalizedEmail);
   if (!match) return null;
   return stripPassword(match);
 }
@@ -233,7 +315,12 @@ export function deserializeAuthSession(value: string | null | undefined): AuthSe
       return null;
     }
 
-    return parsed;
+    const directoryUser = getUserByEmail(parsed.user.email);
+    if (!directoryUser || directoryUser.status !== "active") {
+      return null;
+    }
+
+    return { ...parsed, user: directoryUser };
   } catch {
     return null;
   }
@@ -254,6 +341,17 @@ export function deserializeAccessRequests(value: string | null | undefined): Acc
   }
 }
 
+export function deserializeAccessAudit(value: string | null | undefined): AccessAuditRecord[] {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value) as AccessAuditRecord[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export function getSeededAccessRequests(): AccessRequestRecord[] {
   return seededAccessRequests;
 }
@@ -262,10 +360,26 @@ export function buildAccessRequestId() {
   return `rq-access-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+export function buildAccessAuditId() {
+  return `rq-audit-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function inferRoleFromRequest(roleNeeded: string): RapidQuoteRole {
+  const normalized = roleNeeded.toLowerCase();
+  if (normalized.includes("admin")) return "admin";
+  if (normalized.includes("ops") || normalized.includes("analyst")) return "sales_ops";
+  if (normalized.includes("engineer") || normalized.includes("solution")) return "solutions_engineering";
+  return "sales";
+}
+
+export function activeAdminCount(users: DirectoryUserRecord[]) {
+  return users.filter((user) => user.status === "active" && user.role === "admin").length;
+}
+
 export function authenticateWithPassword(email: string, password: string): SignInResult {
   const normalizedEmail = email.trim().toLowerCase();
   const normalizedPassword = password.trim();
-  const match = users.find((user) => user.email.toLowerCase() === normalizedEmail);
+  const match = getDirectoryUserRecords().find((user) => user.email.toLowerCase() === normalizedEmail);
 
   if (!match || match.password !== normalizedPassword) {
     return {
@@ -283,6 +397,6 @@ export function authenticateWithPassword(email: string, password: string): SignI
 
   return {
     ok: true,
-    session: buildSession(stripPassword(match)),
+    session: buildSession(stripPassword(normalizeDirectoryUser(match))),
   };
 }

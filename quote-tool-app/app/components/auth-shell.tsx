@@ -7,27 +7,61 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  ACCESS_AUDIT_STORAGE_KEY,
   ACCESS_REQUESTS_STORAGE_KEY,
   AUTH_STORAGE_KEY,
+  USER_DIRECTORY_STORAGE_KEY,
+  activeAdminCount,
   authenticateWithPassword,
+  buildAccessAuditId,
+  buildInitials,
+  buildSession,
+  buildUserId,
   canSelfServeSignUp,
+  deserializeAccessAudit,
   deserializeAccessRequests,
   deserializeAuthSession,
+  deserializeDirectoryUsers,
   getSeededAccessRequests,
+  inferRoleFromRequest,
   isSessionExpired,
+  normalizeDirectoryUser,
+  roleLabel,
+  type AccessAuditAction,
+  type AccessAuditRecord,
   type AccessRequestRecord,
+  type AccessRequestStatus,
+  type AccountStatus,
   type AuthSession,
   type AuthUser,
+  type DirectoryUserRecord,
+  type RapidQuoteRole,
 } from "@/app/lib/auth";
+
+type CreateUserInput = {
+  name: string;
+  email: string;
+  title: string;
+  team: string;
+  role: RapidQuoteRole;
+  status: AccountStatus;
+  password: string;
+};
 
 type AuthContextValue = {
   session: AuthSession | null;
   user: AuthUser | null;
   isReady: boolean;
   accessRequests: AccessRequestRecord[];
+  directoryUsers: AuthUser[];
+  accessAudit: AccessAuditRecord[];
   signIn: (email: string, password: string) => { ok: boolean; error?: string };
   signOut: () => void;
   submitAccessRequest: (request: AccessRequestRecord) => void;
+  decideAccessRequest: (requestId: string, status: AccessRequestStatus, notes: string) => { ok: boolean; error?: string };
+  createUser: (input: CreateUserInput) => { ok: boolean; error?: string };
+  updateUserRole: (userId: string, role: RapidQuoteRole) => { ok: boolean; error?: string };
+  updateUserStatus: (userId: string, status: AccountStatus) => { ok: boolean; error?: string };
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -48,15 +82,28 @@ function sanitizeNextRoute(next: string | null, pathname: string) {
   return next;
 }
 
+function toSafeUsers(users: DirectoryUserRecord[]): AuthUser[] {
+  return users.map(({ password, ...user }) => {
+    void password;
+    return user;
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [accessRequests, setAccessRequests] = useState<AccessRequestRecord[]>(getSeededAccessRequests);
+  const [directoryRecords, setDirectoryRecords] = useState<DirectoryUserRecord[]>(() => deserializeDirectoryUsers(null));
+  const [accessAudit, setAccessAudit] = useState<AccessAuditRecord[]>([]);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
     setIsHydrated(true);
+
+    const savedUsers = deserializeDirectoryUsers(window.localStorage.getItem(USER_DIRECTORY_STORAGE_KEY));
+    window.localStorage.setItem(USER_DIRECTORY_STORAGE_KEY, JSON.stringify(savedUsers));
+    setDirectoryRecords(savedUsers);
 
     const savedSession = deserializeAuthSession(window.localStorage.getItem(AUTH_STORAGE_KEY));
     if (savedSession && !isSessionExpired(savedSession)) {
@@ -68,6 +115,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const savedAccessRequests = deserializeAccessRequests(window.localStorage.getItem(ACCESS_REQUESTS_STORAGE_KEY));
     window.localStorage.setItem(ACCESS_REQUESTS_STORAGE_KEY, JSON.stringify(savedAccessRequests));
     setAccessRequests(savedAccessRequests);
+
+    const savedAudit = deserializeAccessAudit(window.localStorage.getItem(ACCESS_AUDIT_STORAGE_KEY));
+    window.localStorage.setItem(ACCESS_AUDIT_STORAGE_KEY, JSON.stringify(savedAudit));
+    setAccessAudit(savedAudit);
   }, []);
 
   useEffect(() => {
@@ -84,6 +135,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (event.key === ACCESS_REQUESTS_STORAGE_KEY) {
         setAccessRequests(deserializeAccessRequests(event.newValue));
+        return;
+      }
+
+      if (event.key === USER_DIRECTORY_STORAGE_KEY) {
+        setDirectoryRecords(deserializeDirectoryUsers(event.newValue));
+        return;
+      }
+
+      if (event.key === ACCESS_AUDIT_STORAGE_KEY) {
+        setAccessAudit(deserializeAccessAudit(event.newValue));
       }
     };
 
@@ -115,11 +176,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [isReady, pathname, router, session]);
 
+  const persistDirectory = (nextUsers: DirectoryUserRecord[]) => {
+    const normalized = nextUsers.map(normalizeDirectoryUser);
+    setDirectoryRecords(normalized);
+    window.localStorage.setItem(USER_DIRECTORY_STORAGE_KEY, JSON.stringify(normalized));
+
+    if (session) {
+      const refreshedUser = normalized.find((record) => record.email === session.user.email);
+      if (!refreshedUser || refreshedUser.status !== "active") {
+        setSession(null);
+        window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      } else {
+        const nextSession = buildSession(toSafeUsers([refreshedUser])[0]);
+        setSession(nextSession);
+        window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession));
+      }
+    }
+  };
+
+  const addAudit = (action: AccessAuditAction, target: { name: string; email: string }, note: string) => {
+    const actor = session?.user;
+    const record: AccessAuditRecord = {
+      id: buildAccessAuditId(),
+      action,
+      actorName: actor?.name ?? "RapidQuote Admin",
+      actorEmail: actor?.email ?? "admin@inetlte.com",
+      targetName: target.name,
+      targetEmail: target.email,
+      createdAt: new Date().toISOString(),
+      note,
+    };
+    const nextAudit = [record, ...accessAudit].slice(0, 100);
+    setAccessAudit(nextAudit);
+    window.localStorage.setItem(ACCESS_AUDIT_STORAGE_KEY, JSON.stringify(nextAudit));
+  };
+
+  const requireAdmin = () => {
+    if (!session?.user.canManageUsers) {
+      return "Admin access is required for that action.";
+    }
+    return null;
+  };
+
   const value = useMemo<AuthContextValue>(() => ({
     session,
     user: session?.user ?? null,
     isReady,
     accessRequests,
+    directoryUsers: toSafeUsers(directoryRecords),
+    accessAudit,
     signIn(email: string, password: string) {
       const result = authenticateWithPassword(email, password);
       if (!result.ok || !result.session) {
@@ -155,7 +260,105 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.refresh();
       }
     },
-  }), [accessRequests, isReady, router, session]);
+    decideAccessRequest(requestId: string, status: AccessRequestStatus, notes: string) {
+      const adminError = requireAdmin();
+      if (adminError) return { ok: false, error: adminError };
+
+      const request = accessRequests.find((item) => item.id === requestId);
+      if (!request) return { ok: false, error: "Access request was not found." };
+
+      const reviewNotes = notes.trim() || request.notes || "Reviewed by admin.";
+      const reviewedRequest: AccessRequestRecord = {
+        ...request,
+        status,
+        notes: reviewNotes,
+        reviewedAt: new Date().toISOString(),
+        reviewerName: session?.user.name,
+      };
+      const nextRequests = accessRequests.map((item) => item.id === requestId ? reviewedRequest : item);
+      setAccessRequests(nextRequests);
+      window.localStorage.setItem(ACCESS_REQUESTS_STORAGE_KEY, JSON.stringify(nextRequests));
+
+      if (status === "approved") {
+        const existing = directoryRecords.find((record) => record.email === request.email.toLowerCase());
+        if (!existing) {
+          const role = inferRoleFromRequest(request.roleNeeded);
+          const nextUser = normalizeDirectoryUser({
+            id: buildUserId(request.name, request.email),
+            name: request.name,
+            email: request.email,
+            title: request.roleNeeded,
+            team: request.team,
+            role,
+            status: "active",
+            initials: buildInitials(request.name),
+            canManageUsers: role === "admin",
+            password: "RapidQuote!23",
+          });
+          persistDirectory([nextUser, ...directoryRecords]);
+        }
+      }
+
+      const action: AccessAuditAction = status === "approved" ? "request_approved" : status === "denied" ? "request_denied" : "request_needs_info";
+      addAudit(action, request, `${request.email} marked ${status.replace("_", " ")}. ${reviewNotes}`);
+      return { ok: true };
+    },
+    createUser(input: CreateUserInput) {
+      const adminError = requireAdmin();
+      if (adminError) return { ok: false, error: adminError };
+
+      const email = input.email.trim().toLowerCase();
+      if (!input.name.trim() || !email) return { ok: false, error: "Name and email are required." };
+      if (directoryRecords.some((record) => record.email === email)) return { ok: false, error: "That email already exists in the directory." };
+
+      const nextUser = normalizeDirectoryUser({
+        id: buildUserId(input.name, email),
+        name: input.name.trim(),
+        email,
+        title: input.title.trim() || roleLabel(input.role),
+        team: input.team.trim() || "Sales",
+        role: input.role,
+        status: input.status,
+        initials: buildInitials(input.name),
+        canManageUsers: input.role === "admin",
+        password: input.password.trim() || "RapidQuote!23",
+      });
+
+      persistDirectory([nextUser, ...directoryRecords]);
+      addAudit("user_created", nextUser, `${nextUser.name} added as ${roleLabel(nextUser.role)} with ${nextUser.status} status.`);
+      return { ok: true };
+    },
+    updateUserRole(userId: string, role: RapidQuoteRole) {
+      const adminError = requireAdmin();
+      if (adminError) return { ok: false, error: adminError };
+
+      const target = directoryRecords.find((record) => record.id === userId);
+      if (!target) return { ok: false, error: "User was not found." };
+
+      const wouldRemoveLastAdmin = target.role === "admin" && role !== "admin" && target.status === "active" && activeAdminCount(directoryRecords) <= 1;
+      if (wouldRemoveLastAdmin) return { ok: false, error: "RapidQuote must keep at least one active admin." };
+
+      const nextUsers = directoryRecords.map((record) => record.id === userId ? normalizeDirectoryUser({ ...record, role }) : record);
+      persistDirectory(nextUsers);
+      addAudit("role_changed", target, `${target.name} role changed from ${roleLabel(target.role)} to ${roleLabel(role)}.`);
+      return { ok: true };
+    },
+    updateUserStatus(userId: string, status: AccountStatus) {
+      const adminError = requireAdmin();
+      if (adminError) return { ok: false, error: adminError };
+
+      const target = directoryRecords.find((record) => record.id === userId);
+      if (!target) return { ok: false, error: "User was not found." };
+
+      const wouldRemoveLastAdmin = target.role === "admin" && target.status === "active" && status !== "active" && activeAdminCount(directoryRecords) <= 1;
+      if (wouldRemoveLastAdmin) return { ok: false, error: "RapidQuote must keep at least one active admin." };
+
+      const nextUsers = directoryRecords.map((record) => record.id === userId ? normalizeDirectoryUser({ ...record, status }) : record);
+      persistDirectory(nextUsers);
+      addAudit("status_changed", target, `${target.name} status changed from ${target.status} to ${status}.`);
+      return { ok: true };
+    },
+  }), [accessAudit, accessRequests, directoryRecords, isReady, router, session]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -237,35 +440,25 @@ export function AuthMarketingPanel() {
       <div className="auth-marketing-kicker">Secure proposal workspace</div>
       <h1 className="auth-marketing-title">RapidQuote by iNet gives every teammate a clean front door into quoting, approvals, and proposal delivery.</h1>
       <p className="auth-marketing-copy">
-        Tonight&apos;s auth work is landing behind this surface. These screens now frame RapidQuote as a real internal workspace with clear sign-in,
-        request-access, and recovery paths instead of a product demo shortcut.
+        RapidQuote keeps account access behind an internal review path, so quoting data stays with approved iNet teammates.
       </p>
 
       <div className="auth-marketing-grid">
         <article className="auth-marketing-card">
           <span>Access rules</span>
           <strong>Internal first</strong>
-          <p>iNet users can request access directly, while external parties stay on exported proposal outputs for now.</p>
+          <p>iNet users can request access directly, while external parties stay on exported proposal outputs.</p>
         </article>
         <article className="auth-marketing-card">
           <span>Shared ownership</span>
-          <strong>Admin queue direction</strong>
-          <p>Requests, approvals, and role decisions have a visible place to land instead of living in someone&apos;s head.</p>
+          <strong>Admin queue</strong>
+          <p>Requests, approvals, and role decisions have one visible place to land.</p>
         </article>
         <article className="auth-marketing-card">
           <span>User trust</span>
           <strong>Clear next steps</strong>
-          <p>Every auth screen explains what is live now and what the backend will take over next.</p>
+          <p>Every auth screen explains where the request stands and what happens next.</p>
         </article>
-      </div>
-
-      <div className="auth-roadmap-card">
-        <div className="auth-roadmap-title">Backend connection points landing next</div>
-        <ul>
-          <li>Directory-backed users, real invites, and passwordless or SSO flows.</li>
-          <li>Approval logic, audit history, and role-based provisioning.</li>
-          <li>Email delivery, reset tokens, and production-grade policy enforcement.</li>
-        </ul>
       </div>
     </section>
   );
@@ -288,7 +481,7 @@ export function AuthSignInStatusCard() {
           <div className="auth-demo-card-label">Sign-in status</div>
           <strong>Internal account access is required</strong>
         </div>
-        <span className="auth-demo-card-pill">Staging</span>
+        <span className="auth-demo-card-pill">Controlled access</span>
       </div>
       <div className="auth-demo-credentials-grid">
         <div className="auth-demo-credential-item">
@@ -296,11 +489,11 @@ export function AuthSignInStatusCard() {
           <code>Approved iNet users</code>
         </div>
         <div className="auth-demo-credential-item">
-          <span>Backend handoff</span>
-          <code>Real auth wiring in progress</code>
+          <span>Where access is managed</span>
+          <code>Access Manager</code>
         </div>
       </div>
-      <p className="auth-demo-hint">If your account is not ready yet, use Request access or Forgot password so the new backend flow has a clean user-facing path to attach to.</p>
+      <p className="auth-demo-hint">If your account is not ready yet, use Request access or Forgot password so an admin can review the request.</p>
     </div>
   );
 }
