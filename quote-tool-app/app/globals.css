@@ -2782,6 +2782,11 @@ body {
     margin-left: 0;
     margin-right: 0;
   }
+
+  .proposal-toolbar {
+    position: static !important;
+    top: auto;
+  }
 }
 
 @media print {
