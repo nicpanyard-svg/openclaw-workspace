@@ -5,6 +5,7 @@ import {
   createProposalFromQuote,
   deserializeProposalStore,
   getActiveProposal,
+  getProposalById,
   getDefaultProposalStore,
   mockUsers,
   serializeProposalStore,
@@ -67,16 +68,20 @@ export function resolvePreferredQuote(options: {
   };
 }
 
-export function resolveActiveProposalQuote(): {
-  quote: QuoteRecord;
+export function resolveActiveProposalQuote(preferredProposalId?: string | null): {
+  quote: QuoteRecord | null;
   usingSavedData: boolean;
+  requestedProposalId: string | null;
+  missingRequestedProposal: boolean;
   activeProposalId: string | null;
   activeProposal: SavedProposalRecord | null;
 } {
   if (typeof window === "undefined") {
     return {
-      quote: createBlankQuoteRecord(),
+      quote: null,
       usingSavedData: false,
+      requestedProposalId: preferredProposalId ?? null,
+      missingRequestedProposal: false,
       activeProposalId: null,
       activeProposal: null,
     };
@@ -91,14 +96,43 @@ export function resolveActiveProposalQuote(): {
     createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }),
   );
   const store = ensureNickTrainingDemoProposalStore(savedStore ?? fallbackStore);
+  const requestedProposalId = preferredProposalId ?? null;
 
   window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(store));
 
-  const activeProposal = getActiveProposal(store, activeId);
+  const requestedProposal = requestedProposalId
+    ? getProposalById(store, requestedProposalId)
+    : null;
+  const activeProposal = requestedProposal ?? getActiveProposal(store, activeId);
+  const missingRequestedProposal = Boolean(requestedProposalId && !activeProposal);
   const resolvedId = activeProposal?.id ?? null;
 
   if (resolvedId) {
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, resolvedId);
+  }
+
+  if (missingRequestedProposal) {
+    return {
+      quote: null,
+      usingSavedData: false,
+      requestedProposalId,
+      missingRequestedProposal,
+      activeProposalId: null,
+      activeProposal: null,
+    };
+  }
+
+  if (requestedProposal) {
+    persistQuoteRecord(requestedProposal.quote);
+
+    return {
+      quote: requestedProposal.quote,
+      usingSavedData: true,
+      requestedProposalId,
+      missingRequestedProposal: false,
+      activeProposalId: requestedProposal.id,
+      activeProposal: requestedProposal,
+    };
   }
 
   const { quote } = resolvePreferredQuote({
@@ -112,46 +146,50 @@ export function resolveActiveProposalQuote(): {
   return {
     quote,
     usingSavedData: Boolean(activeProposal || savedQuote),
+    requestedProposalId,
+    missingRequestedProposal,
     activeProposalId: resolvedId,
     activeProposal,
   };
 }
 
-export function persistPreviewQuote(quote: QuoteRecord, options?: { markAsSent?: boolean }) {
+export function persistPreviewQuote(quote: QuoteRecord, options?: { proposalId?: string | null }) {
   if (typeof window === "undefined") return;
 
-  const nextStatus = options?.markAsSent ? "sent" : quote.metadata.status;
+  const targetProposalId = options?.proposalId
+    ?? quote.internal.savedProposalId
+    ?? quote.internal.quoteId
+    ?? window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
+  const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
+  const activeProposal = savedStore ? getProposalById(savedStore, targetProposalId) : null;
   const nextTouchedAt = new Date().toISOString();
+  const preservedStatus = activeProposal?.status ?? quote.metadata.status;
   const nextQuote: QuoteRecord = {
     ...quote,
     metadata: {
       ...quote.metadata,
-      status: nextStatus,
+      status: preservedStatus,
       lastTouchedAt: nextTouchedAt,
     },
     internal: {
       ...quote.internal,
-      quoteStatus: nextStatus,
+      quoteStatus: preservedStatus,
     },
   };
 
   persistQuoteRecord(nextQuote);
 
-  const activeId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
-  const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
-  if (!savedStore) return;
-
-  const activeProposal = getActiveProposal(savedStore, activeId);
-  if (!activeProposal) return;
+  if (!savedStore || !activeProposal) return;
 
   const updatedProposal: SavedProposalRecord = {
     ...activeProposal,
     quote: nextQuote,
     updatedAt: nextTouchedAt,
-    status: nextStatus,
-    stageLabel: statusToStageLabel(nextStatus),
+    status: activeProposal.status,
+    stageLabel: activeProposal.stageLabel || statusToStageLabel(activeProposal.status),
   };
 
   const nextStore = upsertProposal(savedStore, updatedProposal);
+  window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, activeProposal.id);
   window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
 }

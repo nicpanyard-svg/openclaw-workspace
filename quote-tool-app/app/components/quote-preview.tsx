@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
+import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { resolvePreferredQuote } from "@/app/lib/active-proposal";
 import {
@@ -1605,6 +1606,10 @@ export default function QuotePreview() {
       setWorkflowNotice("Add a customer name before saving a reusable customer profile.");
       return null;
     }
+    if (!quote.customer.addressLines[0]?.trim()) {
+      setWorkflowNotice("Add the customer's primary/default address before saving a reusable customer profile.");
+      return null;
+    }
 
     const resolvedProfileId = profileId || selectedCustomerProfileId || undefined;
     const nextProfile = createCustomerProfileFromQuote(quote, resolvedProfileId);
@@ -1639,6 +1644,11 @@ export default function QuotePreview() {
   const finishCustomerEntry = () => {
     if (!quote.customer.name.trim()) {
       setWorkflowNotice("Add a customer name before continuing into quote building.");
+      setCustomerEntryMode("create");
+      return;
+    }
+    if (!quote.customer.addressLines[0]?.trim()) {
+      setWorkflowNotice("Add the customer's primary/default address before continuing into quote building.");
       setCustomerEntryMode("create");
       return;
     }
@@ -1747,7 +1757,7 @@ export default function QuotePreview() {
       return;
     }
 
-    router.push("/proposal");
+    router.push(buildProposalPreviewPath(persisted.proposal.id));
   };
 
   const copyProposalFromBuilder = () => {
@@ -1868,11 +1878,11 @@ export default function QuotePreview() {
                   </div>
 
                   {selectedCustomerProfile ? (
-                    <div className="mt-4 grid gap-3 md:grid-cols-3">
-                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Main contact</strong>{selectedCustomerProfile.mainContactName || "Not set"}<br />{selectedCustomerProfile.mainContactEmail || "No email"}<br />{selectedCustomerProfile.mainContactPhone || "No phone"}</div>
-                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Billing</strong>{selectedCustomerProfile.billingAddress.companyName || selectedCustomerProfile.companyName}<br />{selectedCustomerProfile.billingAddress.lines.join(", ") || "No billing address"}</div>
-                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Shipping / service</strong>{selectedCustomerProfile.shippingSameAsBillTo ? "Matches billing" : selectedCustomerProfile.shippingAddress.lines.join(", ") || "No shipping address"}<br />Owner default: {selectedCustomerProfile.defaultOwnerName || "Not set"}</div>
-                    </div>
+                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Main contact</strong>{selectedCustomerProfile.mainContactName || "Not set"}<br />{selectedCustomerProfile.mainContactEmail || "No email"}<br />{selectedCustomerProfile.mainContactPhone || "No phone"}</div>
+                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Primary / default address</strong>{selectedCustomerProfile.primaryAddress.companyName || selectedCustomerProfile.companyName}<br />{selectedCustomerProfile.primaryAddress.lines.join(", ") || "No primary address"}</div>
+                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Billing / shipping defaults</strong>{selectedCustomerProfile.shippingSameAsBillTo ? "Shipping matches billing" : selectedCustomerProfile.shippingAddress.lines.join(", ") || "No shipping address"}<br />Owner default: {selectedCustomerProfile.defaultOwnerName || "Not set"}</div>
+                      </div>
                   ) : customerProfiles.length === 0 ? (
                     <div className="mt-4 rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No saved customer profiles yet. Create one from this draft, then reuse it next time.</div>
                   ) : null}
@@ -1905,11 +1915,11 @@ export default function QuotePreview() {
                   </div>
 
                   {customerEntryMode === "review" ? (
-                    <div className="mt-4 grid gap-3 md:grid-cols-3">
-                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Contact</strong>{customerSubline || "No contact details yet"}</div>
-                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Service address</strong>{customerServiceAddress || "No service address yet"}</div>
-                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Saved profile</strong>{selectedCustomerProfile ? selectedCustomerProfile.companyName : "Not linked yet"}<br />{selectedCustomerProfileId ? "Auto-update available on save" : "Save this customer when ready"}</div>
-                    </div>
+                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Contact</strong>{customerSubline || "No contact details yet"}</div>
+                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Primary / default address</strong>{customerServiceAddress || "No primary address yet"}</div>
+                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Saved profile</strong>{selectedCustomerProfile ? selectedCustomerProfile.companyName : "Not linked yet"}<br />{selectedCustomerProfileId ? "Auto-update available on save" : "Save this customer when ready"}</div>
+                      </div>
                   ) : (
                     <>
                       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1926,12 +1936,13 @@ export default function QuotePreview() {
 
 
                       <div className="mt-4 rounded-[20px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
-                        <div className="builder-eyebrow">Service address</div>
+                        <div className="builder-eyebrow">Primary / default address</div>
                         <div className="grid gap-3 md:grid-cols-2">
                           <label className="builder-field compact md:col-span-2"><span>Address line 1</span><input value={quote.customer.addressLines[0] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[0] = e.target.value; return draft; })} /></label>
                           <label className="builder-field compact md:col-span-2"><span>Address line 2</span><input value={quote.customer.addressLines[1] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[1] = e.target.value; return draft; })} /></label>
                           <label className="builder-field compact md:col-span-2"><span>Address line 3</span><input value={quote.customer.addressLines[2] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[2] = e.target.value; return draft; })} /></label>
                         </div>
+                        <div className="mt-3 text-[12px] leading-[1.5] text-[#66727d]">RapidQuote uses this as the account's default service address and the starting point for Bill To and Ship To.</div>
                       </div>
 
                       <div className="mt-4 grid gap-4 xl:grid-cols-2">
@@ -2007,16 +2018,19 @@ export default function QuotePreview() {
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Quote setup</div><h2 className="builder-title">Quote details</h2></div></div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <label className="builder-field"><span>Proposal #</span><input value={quote.metadata.proposalNumber} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalNumber = e.target.value; draft.documentation.proposalNumberLabel = e.target.value; return draft; })} /></label>
+                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]">
+                  <span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Quote number</span>
+                  <strong className="mt-1 block text-[16px] text-[#16202b]">{quote.metadata.proposalNumber}</strong>
+                  <span className="mt-1 block">Assigned automatically for new quotes and preserved on saved drafts.</span>
+                </div>
                 <label className="builder-field"><span>Proposal date</span><input value={quote.metadata.proposalDate} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalDate = e.target.value; draft.documentation.proposalDateLabel = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Proposal title</span><input value={quote.metadata.documentTitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentTitle = e.target.value; draft.documentation.proposalTitle = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Status</span><select value={quote.metadata.status} onChange={(e) => updateQuote((draft) => { draft.metadata.status = e.target.value as QuoteRecord["metadata"]["status"]; draft.internal.quoteStatus = e.target.value as QuoteRecord["metadata"]["status"]; return draft; })}>{[{ value: "draft", label: "Draft" }, { value: "in_review", label: "In Review" }, { value: "sent", label: "Sent" }].map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
               </div>
 
-              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <label className="builder-field"><span>Proposal owner</span><select value={quote.metadata.ownerUserId ?? activeProposal?.owner.id ?? mockUsers[0].id} onChange={(e) => updateQuote((draft) => { const owner = mockUsers.find((user) => user.id === e.target.value) ?? mockUsers[0]; draft.metadata.ownerUserId = owner.id; draft.metadata.ownerName = owner.name; draft.internal.workspaceOwnerId = owner.id; draft.internal.workspaceOwnerName = owner.name; draft.internal.crmOwnerLabel = owner.name; return draft; })}>{mockUsers.map((user) => <option key={user.id} value={user.id}>{user.name} — {user.role}</option>)}</select></label>
                 <label className="builder-field"><span>Owner display name</span><input value={quote.metadata.ownerName ?? activeProposal?.owner.name ?? ""} onChange={(e) => updateQuote((draft) => { draft.metadata.ownerName = e.target.value; draft.internal.workspaceOwnerName = e.target.value; draft.internal.crmOwnerLabel = e.target.value; return draft; })} /></label>
-                <label className="builder-field"><span>Account ID</span><input value={quote.metadata.accountId ?? ""} onChange={(e) => updateQuote((draft) => { draft.metadata.accountId = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Account name</span><input value={quote.metadata.accountName ?? quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.metadata.accountName = e.target.value; return draft; })} /></label>
               </div>
 
@@ -2025,8 +2039,26 @@ export default function QuotePreview() {
                 <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]"><span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Customer on this draft</span><strong className="mt-1 block text-[16px] text-[#16202b]">{customerHeadline}</strong><span className="mt-1 block">{customerSubline || "Use Customer entry above to edit customer details."}</span></div>
               </div>
 
-              <div className="mt-5 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
-                <div className="builder-eyebrow">iNet contact</div>
+              <details className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]">
+                <summary className="cursor-pointer list-none font-semibold text-[#16202b]">Internal record details</summary>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-[14px] bg-white px-4 py-3">
+                    <span className="block text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Internal proposal ID</span>
+                    <strong className="mt-1 block text-[#16202b]">{activeProposal?.id ?? quote.internal.savedProposalId ?? quote.internal.quoteId}</strong>
+                  </div>
+                  <div className="rounded-[14px] bg-white px-4 py-3">
+                    <span className="block text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Account ID</span>
+                    <strong className="mt-1 block text-[#16202b]">{quote.metadata.accountId?.trim() || "Not set"}</strong>
+                    <span className="mt-1 block">Hidden from the normal quoting surface and kept read-only here.</span>
+                  </div>
+                </div>
+              </details>
+
+              <details className="mt-5 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
+                <summary className="cursor-pointer list-none">
+                  <div className="builder-eyebrow">Prepared by</div>
+                  <div className="mt-1 text-[18px] font-semibold text-[#16202b]">iNet contact and sender details</div>
+                </summary>
                 <div className="mt-4 space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                   <div className="flex items-start gap-3">
                     <Image src="/inet-logo.png" alt="iNet logo" width={120} height={34} className="workspace-logo-inline h-auto w-auto object-contain" />
@@ -2042,7 +2074,7 @@ export default function QuotePreview() {
                     <label className="builder-field compact"><span>Sales email</span><input value={quote.inet.contactEmail} onChange={(e) => updateQuote((draft) => { draft.inet.contactEmail = e.target.value; return draft; })} /></label>
                   </div>
                 </div>
-              </div>
+              </details>
 
               <div className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#f8fbfd] p-4 md:p-5">
                 <div className="builder-eyebrow">Workflow mode</div>
@@ -2256,27 +2288,53 @@ export default function QuotePreview() {
                   </div>
 
                   <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
-                    <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] p-3">
-                      <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Authoring workflow</div>
-                      <h4 className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">Choose the builder path for this option</h4>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] px-4 py-3 text-[13px] text-[#5d6772]">
+                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Main builder</div>
+                        <strong className="mt-1 block text-[#16202b]">Quote rows</strong>
+                        <div className="mt-1">Build recurring, hardware, and services here first. Internal packaging stays secondary.</div>
+                      </div>
+                      <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] px-4 py-3 text-[13px] text-[#5d6772]">
+                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Downstream output</div>
+                        <strong className="mt-1 block text-[#16202b]">{formatCurrency(majorProjectPreviewCategorySummary.recurring + majorProjectPreviewCategorySummary.hardware + majorProjectPreviewCategorySummary.services, currencyCode)}</strong>
+                        <div className="mt-1">Recurring, hardware, and services stay visible; internal packaging stays secondary.</div>
+                      </div>
+                      <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] px-4 py-3 text-[13px] text-[#5d6772]">
+                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Validation</div>
+                        <strong className="mt-1 block text-[#16202b]">{majorProjectMetrics.validation.errorCount} error{majorProjectMetrics.validation.errorCount === 1 ? "" : "s"} / {majorProjectMetrics.validation.warningCount} warning{majorProjectMetrics.validation.warningCount === 1 ? "" : "s"}</strong>
+                        <div className="mt-1">Preview blocks only on errors. Warnings stay internal.</div>
+                      </div>
+                    </div>
+
+                    <details className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] p-3">
+                      <summary className="cursor-pointer list-none text-[14px] font-semibold text-[#16202b]">Internal advanced worksheet</summary>
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
                         <ToggleCard
-                          label="Simple builder"
-                          description="Default. Build customer-ready rows directly with quantity, sell, cost, bucket, and live margin."
+                          label="Quote rows"
+                          description="Keep the main builder focused on quote-ready rows with live sell, cost, and margin."
                           active={majorProjectState.builderMode !== "advanced"}
                           onClick={() => setMajorProjectBuilderMode("simple")}
                         />
                         <ToggleCard
-                          label="Advanced builder"
-                          description="Structured internal workflow with components, bundles, and customer quote lines feeding the proposal."
+                          label="Internal model"
+                          description="Use components, bundles, and quote lines only when the project needs deeper internal packaging control."
                           active={majorProjectState.builderMode === "advanced"}
                           onClick={() => setMajorProjectBuilderMode("advanced")}
                         />
                       </div>
-                    </div>
+                      {majorProjectState.builderMode === "advanced" ? (
+                        <div className="mt-3 rounded-[16px] border border-[#ead7da] bg-white px-4 py-3 text-[13px] text-[#5d6772]">
+                          This proposal is currently driven by the internal advanced model. Keep the main page focused on quote building, then open the worksheet below only when deeper internal mapping is needed.
+                        </div>
+                      ) : null}
+                    </details>
 
-                    {majorProjectState.builderMode !== "advanced" && (
                       <div className="space-y-4">
+                        {majorProjectState.builderMode === "advanced" ? (
+                          <div className="rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
+                            Quote rows remain the primary quoting surface. The internal component and bundle model is tucked away below and still drives downstream output for this proposal.
+                          </div>
+                        ) : null}
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
                           <div>
                             <strong className="text-[#16202b]">Build Major Project rows directly.</strong>
@@ -2354,7 +2412,6 @@ export default function QuotePreview() {
                           </div>
                         )}
                       </div>
-                    )}
 
                     {majorProjectState.builderMode === "advanced" && (
                     <>
@@ -2687,19 +2744,21 @@ export default function QuotePreview() {
               )}
 
               {isMajorProject && (
-              <div className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#f8fbfd] p-4 md:p-5">
-                <div className="builder-eyebrow">Internal commercial</div>
-                <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                  <div>
-                    <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Margin foundation</h3>
-                    <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                      Internal-only economics for structured major quotes. Complete the product rows above first, then use this margin foundation as the final internal check.
-                    </p>
+              <details className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#f8fbfd] p-4 md:p-5">
+                <summary className="cursor-pointer list-none">
+                  <div className="builder-eyebrow">Internal commercial</div>
+                  <div className="mt-1 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                    <div>
+                      <h3 className="text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Margin foundation</h3>
+                      <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
+                        Internal-only economics for structured major quotes. Keep it tucked away unless you need an internal margin check.
+                      </p>
+                    </div>
+                    <div className="rounded-[16px] border border-[#dde3e8] bg-white px-4 py-3 text-[13px] text-[#5f6c78]">
+                      Hidden from customer proposal, preview, and PDF output.
+                    </div>
                   </div>
-                  <div className="rounded-[16px] border border-[#dde3e8] bg-white px-4 py-3 text-[13px] text-[#5f6c78]">
-                    Hidden from customer proposal, preview, and PDF output.
-                  </div>
-                </div>
+                </summary>
 
                 <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
                   <div className="space-y-4 rounded-[18px] border border-[#dde3e8] bg-white p-4">
@@ -2762,29 +2821,31 @@ export default function QuotePreview() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </details>
               )}
 
             </section>
 
             <section className="builder-panel">
               <div className="builder-panel-header">
-                <div><div className="builder-eyebrow">Quick Quote sections</div><h2 className="builder-title">Service, hardware, and labor</h2></div>
+                <div><div className="builder-eyebrow">Section controls</div><h2 className="builder-title">Turn proposal sections on only when they are needed</h2></div>
                 <div className="flex flex-wrap gap-2">
                   <SectionToggle label="Executive Summary" enabled={quote.executiveSummary.enabled} onChange={(next) => updateQuote((draft) => { draft.executiveSummary.enabled = next; return draft; })} />
                   <SectionToggle label="Connectivity service" enabled={quote.sections.sectionA.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionA.enabled = next; return draft; })} />
-                  <SectionToggle label="Router & install materials" enabled={quote.sections.sectionB.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionB.enabled = next; return draft; })} />
+                  <SectionToggle label="Hardware" enabled={quote.sections.sectionB.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionB.enabled = next; return draft; })} />
                   <SectionToggle label="Install / site services" enabled={quote.sections.sectionC.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionC.enabled = next; return draft; })} />
                 </div>
               </div>
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
-                <label className="builder-field"><span>Section A label</span><input value={quote.sections.sectionA.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.builderLabel = e.target.value; return draft; })} /></label>
-                <label className="builder-field"><span>Section B label</span><input value={quote.sections.sectionB.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.builderLabel = e.target.value; return draft; })} /></label>
-                <label className="builder-field"><span>Section C label</span><input value={quote.sections.sectionC.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.builderLabel = e.target.value; return draft; })} /></label>
-              </div>
-              <div className="mt-4 space-y-3">
+              <details className="mt-4 rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                <summary className="cursor-pointer list-none text-[14px] font-semibold text-[#16202b]">Advanced section labels and extra fields</summary>
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                  <label className="builder-field"><span>Section A label</span><input value={quote.sections.sectionA.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.builderLabel = e.target.value; return draft; })} /></label>
+                  <label className="builder-field"><span>Section B label</span><input value={quote.sections.sectionB.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.builderLabel = e.target.value; return draft; })} /></label>
+                  <label className="builder-field"><span>Section C label</span><input value={quote.sections.sectionC.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.builderLabel = e.target.value; return draft; })} /></label>
+                </div>
+                <div className="mt-4 space-y-3">
                 {customSectionFields.map((field, index) => (
-                  <div key={field.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                  <div key={field.id} className="rounded-[18px] border border-[#dde3e8] bg-white p-4">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                       <div className="text-[13px] font-semibold text-[#16202b]">
                         {field.visibility === "customer" ? `Customer detail ${index + 1}` : `Internal note ${index + 1}`}
@@ -2832,7 +2893,8 @@ export default function QuotePreview() {
                   <button type="button" className="pill-button pill-button-active" onClick={() => addCustomSectionField("customer")}>Add customer detail</button>
                   <button type="button" className="pill-button" onClick={() => addCustomSectionField("internal")}>Add internal note</button>
                 </div>
-              </div>
+                </div>
+              </details>
             </section>
 
             <section className="builder-panel">
@@ -2905,7 +2967,7 @@ export default function QuotePreview() {
             {!isMajorProject && quote.sections.sectionB.enabled && (
               <section className="builder-panel">
                 <div className="builder-panel-header">
-                  <div><div className="builder-eyebrow">Quick Quote step 2</div><h2 className="builder-title">Router and install materials</h2></div>
+                  <div><div className="builder-eyebrow">Quick Quote step 2</div><h2 className="builder-title">Hardware</h2></div>
                 </div>
 
                 <label className="builder-field"><span>Section note</span><textarea rows={3} value={quote.sections.sectionB.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.introText = e.target.value; return draft; })} /></label>
@@ -2929,7 +2991,7 @@ export default function QuotePreview() {
 
                 <div className="mt-5 grid gap-4 xl:grid-cols-[1.3fr_.9fr]">
                   <div className="rounded-[24px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="builder-eyebrow">Recommended items</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Router and materials picker</h3></div><div className="text-[13px] text-[#66717d]">{filteredEquipmentCatalog.length} match(es)</div></div>
+                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="builder-eyebrow">Recommended items</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Hardware picker</h3></div><div className="text-[13px] text-[#66717d]">{filteredEquipmentCatalog.length} match(es)</div></div>
                     <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_.8fr]"><label className="builder-field compact"><span>Search Hardware</span><input placeholder="router, mini, mount, cable..." value={equipmentSearch} onChange={(e) => setEquipmentSearch(e.target.value)} /></label><label className="builder-field compact"><span>Category</span><select value={equipmentCategoryFilter} onChange={(e) => setEquipmentCategoryFilter(e.target.value)}>{equipmentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label></div>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">{filteredEquipmentCatalog.map((item) => <div key={item.id} className="rounded-[20px] border border-[#d9e0e7] bg-white p-4 shadow-[0_8px_20px_rgba(31,42,52,0.05)]"><div className="flex items-start justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{item.category}</div><h4 className="mt-1 text-[16px] font-semibold text-[#16202b]">{item.label}</h4></div></div><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">{item.description ?? "Recommended equipment item."}</p><div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[#66717d]">{item.terminalType && <span className="rounded-full bg-[#f6f8fb] px-3 py-1">Type: {item.terminalType}</span>}<span className="rounded-full bg-[#f6f8fb] px-3 py-1">Recommended</span></div><button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={() => addEquipmentRow(item.id)}>Add to Hardware Rows</button></div>)}</div>
                   </div>

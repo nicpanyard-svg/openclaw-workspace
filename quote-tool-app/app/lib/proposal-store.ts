@@ -1,5 +1,7 @@
+import { deserializeQuoteRecord } from "@/app/lib/proposal-state";
 import type { QuoteRecord, QuoteStatus } from "@/app/lib/quote-record";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
+import { generateQuoteNumber } from "@/app/lib/quote-template";
 
 export const PROPOSAL_STORE_KEY = "rapidquote:proposal-store";
 export const ACTIVE_PROPOSAL_ID_KEY = "rapidquote:active-proposal-id";
@@ -188,7 +190,7 @@ export function createProposalCopy(params: {
   const sourceQuote = JSON.parse(JSON.stringify(params.proposal.quote)) as QuoteRecord;
   const sourceTitle = params.proposal.quote.metadata.documentTitle?.trim() || params.proposal.quote.customer.name?.trim() || "Proposal";
   const id = `proposal_${Date.now()}`;
-  const proposalNumber = `${params.proposal.quote.metadata.proposalNumber || "RCT"}-COPY`;
+  const proposalNumber = generateQuoteNumber(new Date());
 
   return {
     id,
@@ -277,7 +279,70 @@ export function deserializeProposalStore(value: string | null | undefined): Prop
     if (!parsed?.currentUser || !Array.isArray(parsed?.users) || !Array.isArray(parsed?.proposals)) {
       return null;
     }
-    return parsed;
+
+    const normalizeOwner = (owner: ProposalOwner | null | undefined, fallback: ProposalOwner): ProposalOwner => ({
+      ...fallback,
+      ...owner,
+      id: owner?.id ?? fallback.id,
+      name: owner?.name ?? fallback.name,
+      email: owner?.email ?? fallback.email,
+    });
+
+    const currentUser = normalizeOwner(parsed.currentUser, mockUsers[0]);
+    const users = parsed.users.map((user) => normalizeOwner(user, currentUser));
+    const proposals: SavedProposalRecord[] = parsed.proposals.flatMap((proposal) => {
+        const normalizedQuote = deserializeQuoteRecord(JSON.stringify(proposal?.quote));
+        if (!proposal?.id || !normalizedQuote) {
+          return [];
+        }
+
+        const owner = normalizeOwner(proposal.owner, currentUser);
+        const createdBy = normalizeOwner(proposal.createdBy, owner);
+        const status = proposal.status ?? normalizedQuote.metadata.status;
+
+        return [{
+          ...proposal,
+          recordVersion: typeof proposal.recordVersion === "number" ? proposal.recordVersion : 1,
+          quote: {
+            ...normalizedQuote,
+            metadata: {
+              ...normalizedQuote.metadata,
+              status,
+              ownerUserId: owner.id,
+              ownerName: normalizedQuote.metadata.ownerName ?? owner.name,
+            },
+            internal: {
+              ...normalizedQuote.internal,
+              quoteId: normalizedQuote.internal.quoteId || proposal.id,
+              savedProposalId: proposal.id,
+              quoteStatus: status,
+              workspaceOwnerId: owner.id,
+              workspaceOwnerName: owner.name,
+              crmOwnerLabel: normalizedQuote.internal.crmOwnerLabel ?? owner.name,
+            },
+          },
+          owner,
+          createdBy,
+          createdAt: typeof proposal.createdAt === "string" ? proposal.createdAt : new Date().toISOString(),
+          updatedAt: typeof proposal.updatedAt === "string" ? proposal.updatedAt : new Date().toISOString(),
+          status,
+          stageLabel: proposal.stageLabel || statusToStageLabel(status),
+          workspace: proposal.workspace?.visibility === "internal"
+            ? proposal.workspace
+            : {
+                visibility: "internal" as const,
+                accountSegment: "Direct Sales",
+                branchLabel: "RapidQuote Workspace",
+              },
+          activity: Array.isArray(proposal.activity) ? proposal.activity : [],
+        }];
+      });
+
+    return {
+      currentUser,
+      users,
+      proposals,
+    };
   } catch {
     return null;
   }

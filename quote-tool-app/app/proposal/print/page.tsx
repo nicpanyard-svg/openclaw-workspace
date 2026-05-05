@@ -1,4 +1,5 @@
 import { ProposalDocument } from "@/app/components/proposal-document";
+import { ProposalPrintTrigger } from "@/app/components/proposal-print-trigger";
 import { ProposalPrintClient } from "@/app/proposal/print/print-client";
 import { readCachedProposalPdfQuote } from "@/app/lib/proposal-pdf-cache";
 
@@ -9,22 +10,23 @@ type ProposalPrintPageProps = {
     token?: string;
     autoprint?: string;
     pdf?: string;
+    proposalId?: string;
   }>;
 };
 
 export default async function ProposalPrintPage({ searchParams }: ProposalPrintPageProps) {
   const params = searchParams ? await searchParams : undefined;
-  const tokenQuote = await readCachedProposalPdfQuote(params?.token);
+  const cachedQuote = await readCachedProposalPdfQuote(params?.token);
   const shouldAutoPrint = params?.autoprint !== "0";
 
-  if (tokenQuote) {
+  if (cachedQuote?.quote) {
     return (
       <div className="proposal-route-shell proposal-print-shell">
-        {shouldAutoPrint ? <ProposalPrintClient autoPrintOnly /> : null}
-        <ProposalDocument quote={tokenQuote} />
+        {shouldAutoPrint ? <ProposalPrintTrigger /> : null}
+        <ProposalDocument quote={cachedQuote.quote} />
       </div>
     );
   }
 
-  return <ProposalPrintClient autoPrintOnly={false} />;
+  return <ProposalPrintClient autoPrintOnly={false} requestedProposalId={params?.proposalId ?? cachedQuote?.proposalId ?? null} />;
 }

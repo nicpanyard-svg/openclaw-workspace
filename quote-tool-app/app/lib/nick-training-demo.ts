@@ -359,6 +359,11 @@ export function getNickTrainingDemoCustomerProfile(): SavedCustomerProfile {
     id: NICK_TRAINING_CUSTOMER_PROFILE_ID,
     companyName: "Nick Training Demo Customer",
     customerShortName: "NT Demo",
+    primaryAddress: {
+      companyName: "Nick Training Demo Customer",
+      attention: "Taylor Morgan",
+      lines: ["410 Training Site Road", "Midland, TX 79701", "United States"],
+    },
     billingAddress: {
       companyName: "Nick Training Demo Customer",
       attention: "Taylor Morgan",

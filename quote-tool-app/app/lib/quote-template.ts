@@ -7,6 +7,10 @@ function deepClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+export function generateQuoteNumber(now: Date = new Date()) {
+  return `RCT-${now.getTime()}`;
+}
+
 export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): QuoteRecord {
   const quote = deepClone(base);
   const now = new Date();
@@ -17,7 +21,7 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
     year: "numeric",
   });
 
-  quote.metadata.proposalNumber = `RCT-DRAFT-${stamp}`;
+  quote.metadata.proposalNumber = generateQuoteNumber(now);
   quote.metadata.proposalDate = proposalDate;
   quote.metadata.revisionVersion = "1.0";
   quote.metadata.customerShortName = "";

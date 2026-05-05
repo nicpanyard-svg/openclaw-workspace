@@ -10,6 +10,10 @@ import { PROPOSAL_STORE_KEY, createProposalFromQuote, deserializeProposalStore, 
 import { ensureNickTrainingDemoProfiles, ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
+function cleanAddressLines(lines: string[]) {
+  return lines.map((line) => line.trim()).filter((line) => line.length > 0);
+}
+
 export function RapidQuoteFrontDoor() {
   const { user } = useAuth();
   const [isHydrated, setIsHydrated] = useState(false);
@@ -17,7 +21,17 @@ export function RapidQuoteFrontDoor() {
   const [activeWorkspaceItemCount, setActiveWorkspaceItemCount] = useState(0);
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ companyName: "", shortName: "", contactName: "", contactEmail: "", contactPhone: "", logoDataUrl: "" });
+  const [newCustomer, setNewCustomer] = useState({
+    companyName: "",
+    shortName: "",
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    primaryAddressLine1: "",
+    primaryAddressLine2: "",
+    primaryAddressLine3: "",
+    logoDataUrl: "",
+  });
   const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -69,6 +83,7 @@ export function RapidQuoteFrontDoor() {
           profile.companyName,
           profile.mainContactName,
           profile.mainContactEmail,
+          profile.primaryAddress.lines.join(" "),
           profile.serviceAddressLines.join(" "),
         ].some((value) => value.toLowerCase().includes(query));
       });
@@ -98,15 +113,26 @@ export function RapidQuoteFrontDoor() {
     const companyName = newCustomer.companyName.trim();
     if (!companyName) return;
     const now = new Date().toISOString();
+    const primaryAddressLines = cleanAddressLines([
+      newCustomer.primaryAddressLine1,
+      newCustomer.primaryAddressLine2,
+      newCustomer.primaryAddressLine3,
+    ]);
+    if (primaryAddressLines.length === 0) return;
     const profile: SavedCustomerProfile = {
       id: `customer_${Date.now()}`,
       companyName,
       customerShortName: newCustomer.shortName.trim(),
       logoDataUrl: newCustomer.logoDataUrl || undefined,
-      billingAddress: { companyName, attention: newCustomer.contactName.trim(), lines: [] },
-      shippingAddress: { companyName, attention: newCustomer.contactName.trim(), lines: [] },
+      primaryAddress: {
+        companyName,
+        attention: newCustomer.contactName.trim(),
+        lines: primaryAddressLines,
+      },
+      billingAddress: { companyName, attention: newCustomer.contactName.trim(), lines: primaryAddressLines },
+      shippingAddress: { companyName, attention: newCustomer.contactName.trim(), lines: primaryAddressLines },
       shippingSameAsBillTo: true,
-      serviceAddressLines: [],
+      serviceAddressLines: primaryAddressLines,
       mainContactName: newCustomer.contactName.trim(),
       mainContactEmail: newCustomer.contactEmail.trim(),
       mainContactPhone: newCustomer.contactPhone.trim(),
@@ -148,7 +174,7 @@ export function RapidQuoteFrontDoor() {
               <div>
                 <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Customer intake</div>
                 <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.03em] text-[#16202b]">Create Customer</h2>
-                <p className="mt-2 text-[14px] leading-[1.55] text-[#5d6772]">Create the customer profile and logo here before opening the quote builder.</p>
+                <p className="mt-2 text-[14px] leading-[1.55] text-[#5d6772]">Capture the customer and its primary/default address here, then open the quote builder with that profile prefilled.</p>
               </div>
               <button type="button" className="rounded-full border border-[#d5dce3] bg-white px-5 py-3 text-[14px] font-semibold text-[#24303b]" onClick={() => setShowCreateCustomer(false)}>Cancel</button>
             </div>
@@ -158,10 +184,16 @@ export function RapidQuoteFrontDoor() {
               <label className="block text-[13px] font-medium text-[#51606d]">Contact name<input className="mt-2 w-full rounded-[16px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] text-[#16202b] outline-none" value={newCustomer.contactName} onChange={(e) => setNewCustomer((current) => ({ ...current, contactName: e.target.value }))} /></label>
               <label className="block text-[13px] font-medium text-[#51606d]">Contact email<input className="mt-2 w-full rounded-[16px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] text-[#16202b] outline-none" value={newCustomer.contactEmail} onChange={(e) => setNewCustomer((current) => ({ ...current, contactEmail: e.target.value }))} /></label>
             </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <label className="block text-[13px] font-medium text-[#51606d]">Contact phone<input className="mt-2 w-full rounded-[16px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] text-[#16202b] outline-none" value={newCustomer.contactPhone} onChange={(e) => setNewCustomer((current) => ({ ...current, contactPhone: e.target.value }))} /></label>
+              <label className="block text-[13px] font-medium text-[#51606d] xl:col-span-3">Primary address line 1<input className="mt-2 w-full rounded-[16px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] text-[#16202b] outline-none" value={newCustomer.primaryAddressLine1} onChange={(e) => setNewCustomer((current) => ({ ...current, primaryAddressLine1: e.target.value }))} /></label>
+              <label className="block text-[13px] font-medium text-[#51606d] md:col-span-2 xl:col-span-2">Primary address line 2<input className="mt-2 w-full rounded-[16px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] text-[#16202b] outline-none" value={newCustomer.primaryAddressLine2} onChange={(e) => setNewCustomer((current) => ({ ...current, primaryAddressLine2: e.target.value }))} /></label>
+              <label className="block text-[13px] font-medium text-[#51606d] md:col-span-2 xl:col-span-2">City, state, ZIP / address line 3<input className="mt-2 w-full rounded-[16px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] text-[#16202b] outline-none" value={newCustomer.primaryAddressLine3} onChange={(e) => setNewCustomer((current) => ({ ...current, primaryAddressLine3: e.target.value }))} /></label>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]">
                 <strong className="block text-[#16202b]">Customer logo</strong>
+                <div className="mt-2 text-[12px] leading-[1.5] text-[#66727d]">The primary address becomes the default service, bill-to, and ship-to address for this new customer.</div>
                 <button type="button" className="customer-logo-dropzone mt-3 w-full text-left" onClick={() => logoInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); onCustomerLogoSelected(e.dataTransfer.files?.[0]); }}>
                   <span className="block text-[14px] font-semibold text-[#17212c]">Drag and drop a logo here</span>
                   <span className="mt-1 block text-[13px] text-[#63707d]">Or click to browse.</span>
@@ -170,7 +202,7 @@ export function RapidQuoteFrontDoor() {
                 <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onCustomerLogoSelected(e.target.files?.[0])} />
               </div>
             </div>
-            <button type="button" disabled={!newCustomer.companyName.trim()} onClick={saveNewCustomer} className="mt-5 inline-flex rounded-full bg-[#b00000] px-5 py-3 text-[14px] font-semibold text-white disabled:bg-[#cfd5dc]">Save customer and open builder</button>
+            <button type="button" disabled={!newCustomer.companyName.trim() || !newCustomer.primaryAddressLine1.trim()} onClick={saveNewCustomer} className="mt-5 inline-flex rounded-full bg-[#b00000] px-5 py-3 text-[14px] font-semibold text-white disabled:bg-[#cfd5dc]">Save customer and open builder</button>
           </section>
         ) : null}
 
@@ -181,7 +213,7 @@ export function RapidQuoteFrontDoor() {
             <p className="mt-3 text-[14px] leading-[1.55] text-[#5d6772]">Start a clean draft and complete customer intake before the quote builder opens up.</p>
             <ul className="mt-4 space-y-2 text-[13px] text-[#60707f]">
               <li>• New account or one-off opportunity</li>
-              <li>• Capture contact, service, bill-to, and ship-to first</li>
+              <li>• Capture contact and the primary/default address up front</li>
               <li>• Best when no saved profile exists yet</li>
             </ul>
             <button type="button" onClick={() => setShowCreateCustomer(true)} className="mt-5 inline-flex rounded-full bg-[#b00000] px-5 py-3 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(176,0,0,0.18)]">Start new customer intake</button>

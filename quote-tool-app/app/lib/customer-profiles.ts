@@ -8,6 +8,11 @@ export type SavedCustomerProfile = {
   companyName: string;
   customerShortName: string;
   logoDataUrl?: string;
+  primaryAddress: {
+    companyName: string;
+    attention: string;
+    lines: string[];
+  };
   billingAddress: {
     companyName: string;
     attention: string;
@@ -44,18 +49,28 @@ function normalizeProfile(profile: Partial<SavedCustomerProfile> | null | undefi
     companyName: profile.companyName.trim(),
     customerShortName: profile.customerShortName?.trim() ?? "",
     logoDataUrl: profile.logoDataUrl?.trim() || undefined,
+    primaryAddress: {
+      companyName: profile.primaryAddress?.companyName?.trim()
+        ?? profile.billingAddress?.companyName?.trim()
+        ?? profile.companyName.trim(),
+      attention: profile.primaryAddress?.attention?.trim()
+        ?? profile.billingAddress?.attention?.trim()
+        ?? profile.mainContactName?.trim()
+        ?? "",
+      lines: cleanLines(profile.primaryAddress?.lines?.length ? profile.primaryAddress.lines : profile.serviceAddressLines),
+    },
     billingAddress: {
       companyName: profile.billingAddress?.companyName?.trim() ?? profile.companyName.trim(),
       attention: profile.billingAddress?.attention?.trim() ?? profile.mainContactName?.trim() ?? "",
-      lines: cleanLines(profile.billingAddress?.lines),
+      lines: cleanLines(profile.billingAddress?.lines?.length ? profile.billingAddress.lines : profile.primaryAddress?.lines),
     },
     shippingAddress: {
       companyName: profile.shippingAddress?.companyName?.trim() ?? profile.billingAddress?.companyName?.trim() ?? profile.companyName.trim(),
       attention: profile.shippingAddress?.attention?.trim() ?? profile.billingAddress?.attention?.trim() ?? profile.mainContactName?.trim() ?? "",
-      lines: cleanLines(profile.shippingAddress?.lines),
+      lines: cleanLines(profile.shippingAddress?.lines?.length ? profile.shippingAddress.lines : profile.primaryAddress?.lines ?? profile.billingAddress?.lines),
     },
     shippingSameAsBillTo: profile.shippingSameAsBillTo ?? false,
-    serviceAddressLines: cleanLines(profile.serviceAddressLines),
+    serviceAddressLines: cleanLines(profile.serviceAddressLines?.length ? profile.serviceAddressLines : profile.primaryAddress?.lines),
     mainContactName: profile.mainContactName?.trim() ?? "",
     mainContactEmail: profile.mainContactEmail?.trim() ?? "",
     mainContactPhone: profile.mainContactPhone?.trim() ?? "",
@@ -92,6 +107,11 @@ export function createCustomerProfileFromQuote(quote: QuoteRecord, profileId?: s
     companyName: quote.customer.name.trim(),
     customerShortName: (quote.metadata.customerShortName ?? "").trim(),
     logoDataUrl: quote.customer.logoDataUrl,
+    primaryAddress: {
+      companyName: (quote.billTo.companyName ?? quote.customer.name).trim(),
+      attention: (quote.billTo.attention ?? quote.customer.contactName).trim(),
+      lines: cleanLines(quote.customer.addressLines),
+    },
     billingAddress: {
       companyName: (quote.billTo.companyName ?? quote.customer.name).trim(),
       attention: (quote.billTo.attention ?? quote.customer.contactName).trim(),
@@ -115,13 +135,15 @@ export function createCustomerProfileFromQuote(quote: QuoteRecord, profileId?: s
 }
 
 export function applyCustomerProfileToQuote(quote: QuoteRecord, profile: SavedCustomerProfile) {
+  const primaryAddressLines = cleanLines(profile.primaryAddress.lines.length ? profile.primaryAddress.lines : profile.serviceAddressLines);
+
   quote.customer.name = profile.companyName;
   quote.customer.logoText = profile.customerShortName || profile.companyName;
   quote.customer.logoDataUrl = profile.logoDataUrl;
   quote.customer.contactName = profile.mainContactName;
   quote.customer.contactEmail = profile.mainContactEmail;
   quote.customer.contactPhone = profile.mainContactPhone;
-  quote.customer.addressLines = [...profile.serviceAddressLines];
+  quote.customer.addressLines = [...primaryAddressLines];
 
   quote.metadata.customerShortName = profile.customerShortName;
   quote.metadata.accountName = profile.companyName;
@@ -139,22 +161,22 @@ export function applyCustomerProfileToQuote(quote: QuoteRecord, profile: SavedCu
   }
 
   quote.billTo = {
-    companyName: profile.billingAddress.companyName || profile.companyName,
-    attention: profile.billingAddress.attention || profile.mainContactName,
-    lines: [...profile.billingAddress.lines],
+    companyName: profile.billingAddress.companyName || profile.primaryAddress.companyName || profile.companyName,
+    attention: profile.billingAddress.attention || profile.primaryAddress.attention || profile.mainContactName,
+    lines: [...(profile.billingAddress.lines.length ? profile.billingAddress.lines : primaryAddressLines)],
   };
 
   quote.shippingSameAsBillTo = profile.shippingSameAsBillTo;
   quote.shipTo = profile.shippingSameAsBillTo
     ? {
-        companyName: profile.billingAddress.companyName || profile.companyName,
-        attention: profile.billingAddress.attention || profile.mainContactName,
-        lines: [...profile.billingAddress.lines],
+        companyName: profile.billingAddress.companyName || profile.primaryAddress.companyName || profile.companyName,
+        attention: profile.billingAddress.attention || profile.primaryAddress.attention || profile.mainContactName,
+        lines: [...(profile.billingAddress.lines.length ? profile.billingAddress.lines : primaryAddressLines)],
       }
     : {
-        companyName: profile.shippingAddress.companyName || profile.companyName,
-        attention: profile.shippingAddress.attention || profile.mainContactName,
-        lines: [...profile.shippingAddress.lines],
+        companyName: profile.shippingAddress.companyName || profile.primaryAddress.companyName || profile.companyName,
+        attention: profile.shippingAddress.attention || profile.primaryAddress.attention || profile.mainContactName,
+        lines: [...(profile.shippingAddress.lines.length ? profile.shippingAddress.lines : primaryAddressLines)],
       };
 
   quote.internal.savedCustomerProfileId = profile.id;

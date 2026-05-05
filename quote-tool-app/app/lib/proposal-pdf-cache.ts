@@ -11,12 +11,12 @@ function buildCachePath(token: string) {
   return path.join(EXPORT_CACHE_DIR, `${token}.json`);
 }
 
-export async function cacheProposalPdfQuote(quote: QuoteRecord) {
+export async function cacheProposalPdfQuote(quote: QuoteRecord, proposalId?: string | null) {
   const token = crypto.randomUUID();
   await fs.mkdir(EXPORT_CACHE_DIR, { recursive: true });
   await fs.writeFile(
     buildCachePath(token),
-    JSON.stringify({ createdAt: Date.now(), quote }),
+    JSON.stringify({ createdAt: Date.now(), proposalId: proposalId ?? null, quote }),
     "utf8",
   );
   return token;
@@ -27,7 +27,7 @@ export async function readCachedProposalPdfQuote(token?: string | null) {
 
   try {
     const raw = await fs.readFile(buildCachePath(token), "utf8");
-    const parsed = JSON.parse(raw) as { createdAt?: number; quote?: QuoteRecord };
+    const parsed = JSON.parse(raw) as { createdAt?: number; proposalId?: string | null; quote?: QuoteRecord };
 
     if (!parsed.quote) {
       return null;
@@ -38,7 +38,10 @@ export async function readCachedProposalPdfQuote(token?: string | null) {
       return null;
     }
 
-    return parsed.quote;
+    return {
+      proposalId: parsed.proposalId ?? null,
+      quote: parsed.quote,
+    };
   } catch {
     return null;
   }

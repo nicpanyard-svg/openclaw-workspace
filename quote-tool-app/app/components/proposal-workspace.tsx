@@ -7,6 +7,7 @@ import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
+import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
@@ -598,7 +599,7 @@ function DashboardGroup({
                     <Link href={`/new?proposalId=${proposal.id}`} className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
                       Open Editor
                     </Link>
-                    <Link href="/proposal" className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
+                    <Link href={buildProposalPreviewPath(proposal.id)} className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
                       Preview Proposal
                     </Link>
                   </div>
@@ -650,7 +651,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
             <span className={statusTone(proposal.status)}>{proposal.stageLabel}</span>
             <button type="button" className="workspace-secondary-button" onClick={copyProposal}>Copy Proposal</button>
             <Link href="/" className="workspace-secondary-button">Dashboard</Link>
-            <Link href="/proposal" className="workspace-secondary-button">Preview Proposal</Link>
+            <Link href={buildProposalPreviewPath(proposal.id)} className="workspace-secondary-button">Preview Proposal</Link>
             <Link href={`/new?proposalId=${proposal.id}`} className="workspace-primary-button">Open Editor</Link>
           </div>
         </section>
@@ -666,7 +667,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
               </p>
             </div>
             <div className="workspace-focus-actions">
-              <Link href="/proposal" className="workspace-secondary-button">Preview Proposal</Link>
+              <Link href={buildProposalPreviewPath(proposal.id)} className="workspace-secondary-button">Preview Proposal</Link>
               <Link href={`/new?proposalId=${proposal.id}`} className="workspace-primary-button workspace-primary-button-small">Open Editor</Link>
             </div>
           </div>
