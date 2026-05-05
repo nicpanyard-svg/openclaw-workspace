@@ -112,13 +112,15 @@ export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalComm
   const leaseMonthlyTotal = getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
   const presence = getQuoteContentPresence(quote);
 
-  const items: ProposalCommercialSummaryItem[] = [
-    {
+  const items: ProposalCommercialSummaryItem[] = [];
+
+  if (presence.hasSectionAContent && recurringMonthlyTotal > 0) {
+    items.push({
       key: "recurring-monthly",
       label: "Monthly recurring",
       value: recurringMonthlyTotal,
-    },
-  ];
+    });
+  }
 
   if (presence.hasSectionBContent) {
     items.push({
