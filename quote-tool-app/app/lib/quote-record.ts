@@ -305,6 +305,22 @@ export type MajorProjectVendorSummary = {
   recurringCost: number;
 };
 
+export type MajorProjectSimpleBucket = "mrr" | "hardware" | "install" | "other_vendor" | "support_recurring" | "other_recurring";
+export type MajorProjectBuilderMode = "simple" | "advanced";
+
+export type MajorProjectSimpleRow = {
+  id: string;
+  label: string;
+  description?: string;
+  quantity: number;
+  unit?: string;
+  customerUnitPrice: number;
+  customerExtendedPrice: number;
+  ourUnitCost: number;
+  ourExtendedCost: number;
+  bucket: MajorProjectSimpleBucket;
+};
+
 export type MajorProjectOption = {
   id: string;
   label: string;
@@ -317,6 +333,7 @@ export type MajorProjectOption = {
   vendorRecurringPerSite: number;
   supportRecurringPerSite: number;
   otherRecurringPerSite: number;
+  simpleRows?: MajorProjectSimpleRow[];
   components?: MajorProjectComponent[];
   bundles?: MajorProjectBundle[];
   customerQuoteLines?: MajorProjectCustomerQuoteLine[];
@@ -358,6 +375,7 @@ export type MajorProjectCommercialInputs = {
 
 export type MajorProjectState = {
   enabled: boolean;
+  builderMode?: MajorProjectBuilderMode;
   summary: MajorProjectSummary;
   commercial: MajorProjectCommercialInputs;
   options: MajorProjectOption[];

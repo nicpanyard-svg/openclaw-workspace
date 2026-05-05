@@ -34,8 +34,11 @@ import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectS
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
 import {
   type MajorProjectBundle,
+  type MajorProjectBuilderMode,
   type MajorProjectComponent,
   type MajorProjectCustomerQuoteLine,
+  type MajorProjectSimpleBucket,
+  type MajorProjectSimpleRow,
   type AddressBlock,
   type EquipmentPricingRow,
   type PerKitPricingRow,
@@ -459,6 +462,19 @@ const servicePresetTemplates: Array<{ key: string; label: string; description: s
   },
 ];
 
+const majorProjectBucketOptions: Array<{ value: MajorProjectSimpleBucket; label: string; note: string }> = [
+  { value: "mrr", label: "MRR", note: "Primary recurring service" },
+  { value: "hardware", label: "Hardware", note: "Section B one-time hardware" },
+  { value: "install", label: "Install", note: "Section C one-time install" },
+  { value: "other_vendor", label: "Other vendor", note: "Recurring vendor pass-through" },
+  { value: "support_recurring", label: "Support recurring", note: "Recurring support/program cost" },
+  { value: "other_recurring", label: "Other recurring", note: "Recurring allowance or other service" },
+];
+
+function majorProjectBucketLabel(bucket: MajorProjectSimpleBucket) {
+  return majorProjectBucketOptions.find((option) => option.value === bucket)?.label ?? bucket;
+}
+
 function AddressEditor({
   title,
   address,
@@ -549,6 +565,21 @@ function createMajorProjectQuoteLineDraft(index: number): MajorProjectCustomerQu
     includedRevenueComponentIds: [],
     schedule: "mixed",
     presentationCategory: "other",
+  };
+}
+
+function createMajorProjectSimpleRowDraft(index: number): MajorProjectSimpleRow {
+  return {
+    id: `major-simple-row-${Date.now()}-${index}`,
+    label: `Line item ${index}`,
+    description: "",
+    quantity: 1,
+    unit: "ea",
+    customerUnitPrice: 0,
+    customerExtendedPrice: 0,
+    ourUnitCost: 0,
+    ourExtendedCost: 0,
+    bucket: "hardware",
   };
 }
 
@@ -766,6 +797,7 @@ export default function QuotePreview() {
   }, [equipmentCategoryFilter, equipmentSearch]);
 
   const contentPresence = useMemo(() => getQuoteContentPresence(quote), [quote]);
+  const activeMajorOptionSimpleRows = useMemo(() => activeMajorOption?.simpleRows ?? [], [activeMajorOption]);
   const activeMajorOptionComponents = useMemo(() => activeMajorOption?.components ?? [], [activeMajorOption]);
   const activeMajorOptionBundles = useMemo(() => activeMajorOption?.bundles ?? [], [activeMajorOption]);
   const activeMajorOptionQuoteLines = useMemo(() => activeMajorOption?.customerQuoteLines ?? [], [activeMajorOption]);
@@ -847,7 +879,23 @@ export default function QuotePreview() {
       grossMarginPercent: majorProjectMarginPercent(revenue, cost),
     };
   }).sort((a, b) => b.revenue - a.revenue), [majorProjectMetrics.customerQuoteLines]);
+  const majorProjectSimpleBucketSummary = useMemo(() => {
+    return activeMajorOptionSimpleRows.reduce((summary, row) => {
+      const current = summary[row.bucket] ?? { revenue: 0, cost: 0 };
+      current.revenue += row.customerExtendedPrice;
+      current.cost += row.ourExtendedCost;
+      summary[row.bucket] = current;
+      return summary;
+    }, {} as Record<MajorProjectSimpleBucket, { revenue: number; cost: number }>);
+  }, [activeMajorOptionSimpleRows]);
   const majorProjectPreviewCategorySummary = useMemo(() => {
+    if (majorProjectMetrics.builderMode === "simple") {
+      return {
+        recurring: majorProjectMetrics.recurringRevenue,
+        hardware: majorProjectMetrics.hardwareRevenue,
+        services: majorProjectMetrics.installRevenue + majorProjectMetrics.otherOneTimeRevenue,
+      };
+    }
     return majorProjectMetrics.customerQuoteLines.reduce((summary, line) => {
       const bucket = line.presentationCategory ?? "other";
       const revenue = line.oneTimeRevenue + line.recurringRevenue;
@@ -971,6 +1019,82 @@ export default function QuotePreview() {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option) return draft;
       (option[field] as string | number | undefined) = value;
+      return draft;
+    });
+  };
+
+  const updateActiveMajorSimpleRow = (rowId: string, updater: (row: MajorProjectSimpleRow) => MajorProjectSimpleRow) => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.simpleRows) return draft;
+      option.simpleRows = option.simpleRows.map((row) => row.id === rowId ? updater(row) : row);
+      return draft;
+    });
+  };
+
+  const setMajorProjectBuilderMode = (mode: MajorProjectBuilderMode) => {
+    updateMajorProjectQuote((draft) => {
+      if (!draft.majorProject) return draft;
+      draft.majorProject.builderMode = mode;
+      return draft;
+    });
+  };
+
+  const addMajorProjectSimpleRow = () => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option) return draft;
+      const nextIndex = (option.simpleRows?.length ?? 0) + 1;
+      option.simpleRows = [...(option.simpleRows ?? []), createMajorProjectSimpleRowDraft(nextIndex)];
+      return draft;
+    });
+  };
+
+  const duplicateMajorProjectSimpleRow = (rowId: string) => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.simpleRows) return draft;
+      const row = option.simpleRows.find((entry) => entry.id === rowId);
+      if (!row) return draft;
+      option.simpleRows = [
+        ...option.simpleRows,
+        {
+          ...row,
+          id: `${row.id}-copy-${Date.now()}`,
+          label: `${row.label || "Line item"} copy`,
+        },
+      ];
+      return draft;
+    });
+  };
+
+  const removeMajorProjectSimpleRow = (rowId: string) => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option) return draft;
+      option.simpleRows = (option.simpleRows ?? []).filter((row) => row.id !== rowId);
+      return draft;
+    });
+  };
+
+  const moveMajorProjectSimpleRow = (rowId: string, direction: -1 | 1) => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.simpleRows) return draft;
+      const index = option.simpleRows.findIndex((row) => row.id === rowId);
+      if (index === -1) return draft;
+      option.simpleRows = moveInList(option.simpleRows, index, direction);
+      return draft;
+    });
+  };
+
+  const moveMajorProjectSimpleRowToPosition = (rowId: string, targetPosition: number) => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.simpleRows) return draft;
+      const index = option.simpleRows.findIndex((row) => row.id === rowId);
+      if (index === -1) return draft;
+      option.simpleRows = moveToPositionInList(option.simpleRows, index, targetPosition);
       return draft;
     });
   };
@@ -2070,7 +2194,7 @@ export default function QuotePreview() {
                     <div>
                       <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Set the basics, then build the quote</h3>
                       <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                        Start with project basics and option setup. Then add products, bundle them, create customer quote lines, and review the live rollup at the end.
+                        Major Project now defaults to a direct row-builder flow like Quick Quote, with live cost and margin rollups. The structured component workflow stays available when you need deeper packaging control.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -2134,14 +2258,106 @@ export default function QuotePreview() {
                   <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
                     <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] p-3">
                       <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Authoring workflow</div>
-                      <h4 className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">Build the offer in order</h4>
-                      <div className="mt-2 grid gap-2 md:grid-cols-3 text-[12px] text-[#44515d]">
-                        <div className="rounded-[14px] bg-white px-3 py-2"><strong className="block text-[#16202b]">1. Products</strong><span>Parts, services, labor.</span></div>
-                        <div className="rounded-[14px] bg-white px-3 py-2"><strong className="block text-[#16202b]">2. Bundles</strong><span>Package the rows.</span></div>
-                        <div className="rounded-[14px] bg-white px-3 py-2"><strong className="block text-[#16202b]">3. Customer lines</strong><span>Output to proposal.</span></div>
+                      <h4 className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">Choose the builder path for this option</h4>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <ToggleCard
+                          label="Simple builder"
+                          description="Default. Build customer-ready rows directly with quantity, sell, cost, bucket, and live margin."
+                          active={majorProjectState.builderMode !== "advanced"}
+                          onClick={() => setMajorProjectBuilderMode("simple")}
+                        />
+                        <ToggleCard
+                          label="Advanced builder"
+                          description="Structured internal workflow with components, bundles, and customer quote lines feeding the proposal."
+                          active={majorProjectState.builderMode === "advanced"}
+                          onClick={() => setMajorProjectBuilderMode("advanced")}
+                        />
                       </div>
                     </div>
 
+                    {majorProjectState.builderMode !== "advanced" && (
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
+                          <div>
+                            <strong className="text-[#16202b]">Build Major Project rows directly.</strong>
+                            <div className="mt-1">Each row carries its own sell price, our cost, margin, and downstream bucket assignment.</div>
+                          </div>
+                          <button type="button" className="pill-button pill-button-active" onClick={addMajorProjectSimpleRow}>Add row</button>
+                        </div>
+
+                        <div className="grid gap-4 xl:grid-cols-3">
+                          {majorProjectBucketOptions.map((bucket) => {
+                            const bucketTotals = majorProjectSimpleBucketSummary[bucket.value] ?? { revenue: 0, cost: 0 };
+                            return (
+                              <div key={bucket.value} className="rounded-[18px] border border-[#e1e7ed] bg-[#fbfcfe] p-4">
+                                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">{bucket.label}</div>
+                                <div className="mt-1 text-[13px] text-[#60707f]">{bucket.note}</div>
+                                <div className="mt-3 space-y-2 text-[13px] text-[#51606d]">
+                                  <div className="flex items-center justify-between gap-3"><span>Revenue</span><strong>{formatCurrency(bucketTotals.revenue, currencyCode)}</strong></div>
+                                  <div className="flex items-center justify-between gap-3"><span>Cost</span><strong>{formatCurrency(bucketTotals.cost, currencyCode)}</strong></div>
+                                  <div className="flex items-center justify-between gap-3"><span>Margin</span><strong>{formatPercent(majorProjectMarginPercent(bucketTotals.revenue, bucketTotals.cost))}</strong></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {activeMajorOptionSimpleRows.length === 0 ? (
+                          <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No rows yet. Add the first Major Project row to start building pricing, cost, and margin directly.</div>
+                        ) : (
+                          <div className="space-y-3">
+                            {activeMajorOptionSimpleRows.map((row, index) => {
+                              const rowRevenue = row.customerExtendedPrice;
+                              const rowCost = row.ourExtendedCost;
+                              const rowGrossProfit = rowRevenue - rowCost;
+                              const rowMargin = majorProjectMarginPercent(rowRevenue, rowCost);
+                              return (
+                                <div key={row.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                      <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Major Project row {index + 1}</div>
+                                      <div className="mt-1 text-[18px] font-semibold text-[#16202b]">{row.label}</div>
+                                      <div className="major-project-chip-row mt-2">
+                                        <span className="major-project-chip">{majorProjectBucketLabel(row.bucket)}</span>
+                                        <span className="major-project-chip">{row.quantity} {row.unit || "ea"}</span>
+                                      </div>
+                                    </div>
+                                    <RowActions
+                                      totalRows={activeMajorOptionSimpleRows.length}
+                                      rowNumber={index + 1}
+                                      onMoveUp={() => moveMajorProjectSimpleRow(row.id, -1)}
+                                      onMoveDown={() => moveMajorProjectSimpleRow(row.id, 1)}
+                                      onMoveTo={(targetPosition) => moveMajorProjectSimpleRowToPosition(row.id, targetPosition)}
+                                      onDuplicate={() => duplicateMajorProjectSimpleRow(row.id)}
+                                      onRemove={() => removeMajorProjectSimpleRow(row.id)}
+                                    />
+                                  </div>
+                                  <div className="grid gap-3 lg:grid-cols-[1.3fr_1.1fr_.7fr_1fr_1fr_1fr]">
+                                    <label className="builder-field compact"><span>Label / name</span><input value={row.label} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, label: e.target.value }))} /></label>
+                                    <label className="builder-field compact"><span>Bucket</span><select value={row.bucket} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, bucket: e.target.value as MajorProjectSimpleBucket }))}>{majorProjectBucketOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+                                    <label className="builder-field compact"><span>Qty</span><input type="number" step="0.01" value={row.quantity} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => { const quantity = Math.max(parseNumber(e.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), ourExtendedCost: Number((quantity * current.ourUnitCost).toFixed(2)) }; })} /></label>
+                                    <label className="builder-field compact"><span>Unit</span><input value={row.unit ?? ""} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, unit: e.target.value }))} /></label>
+                                    <label className="builder-field compact"><span>Customer price</span><input type="number" step="0.01" value={row.customerUnitPrice} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => { const customerUnitPrice = Math.max(parseNumber(e.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /></label>
+                                    <label className="builder-field compact"><span>Our cost</span><input type="number" step="0.01" value={row.ourUnitCost} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => { const ourUnitCost = Math.max(parseNumber(e.target.value), 0); return { ...current, ourUnitCost, ourExtendedCost: Number((current.quantity * ourUnitCost).toFixed(2)) }; })} /></label>
+                                  </div>
+                                  <label className="builder-field compact mt-3"><span>Description</span><textarea rows={2} value={row.description ?? ""} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, description: e.target.value }))} /></label>
+                                  <div className="mt-3 grid gap-3 md:grid-cols-5 text-[12px] text-[#5f6c78]">
+                                    <div className="rounded-[14px] bg-white px-3 py-2">Ext. revenue {formatCurrency(rowRevenue, currencyCode)}</div>
+                                    <div className="rounded-[14px] bg-white px-3 py-2">Ext. cost {formatCurrency(rowCost, currencyCode)}</div>
+                                    <div className="rounded-[14px] bg-white px-3 py-2">GP {formatCurrency(rowGrossProfit, currencyCode)}</div>
+                                    <div className="rounded-[14px] bg-white px-3 py-2">Margin {formatPercent(rowMargin)}</div>
+                                    <div className="rounded-[14px] bg-white px-3 py-2">Proposal section {row.bucket === "hardware" ? "Section B" : row.bucket === "install" ? "Section C" : "Section A"}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {majorProjectState.builderMode === "advanced" && (
+                    <>
                     <MajorProjectStepCard
                       step="1"
                       title="Internal components"
@@ -2366,6 +2582,8 @@ export default function QuotePreview() {
                         })}
                       </div>
                     </MajorProjectStepCard>
+                    </>
+                    )}
                   </div>
 
                   <div className="mt-4 rounded-[18px] border border-[#dbe3ea] bg-[#f8fafc] p-4">
