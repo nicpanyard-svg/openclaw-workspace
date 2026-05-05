@@ -2,7 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate } from "@/app/components/auth-shell";
 import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
@@ -11,6 +11,7 @@ import { buildProposalWordDocument } from "@/app/lib/proposal-word-export";
 
 function ProposalPage() {
   const [isHydrated, setIsHydrated] = useState(false);
+  const pdfRequestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -47,19 +48,30 @@ function ProposalPage() {
   };
 
   const generatePdfBlob = async (nextQuote: QuoteRecord) => {
-    const response = await fetch("/api/proposal-pdf", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ quote: nextQuote }),
-    });
+    pdfRequestRef.current?.abort();
+    const controller = new AbortController();
+    pdfRequestRef.current = controller;
 
-    if (!response.ok) {
-      throw new Error("PDF generation failed.");
+    try {
+      const response = await fetch("/api/proposal-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ quote: nextQuote }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error("PDF generation failed.");
+      }
+
+      return response.blob();
+    } finally {
+      if (pdfRequestRef.current === controller) {
+        pdfRequestRef.current = null;
+      }
     }
-
-    return response.blob();
   };
 
   const handleViewPdf = async () => {
@@ -90,20 +102,48 @@ function ProposalPage() {
     setQuoteOverride(nextQuote);
     persistPreviewQuote(nextQuote, { markAsSent: true });
 
+    const safeProposalNumber = nextQuote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
+
     try {
       const blob = await generatePdfBlob(nextQuote);
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const safeProposalNumber = nextQuote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
 
       link.href = objectUrl;
       link.download = `${safeProposalNumber}.pdf`;
+      link.rel = "noopener";
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
       return;
     } catch {
+      try {
+        const response = await fetch("/api/proposal-pdf", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ quote: nextQuote }),
+        });
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = objectUrl;
+          link.download = `${safeProposalNumber}.pdf`;
+          link.rel = "noopener";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+          return;
+        }
+      } catch {
+        // Fall through to print view backup.
+      }
+
       const opened = window.open("/proposal/print", "_blank");
 
       if (!opened) {
