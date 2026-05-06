@@ -2224,9 +2224,9 @@ export default function QuotePreview() {
                   <div className="builder-eyebrow">Major Project mode</div>
                   <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
-                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Set the basics, then build the quote</h3>
+                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Build the quote first</h3>
                       <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                        Major Project now defaults to a direct row-builder flow like Quick Quote, with live cost and margin rollups. The structured component workflow stays available when you need deeper packaging control.
+                        Keep the primary page focused on the quote itself. Deeper commercial setup and internal modeling stay tucked away unless you need them.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -2235,56 +2235,61 @@ export default function QuotePreview() {
                     </div>
                   </div>
 
-                  <div className="mt-3 grid gap-3 lg:grid-cols-[1.1fr_.9fr]">
-                    <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <label className="builder-field compact"><span>Project name</span><input value={majorProjectState.summary.projectName} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.projectName = e.target.value; return draft; })} /></label>
-                        <label className="builder-field compact"><span>Version label</span><input value={majorProjectState.summary.versionLabel} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.versionLabel = e.target.value; return draft; })} /></label>
-                        <label className="builder-field compact"><span>Payment terms</span><input value={majorProjectState.summary.paymentTerms} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.paymentTerms = e.target.value; return draft; })} /></label>
-                        <label className="builder-field compact"><span>Billing start</span><input value={majorProjectState.summary.billingStart} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.billingStart = e.target.value; return draft; })} /></label>
-                      </div>
-                      <label className="builder-field"><span>Project description</span><textarea rows={3} value={majorProjectState.summary.projectDescription} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.projectDescription = e.target.value; return draft; })} /></label>
-                      <label className="builder-field"><span>Commercial assumptions</span><textarea rows={3} value={majorProjectState.summary.assumptions} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.assumptions = e.target.value; return draft; })} /></label>
-
-                      <div className="grid gap-4 md:grid-cols-3">
-                        <label className="builder-field compact"><span>Term (months)</span><input type="number" value={majorProjectState.commercial.termMonths} onChange={(e) => updateMajorCommercialField("termMonths", parseNumber(e.target.value))} /></label>
-                        <label className="builder-field compact"><span>Service mix</span><select value={majorProjectState.commercial.serviceMix} onChange={(e) => updateMajorCommercialField("serviceMix", e.target.value)}><option value="managed-network">Managed network</option><option value="starlink-pool">Starlink pool</option><option value="starlink-per-site">Starlink per site</option><option value="hybrid">Hybrid</option></select></label>
-                        <label className="builder-field compact"><span>Optional services allowance</span><input type="number" step="0.01" value={majorProjectState.commercial.optionalServicesAmount} onChange={(e) => updateMajorCommercialField("optionalServicesAmount", Math.max(parseNumber(e.target.value), 0))} /></label>
-                      </div>
-
-                      <div className="grid gap-4 md:grid-cols-3">
-                        <label className="builder-field compact"><span>Recurring label</span><input value={majorProjectState.commercial.recurringLabel} onChange={(e) => updateMajorCommercialField("recurringLabel", e.target.value)} /></label>
-                        <label className="builder-field compact"><span>Hardware label</span><input value={majorProjectState.commercial.equipmentLabel} onChange={(e) => updateMajorCommercialField("equipmentLabel", e.target.value)} /></label>
-                        <label className="builder-field compact"><span>Install label</span><input value={majorProjectState.commercial.installationLabel} onChange={(e) => updateMajorCommercialField("installationLabel", e.target.value)} /></label>
-                      </div>
-
-                      <div className="grid gap-3 md:grid-cols-3">
-                        <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={majorProjectState.commercial.includeHardware} onChange={(e) => updateMajorCommercialField("includeHardware", e.target.checked)} /> Include hardware</label>
-                        <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={majorProjectState.commercial.includeInstallation} onChange={(e) => updateMajorCommercialField("includeInstallation", e.target.checked)} /> Include installation</label>
-                        <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={majorProjectState.commercial.includeOptionalServices} onChange={(e) => updateMajorCommercialField("includeOptionalServices", e.target.checked)} /> Include optional services</label>
-                      </div>
+                  <div className="mt-3 space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      <label className="builder-field compact"><span>Project name</span><input value={majorProjectState.summary.projectName} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.projectName = e.target.value; return draft; })} /></label>
+                      <label className="builder-field compact"><span>Sites</span><input type="number" value={activeMajorOption?.siteCount ?? 0} onChange={(e) => updateActiveMajorOption("siteCount", Math.max(parseNumber(e.target.value), 0))} /></label>
+                      <label className="builder-field compact"><span>Term (months)</span><input type="number" value={majorProjectState.commercial.termMonths} onChange={(e) => updateMajorCommercialField("termMonths", parseNumber(e.target.value))} /></label>
+                      <label className="builder-field compact"><span>Payment terms</span><input value={majorProjectState.summary.paymentTerms} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.paymentTerms = e.target.value; return draft; })} /></label>
                     </div>
 
-                    <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <label className="builder-field compact"><span>Active option</span><select value={majorProjectState.activeOptionId} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.activeOptionId = e.target.value; return draft; })}>{majorProjectState.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
-                        <label className="builder-field compact"><span>Option label</span><input value={activeMajorOption?.label ?? ""} onChange={(e) => updateActiveMajorOption("label", e.target.value)} /></label>
-                        <label className="builder-field compact"><span>Sites</span><input type="number" value={activeMajorOption?.siteCount ?? 0} onChange={(e) => updateActiveMajorOption("siteCount", Math.max(parseNumber(e.target.value), 0))} /></label>
-                        <label className="builder-field compact"><span>Option description</span><input value={activeMajorOption?.description ?? ""} onChange={(e) => updateActiveMajorOption("description", e.target.value)} /></label>
-                      </div>
-                      <details className="rounded-[14px] border border-[#efe3e5] bg-[#fffafa] p-3">
-                        <summary className="cursor-pointer list-none text-[13px] font-semibold text-[#16202b]">Advanced per-site assumptions</summary>
-                        <div className="major-project-grid mt-3">
-                          <label className="builder-field compact"><span>MRR / site</span><input type="number" step="0.01" value={activeMajorOption?.monthlyRatePerSite ?? 0} onChange={(e) => updateActiveMajorOption("monthlyRatePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                          <label className="builder-field compact"><span>Hardware / site</span><input type="number" step="0.01" value={activeMajorOption?.hardwarePerSite ?? 0} onChange={(e) => updateActiveMajorOption("hardwarePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                          <label className="builder-field compact"><span>Install / site</span><input type="number" step="0.01" value={activeMajorOption?.installPerSite ?? 0} onChange={(e) => updateActiveMajorOption("installPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                          <label className="builder-field compact"><span>Other one-time / site</span><input type="number" step="0.01" value={activeMajorOption?.otherOneTimePerSite ?? 0} onChange={(e) => updateActiveMajorOption("otherOneTimePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                          <label className="builder-field compact"><span>Vendor recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.vendorRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("vendorRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                          <label className="builder-field compact"><span>Support recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.supportRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("supportRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
-                          <label className="builder-field compact"><span>Other recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.otherRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("otherRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                    <details className="rounded-[14px] border border-[#efe3e5] bg-[#fffafa] p-3">
+                      <summary className="cursor-pointer list-none text-[13px] font-semibold text-[#16202b]">Advanced setup</summary>
+                      <div className="mt-3 space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <label className="builder-field compact"><span>Version label</span><input value={majorProjectState.summary.versionLabel} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.versionLabel = e.target.value; return draft; })} /></label>
+                          <label className="builder-field compact"><span>Billing start</span><input value={majorProjectState.summary.billingStart} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.billingStart = e.target.value; return draft; })} /></label>
                         </div>
-                      </details>
-                    </div>
+                        <label className="builder-field"><span>Project description</span><textarea rows={3} value={majorProjectState.summary.projectDescription} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.projectDescription = e.target.value; return draft; })} /></label>
+                        <label className="builder-field"><span>Commercial assumptions</span><textarea rows={3} value={majorProjectState.summary.assumptions} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.assumptions = e.target.value; return draft; })} /></label>
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <label className="builder-field compact"><span>Service mix</span><select value={majorProjectState.commercial.serviceMix} onChange={(e) => updateMajorCommercialField("serviceMix", e.target.value)}><option value="managed-network">Managed network</option><option value="starlink-pool">Starlink pool</option><option value="starlink-per-site">Starlink per site</option><option value="hybrid">Hybrid</option></select></label>
+                          <label className="builder-field compact"><span>Optional services allowance</span><input type="number" step="0.01" value={majorProjectState.commercial.optionalServicesAmount} onChange={(e) => updateMajorCommercialField("optionalServicesAmount", Math.max(parseNumber(e.target.value), 0))} /></label>
+                          <label className="builder-field compact"><span>Active option</span><select value={majorProjectState.activeOptionId} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.activeOptionId = e.target.value; return draft; })}>{majorProjectState.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <label className="builder-field compact"><span>Recurring label</span><input value={majorProjectState.commercial.recurringLabel} onChange={(e) => updateMajorCommercialField("recurringLabel", e.target.value)} /></label>
+                          <label className="builder-field compact"><span>Hardware label</span><input value={majorProjectState.commercial.equipmentLabel} onChange={(e) => updateMajorCommercialField("equipmentLabel", e.target.value)} /></label>
+                          <label className="builder-field compact"><span>Install label</span><input value={majorProjectState.commercial.installationLabel} onChange={(e) => updateMajorCommercialField("installationLabel", e.target.value)} /></label>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-3">
+                          <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={majorProjectState.commercial.includeHardware} onChange={(e) => updateMajorCommercialField("includeHardware", e.target.checked)} /> Include hardware</label>
+                          <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={majorProjectState.commercial.includeInstallation} onChange={(e) => updateMajorCommercialField("includeInstallation", e.target.checked)} /> Include installation</label>
+                          <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={majorProjectState.commercial.includeOptionalServices} onChange={(e) => updateMajorCommercialField("includeOptionalServices", e.target.checked)} /> Include optional services</label>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="builder-field compact"><span>Option label</span><input value={activeMajorOption?.label ?? ""} onChange={(e) => updateActiveMajorOption("label", e.target.value)} /></label>
+                          <label className="builder-field compact"><span>Option description</span><input value={activeMajorOption?.description ?? ""} onChange={(e) => updateActiveMajorOption("description", e.target.value)} /></label>
+                        </div>
+
+                        <details className="rounded-[14px] border border-[#ead9db] bg-white p-3">
+                          <summary className="cursor-pointer list-none text-[13px] font-semibold text-[#16202b]">Advanced per-site assumptions</summary>
+                          <div className="major-project-grid mt-3">
+                            <label className="builder-field compact"><span>MRR / site</span><input type="number" step="0.01" value={activeMajorOption?.monthlyRatePerSite ?? 0} onChange={(e) => updateActiveMajorOption("monthlyRatePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                            <label className="builder-field compact"><span>Hardware / site</span><input type="number" step="0.01" value={activeMajorOption?.hardwarePerSite ?? 0} onChange={(e) => updateActiveMajorOption("hardwarePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                            <label className="builder-field compact"><span>Install / site</span><input type="number" step="0.01" value={activeMajorOption?.installPerSite ?? 0} onChange={(e) => updateActiveMajorOption("installPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                            <label className="builder-field compact"><span>Other one-time / site</span><input type="number" step="0.01" value={activeMajorOption?.otherOneTimePerSite ?? 0} onChange={(e) => updateActiveMajorOption("otherOneTimePerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                            <label className="builder-field compact"><span>Vendor recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.vendorRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("vendorRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                            <label className="builder-field compact"><span>Support recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.supportRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("supportRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                            <label className="builder-field compact"><span>Other recurring / site</span><input type="number" step="0.01" value={activeMajorOption?.otherRecurringPerSite ?? 0} onChange={(e) => updateActiveMajorOption("otherRecurringPerSite", Math.max(parseNumber(e.target.value), 0))} /></label>
+                          </div>
+                        </details>
+                      </div>
+                    </details>
                   </div>
 
                   <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
