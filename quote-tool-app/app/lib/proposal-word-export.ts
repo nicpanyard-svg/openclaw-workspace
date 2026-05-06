@@ -836,12 +836,14 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
 
   blocks.push(paragraph("Summary of proposed pricing", { bold: true, sizeHalfPoints: 30, spacingBefore: 240, spacingAfter: 120, pageBreakBefore: true, keepNext: true }));
   blocks.push(paragraph("Ready for commercial approval", { bold: true, color: "7A042E", spacingAfter: 100 }));
-  const summaryCells: TableCell[] = [
-    {
+  const summaryCells: TableCell[] = [];
+
+  if (model.sectionAEnabled && model.recurringMonthlyTotal > 0) {
+    summaryCells.push({
       width: 3000,
       content: `${paragraph("Recurring monthly", { bold: true, color: "7A042E" })}${paragraph(formatCurrency(model.recurringMonthlyTotal, model.currencyCode), { bold: true })}`,
-    },
-  ];
+    });
+  }
 
   if (model.sectionBEnabled) {
     summaryCells.push({
