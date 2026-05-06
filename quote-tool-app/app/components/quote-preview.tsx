@@ -2348,22 +2348,27 @@ export default function QuotePreview() {
                           <button type="button" className="pill-button pill-button-active" onClick={addMajorProjectSimpleRow}>Add row</button>
                         </div>
 
-                        <div className="grid gap-4 xl:grid-cols-3">
-                          {majorProjectBucketOptions.map((bucket) => {
-                            const bucketTotals = majorProjectSimpleBucketSummary[bucket.value] ?? { revenue: 0, cost: 0 };
-                            return (
-                              <div key={bucket.value} className="rounded-[18px] border border-[#e1e7ed] bg-[#fbfcfe] p-4">
-                                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">{bucket.label}</div>
-                                <div className="mt-1 text-[13px] text-[#60707f]">{bucket.note}</div>
-                                <div className="mt-3 space-y-2 text-[13px] text-[#51606d]">
-                                  <div className="flex items-center justify-between gap-3"><span>Revenue</span><strong>{formatCurrency(bucketTotals.revenue, currencyCode)}</strong></div>
-                                  <div className="flex items-center justify-between gap-3"><span>Cost</span><strong>{formatCurrency(bucketTotals.cost, currencyCode)}</strong></div>
-                                  <div className="flex items-center justify-between gap-3"><span>Margin</span><strong>{formatPercent(majorProjectMarginPercent(bucketTotals.revenue, bucketTotals.cost))}</strong></div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                        {(activeMajorOptionSimpleRows.length > 0 || majorProjectState.builderMode === "advanced") ? (
+                          <details className="rounded-[18px] border border-[#e1e7ed] bg-[#fbfcfe] p-4">
+                            <summary className="cursor-pointer list-none text-[14px] font-semibold text-[#16202b]">Show bucket totals</summary>
+                            <div className="mt-4 grid gap-4 xl:grid-cols-3">
+                              {majorProjectBucketOptions.map((bucket) => {
+                                const bucketTotals = majorProjectSimpleBucketSummary[bucket.value] ?? { revenue: 0, cost: 0 };
+                                return (
+                                  <div key={bucket.value} className="rounded-[18px] border border-[#e1e7ed] bg-white p-4">
+                                    <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">{bucket.label}</div>
+                                    <div className="mt-1 text-[13px] text-[#60707f]">{bucket.note}</div>
+                                    <div className="mt-3 space-y-2 text-[13px] text-[#51606d]">
+                                      <div className="flex items-center justify-between gap-3"><span>Revenue</span><strong>{formatCurrency(bucketTotals.revenue, currencyCode)}</strong></div>
+                                      <div className="flex items-center justify-between gap-3"><span>Cost</span><strong>{formatCurrency(bucketTotals.cost, currencyCode)}</strong></div>
+                                      <div className="flex items-center justify-between gap-3"><span>Margin</span><strong>{formatPercent(majorProjectMarginPercent(bucketTotals.revenue, bucketTotals.cost))}</strong></div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </details>
+                        ) : null}
 
                         {activeMajorOptionSimpleRows.length === 0 ? (
                           <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No rows yet. Add the first Major Project row to start building pricing, cost, and margin directly.</div>
