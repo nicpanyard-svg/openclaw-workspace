@@ -536,10 +536,12 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
         <div className="section-title-rule" />
 
         <div className="proposal-grand-totals print-keep-group">
-          <div className="grand-total-card print-keep-block">
-            <div className="grand-total-label">Recurring monthly</div>
-            <div className="grand-total-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
-          </div>
+          {contentPresence.hasSectionAContent && recurringMonthlyTotal > 0 && (
+            <div className="grand-total-card print-keep-block">
+              <div className="grand-total-label">Recurring monthly</div>
+              <div className="grand-total-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
+            </div>
+          )}
           {contentPresence.hasSectionBContent && (
             <div className="grand-total-card print-keep-block">
               <div className="grand-total-label">One-time equipment</div>

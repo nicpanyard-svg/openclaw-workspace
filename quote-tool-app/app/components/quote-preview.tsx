@@ -2311,8 +2311,26 @@ export default function QuotePreview() {
                       </div>
                     </div>
 
-                    <details className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] p-3">
-                      <summary className="cursor-pointer list-none text-[14px] font-semibold text-[#16202b]">Internal advanced worksheet</summary>
+                    <details className="group rounded-[16px] border border-[#efe3e5] bg-[#fffafa] p-3">
+                      <summary className="list-none rounded-[14px] border border-[#d7e0e8] bg-white px-4 py-3 transition hover:border-[#b8c7d4] hover:bg-[#f8fbfd] cursor-pointer">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-[14px] font-semibold text-[#16202b]">Open advanced worksheet</div>
+                            <div className="mt-1 text-[12px] text-[#627181]">Advanced setup and internal tools for deeper packaging control.</div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="rounded-full border border-[#d7e0e8] bg-[#f8fbfd] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">
+                              Internal only
+                            </span>
+                            <span
+                              aria-hidden="true"
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#d7e0e8] bg-[#f8fbfd] text-[16px] text-[#435262] transition-transform group-open:rotate-180"
+                            >
+                              ▾
+                            </span>
+                          </div>
+                        </div>
+                      </summary>
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
                         <ToggleCard
                           label="Quote rows"
@@ -2657,181 +2675,23 @@ export default function QuotePreview() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Project rollup</div>
-                        <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Live totals and mapping check</div>
+                        <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Live totals</div>
                       </div>
-                      <div className="text-[12px] text-[#5d6976]">Updates as components, bundles, and customer quote lines are built.</div>
+                      <div className="text-[12px] text-[#5d6976]">A clean commercial summary of the active Major Project option.</div>
                     </div>
-                    <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                      <div className="rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Major Project rollup</div>
-                        <div className="mt-3 space-y-2">
-                          <div className="flex items-center justify-between gap-3"><span>Sites in active option</span><strong>{majorProjectMetrics.siteCount}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>Recurring revenue</span><strong>{formatCurrency(majorProjectMetrics.recurringRevenue, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>One-time revenue</span><strong>{formatCurrency(majorProjectMetrics.oneTimeRevenue, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>Total revenue</span><strong>{formatCurrency(majorProjectMetrics.totalRevenue, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>Total cost</span><strong>{formatCurrency(majorProjectMetrics.totalCost, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3 text-[#b00000]"><span>Gross margin</span><strong>{formatPercent(majorProjectMetrics.totalGrossMarginPercent)}</strong></div>
-                        </div>
-                      </div>
-
-                      <div className={`rounded-[18px] border p-4 text-[13px] ${majorProjectSectionTone(majorProjectMetrics.validation.errorCount > 0, majorProjectMetrics.validation.warningCount > 0)}`}>
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="text-[12px] font-bold uppercase tracking-[0.14em] opacity-70">Mapping integrity</div>
-                            <div className="mt-1 text-[16px] font-semibold text-[#16202b]">{majorProjectMetrics.validation.valid ? "Mapping is structurally clean" : "Mapping needs attention"}</div>
-                          </div>
-                          <div className="text-right text-[12px] font-semibold">
-                            <div>{majorProjectMetrics.validation.errorCount} error{majorProjectMetrics.validation.errorCount === 1 ? "" : "s"}</div>
-                            <div>{majorProjectMetrics.validation.warningCount} warning{majorProjectMetrics.validation.warningCount === 1 ? "" : "s"}</div>
-                          </div>
-                        </div>
-                        <div className="mt-3 grid gap-2 text-[12px] md:grid-cols-3">
-                          <div className="rounded-[14px] bg-white/70 px-3 py-2"><strong>{majorProjectMetrics.components.length}</strong> components</div>
-                          <div className="rounded-[14px] bg-white/70 px-3 py-2"><strong>{majorProjectMetrics.bundles.length}</strong> bundles</div>
-                          <div className="rounded-[14px] bg-white/70 px-3 py-2"><strong>{majorProjectMetrics.customerQuoteLines.length}</strong> quote lines</div>
-                        </div>
-                        {majorProjectMetrics.validation.issues.length > 0 ? (
-                          <div className="mt-3 space-y-2">
-                            {majorProjectMetrics.validation.issues.slice(0, 6).map((issue, index) => (
-                              <div key={`${issue.code}-${index}`} className="rounded-[14px] border border-current/10 bg-white/75 px-3 py-2">
-                                <div className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-70">{issue.severity}</div>
-                                <div className="mt-1 leading-[1.45]">{issue.message}</div>
-                              </div>
-                            ))}
-                            {majorProjectMetrics.validation.issues.length > 6 ? (
-                              <div className="text-[12px] opacity-75">+ {majorProjectMetrics.validation.issues.length - 6} more mapping issue(s)</div>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <div className="mt-3 text-[12px] leading-[1.45]">Every component is being used as the economic source, bundles are resolving cleanly, and customer quote lines have backing economics.</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 rounded-[18px] border border-[#dbe3ea] bg-[#f8fafc] p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Margin views</div>
-                        <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Economics by vendor, bundle, and customer line</div>
-                      </div>
-                      <div className="text-[12px] text-[#5d6976]">Internal-only. Customer labels stay presentation-only.</div>
-                    </div>
-                    <div className="mt-4 grid gap-4 xl:grid-cols-3">
-                      {[
-                        { title: "Vendor buckets", items: majorProjectVendorMarginCards },
-                        { title: "Internal bundles", items: majorProjectBundleMarginCards },
-                        { title: "Customer quote lines", items: majorProjectQuoteLineMarginCards },
-                      ].map((group) => (
-                        <div key={group.title} className="rounded-[18px] border border-[#e1e7ed] bg-white p-4">
-                          <div className="text-[14px] font-semibold text-[#16202b]">{group.title}</div>
-                          <div className="mt-3 space-y-3">
-                            {group.items.length === 0 ? <div className="text-[13px] text-[#66727e]">Nothing to summarize yet.</div> : group.items.slice(0, 6).map((item) => (
-                              <div key={item.key} className="major-project-margin-card">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <div className="font-semibold text-[#16202b]">{item.label}</div>
-                                    <div className="mt-1 text-[12px] text-[#697582]">{item.note}</div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-[12px] text-[#697582]">Margin</div>
-                                    <div className={`text-[15px] font-semibold ${item.grossProfit >= 0 ? "text-[#25643b]" : "text-[#b00000]"}`}>{formatPercent(item.grossMarginPercent)}</div>
-                                  </div>
-                                </div>
-                                <div className="mt-3 grid gap-2 sm:grid-cols-3 text-[12px] text-[#54616d]">
-                                  <div>Revenue <strong className="block text-[#16202b]">{formatCurrency(item.revenue, currencyCode)}</strong></div>
-                                  <div>Cost <strong className="block text-[#16202b]">{formatCurrency(item.cost, currencyCode)}</strong></div>
-                                  <div>GP <strong className="block text-[#16202b]">{formatCurrency(item.grossProfit, currencyCode)}</strong></div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {isMajorProject && (
-              <details className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#f8fbfd] p-4 md:p-5">
-                <summary className="cursor-pointer list-none">
-                  <div className="builder-eyebrow">Internal commercial</div>
-                  <div className="mt-1 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                    <div>
-                      <h3 className="text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Margin foundation</h3>
-                      <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                        Internal-only economics for structured major quotes. Keep it tucked away unless you need an internal margin check.
-                      </p>
-                    </div>
-                    <div className="rounded-[16px] border border-[#dde3e8] bg-white px-4 py-3 text-[13px] text-[#5f6c78]">
-                      Hidden from customer proposal, preview, and PDF output.
-                    </div>
-                  </div>
-                </summary>
-
-                <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
-                  <div className="space-y-4 rounded-[18px] border border-[#dde3e8] bg-white p-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label className="builder-field compact">
-                        <span>Option label</span>
-                        <input value={quote.commercial.meta.optionLabel} onChange={(e) => updateQuote((draft) => { draft.commercial.meta.optionLabel = e.target.value; return draft; })} />
-                      </label>
-                      <label className="builder-field compact">
-                        <span>Comparison group</span>
-                        <input value={quote.commercial.meta.comparisonGroup ?? ""} onChange={(e) => updateQuote((draft) => { draft.commercial.meta.comparisonGroup = e.target.value; return draft; })} />
-                      </label>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">One-time cost inputs</div>
-                        <div className="mt-3 grid gap-3">
-                          <label className="builder-field compact"><span>Equipment cost</span><input type="number" step="0.01" value={quote.commercial.costs.oneTimeEquipmentCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.oneTimeEquipmentCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                          <label className="builder-field compact"><span>Labor cost</span><input type="number" step="0.01" value={quote.commercial.costs.oneTimeLaborCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.oneTimeLaborCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                          <label className="builder-field compact"><span>Other one-time cost</span><input type="number" step="0.01" value={quote.commercial.costs.oneTimeOtherCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.oneTimeOtherCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                        </div>
-                      </div>
-
-                      <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Recurring cost inputs</div>
-                        <div className="mt-3 grid gap-3">
-                          <label className="builder-field compact"><span>Vendor cost / month</span><input type="number" step="0.01" value={quote.commercial.costs.recurringVendorCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.recurringVendorCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                          <label className="builder-field compact"><span>Support cost / month</span><input type="number" step="0.01" value={quote.commercial.costs.recurringSupportCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.recurringSupportCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                          <label className="builder-field compact"><span>Other recurring cost / month</span><input type="number" step="0.01" value={quote.commercial.costs.recurringOtherCost} onChange={(e) => updateQuote((draft) => { draft.commercial.costs.recurringOtherCost = Math.max(parseNumber(e.target.value), 0); return draft; })} /></label>
-                        </div>
-                      </div>
-                    </div>
-
-                    <label className="builder-field">
-                      <span>Internal notes</span>
-                      <textarea rows={3} value={quote.commercial.meta.notes ?? ""} onChange={(e) => updateQuote((draft) => { draft.commercial.meta.notes = e.target.value; return draft; })} />
-                    </label>
-                  </div>
-
-                  <div className="space-y-4 rounded-[18px] border border-[#dde3e8] bg-white p-4">
-                    <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Commercial summary</div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <CommercialMetricCard label="Recurring revenue" value={formatCurrency(commercialMetrics.recurringRevenue, currencyCode)} note="Pulled from Section A customer pricing" />
-                      <CommercialMetricCard label="Recurring cost" value={formatCurrency(commercialMetrics.recurringCost, currencyCode)} note="Internal monthly cost inputs only" />
-                      <CommercialMetricCard label="One-time revenue" value={formatCurrency(commercialMetrics.oneTimeRevenue, currencyCode)} note="Section B + Section C customer pricing" />
-                      <CommercialMetricCard label="One-time cost" value={formatCurrency(commercialMetrics.oneTimeCost, currencyCode)} note="Internal equipment, labor, and other costs" />
-                      <CommercialMetricCard label="Gross profit" value={formatCurrency(commercialMetrics.totalGrossProfit, currencyCode)} note="Combined recurring + one-time gross profit" accent />
-                      <CommercialMetricCard label="Gross margin" value={formatPercent(commercialMetrics.totalGrossMarginPercent)} note="Gross profit ÷ total revenue" accent />
-                    </div>
-
-                    <div className="rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
-                      <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Rollup detail</div>
+                    <div className="mt-4 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
+                      <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Major Project rollup</div>
                       <div className="mt-3 space-y-2">
-                        <div className="flex items-center justify-between gap-3"><span>Recurring GP</span><strong>{formatCurrency(commercialMetrics.recurringGrossProfit, currencyCode)} • {formatPercent(commercialMetrics.recurringGrossMarginPercent)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>One-time GP</span><strong>{formatCurrency(commercialMetrics.oneTimeGrossProfit, currencyCode)} • {formatPercent(commercialMetrics.oneTimeGrossMarginPercent)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Total revenue</span><strong>{formatCurrency(commercialMetrics.totalRevenue, currencyCode)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Total cost</span><strong>{formatCurrency(commercialMetrics.totalCost, currencyCode)}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>Sites in active option</span><strong>{majorProjectMetrics.siteCount}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>Recurring revenue</span><strong>{formatCurrency(majorProjectMetrics.recurringRevenue, currencyCode)}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>One-time revenue</span><strong>{formatCurrency(majorProjectMetrics.oneTimeRevenue, currencyCode)}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>Total revenue</span><strong>{formatCurrency(majorProjectMetrics.totalRevenue, currencyCode)}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>Total cost</span><strong>{formatCurrency(majorProjectMetrics.totalCost, currencyCode)}</strong></div>
+                        <div className="flex items-center justify-between gap-3 text-[#b00000]"><span>Gross margin</span><strong>{formatPercent(majorProjectMetrics.totalGrossMarginPercent)}</strong></div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </details>
               )}
 
             </section>
