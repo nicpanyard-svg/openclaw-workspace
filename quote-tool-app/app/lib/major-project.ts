@@ -916,7 +916,8 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
 
   next.metadata.workflowMode = "major_project";
   next.metadata.documentSubtitle = next.metadata.documentSubtitle || "Major Project Commercial Proposal";
-  next.sections.sectionA.enabled = true;
+  const hasRecurringSectionContent = metrics.recurringRevenue > 0 || state.commercial.terminalFeePerSite > 0 || state.commercial.overageRatePerGb > 0;
+  next.sections.sectionA.enabled = hasRecurringSectionContent;
   next.sections.sectionA.builderLabel = "Major project recurring structure";
   next.sections.sectionA.title = state.summary.projectName
     ? `${state.summary.projectName} recurring commercial structure`
@@ -985,10 +986,10 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   };
 
   const recurringRows = metrics.hasThreeLayerModel
-    ? [recurringRow]
+    ? (metrics.recurringRevenue > 0 ? [recurringRow] : [])
     : simpleRecurringRows.length
       ? simpleRecurringRows
-      : [recurringRow];
+      : (metrics.recurringRevenue > 0 ? [recurringRow] : []);
 
   if (next.sections.sectionA.mode === "pool") {
     next.sections.sectionA.poolRows = [
@@ -1015,7 +1016,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         totalMonthlyRate: state.commercial.overageRatePerGb,
         sourceLabel: "Major Project model",
       }] : []),
-      ...(simpleRecurringRows.some((row) => row.rowType === "support") ? [] : [supportRow]),
+      ...((recurringRows.length > 0 && !simpleRecurringRows.some((row) => row.rowType === "support")) ? [supportRow] : []),
     ];
     next.sections.sectionA.perKitRows = [];
   } else {
@@ -1032,7 +1033,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         totalMonthlyRate: roundCurrency(siteCount * state.commercial.terminalFeePerSite),
         sourceLabel: "Major Project model",
       }] : []),
-      ...(simpleRecurringRows.some((row) => row.rowType === "support") ? [] : [supportRow]),
+      ...((recurringRows.length > 0 && !simpleRecurringRows.some((row) => row.rowType === "support")) ? [supportRow] : []),
     ];
     next.sections.sectionA.poolRows = [];
   }
