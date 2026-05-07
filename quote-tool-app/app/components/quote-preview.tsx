@@ -58,6 +58,7 @@ import {
 } from "@/app/lib/quote-record";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 import { createBlankQuoteRecord } from "@/app/lib/quote-template";
+import { buildProposalApprovalWorkbook } from "@/app/lib/proposal-xlsx-export";
 
 type EquipmentDraft = {
   itemName: string;
@@ -1898,6 +1899,23 @@ export default function QuotePreview() {
     router.push(buildProposalPreviewPath(persisted.proposal.id));
   };
 
+  const exportApprovalWorkbook = async () => {
+    try {
+      const { blob, fileName } = await buildProposalApprovalWorkbook(quote);
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch {
+      setWorkflowNotice("Approval workbook export failed. Try again from Preview Proposal if the problem continues.");
+    }
+  };
+
   const exportInternalPricingSheet = () => {
     const fileSafeProposal = (quote.metadata.proposalNumber || "proposal").replace(/[^a-z0-9-_]+/gi, "-");
     const majorState = quote.majorProject;
@@ -2055,7 +2073,10 @@ export default function QuotePreview() {
             </button>
             <button type="button" className="pill-button" onClick={persistProposalState} disabled={!customerEntryComplete}>Save Draft</button>
             <button type="button" className="pill-button" onClick={copyProposalFromBuilder} disabled={!customerEntryComplete}>Copy Proposal</button>
-            <button type="button" className="pill-button" onClick={exportInternalPricingSheet} disabled={!customerEntryComplete}>Export Internal Pricing</button>
+            <button type="button" className="pill-button pill-button-active" onClick={() => void exportApprovalWorkbook()} disabled={!customerEntryComplete}>
+              Export Approval Workbook
+            </button>
+            <button type="button" className="pill-button" onClick={exportInternalPricingSheet} disabled={!customerEntryComplete}>Export Pricing CSV</button>
           </div>
 
           {(workflowNotice || majorProjectHasBlockingErrors) && (
