@@ -104,14 +104,6 @@ function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
 }
 
-function csvEscape(value: string | number | null | undefined) {
-  const stringValue = value == null ? "" : String(value);
-  if (/[",\n]/.test(stringValue)) {
-    return `"${stringValue.replace(/"/g, '""')}"`;
-  }
-  return stringValue;
-}
-
 function parseNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -1916,115 +1908,6 @@ export default function QuotePreview() {
     }
   };
 
-  const exportInternalPricingSheet = () => {
-    const fileSafeProposal = (quote.metadata.proposalNumber || "proposal").replace(/[^a-z0-9-_]+/gi, "-");
-    const majorState = quote.majorProject;
-    const activeOption = getActiveMajorProjectOption(quote);
-    const simpleRows = activeOption?.simpleRows ?? [];
-    const advancedRows = majorProjectMetrics.customerQuoteLines ?? [];
-    const lines: string[] = [];
-
-    lines.push(["Proposal", quote.metadata.proposalNumber].map(csvEscape).join(","));
-    lines.push(["Customer", quote.customer.name].map(csvEscape).join(","));
-    lines.push(["Workflow", isMajorProject ? "Major Project" : "Quick Quote"].map(csvEscape).join(","));
-    lines.push(["Project", majorState?.summary.projectName ?? ""].map(csvEscape).join(","));
-    lines.push(["Option", activeOption?.label ?? ""].map(csvEscape).join(","));
-    lines.push([] as unknown as string);
-
-    lines.push([
-      "Item",
-      "Description",
-      "Bucket/Category",
-      "Schedule",
-      "Qty",
-      "Unit",
-      "Customer Unit Price",
-      "Customer Extended Price",
-      "Our Unit Cost",
-      "Our Extended Cost",
-      "Gross Profit",
-      "Gross Margin %",
-    ].map(csvEscape).join(","));
-
-    if (isMajorProject && simpleRows.length > 0) {
-      simpleRows.forEach((row) => {
-        const revenue = row.customerExtendedPrice;
-        const cost = row.ourExtendedCost;
-        const grossProfit = revenue - cost;
-        const grossMargin = revenue > 0 ? ((grossProfit / revenue) * 100) : 0;
-        lines.push([
-          row.label || row.description || "Line item",
-          row.description || "",
-          majorProjectBucketLabel(row.bucket),
-          ["mrr", "other_vendor", "support_recurring", "other_recurring"].includes(row.bucket) ? "Recurring" : "One-time",
-          row.quantity,
-          row.unit || "ea",
-          row.customerUnitPrice,
-          row.customerExtendedPrice,
-          row.ourUnitCost,
-          row.ourExtendedCost,
-          grossProfit,
-          grossMargin.toFixed(1),
-        ].map(csvEscape).join(","));
-      });
-    } else if (isMajorProject && advancedRows.length > 0) {
-      advancedRows.forEach((line) => {
-        const revenue = line.oneTimeRevenue + line.recurringRevenue;
-        const cost = line.oneTimeCost + line.recurringCost;
-        const grossProfit = revenue - cost;
-        const grossMargin = revenue > 0 ? ((grossProfit / revenue) * 100) : 0;
-        lines.push([
-          line.label || "Quote line",
-          line.description || "",
-          line.presentationCategory,
-          line.schedule === "recurring" ? "Recurring" : line.schedule === "one_time" ? "One-time" : "Mixed",
-          1,
-          "line",
-          revenue,
-          revenue,
-          cost,
-          cost,
-          grossProfit,
-          grossMargin.toFixed(1),
-        ].map(csvEscape).join(","));
-      });
-    } else {
-      const serviceRows = quote.sections.sectionC.lineItems ?? [];
-      serviceRows.forEach((row) => {
-        lines.push([
-          row.description,
-          row.notes || "",
-          row.serviceCategory || "Service",
-          "One-time",
-          row.quantity,
-          row.unitLabel || "ea",
-          row.unitPrice,
-          row.totalPrice,
-          "",
-          "",
-          "",
-          "",
-        ].map(csvEscape).join(","));
-      });
-    }
-
-    lines.push("");
-    lines.push(["Total Revenue", majorProjectMetrics.totalRevenue].map(csvEscape).join(","));
-    lines.push(["Total Cost", majorProjectMetrics.totalCost].map(csvEscape).join(","));
-    lines.push(["Gross Profit", majorProjectMetrics.totalGrossProfit].map(csvEscape).join(","));
-    lines.push(["Gross Margin %", majorProjectMetrics.totalGrossMarginPercent.toFixed(1)].map(csvEscape).join(","));
-
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${fileSafeProposal || "proposal"}-internal-pricing.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-  };
-
   const copyProposalFromBuilder = () => {
     const persisted = persistProposalState();
     if (!persisted || typeof window === "undefined") return;
@@ -2076,7 +1959,6 @@ export default function QuotePreview() {
             <button type="button" className="pill-button pill-button-active" onClick={() => void exportApprovalWorkbook()} disabled={!customerEntryComplete}>
               Export Approval Workbook
             </button>
-            <button type="button" className="pill-button" onClick={exportInternalPricingSheet} disabled={!customerEntryComplete}>Export Pricing CSV</button>
           </div>
 
           {(workflowNotice || majorProjectHasBlockingErrors) && (
