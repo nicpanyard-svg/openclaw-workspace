@@ -98,13 +98,13 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
                 <div className="cover-meta-label">Proposal</div>
                 <div className="cover-meta-value">#{quote.metadata.proposalNumber}</div>
                 <div>{quote.metadata.proposalDate}</div>
-                <div className="cover-meta-chip">Budgetary Estimate</div>
+                {quote.metadata.documentTitle ? <div className="cover-meta-chip">{quote.metadata.documentTitle}</div> : null}
               </div>
             </div>
           </div>
 
           <div className="cover-content">
-            <div className="cover-kicker">Budgetary Estimate</div>
+            {quote.metadata.documentTitle ? <div className="cover-kicker">{quote.metadata.documentTitle}</div> : null}
             <h1>{quote.metadata.documentTitle}</h1>
             <h2>{quote.metadata.documentSubtitle}</h2>
 
@@ -191,7 +191,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
           <div className="proposal-summary-panel">
             <div className="summary-panel-label">Date</div>
             <div className="summary-panel-value">{quote.documentation.proposalDateLabel}</div>
-            <div className="summary-panel-copy">Budgetary Estimate</div>
+            <div className="summary-panel-copy">{quote.metadata.documentTitle || quote.documentation.proposalTitle}</div>
           </div>
           <div className="proposal-summary-panel">
             <div className="summary-panel-label">{quote.documentation.preparedByLabel ?? "Prepared by"}</div>

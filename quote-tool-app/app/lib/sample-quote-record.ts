@@ -1,6 +1,7 @@
 import { createDefaultIntegrationState } from "@/app/lib/crm";
 import { createDefaultCommercialState } from "@/app/lib/commercial-model";
 import { createDefaultMajorProjectState } from "@/app/lib/major-project";
+import { createDefaultQuoteServiceAgreementState } from "@/app/lib/service-agreement";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 
 export const sampleQuoteRecord: QuoteRecord = {
@@ -78,6 +79,32 @@ export const sampleQuoteRecord: QuoteRecord = {
       },
     ],
     activeOptionId: "major-option-1",
+  },
+  serviceAgreement: {
+    ...createDefaultQuoteServiceAgreementState(),
+    sourceCustomerProfileId: "customer-cz-usa",
+    sourceCustomerProfileName: "CZ USA",
+    lastAppliedAt: "2026-04-17T19:00:00.000Z",
+    profile: {
+      ...createDefaultQuoteServiceAgreementState().profile,
+      agreementLabel: "CZ USA service pricing agreement",
+      sourceDocument: {
+        fileName: "cz-usa-service-pricing-agreement.pdf",
+        note: "Signed PDF retained in account records.",
+      },
+      signedDate: "2026-03-28",
+      acceptedDate: "2026-03-28",
+      notes: "Use these defaults for field work unless the proposal has a documented exception.",
+      categories: createDefaultQuoteServiceAgreementState().profile.categories.map((category) => {
+        if (category.key === "site_survey") {
+          return { ...category, rateBasis: "standard", laborRate: 856, mileageRate: 1.25, notes: "Budgetary before dispatch." };
+        }
+        if (category.key === "static_site_new_install") {
+          return { ...category, rateBasis: "standard", laborRate: 3500, mileageRate: 1.25, notes: "Typical single-site install allowance." };
+        }
+        return category;
+      }),
+    },
   },
   documentation: {
     proposalTitle: "CZ USA",

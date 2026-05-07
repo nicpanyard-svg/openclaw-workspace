@@ -104,6 +104,54 @@ export type ServicePricingRow = {
   sourceLabel?: string;
   pricingStage?: "budgetary" | "final";
   serviceCategory?: "site_inspection" | "installation" | "custom";
+  serviceAgreementCategoryKey?: ServiceAgreementCategoryKey;
+  serviceAgreementRateBasis?: ServiceAgreementRateBasis;
+  mileageRate?: number | null;
+};
+
+export type ServiceAgreementCategoryKey =
+  | "rig_up_new_install"
+  | "rig_moves"
+  | "rig_decommission"
+  | "static_site_new_install"
+  | "static_site_cancel_terminate"
+  | "add_change_remove"
+  | "break_fixes_customer_fault"
+  | "site_survey";
+
+export type ServiceAgreementRateBasis = "standard" | "non_standard" | "na";
+
+export type ServiceAgreementAttachment = {
+  fileName: string;
+  fileUrl?: string;
+  note?: string;
+};
+
+export type ServiceAgreementCategoryPricing = {
+  key: ServiceAgreementCategoryKey;
+  label: string;
+  rateBasis: ServiceAgreementRateBasis;
+  laborRate: number | null;
+  mileageRate: number | null;
+  notes?: string;
+};
+
+export type ServiceAgreementProfile = {
+  agreementLabel: string;
+  sourceDocument?: ServiceAgreementAttachment;
+  signedDate?: string;
+  acceptedDate?: string;
+  notes?: string;
+  categories: ServiceAgreementCategoryPricing[];
+  updatedAt?: string;
+};
+
+export type QuoteServiceAgreementState = {
+  useCustomerDefaults: boolean;
+  sourceCustomerProfileId?: string;
+  sourceCustomerProfileName?: string;
+  lastAppliedAt?: string;
+  profile: ServiceAgreementProfile;
 };
 
 export type QuoteMetadata = {
@@ -386,6 +434,7 @@ export type QuoteRecord = {
   metadata: QuoteMetadata;
   commercial: QuoteCommercialState;
   majorProject: MajorProjectState;
+  serviceAgreement: QuoteServiceAgreementState;
   documentation: QuoteDocumentationDetails;
   approval: QuoteApprovalDetails;
   terms: QuoteTermsSection;

@@ -1,4 +1,6 @@
 import type { QuoteRecord } from "@/app/lib/quote-record";
+import { createQuoteServiceAgreementFromCustomer, normalizeServiceAgreementProfile } from "@/app/lib/service-agreement";
+import type { ServiceAgreementProfile } from "@/app/lib/quote-record";
 
 export const CUSTOMER_PROFILE_STORE_KEY = "rapidquote:customer-profiles";
 export const CUSTOMER_PROFILE_STORE_FALLBACK_KEY = "quote-tool-app:customer-profiles";
@@ -30,6 +32,7 @@ export type SavedCustomerProfile = {
   mainContactPhone: string;
   defaultOwnerUserId?: string;
   defaultOwnerName?: string;
+  serviceAgreementDefaults?: ServiceAgreementProfile;
   createdAt: string;
   updatedAt: string;
 };
@@ -76,6 +79,7 @@ function normalizeProfile(profile: Partial<SavedCustomerProfile> | null | undefi
     mainContactPhone: profile.mainContactPhone?.trim() ?? "",
     defaultOwnerUserId: profile.defaultOwnerUserId?.trim() || undefined,
     defaultOwnerName: profile.defaultOwnerName?.trim() || undefined,
+    serviceAgreementDefaults: normalizeServiceAgreementProfile(profile.serviceAgreementDefaults),
     createdAt,
     updatedAt,
   };
@@ -129,6 +133,7 @@ export function createCustomerProfileFromQuote(quote: QuoteRecord, profileId?: s
     mainContactPhone: quote.customer.contactPhone.trim(),
     defaultOwnerUserId: quote.metadata.ownerUserId,
     defaultOwnerName: quote.metadata.ownerName,
+    serviceAgreementDefaults: normalizeServiceAgreementProfile(quote.serviceAgreement?.profile),
     createdAt: now,
     updatedAt: now,
   };
@@ -180,6 +185,11 @@ export function applyCustomerProfileToQuote(quote: QuoteRecord, profile: SavedCu
       };
 
   quote.internal.savedCustomerProfileId = profile.id;
+  quote.serviceAgreement = createQuoteServiceAgreementFromCustomer({
+    profile: normalizeServiceAgreementProfile(profile.serviceAgreementDefaults),
+    customerProfileId: profile.id,
+    customerName: profile.companyName,
+  });
 
   return quote;
 }

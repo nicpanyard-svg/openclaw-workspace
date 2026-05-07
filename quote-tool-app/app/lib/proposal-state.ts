@@ -1,6 +1,7 @@
 import { createDefaultIntegrationState } from "@/app/lib/crm";
 import { createDefaultCommercialState } from "@/app/lib/commercial-model";
 import { createDefaultMajorProjectState } from "@/app/lib/major-project";
+import { createDefaultQuoteServiceAgreementState, normalizeQuoteServiceAgreementState } from "@/app/lib/service-agreement";
 import type { QuoteCustomField, QuoteRecord } from "@/app/lib/quote-record";
 
 export const PROPOSAL_STORAGE_KEY = "quote-tool-app:proposal-state";
@@ -114,6 +115,7 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
         options: parsed.majorProject?.options?.length ? parsed.majorProject.options : createDefaultMajorProjectState().options,
         activeOptionId: parsed.majorProject?.activeOptionId ?? parsed.majorProject?.options?.[0]?.id ?? createDefaultMajorProjectState().activeOptionId,
       },
+      serviceAgreement: normalizeQuoteServiceAgreementState(parsed.serviceAgreement ?? createDefaultQuoteServiceAgreementState()),
       inet: {
         ...parsed.inet,
         addressLines: inetAddressLines,

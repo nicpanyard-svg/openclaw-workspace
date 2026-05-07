@@ -16,7 +16,6 @@ import {
   PROPOSAL_STORAGE_KEY,
   deserializeQuoteRecord,
   persistQuoteRecord,
-  serializeQuoteRecord,
 } from "@/app/lib/proposal-state";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
@@ -34,6 +33,11 @@ import { ensureNickTrainingDemoProfiles, ensureNickTrainingDemoProposalStore } f
 import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState, getActiveMajorProjectOption } from "@/app/lib/major-project";
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
 import {
+  createDefaultServiceAgreementProfile,
+  createServiceRowFromAgreementCategory,
+  normalizeServiceAgreementProfile,
+} from "@/app/lib/service-agreement";
+import {
   type MajorProjectBundle,
   type MajorProjectBuilderMode,
   type MajorProjectComponent,
@@ -47,6 +51,9 @@ import {
   type QuoteCustomField,
   type QuoteRecord,
   type QuoteType,
+  type ServiceAgreementCategoryKey,
+  type ServiceAgreementRateBasis,
+  type ServiceAgreementCategoryPricing,
   type ServicePricingRow,
 } from "@/app/lib/quote-record";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
@@ -94,6 +101,14 @@ function formatCurrency(value: number, currencyCode = "USD") {
 
 function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
+}
+
+function csvEscape(value: string | number | null | undefined) {
+  const stringValue = value == null ? "" : String(value);
+  if (/[",\n]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+  return stringValue;
 }
 
 function parseNumber(value: string) {
@@ -462,6 +477,18 @@ const servicePresetTemplates: Array<{ key: string; label: string; description: s
     unitPrice: 0,
   },
 ];
+
+function serviceAgreementRateBasisLabel(rateBasis: ServiceAgreementRateBasis) {
+  if (rateBasis === "standard") return "Standard";
+  if (rateBasis === "non_standard") return "Non-standard";
+  return "N/A";
+}
+
+function serviceAgreementCategoryTone(rateBasis: ServiceAgreementRateBasis) {
+  if (rateBasis === "standard") return "border-[#d9eadb] bg-[#f5fbf6]";
+  if (rateBasis === "non_standard") return "border-[#f0ddc0] bg-[#fff8ef]";
+  return "border-[#e2e7ec] bg-[#fbfcfe]";
+}
 
 const majorProjectBucketOptions: Array<{ value: MajorProjectSimpleBucket; label: string; note: string }> = [
   { value: "mrr", label: "MRR", note: "Primary recurring service" },
@@ -974,6 +1001,22 @@ export default function QuotePreview() {
     () => customerProfiles.find((profile) => profile.id === selectedCustomerProfileId) ?? null,
     [customerProfiles, selectedCustomerProfileId],
   );
+  const quoteServiceAgreementProfile = useMemo(
+    () => normalizeServiceAgreementProfile(quote.serviceAgreement?.profile ?? createDefaultServiceAgreementProfile()),
+    [quote.serviceAgreement],
+  );
+  const selectedCustomerServiceAgreement = useMemo(
+    () => normalizeServiceAgreementProfile(selectedCustomerProfile?.serviceAgreementDefaults ?? createDefaultServiceAgreementProfile()),
+    [selectedCustomerProfile],
+  );
+  const hasSelectedCustomerServiceAgreement = useMemo(
+    () => selectedCustomerServiceAgreement.categories.some((category) => category.rateBasis !== "na" || category.laborRate !== null || category.mileageRate !== null || Boolean(category.notes?.trim())),
+    [selectedCustomerServiceAgreement],
+  );
+  const activeServiceAgreementCategories = useMemo(
+    () => quoteServiceAgreementProfile.categories.filter((category) => category.rateBasis !== "na" || category.laborRate !== null || category.mileageRate !== null || Boolean(category.notes?.trim())),
+    [quoteServiceAgreementProfile],
+  );
   const customerEntryComplete = customerEntryMode === "review" && Boolean(quote.customer.name.trim());
   const customerHeadline = quote.customer.name.trim() || quote.metadata.accountName?.trim() || "No customer selected";
   const customerSubline = compactList([
@@ -1005,6 +1048,101 @@ export default function QuotePreview() {
       draft.executiveSummary.paragraphs = generated.paragraphs;
       return draft;
     });
+  };
+
+  const updateAgreementCategoryField = (
+    categoryKey: ServiceAgreementCategoryKey,
+    field: keyof Pick<ServiceAgreementCategoryPricing, "rateBasis" | "laborRate" | "mileageRate" | "notes">,
+    value: string,
+  ) => updateQuote((draft) => {
+    draft.serviceAgreement.profile.categories = draft.serviceAgreement.profile.categories.map((category) => {
+      if (category.key !== categoryKey) return category;
+
+      if (field === "rateBasis") {
+        return {
+          ...category,
+          rateBasis: value as ServiceAgreementRateBasis,
+        };
+      }
+
+      if (field === "laborRate") {
+        return {
+          ...category,
+          laborRate: value.trim() ? Math.max(parseNumber(value), 0) : null,
+        };
+      }
+
+      if (field === "mileageRate") {
+        return {
+          ...category,
+          mileageRate: value.trim() ? Math.max(parseNumber(value), 0) : null,
+        };
+      }
+
+      return {
+        ...category,
+        notes: value,
+      };
+    });
+    draft.serviceAgreement.profile.updatedAt = new Date().toISOString();
+    return draft;
+  });
+
+  const updateAgreementProfileField = (
+    field: "agreementLabel" | "signedDate" | "acceptedDate" | "notes",
+    value: string,
+  ) => updateQuote((draft) => {
+    draft.serviceAgreement.profile[field] = value;
+    draft.serviceAgreement.profile.updatedAt = new Date().toISOString();
+    return draft;
+  });
+
+  const updateAgreementAttachmentField = (field: "fileName" | "fileUrl" | "note", value: string) => updateQuote((draft) => {
+    const currentAttachment = draft.serviceAgreement.profile.sourceDocument ?? { fileName: "", fileUrl: "", note: "" };
+    const nextAttachment = {
+      ...currentAttachment,
+      [field]: value,
+    };
+
+    draft.serviceAgreement.profile.sourceDocument = nextAttachment.fileName.trim()
+      ? {
+          fileName: nextAttachment.fileName,
+          fileUrl: nextAttachment.fileUrl?.trim() || undefined,
+          note: nextAttachment.note?.trim() || undefined,
+        }
+      : undefined;
+    draft.serviceAgreement.profile.updatedAt = new Date().toISOString();
+    return draft;
+  });
+
+  const applyCustomerServiceAgreementDefaults = () => {
+    if (!selectedCustomerProfile) return;
+
+    updateQuote((draft) => {
+      draft.serviceAgreement = {
+        useCustomerDefaults: true,
+        sourceCustomerProfileId: selectedCustomerProfile.id,
+        sourceCustomerProfileName: selectedCustomerProfile.companyName,
+        lastAppliedAt: new Date().toISOString(),
+        profile: normalizeServiceAgreementProfile(selectedCustomerProfile.serviceAgreementDefaults),
+      };
+      return draft;
+    });
+    setWorkflowNotice(`Loaded service pricing defaults from ${selectedCustomerProfile.companyName}.`);
+  };
+
+  const addAgreementCategoryToSectionC = (category: ServiceAgreementCategoryPricing) => {
+    updateQuote((draft) => {
+      draft.sections.sectionC.enabled = true;
+      draft.sections.sectionC.lineItems.push(
+        createServiceRowFromAgreementCategory(
+          category,
+          draft.serviceAgreement.profile.sourceDocument?.fileName || draft.serviceAgreement.sourceCustomerProfileName || "Customer SLA default",
+        ),
+      );
+      return draft;
+    });
+    setWorkflowNotice(`Added ${category.label} from the service agreement defaults into Section C.`);
   };
 
   const updateMajorCommercialField = (field: keyof QuoteRecord["majorProject"]["commercial"], value: string | number | boolean) => {
@@ -1760,6 +1898,115 @@ export default function QuotePreview() {
     router.push(buildProposalPreviewPath(persisted.proposal.id));
   };
 
+  const exportInternalPricingSheet = () => {
+    const fileSafeProposal = (quote.metadata.proposalNumber || "proposal").replace(/[^a-z0-9-_]+/gi, "-");
+    const majorState = quote.majorProject;
+    const activeOption = getActiveMajorProjectOption(quote);
+    const simpleRows = activeOption?.simpleRows ?? [];
+    const advancedRows = majorProjectMetrics.customerQuoteLines ?? [];
+    const lines: string[] = [];
+
+    lines.push(["Proposal", quote.metadata.proposalNumber].map(csvEscape).join(","));
+    lines.push(["Customer", quote.customer.name].map(csvEscape).join(","));
+    lines.push(["Workflow", isMajorProject ? "Major Project" : "Quick Quote"].map(csvEscape).join(","));
+    lines.push(["Project", majorState?.summary.projectName ?? ""].map(csvEscape).join(","));
+    lines.push(["Option", activeOption?.label ?? ""].map(csvEscape).join(","));
+    lines.push([] as unknown as string);
+
+    lines.push([
+      "Item",
+      "Description",
+      "Bucket/Category",
+      "Schedule",
+      "Qty",
+      "Unit",
+      "Customer Unit Price",
+      "Customer Extended Price",
+      "Our Unit Cost",
+      "Our Extended Cost",
+      "Gross Profit",
+      "Gross Margin %",
+    ].map(csvEscape).join(","));
+
+    if (isMajorProject && simpleRows.length > 0) {
+      simpleRows.forEach((row) => {
+        const revenue = row.customerExtendedPrice;
+        const cost = row.ourExtendedCost;
+        const grossProfit = revenue - cost;
+        const grossMargin = revenue > 0 ? ((grossProfit / revenue) * 100) : 0;
+        lines.push([
+          row.label || row.description || "Line item",
+          row.description || "",
+          majorProjectBucketLabel(row.bucket),
+          ["mrr", "other_vendor", "support_recurring", "other_recurring"].includes(row.bucket) ? "Recurring" : "One-time",
+          row.quantity,
+          row.unit || "ea",
+          row.customerUnitPrice,
+          row.customerExtendedPrice,
+          row.ourUnitCost,
+          row.ourExtendedCost,
+          grossProfit,
+          grossMargin.toFixed(1),
+        ].map(csvEscape).join(","));
+      });
+    } else if (isMajorProject && advancedRows.length > 0) {
+      advancedRows.forEach((line) => {
+        const revenue = line.oneTimeRevenue + line.recurringRevenue;
+        const cost = line.oneTimeCost + line.recurringCost;
+        const grossProfit = revenue - cost;
+        const grossMargin = revenue > 0 ? ((grossProfit / revenue) * 100) : 0;
+        lines.push([
+          line.label || "Quote line",
+          line.description || "",
+          line.presentationCategory,
+          line.schedule === "recurring" ? "Recurring" : line.schedule === "one_time" ? "One-time" : "Mixed",
+          1,
+          "line",
+          revenue,
+          revenue,
+          cost,
+          cost,
+          grossProfit,
+          grossMargin.toFixed(1),
+        ].map(csvEscape).join(","));
+      });
+    } else {
+      const serviceRows = quote.sections.sectionC.lineItems ?? [];
+      serviceRows.forEach((row) => {
+        lines.push([
+          row.description,
+          row.notes || "",
+          row.serviceCategory || "Service",
+          "One-time",
+          row.quantity,
+          row.unitLabel || "ea",
+          row.unitPrice,
+          row.totalPrice,
+          "",
+          "",
+          "",
+          "",
+        ].map(csvEscape).join(","));
+      });
+    }
+
+    lines.push("");
+    lines.push(["Total Revenue", majorProjectMetrics.totalRevenue].map(csvEscape).join(","));
+    lines.push(["Total Cost", majorProjectMetrics.totalCost].map(csvEscape).join(","));
+    lines.push(["Gross Profit", majorProjectMetrics.totalGrossProfit].map(csvEscape).join(","));
+    lines.push(["Gross Margin %", majorProjectMetrics.totalGrossMarginPercent.toFixed(1)].map(csvEscape).join(","));
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${fileSafeProposal || "proposal"}-internal-pricing.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+
   const copyProposalFromBuilder = () => {
     const persisted = persistProposalState();
     if (!persisted || typeof window === "undefined") return;
@@ -1808,6 +2055,7 @@ export default function QuotePreview() {
             </button>
             <button type="button" className="pill-button" onClick={persistProposalState} disabled={!customerEntryComplete}>Save Draft</button>
             <button type="button" className="pill-button" onClick={copyProposalFromBuilder} disabled={!customerEntryComplete}>Copy Proposal</button>
+            <button type="button" className="pill-button" onClick={exportInternalPricingSheet} disabled={!customerEntryComplete}>Export Internal Pricing</button>
           </div>
 
           {(workflowNotice || majorProjectHasBlockingErrors) && (
@@ -1878,10 +2126,11 @@ export default function QuotePreview() {
                   </div>
 
                   {selectedCustomerProfile ? (
-                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <div className="mt-4 grid gap-3 md:grid-cols-4">
                         <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Main contact</strong>{selectedCustomerProfile.mainContactName || "Not set"}<br />{selectedCustomerProfile.mainContactEmail || "No email"}<br />{selectedCustomerProfile.mainContactPhone || "No phone"}</div>
                         <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Primary / default address</strong>{selectedCustomerProfile.primaryAddress.companyName || selectedCustomerProfile.companyName}<br />{selectedCustomerProfile.primaryAddress.lines.join(", ") || "No primary address"}</div>
                         <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Billing / shipping defaults</strong>{selectedCustomerProfile.shippingSameAsBillTo ? "Shipping matches billing" : selectedCustomerProfile.shippingAddress.lines.join(", ") || "No shipping address"}<br />Owner default: {selectedCustomerProfile.defaultOwnerName || "Not set"}</div>
+                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Service pricing agreement</strong>{selectedCustomerServiceAgreement.agreementLabel || "No SLA name set"}<br />{hasSelectedCustomerServiceAgreement ? `${selectedCustomerServiceAgreement.categories.filter((category) => category.rateBasis !== "na").length} priced category defaults` : "No SLA pricing defaults saved yet"}</div>
                       </div>
                   ) : customerProfiles.length === 0 ? (
                     <div className="mt-4 rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No saved customer profiles yet. Create one from this draft, then reuse it next time.</div>
@@ -1915,10 +2164,11 @@ export default function QuotePreview() {
                   </div>
 
                   {customerEntryMode === "review" ? (
-                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <div className="mt-4 grid gap-3 md:grid-cols-4">
                         <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Contact</strong>{customerSubline || "No contact details yet"}</div>
                         <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Primary / default address</strong>{customerServiceAddress || "No primary address yet"}</div>
                         <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Saved profile</strong>{selectedCustomerProfile ? selectedCustomerProfile.companyName : "Not linked yet"}<br />{selectedCustomerProfileId ? "Auto-update available on save" : "Save this customer when ready"}</div>
+                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">SLA defaults</strong>{quoteServiceAgreementProfile.agreementLabel || "No service agreement linked"}<br />{activeServiceAgreementCategories.length ? `${activeServiceAgreementCategories.length} active pricing categories ready` : "No customer pricing defaults applied yet"}</div>
                       </div>
                   ) : (
                     <>
@@ -1942,7 +2192,7 @@ export default function QuotePreview() {
                           <label className="builder-field compact md:col-span-2"><span>Address line 2</span><input value={quote.customer.addressLines[1] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[1] = e.target.value; return draft; })} /></label>
                           <label className="builder-field compact md:col-span-2"><span>Address line 3</span><input value={quote.customer.addressLines[2] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[2] = e.target.value; return draft; })} /></label>
                         </div>
-                        <div className="mt-3 text-[12px] leading-[1.5] text-[#66727d]">RapidQuote uses this as the account's default service address and the starting point for Bill To and Ship To.</div>
+                        <div className="mt-3 text-[12px] leading-[1.5] text-[#66727d]">RapidQuote uses this as the account&apos;s default service address and the starting point for Bill To and Ship To.</div>
                       </div>
 
                       <div className="mt-4 grid gap-4 xl:grid-cols-2">
@@ -1981,6 +2231,56 @@ export default function QuotePreview() {
                               return draft;
                             })}
                           />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 rounded-[20px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <div className="builder-eyebrow">Customer-level service pricing agreement</div>
+                            <h4 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#16202b]">Saved SLA defaults</h4>
+                            <p className="mt-2 text-[13px] leading-[1.55] text-[#60707f]">
+                              Store the customer&apos;s service pricing agreement here, then reuse those defaults in Quick Quote service rows.
+                            </p>
+                          </div>
+                          {selectedCustomerProfile && hasSelectedCustomerServiceAgreement ? (
+                            <button type="button" className="pill-button" onClick={applyCustomerServiceAgreementDefaults}>
+                              Pull saved SLA defaults
+                            </button>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                          <label className="builder-field compact xl:col-span-2"><span>Agreement name</span><input value={quoteServiceAgreementProfile.agreementLabel} onChange={(e) => updateAgreementProfileField("agreementLabel", e.target.value)} placeholder="Customer service pricing agreement" /></label>
+                          <label className="builder-field compact"><span>Signed date</span><input type="date" value={quoteServiceAgreementProfile.signedDate ?? ""} onChange={(e) => updateAgreementProfileField("signedDate", e.target.value)} /></label>
+                          <label className="builder-field compact"><span>Accepted date</span><input type="date" value={quoteServiceAgreementProfile.acceptedDate ?? ""} onChange={(e) => updateAgreementProfileField("acceptedDate", e.target.value)} /></label>
+                        </div>
+
+                        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                          <label className="builder-field compact"><span>SLA PDF / file name</span><input value={quoteServiceAgreementProfile.sourceDocument?.fileName ?? ""} onChange={(e) => updateAgreementAttachmentField("fileName", e.target.value)} placeholder="signed-service-agreement.pdf" /></label>
+                          <label className="builder-field compact"><span>Document reference / URL</span><input value={quoteServiceAgreementProfile.sourceDocument?.fileUrl ?? ""} onChange={(e) => updateAgreementAttachmentField("fileUrl", e.target.value)} placeholder="Internal link or storage reference" /></label>
+                          <label className="builder-field compact"><span>Attachment note</span><input value={quoteServiceAgreementProfile.sourceDocument?.note ?? ""} onChange={(e) => updateAgreementAttachmentField("note", e.target.value)} placeholder="Where the signed PDF lives" /></label>
+                        </div>
+
+                        <label className="builder-field compact mt-4"><span>Agreement notes</span><textarea rows={3} value={quoteServiceAgreementProfile.notes ?? ""} onChange={(e) => updateAgreementProfileField("notes", e.target.value)} placeholder="Internal guidance or exceptions for using this customer's service pricing defaults" /></label>
+
+                        <div className="mt-4 space-y-3">
+                          {quoteServiceAgreementProfile.categories.map((category) => (
+                            <div key={category.key} className={`rounded-[18px] border p-4 ${serviceAgreementCategoryTone(category.rateBasis)}`}>
+                              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                <div>
+                                  <div className="text-[15px] font-semibold text-[#16202b]">{category.label}</div>
+                                  <div className="mt-1 text-[12px] font-medium uppercase tracking-[0.14em] text-[#7a8793]">{serviceAgreementRateBasisLabel(category.rateBasis)}</div>
+                                </div>
+                                <div className="grid gap-3 md:grid-cols-3 lg:min-w-[620px]">
+                                  <label className="builder-field compact"><span>Rate basis</span><select value={category.rateBasis} onChange={(e) => updateAgreementCategoryField(category.key, "rateBasis", e.target.value)}><option value="na">N/A</option><option value="standard">Standard</option><option value="non_standard">Non-standard</option></select></label>
+                                  <label className="builder-field compact"><span>Labor rate</span><input type="number" step="0.01" value={category.laborRate ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "laborRate", e.target.value)} placeholder="0.00" /></label>
+                                  <label className="builder-field compact"><span>Mileage rate</span><input type="number" step="0.01" value={category.mileageRate ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "mileageRate", e.target.value)} placeholder="0.00" /></label>
+                                </div>
+                              </div>
+                              <label className="builder-field compact mt-3"><span>Notes</span><input value={category.notes ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "notes", e.target.value)} placeholder="Scope note, exception, or dispatch guidance" /></label>
+                            </div>
+                          ))}
                         </div>
                       </div>
 
@@ -2871,6 +3171,59 @@ export default function QuotePreview() {
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{servicePresetTemplates.map((preset) => <button key={preset.key} type="button" className="pill-button" onClick={() => addPresetServiceRow(preset.key)}>{preset.label}</button>)}</div>
 
+                <div className="mt-5 rounded-[20px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="builder-eyebrow">Service agreement defaults</div>
+                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">
+                        {quoteServiceAgreementProfile.agreementLabel || "Customer SLA pricing profile"}
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-[1.55] text-[#60707f]">
+                        Add structured SLA categories into Section C without exposing the raw internal agreement form in the proposal.
+                      </p>
+                    </div>
+                    {selectedCustomerProfile && hasSelectedCustomerServiceAgreement ? (
+                      <button type="button" className="pill-button" onClick={applyCustomerServiceAgreementDefaults}>
+                        Refresh from customer defaults
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Agreement</strong>{quoteServiceAgreementProfile.agreementLabel || "No SLA name set"}<br />{quote.serviceAgreement.sourceCustomerProfileName || quote.customer.name || "Not linked to a saved customer"}</div>
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Attachment</strong>{quoteServiceAgreementProfile.sourceDocument?.fileName || "No source document reference"}<br />{quoteServiceAgreementProfile.sourceDocument?.note || quoteServiceAgreementProfile.sourceDocument?.fileUrl || "Signed/source PDF can be referenced here"}</div>
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Accepted dates</strong>{quoteServiceAgreementProfile.signedDate || "No signed date"}<br />{quoteServiceAgreementProfile.acceptedDate || "No accepted date"}</div>
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Ready categories</strong>{activeServiceAgreementCategories.length} pricing default{activeServiceAgreementCategories.length === 1 ? "" : "s"}<br />{quote.serviceAgreement.lastAppliedAt ? "Applied to this quote" : "Quote-level profile ready to use"}</div>
+                  </div>
+
+                  {activeServiceAgreementCategories.length ? (
+                    <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                      {activeServiceAgreementCategories.map((category) => (
+                        <div key={category.key} className={`rounded-[18px] border p-4 ${serviceAgreementCategoryTone(category.rateBasis)}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-[16px] font-semibold text-[#16202b]">{category.label}</div>
+                              <div className="mt-1 text-[12px] font-medium uppercase tracking-[0.14em] text-[#7a8793]">{serviceAgreementRateBasisLabel(category.rateBasis)}</div>
+                            </div>
+                            <button type="button" className="pill-button pill-button-active" onClick={() => addAgreementCategoryToSectionC(category)}>
+                              Add to Section C
+                            </button>
+                          </div>
+                          <div className="mt-3 grid gap-3 md:grid-cols-2 text-[13px] text-[#51606d]">
+                            <div><strong className="block text-[#16202b]">Labor rate</strong>{category.laborRate !== null ? formatCurrency(category.laborRate, currencyCode) : "Not set"}</div>
+                            <div><strong className="block text-[#16202b]">Mileage rate</strong>{category.mileageRate !== null ? formatCurrency(category.mileageRate, currencyCode) : "Not set"}</div>
+                          </div>
+                          {category.notes ? <div className="mt-3 text-[13px] leading-[1.5] text-[#60707f]">{category.notes}</div> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-[18px] border border-dashed border-[#d9e0e7] bg-white p-4 text-[13px] leading-[1.55] text-[#5d6772]">
+                      No active SLA pricing defaults are loaded on this quote yet. Save them at the customer level in Step 1, or keep using manual service rows.
+                    </div>
+                  )}
+                </div>
+
                 <div className="mt-5 space-y-3">{quote.sections.sectionC.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Service row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">Optional field service</div></div><RowActions totalRows={quote.sections.sectionC.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(targetPosition) => moveServiceRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} /></div><div className="grid gap-3 lg:grid-cols-[2fr_.7fr_.8fr_1fr]"><label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateServiceRow(row.id, "description", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateServiceRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateServiceRow(row.id, "unitPrice", e.target.value)} /></label><label className="builder-field compact"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(e) => updateServiceRow(row.id, "pricingStage", e.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label></div><label className="builder-field compact mt-3"><span>Notes</span><input value={row.notes ?? ""} onChange={(e) => updateServiceRow(row.id, "notes", e.target.value)} /></label><div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.serviceCategory === "site_inspection" ? "Site inspection" : row.serviceCategory === "installation" ? "Installation" : "Custom service"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div>)}</div>
               </section>
             )}
@@ -2899,6 +3252,7 @@ export default function QuotePreview() {
                 <div className="summary-block"><div className="summary-label">Workflow</div><div className="summary-value">{isMajorProject ? "Major Project" : "Quick Quote"}</div><div className="summary-subvalue">{isMajorProject ? "Commercial model is driving downstream proposal sections" : "Builder rows are driving proposal sections directly"}</div></div>
                 <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : hasActiveDataAgreement ? `Estimated monthly blended total over ${selectedLeaseTerm} months` : "Lease pricing blocked until active data agreement is confirmed"}</div></div>
                 <div className="summary-block"><div className="summary-label">Current pricing</div><div className="summary-value">Current proposal data</div><div className="summary-subvalue">Recommended defaults plus any edits you made in this proposal</div></div>
+                <div className="summary-block"><div className="summary-label">Customer SLA profile</div><div className="summary-value">{quoteServiceAgreementProfile.agreementLabel || "No SLA profile name set"}</div><div className="summary-subvalue">{activeServiceAgreementCategories.length ? `${activeServiceAgreementCategories.length} active pricing categories on this quote` : "No active SLA defaults loaded on this quote"}{quoteServiceAgreementProfile.sourceDocument?.fileName ? ` • ${quoteServiceAgreementProfile.sourceDocument.fileName}` : ""}</div></div>
                 <div className="summary-block"><div className="summary-label">Enabled sections</div><ul className="list-disc pl-5 text-[#56616d]">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent && <li>Executive Summary</li>}{quote.sections.sectionA.enabled && contentPresence.hasSectionAContent && <li>Monthly Service</li>}{quote.sections.sectionB.enabled && contentPresence.hasSectionBContent && <li>Hardware</li>}{quote.sections.sectionC.enabled && contentPresence.hasSectionCContent && <li>Field Services</li>}</ul></div>
                 {customSectionFields.length > 0 && <div className="summary-block"><div className="summary-label">Extra section fields</div><div className="space-y-1 text-[#56616d]">{customSectionFields.map((field) => <div key={field.id}><strong>{field.label}:</strong> {field.value || "—"} <span className="text-[#8b96a3]">({field.visibility === "customer" ? "proposal" : "internal"})</span></div>)}</div></div>}
                 <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{isMajorProject ? `Generated from ${activeMajorOption?.label ?? "active major option"}` : `${activeSectionARows.length} row(s) ready for the proposal`}</div></div>
