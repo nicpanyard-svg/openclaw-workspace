@@ -103,7 +103,7 @@ export type MajorProjectMetrics = {
 function createDefaultSimpleRow(): MajorProjectSimpleRow {
   return {
     id: "major-simple-row-1",
-    label: "Line item 1",
+    label: "",
     description: "",
     quantity: 1,
     unit: "ea",
@@ -1060,8 +1060,8 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     : (activeOption?.simpleRows?.filter((row) => row.bucket === "hardware").map((row) => ({
       id: row.id,
       sourceType: "custom" as const,
-      itemName: row.label,
-      itemCategory: "Major Project",
+      itemName: row.label || row.description || "Equipment item",
+      itemCategory: "",
       quantity: row.quantity,
       unitPrice: row.customerUnitPrice,
       totalPrice: row.customerExtendedPrice,
@@ -1071,7 +1071,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       id: "major_hardware",
       sourceType: "custom",
       itemName: state.commercial.equipmentLabel,
-      itemCategory: "Major Project",
+      itemCategory: "",
       quantity: siteCount,
       unitPrice: siteCount > 0 ? roundCurrency(metrics.hardwareRevenue / siteCount) : 0,
       totalPrice: metrics.hardwareRevenue,
@@ -1104,7 +1104,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       ? simpleServiceRows.map((row) => ({
         id: row.id,
         sourceType: "custom" as const,
-        description: row.label,
+        description: row.label || row.description || "Service item",
         quantity: row.quantity,
         unitPrice: row.customerUnitPrice,
         totalPrice: row.customerExtendedPrice,
