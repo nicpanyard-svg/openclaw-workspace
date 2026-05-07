@@ -635,29 +635,32 @@ function buildExecutiveSummarySheet(model: ApprovalWorkbookModel): WorksheetDefi
   rows.push({
     index: rowIndex,
     cells: [
-      { ref: cellRef(2, rowIndex), type: "string", value: "Management Approval", styleId: 2 },
+      { ref: cellRef(2, rowIndex), type: "string", value: "Approval Signatures", styleId: 2 },
     ],
   });
   merges.push({ start: cellRef(2, rowIndex), end: cellRef(8, rowIndex) });
   rowIndex += 1;
 
-  const approvalLabels = [
-    "Approved By",
-    "Title",
-    "Date",
-    "Decision / Notes",
+  const approvalRoles = [
+    "CEO:",
+    "CFO:",
+    "Region GM and/or Area GM:",
+    "VP Operations and/or VP Engineering:",
+    "SVP and/or VP Sales:",
   ];
 
-  approvalLabels.forEach((label, index) => {
+  approvalRoles.forEach((label) => {
     rows.push({
       index: rowIndex,
-      height: index === approvalLabels.length - 1 ? 42 : undefined,
+      height: 24,
       cells: [
         { ref: cellRef(2, rowIndex), type: "string", value: label, styleId: 3 },
-        { ref: cellRef(3, rowIndex), type: "string", value: "", styleId: 12 },
+        { ref: cellRef(3, rowIndex), type: "string", value: "", styleId: 16 },
+        { ref: cellRef(7, rowIndex), type: "string", value: "Date:", styleId: 3 },
+        { ref: cellRef(8, rowIndex), type: "string", value: "", styleId: 16 },
       ],
     });
-    merges.push({ start: cellRef(3, rowIndex), end: cellRef(8, rowIndex) });
+    merges.push({ start: cellRef(3, rowIndex), end: cellRef(6, rowIndex) });
     rowIndex += 1;
   });
 
@@ -851,7 +854,7 @@ function buildStylesXml() {
       <fill><patternFill patternType="solid"><fgColor rgb="FFE7ECF2"/><bgColor indexed="64"/></patternFill></fill>
       <fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill>
     </fills>
-    <borders count="3">
+    <borders count="4">
       <border>
         <left/><right/><top/><bottom/><diagonal/>
       </border>
@@ -869,11 +872,16 @@ function buildStylesXml() {
         <bottom style="medium"><color rgb="FF8A1538"/></bottom>
         <diagonal/>
       </border>
+      <border>
+        <left/><right/><top/>
+        <bottom style="medium"><color rgb="FF8A1538"/></bottom>
+        <diagonal/>
+      </border>
     </borders>
     <cellStyleXfs count="1">
       <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
     </cellStyleXfs>
-    <cellXfs count="16">
+    <cellXfs count="17">
       <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
       <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
       <xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
@@ -890,6 +898,7 @@ function buildStylesXml() {
       <xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
       <xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
       <xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+      <xf numFmtId="0" fontId="0" fillId="5" borderId="3" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="bottom"/></xf>
     </cellXfs>
     <cellStyles count="1">
       <cellStyle name="Normal" xfId="0" builtinId="0"/>
