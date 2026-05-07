@@ -9,6 +9,7 @@ import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
 import { buildProposalPrintPath } from "@/app/lib/proposal-navigation";
 import { buildProposalWordDocument } from "@/app/lib/proposal-word-export";
+import { buildProposalApprovalWorkbook } from "@/app/lib/proposal-xlsx-export";
 
 export function ProposalClient({ requestedProposalId = null }: { requestedProposalId?: string | null }) {
   const [isHydrated, setIsHydrated] = useState(false);
@@ -157,6 +158,25 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   };
 
+  const handleExportApprovalWorkbook = async () => {
+    if (!quote) return;
+
+    try {
+      const { blob, fileName } = await buildProposalApprovalWorkbook(quote);
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch {
+      window.alert("Unable to generate the approval workbook right now. Please try again.");
+    }
+  };
+
   if (!resolved) {
     return <AuthGate><div className="proposal-route-shell"><div className="proposal-toolbar no-print"><div className="proposal-toolbar-title">Loading proposal preview...</div></div></div></AuthGate>;
   }
@@ -200,6 +220,9 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
             </div>
           </div>
           <div className="proposal-toolbar-actions">
+            <button type="button" className="proposal-secondary-button" onClick={() => void handleExportApprovalWorkbook()}>
+              Export Approval XLSX
+            </button>
             <button type="button" className="proposal-secondary-button" onClick={handleExportWord}>
               Export Word
             </button>
