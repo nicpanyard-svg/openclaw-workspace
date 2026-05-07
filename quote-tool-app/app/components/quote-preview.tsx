@@ -2293,24 +2293,6 @@ export default function QuotePreview() {
                   </div>
 
                   <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] px-4 py-3 text-[13px] text-[#5d6772]">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Main builder</div>
-                        <strong className="mt-1 block text-[#16202b]">Quote rows</strong>
-                        <div className="mt-1">Build recurring, hardware, and services here first. Internal packaging stays secondary.</div>
-                      </div>
-                      <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] px-4 py-3 text-[13px] text-[#5d6772]">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Downstream output</div>
-                        <strong className="mt-1 block text-[#16202b]">{formatCurrency(majorProjectPreviewCategorySummary.recurring + majorProjectPreviewCategorySummary.hardware + majorProjectPreviewCategorySummary.services, currencyCode)}</strong>
-                        <div className="mt-1">Recurring, hardware, and services stay visible; internal packaging stays secondary.</div>
-                      </div>
-                      <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] px-4 py-3 text-[13px] text-[#5d6772]">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Validation</div>
-                        <strong className="mt-1 block text-[#16202b]">{majorProjectMetrics.validation.errorCount} error{majorProjectMetrics.validation.errorCount === 1 ? "" : "s"} / {majorProjectMetrics.validation.warningCount} warning{majorProjectMetrics.validation.warningCount === 1 ? "" : "s"}</strong>
-                        <div className="mt-1">Preview blocks only on errors. Warnings stay internal.</div>
-                      </div>
-                    </div>
-
                     <details className="group rounded-[16px] border border-[#efe3e5] bg-[#fffafa] p-3">
                       <summary className="list-none rounded-[14px] border border-[#d7e0e8] bg-white px-4 py-3 transition hover:border-[#b8c7d4] hover:bg-[#f8fbfd] cursor-pointer">
                         <div className="flex items-center justify-between gap-3">
