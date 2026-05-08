@@ -3,7 +3,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -1930,12 +1929,6 @@ export default function QuotePreview() {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/" className="pill-button">
-              Start Page
-            </Link>
-            <Link href="/workspace" className="pill-button">
-              Workspace
-            </Link>
             <button type="button" className="pill-button" onClick={persistProposalState} disabled={!customerEntryComplete}>Save Draft</button>
             <button type="button" className="pill-button" onClick={copyProposalFromBuilder} disabled={!customerEntryComplete}>Copy Proposal</button>
             <button type="button" className="pill-button pill-button-active" onClick={handlePreviewProposal} disabled={!customerEntryComplete}>
@@ -3157,7 +3150,6 @@ export default function QuotePreview() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button type="button" className="pill-button" onClick={persistProposalState}>Save Draft</button>
                     <button type="button" className="pill-button pill-button-active" onClick={handlePreviewProposal}>Preview Proposal</button>
-                    <Link href="/workspace" className="pill-button">Workspace</Link>
                   </div>
                 </div>
                 <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">Keep it simple: build the quote, review the proposal, and send it with confidence.</div>

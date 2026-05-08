@@ -370,6 +370,25 @@ function addMerges(worksheet: XLSX.WorkSheet, merges: string[]) {
   worksheet["!merges"] = merges.map((value) => XLSX.utils.decode_range(value));
 }
 
+function setCellNumberFormat(worksheet: XLSX.WorkSheet, address: string, format: string) {
+  const cell = worksheet[address];
+  if (cell) {
+    cell.z = format;
+  }
+}
+
+function setColumnNumberFormat(
+  worksheet: XLSX.WorkSheet,
+  column: string,
+  startRow: number,
+  endRow: number,
+  format: string,
+) {
+  for (let row = startRow; row <= endRow; row += 1) {
+    setCellNumberFormat(worksheet, `${column}${row}`, format);
+  }
+}
+
 function buildLineTotals(lines: ApprovalWorkbookLine[]) {
   const revenue = roundCurrency(lines.reduce((sum, line) => sum + line.customerPricing, 0));
   const cost = roundCurrency(lines.reduce((sum, line) => sum + line.ourCost, 0));
@@ -384,70 +403,96 @@ function buildLineTotals(lines: ApprovalWorkbookLine[]) {
 
 function buildExecutiveSummarySheet(model: ApprovalWorkbookModel) {
   const rows: Array<Array<string | number | null>> = [
+    [null, "iNet Managed Technology Services", null, null, null, null, "iNet", null],
     [null, "RAPIDQUOTE INTERNAL APPROVAL WORKBOOK"],
     [null, "Executive Summary / Approval Routing"],
     [],
-    [null, "Proposal Number", model.proposalNumber, null, null, "Date", model.quoteDate],
-    [null, "Customer", model.customerName, null, null, "Prepared By", model.preparedBy],
-    [null, "Project Name", model.projectName, null, null, "Workflow", model.workflowLabel],
-    [null, "Option / Status", `${model.optionLabel} / ${model.statusLabel}`, null, null, "Recurring Revenue", model.recurringRevenue],
-    [null, "Project Description"],
+    [null, "Workbook purpose"],
+    [null, "Management review copy for internal pricing, margin, and approval routing before customer-facing release."],
+    [],
+    [null, "Proposal Overview"],
+    [null, "Proposal Number", model.proposalNumber, null, "Date", model.quoteDate, "Prepared By", model.preparedBy],
+    [null, "Customer", model.customerName, null, "Workflow", model.workflowLabel, "Option", model.optionLabel],
+    [null, "Project Name", model.projectName, null, "Status", model.statusLabel, "Recurring MRR", model.recurringRevenue],
+    [null, "Project Summary"],
     [null, model.projectDescription || "No project description provided."],
     [],
-    [null, "Executive Financial Summary"],
-    [null, "Bucket", "Customer Price", "Our Cost", "Gross Profit", "Gross Margin", "Notes"],
-    [null, "Recurring", model.recurringRevenue, model.recurringCost, model.recurringGrossProfit, model.recurringGrossMarginPercent / 100, "Monthly / recurring program value"],
-    [null, "One-time", model.oneTimeRevenue, model.oneTimeCost, model.oneTimeGrossProfit, model.oneTimeGrossMarginPercent / 100, "Hardware, install, and project services"],
-    [null, "Total Deal", model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100, "Overall customer commitment"],
+    [null, "Executive Financial Snapshot"],
+    [null, "Bucket", "Customer Price", "Our Cost", "Gross Profit", "Gross Margin", "Commercial view", "Management note"],
+    [null, "Recurring", model.recurringRevenue, model.recurringCost, model.recurringGrossProfit, model.recurringGrossMarginPercent / 100, "Monthly / recurring program value", "Review service commitment and margin durability."],
+    [null, "One-time", model.oneTimeRevenue, model.oneTimeCost, model.oneTimeGrossProfit, model.oneTimeGrossMarginPercent / 100, "Hardware, install, and project services", "Confirm deployment scope and upfront recovery."],
+    [null, "Total Deal", model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100, "Overall customer commitment", "Use as the executive approval checkpoint."],
+    [],
+    [null, "Approval Recommendation"],
+    [null, "Use the financial snapshot plus the supporting line item and assumptions tabs to confirm price position, cost coverage, and any exception approvals before release."],
     [],
     [null, "Approval Routing / Signatures"],
-    [null, "CEO", "______________________________", null, null, "Date", "______________"],
-    [null, "CFO", "______________________________", null, null, "Date", "______________"],
-    [null, "Region GM / Area GM", "______________________________", null, null, "Date", "______________"],
-    [null, "VP Operations / VP Engineering", "______________________________", null, null, "Date", "______________"],
-    [null, "SVP / VP Sales", "______________________________", null, null, "Date", "______________"],
+    [null, "Role", "Approver", "Signature", null, "Date", null, "Comments"],
+    [null, "CEO", "", "______________________________", null, "______________", null, ""],
+    [null, "CFO", "", "______________________________", null, "______________", null, ""],
+    [null, "Region GM / Area GM", "", "______________________________", null, "______________", null, ""],
+    [null, "VP Operations / VP Engineering", "", "______________________________", null, "______________", null, ""],
+    [null, "SVP / VP Sales", "", "______________________________", null, "______________", null, ""],
     [],
-    [null, "Distribution Notes"],
-    [null, "Use the detail and assumptions tabs for backup support. Keep the workbook on the XLSX export path for clean open / review."],
+    [null, "Workbook Notes"],
+    [null, "Detailed pricing support is included on the Line Item Detail sheet. Narrative assumptions, vendor notes, and service references are included on the Assumptions & Notes sheet."],
   ];
 
   const sheet = createWorksheet(rows);
-  setColumnWidths(sheet, [4, 24, 28, 16, 10, 18, 18, 18]);
+  setColumnWidths(sheet, [4, 22, 26, 14, 18, 16, 18, 26]);
   addMerges(sheet, [
-    "B1:H1",
+    "B1:F1",
+    "G1:H3",
     "B2:H2",
-    "C4:E4",
-    "C5:E5",
-    "C6:E6",
-    "C7:E7",
+    "B3:H3",
+    "B5:H5",
+    "B6:H6",
     "B8:H8",
-    "B9:H9",
-    "B11:H11",
-    "B17:H17",
-    "C18:E18",
-    "C19:E19",
-    "C20:E20",
-    "C21:E21",
-    "C22:E22",
+    "C9:D9",
+    "C10:D10",
+    "C11:D11",
+    "B12:H12",
+    "B13:H13",
+    "B15:H15",
+    "B21:H21",
+    "B22:H22",
     "B24:H24",
-    "B25:H25",
+    "D25:E25",
+    "F25:G25",
+    "D26:E26",
+    "D27:E27",
+    "D28:E28",
+    "D29:E29",
+    "D30:E30",
+    "F26:G26",
+    "F27:G27",
+    "F28:G28",
+    "F29:G29",
+    "F30:G30",
+    "B32:H32",
+    "B33:H33",
   ]);
-  setRowHeights(sheet, [24, 20, 8, 18, 18, 18, 18, 18, 36, 8, 18, 18, 18, 18, 18, 8, 18, 20, 20, 20, 20, 20, 8, 18, 30]);
+  setRowHeights(sheet, [22, 26, 20, 8, 18, 34, 8, 18, 18, 18, 18, 18, 42, 8, 18, 18, 18, 18, 18, 8, 18, 34, 8, 18, 18, 20, 20, 20, 20, 20, 8, 18, 34]);
+  ["C16", "D16", "E16", "C17", "D17", "E17", "C18", "D18", "E18", "H11"].forEach((address) => setCellNumberFormat(sheet, address, "$#,##0.00"));
+  ["F16", "F17", "F18"].forEach((address) => setCellNumberFormat(sheet, address, "0.0%"));
   return sheet;
 }
 
 function buildLineItemDetailSheet(model: ApprovalWorkbookModel) {
   const recurringLines = model.lines.filter((line) => line.schedule === "Recurring");
   const oneTimeLines = model.lines.filter((line) => line.schedule !== "Recurring");
-  const renderedRecurringCount = Math.max(recurringLines.length, 1);
-  const renderedOneTimeCount = Math.max(oneTimeLines.length, 1);
   const recurringTotals = buildLineTotals(recurringLines);
   const oneTimeTotals = buildLineTotals(oneTimeLines);
 
   const rows: Array<Array<string | number>> = [
-    ["Line Item Detail"],
+    ["Line Item Detail Schedule"],
     [`Proposal ${model.proposalNumber}`, model.customerName, model.projectName, model.workflowLabel, "", "", "", "", "", "", ""],
     [],
+    ["Deal Snapshot", "", "", "", "", "", "", "", "", "", ""],
+    ["Recurring Revenue", "One-time Revenue", "Total Deal", "Total Cost", "Gross Profit", "Gross Margin", "Prepared By", "Customer", "Workflow", "Option", "Status"],
+    [model.recurringRevenue, model.oneTimeRevenue, model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100, model.preparedBy, model.customerName, model.workflowLabel, model.optionLabel, model.statusLabel],
+    [],
+    ["Recurring Line Items", "", "", "", "", "", "", "", "", "", ""],
     [
       "Item",
       "Description",
@@ -461,7 +506,6 @@ function buildLineItemDetailSheet(model: ApprovalWorkbookModel) {
       "Gross Margin",
       "Notes / Assumptions",
     ],
-    ["RECURRING ITEMS", "", "", "", "", "", "", "", "", "", ""],
     ...(recurringLines.length > 0
       ? recurringLines.map((line) => [
         line.item,
@@ -479,7 +523,20 @@ function buildLineItemDetailSheet(model: ApprovalWorkbookModel) {
       : [["No recurring items.", "", "", "", "", "", "", "", "", "", ""]]),
     ["Recurring Subtotal", "", "", "", "", "", recurringTotals.revenue, recurringTotals.cost, recurringTotals.grossProfit, recurringTotals.grossMarginPercent, ""],
     [],
-    ["ONE-TIME ITEMS", "", "", "", "", "", "", "", "", "", ""],
+    ["One-time Line Items", "", "", "", "", "", "", "", "", "", ""],
+    [
+      "Item",
+      "Description",
+      "Category / Bucket",
+      "Schedule",
+      "Qty",
+      "Unit",
+      "Customer Pricing",
+      "Our Cost",
+      "Gross Profit",
+      "Gross Margin",
+      "Notes / Assumptions",
+    ],
     ...(oneTimeLines.length > 0
       ? oneTimeLines.map((line) => [
         line.item,
@@ -501,23 +558,47 @@ function buildLineItemDetailSheet(model: ApprovalWorkbookModel) {
   ];
 
   const sheet = createWorksheet(rows);
-  setColumnWidths(sheet, [24, 38, 18, 12, 8, 8, 16, 16, 16, 14, 40]);
-  const oneTimeHeaderRow = 8 + renderedRecurringCount;
+  setColumnWidths(sheet, [24, 42, 18, 12, 8, 8, 16, 16, 16, 14, 34]);
+  const recurringHeaderRow = 9;
+  const recurringDataStartRow = 10;
+  const recurringSubtotalRow = recurringDataStartRow + Math.max(recurringLines.length, 1);
+  const oneTimeSectionRow = recurringSubtotalRow + 2;
+  const oneTimeHeaderRow = oneTimeSectionRow + 1;
+  const oneTimeDataStartRow = oneTimeHeaderRow + 1;
+  const oneTimeSubtotalRow = oneTimeDataStartRow + Math.max(oneTimeLines.length, 1);
+  const totalRow = rows.length;
   addMerges(sheet, [
     "A1:K1",
     "A2:K2",
-    "A5:K5",
-    `A${oneTimeHeaderRow}:K${oneTimeHeaderRow}`,
-    `A${rows.length}:F${rows.length}`,
+    "A4:K4",
+    `A8:K8`,
+    `A${oneTimeSectionRow}:K${oneTimeSectionRow}`,
+    `A${recurringSubtotalRow}:F${recurringSubtotalRow}`,
+    `A${oneTimeSubtotalRow}:F${oneTimeSubtotalRow}`,
+    `A${totalRow}:F${totalRow}`,
   ]);
   setRowHeights(sheet, rows.map((_, index) => {
     if (index === 0) return 24;
     if (index === 1) return 18;
-    if (index === 4 || index === oneTimeHeaderRow - 1) return 18;
-    return 16;
+    if (index === 3 || index === 7 || index === oneTimeSectionRow - 1) return 18;
+    if (index === 4 || index === 8 || index === oneTimeHeaderRow - 1) return 20;
+    return 17;
   }));
-  sheet["!autofilter"] = { ref: `A4:K${rows.length}` };
-  sheet["!freeze"] = { xSplit: 0, ySplit: 4, topLeftCell: "A5", activePane: "bottomLeft", state: "frozen" } as never;
+  ["A6", "B6", "C6", "D6", "E6"].forEach((address) => setCellNumberFormat(sheet, address, "$#,##0.00"));
+  setCellNumberFormat(sheet, "F6", "0.0%");
+  setColumnNumberFormat(sheet, "G", recurringDataStartRow, recurringSubtotalRow, "$#,##0.00");
+  setColumnNumberFormat(sheet, "H", recurringDataStartRow, recurringSubtotalRow, "$#,##0.00");
+  setColumnNumberFormat(sheet, "I", recurringDataStartRow, recurringSubtotalRow, "$#,##0.00");
+  setColumnNumberFormat(sheet, "J", recurringDataStartRow, recurringSubtotalRow, "0.0%");
+  setColumnNumberFormat(sheet, "G", oneTimeDataStartRow, oneTimeSubtotalRow, "$#,##0.00");
+  setColumnNumberFormat(sheet, "H", oneTimeDataStartRow, oneTimeSubtotalRow, "$#,##0.00");
+  setColumnNumberFormat(sheet, "I", oneTimeDataStartRow, oneTimeSubtotalRow, "$#,##0.00");
+  setColumnNumberFormat(sheet, "J", oneTimeDataStartRow, oneTimeSubtotalRow, "0.0%");
+  setCellNumberFormat(sheet, "G" + totalRow, "$#,##0.00");
+  setCellNumberFormat(sheet, "H" + totalRow, "$#,##0.00");
+  setCellNumberFormat(sheet, "I" + totalRow, "$#,##0.00");
+  setCellNumberFormat(sheet, "J" + totalRow, "0.0%");
+  sheet["!freeze"] = { xSplit: 0, ySplit: recurringHeaderRow, topLeftCell: "A10", activePane: "bottomLeft", state: "frozen" } as never;
   return sheet;
 }
 
@@ -534,8 +615,11 @@ function buildSectionRows(title: string, entries: string[]) {
 
 function buildNotesSheet(model: ApprovalWorkbookModel) {
   const rows: Array<Array<string>> = [
-    ["Instructions, Assumptions, and Notes", "", "", ""],
+    ["Assumptions, Notes, and Review Support", "", "", ""],
     ["Use this sheet as the narrative backup for the executive summary and line item detail tabs.", "", "", ""],
+    [],
+    ["Review guide", "", "", ""],
+    ["Use commercial assumptions for pricing context, vendor notes for sourcing backup, service references for SLA dependencies, and internal notes for approval-only context.", "", "", ""],
     [],
     ...buildSectionRows("Commercial assumptions", model.assumptions),
     ...buildSectionRows("Vendor notes", model.vendorNotes),
@@ -544,18 +628,26 @@ function buildNotesSheet(model: ApprovalWorkbookModel) {
   ];
 
   const sheet = createWorksheet(rows);
-  setColumnWidths(sheet, [4, 88, 10, 10]);
+  setColumnWidths(sheet, [4, 90, 10, 10]);
   const sectionHeaderRows = rows
     .map((row, index) => ({ row, index: index + 1 }))
     .filter(({ row }) => row[0] && row[1] === "" && row[2] === "" && row[3] === "");
   addMerges(sheet, [
     "A1:D1",
     "A2:D2",
+    "A4:D4",
+    "A5:D5",
     ...sectionHeaderRows
-      .filter(({ index }) => index > 3)
+      .filter(({ index }) => index > 5)
       .map(({ index }) => `A${index}:D${index}`),
   ]);
-  setRowHeights(sheet, rows.map((_, index) => (index === 0 ? 24 : index === 1 ? 20 : 18)));
+  setRowHeights(sheet, rows.map((_, index) => {
+    if (index === 0) return 24;
+    if (index === 1 || index === 4) return 22;
+    if (index === 3) return 18;
+    return 18;
+  }));
+  sheet["!freeze"] = { xSplit: 0, ySplit: 5, topLeftCell: "A6", activePane: "bottomLeft", state: "frozen" } as never;
   return sheet;
 }
 
