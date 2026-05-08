@@ -30,6 +30,11 @@ function getPricingLabel(row: ServicePricingRow) {
   return "Budgetary";
 }
 
+function supportingSpecLabel(value: string | undefined) {
+  const label = value?.trim();
+  return label ? `Supporting spec: ${label}` : null;
+}
+
 function cleanLines(lines: Array<string | null | undefined>) {
   return lines.map((line) => (line ?? "").trim()).filter(Boolean);
 }
@@ -347,6 +352,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
                         ))}
                       </ul>
                     )}
+                    {supportingSpecLabel(row.specSheetLabel) ? <div className="proposal-cell-note">{supportingSpecLabel(row.specSheetLabel)}</div> : null}
                   </td>
                   <td>{row.quantity ?? (row.rowType === "support" ? "—" : "—")}</td>
                   <td>
@@ -415,6 +421,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
                       </div>
                     ) : null}
                     {row.description && <div className="proposal-cell-note">{row.description}</div>}
+                    {supportingSpecLabel(row.specSheetLabel) ? <div className="proposal-cell-note">{supportingSpecLabel(row.specSheetLabel)}</div> : null}
                   </td>
                   <td>{row.quantity}</td>
                   <td>{formatCurrency(row.unitPrice, currencyCode)}</td>
@@ -471,6 +478,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
                     <div className="proposal-cell-title">{row.description}</div>
                     <div className="proposal-cell-subtitle">{getPricingLabel(row)}</div>
                     {row.notes && <div className="proposal-cell-note">{row.notes}</div>}
+                    {supportingSpecLabel(row.specSheetLabel) ? <div className="proposal-cell-note">{supportingSpecLabel(row.specSheetLabel)}</div> : null}
                   </td>
                   <td>{row.quantity}</td>
                   <td>{formatCurrency(row.unitPrice, currencyCode)}</td>

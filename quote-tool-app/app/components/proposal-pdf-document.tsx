@@ -749,6 +749,11 @@ function getPricingLabel(row: ServicePricingRow) {
   return row.pricingStage === "final" ? "Final" : "Budgetary";
 }
 
+function supportingSpecLabel(value: string | undefined) {
+  const label = value?.trim();
+  return label ? `Supporting spec: ${label}` : null;
+}
+
 function TableRow({ children, style }: { children: React.ReactNode; style?: React.ComponentProps<typeof View>["style"] }) {
   return <View style={style ? [styles.row, style].flat() : styles.row}>{children}</View>;
 }
@@ -1007,6 +1012,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
                       <Text style={styles.tdSub}>{row.unitLabel}</Text>
                     ) : null}
                     {row.rowType === "support" ? <SupportBullets items={row.includedText} /> : null}
+                    {supportingSpecLabel(row.specSheetLabel) ? <Text style={styles.tdNote}>{supportingSpecLabel(row.specSheetLabel)}</Text> : null}
                   </View>
                 </Cell>
                 <Cell style={styles.colNarrow}>
@@ -1080,6 +1086,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
                       <Text style={styles.tdSub}>{[row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • ")}</Text>
                     ) : null}
                     {row.description ? <Text style={styles.tdNote}>{row.description}</Text> : null}
+                    {supportingSpecLabel(row.specSheetLabel) ? <Text style={styles.tdNote}>{supportingSpecLabel(row.specSheetLabel)}</Text> : null}
                   </View>
                 </Cell>
                 <Cell style={styles.colNarrow}><Text style={styles.td}>{row.quantity}</Text></Cell>
@@ -1135,6 +1142,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
                     <Text style={styles.tdStrong}>{row.description}</Text>
                     <Text style={styles.tdSub}>{getPricingLabel(row)}</Text>
                     {row.notes ? <Text style={styles.tdNote}>{row.notes}</Text> : null}
+                    {supportingSpecLabel(row.specSheetLabel) ? <Text style={styles.tdNote}>{supportingSpecLabel(row.specSheetLabel)}</Text> : null}
                   </View>
                 </Cell>
                 <Cell style={styles.colNarrow}><Text style={styles.td}>{row.quantity}</Text></Cell>

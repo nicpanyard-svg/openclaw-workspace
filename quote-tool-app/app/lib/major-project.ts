@@ -60,6 +60,8 @@ export type MajorProjectCustomerQuoteLineMetrics = MajorProjectCustomerQuoteLine
   resolvedBundleIds: string[];
   resolvedCostComponentIds: string[];
   resolvedRevenueComponentIds: string[];
+  resolvedSpecSheetLabel?: string;
+  resolvedSpecSheetLocation?: string;
   oneTimeRevenue: number;
   recurringRevenue: number;
   oneTimeCost: number;
@@ -105,6 +107,8 @@ function createDefaultSimpleRow(): MajorProjectSimpleRow {
     id: "major-simple-row-1",
     label: "",
     description: "",
+    specSheetLabel: "",
+    specSheetLocation: "",
     quantity: 1,
     unit: "ea",
     customerUnitPrice: 0,
@@ -147,6 +151,8 @@ function createDefaultBundle(): MajorProjectBundle {
     internalName: "Base solution bundle",
     customerFacingLabel: "Integrated solution bundle",
     description: "",
+    specSheetLabel: "",
+    specSheetLocation: "",
     componentIds: [],
     includedCostComponentIds: [],
     includedRevenueComponentIds: [],
@@ -160,6 +166,8 @@ function createDefaultCustomerQuoteLine(): MajorProjectCustomerQuoteLine {
     id: "major-quote-line-1",
     label: "Integrated solution package",
     description: "",
+    specSheetLabel: "",
+    specSheetLocation: "",
     bundleIds: [],
     includedCostComponentIds: [],
     includedRevenueComponentIds: [],
@@ -224,6 +232,8 @@ function normalizeBundle(bundle: Partial<MajorProjectBundle> | undefined, index:
     ...defaults,
     ...bundle,
     id: bundle?.id ?? `major-bundle-${index + 1}`,
+    specSheetLabel: bundle?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
+    specSheetLocation: bundle?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
     componentIds,
     includedCostComponentIds: uniqueIds(bundle?.includedCostComponentIds?.length ? bundle.includedCostComponentIds : componentIds),
     includedRevenueComponentIds: uniqueIds(bundle?.includedRevenueComponentIds?.length ? bundle.includedRevenueComponentIds : componentIds),
@@ -236,6 +246,8 @@ function normalizeCustomerQuoteLine(line: Partial<MajorProjectCustomerQuoteLine>
     ...defaults,
     ...line,
     id: line?.id ?? `major-quote-line-${index + 1}`,
+    specSheetLabel: line?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
+    specSheetLocation: line?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
     bundleIds: uniqueIds(line?.bundleIds ?? []),
     includedCostComponentIds: uniqueIds(line?.includedCostComponentIds ?? []),
     includedRevenueComponentIds: uniqueIds(line?.includedRevenueComponentIds ?? []),
@@ -289,6 +301,8 @@ function normalizeSimpleRow(row: Partial<MajorProjectSimpleRow> | undefined, ind
     ...row,
     id: row?.id ?? `major-simple-row-${index + 1}`,
     label: row?.label ?? defaults.label,
+    specSheetLabel: row?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
+    specSheetLocation: row?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
     quantity,
     customerUnitPrice,
     customerExtendedPrice: roundCurrency(customerExtendedPrice),
@@ -418,6 +432,22 @@ function costOrRevenueTotal(components: MajorProjectComponent[], schedule: "one_
   }, 0);
 }
 
+function resolveSpecSheetLabel(line: MajorProjectCustomerQuoteLine, bundlesById: Map<string, MajorProjectBundle>, bundleIds: string[]) {
+  const explicitLabel = line.specSheetLabel?.trim();
+  if (explicitLabel) return explicitLabel;
+
+  const inheritedLabels = uniqueIds(bundleIds.map((bundleId) => bundlesById.get(bundleId)?.specSheetLabel ?? ""));
+  return inheritedLabels.length ? inheritedLabels.join("; ") : undefined;
+}
+
+function resolveSpecSheetLocation(line: MajorProjectCustomerQuoteLine, bundlesById: Map<string, MajorProjectBundle>, bundleIds: string[]) {
+  const explicitLocation = line.specSheetLocation?.trim();
+  if (explicitLocation) return explicitLocation;
+
+  const inheritedLocations = uniqueIds(bundleIds.map((bundleId) => bundlesById.get(bundleId)?.specSheetLocation ?? ""));
+  return inheritedLocations.length ? inheritedLocations.join(" | ") : undefined;
+}
+
 function collectDuplicateIds(items: Array<{ id: string }>) {
   const counts = new Map<string, number>();
   for (const item of items) counts.set(item.id, (counts.get(item.id) ?? 0) + 1);
@@ -486,6 +516,8 @@ function buildMajorProjectPresentation(option: MajorProjectOption) {
       resolvedBundleIds,
       resolvedCostComponentIds: costComponents.map((component) => component.id),
       resolvedRevenueComponentIds: revenueComponents.map((component) => component.id),
+      resolvedSpecSheetLabel: resolveSpecSheetLabel(line, bundlesById, resolvedBundleIds),
+      resolvedSpecSheetLocation: resolveSpecSheetLocation(line, bundlesById, resolvedBundleIds),
       oneTimeRevenue: roundCurrency(costOrRevenueTotal(revenueComponents, "one_time", "revenue")),
       recurringRevenue: roundCurrency(costOrRevenueTotal(revenueComponents, "recurring", "revenue")),
       oneTimeCost: roundCurrency(costOrRevenueTotal(costComponents, "one_time", "cost")),
@@ -939,6 +971,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     ?? state.summary.versionLabel;
 
   const recurringDescription = `${recurringDisplayLabel} — ${activeOption?.label ?? state.summary.versionLabel}`;
+  const recurringSpecSheetLabel = metrics.customerQuoteLines.find((line) => line.presentationCategory === "recurring")?.resolvedSpecSheetLabel;
   const supportIncludedText = compact([
     `${siteCount} site${siteCount === 1 ? "" : "s"} under commercial management`,
     state.summary.paymentTerms ? `Payment terms: ${state.summary.paymentTerms}` : "",
@@ -966,6 +999,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         unitPrice: row.customerUnitPrice,
         monthlyRate: row.customerUnitPrice,
         totalMonthlyRate: row.customerExtendedPrice,
+        specSheetLabel: row.specSheetLabel?.trim() || undefined,
         includedText: row.bucket === "support_recurring"
           ? compact([row.description, `Internal monthly cost ${row.ourExtendedCost.toFixed(2)}`])
           : undefined,
@@ -982,6 +1016,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     unitPrice: siteCount > 0 ? roundCurrency(metrics.recurringRevenue / siteCount) : 0,
     monthlyRate: siteCount > 0 ? roundCurrency(metrics.recurringRevenue / siteCount) : 0,
     totalMonthlyRate: roundCurrency(metrics.recurringRevenue),
+    specSheetLabel: recurringSpecSheetLabel,
     sourceLabel: metrics.hasThreeLayerModel ? "Major Project model (customer-facing recurring rollup)" : "Major Project model",
   };
 
@@ -1055,6 +1090,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       unitPrice: line.oneTimeRevenue,
       totalPrice: line.oneTimeRevenue,
       description: line.description || `Bundle ${index + 1}`,
+      specSheetLabel: line.resolvedSpecSheetLabel,
       sourceLabel: "Major Project customer bundle",
     }))
     : (activeOption?.simpleRows?.filter((row) => row.bucket === "hardware").map((row) => ({
@@ -1066,6 +1102,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       unitPrice: row.customerUnitPrice,
       totalPrice: row.customerExtendedPrice,
       description: row.description || activeOption?.description || state.summary.projectDescription,
+      specSheetLabel: row.specSheetLabel?.trim() || undefined,
       sourceLabel: "Major Project row builder",
     })) ?? (next.sections.sectionB.enabled ? [{
       id: "major_hardware",
@@ -1096,6 +1133,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       unitPrice: line.oneTimeRevenue,
       totalPrice: line.oneTimeRevenue,
       notes: line.description || "Customer-facing bundle rollup",
+      specSheetLabel: line.resolvedSpecSheetLabel,
       serviceCategory: "custom" as const,
       pricingStage: "budgetary" as const,
       sourceLabel: "Major Project customer bundle",
@@ -1109,6 +1147,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         unitPrice: row.customerUnitPrice,
         totalPrice: row.customerExtendedPrice,
         notes: row.description || "Generated from major project row builder",
+        specSheetLabel: row.specSheetLabel?.trim() || undefined,
         serviceCategory: "installation" as const,
         pricingStage: "budgetary" as const,
         sourceLabel: "Major Project row builder",

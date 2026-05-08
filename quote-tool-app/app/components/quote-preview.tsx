@@ -567,6 +567,8 @@ function createMajorProjectBundleDraft(index: number): MajorProjectBundle {
     internalName: `Bundle ${index}`,
     customerFacingLabel: `Customer bundle ${index}`,
     description: "",
+    specSheetLabel: "",
+    specSheetLocation: "",
     componentIds: [],
     includedCostComponentIds: [],
     includedRevenueComponentIds: [],
@@ -580,6 +582,8 @@ function createMajorProjectQuoteLineDraft(index: number): MajorProjectCustomerQu
     id: `major-quote-line-${Date.now()}-${index}`,
     label: `Quote line ${index}`,
     description: "",
+    specSheetLabel: "",
+    specSheetLocation: "",
     bundleIds: [],
     includedCostComponentIds: [],
     includedRevenueComponentIds: [],
@@ -593,6 +597,8 @@ function createMajorProjectSimpleRowDraft(index: number): MajorProjectSimpleRow 
     id: `major-simple-row-${Date.now()}-${index}`,
     label: `Line item ${index}`,
     description: "",
+    specSheetLabel: "",
+    specSheetLocation: "",
     quantity: 1,
     unit: "ea",
     customerUnitPrice: 0,
@@ -2584,6 +2590,10 @@ export default function QuotePreview() {
                                     <label className="builder-field compact"><span>Our cost</span><input type="number" step="0.01" value={row.ourUnitCost} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => { const ourUnitCost = Math.max(parseNumber(e.target.value), 0); return { ...current, ourUnitCost, ourExtendedCost: Number((current.quantity * ourUnitCost).toFixed(2)) }; })} /></label>
                                   </div>
                                   <label className="builder-field compact mt-3"><span>Description</span><textarea rows={2} value={row.description ?? ""} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, description: e.target.value }))} /></label>
+                                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                                    <label className="builder-field compact"><span>Supporting spec label</span><input value={row.specSheetLabel ?? ""} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, specSheetLabel: e.target.value }))} placeholder="Starlink Performance dish spec" /></label>
+                                    <label className="builder-field compact"><span>Internal spec location</span><input value={row.specSheetLocation ?? ""} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, specSheetLocation: e.target.value }))} placeholder="SharePoint / vendor folder / PDF name" /></label>
+                                  </div>
                                   <div className="mt-3 grid gap-3 md:grid-cols-5 text-[12px] text-[#5f6c78]">
                                     <div className="rounded-[14px] bg-white px-3 py-2">Ext. revenue {formatCurrency(rowRevenue, currencyCode)}</div>
                                     <div className="rounded-[14px] bg-white px-3 py-2">Ext. cost {formatCurrency(rowCost, currencyCode)}</div>
@@ -2728,6 +2738,10 @@ export default function QuotePreview() {
                                 <label className="builder-field compact"><span>Schedule</span><select value={bundle.schedule ?? "mixed"} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, schedule: e.target.value as MajorProjectBundle["schedule"] }))}><option value="mixed">Mixed</option><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
                               </div>
                               <label className="builder-field compact mt-3"><span>Description</span><textarea rows={2} value={bundle.description ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, description: e.target.value }))} /></label>
+                              <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                                <label className="builder-field compact"><span>Supporting spec label</span><input value={bundle.specSheetLabel ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetLabel: e.target.value }))} placeholder="VSAT outdoor unit spec" /></label>
+                                <label className="builder-field compact"><span>Internal spec location</span><input value={bundle.specSheetLocation ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetLocation: e.target.value }))} placeholder="SharePoint / vendor folder / PDF name" /></label>
+                              </div>
                               <div className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                                 <div className="flex items-center justify-between gap-3"><div className="text-[14px] font-semibold text-[#16202b]">Included components</div><div className="text-[12px] text-[#7a8793]">{bundleMetrics?.resolvedComponentIds.length ?? 0} mapped</div></div>
                                 <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -2786,6 +2800,10 @@ export default function QuotePreview() {
                                 <div className="rounded-[16px] border border-[#e2e7ec] bg-white px-4 py-3 text-[13px] text-[#5e6975]"><div className="font-semibold text-[#16202b]">Downstream total</div><div className="mt-1">{formatCurrency((metrics?.oneTimeRevenue ?? 0) + (metrics?.recurringRevenue ?? 0), currencyCode)}</div></div>
                               </div>
                               <label className="builder-field compact mt-3"><span>Description / proposal note</span><textarea rows={2} value={line.description ?? ""} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, description: e.target.value }))} /></label>
+                              <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                                <label className="builder-field compact"><span>Supporting spec label</span><input value={line.specSheetLabel ?? ""} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, specSheetLabel: e.target.value }))} placeholder="Optional customer-facing spec label" /></label>
+                                <label className="builder-field compact"><span>Internal spec location</span><input value={line.specSheetLocation ?? ""} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, specSheetLocation: e.target.value }))} placeholder="SharePoint / vendor folder / PDF name" /></label>
+                              </div>
                               <div className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                                 <div className="text-[14px] font-semibold text-[#16202b]">Bundles shown on this quote line</div>
                                 <div className="mt-3 grid gap-2 md:grid-cols-2">

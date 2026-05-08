@@ -248,7 +248,11 @@ function buildSimpleMajorProjectLines(rows: MajorProjectSimpleRow[]) {
       ourCost: roundCurrency(row.ourExtendedCost),
       grossProfit,
       grossMarginPercent: safePercent(grossProfit, row.customerExtendedPrice) * 100,
-      notes: "Major Project simple builder row.",
+      notes: compact([
+        "Major Project simple builder row.",
+        row.specSheetLabel ? `Spec ref: ${row.specSheetLabel}` : "",
+        row.specSheetLocation ? `Spec location: ${row.specSheetLocation}` : "",
+      ]).join(" | "),
     } satisfies ApprovalWorkbookLine;
   });
 }
@@ -260,7 +264,11 @@ function buildQuoteLineSummaryNotes(lines: MajorProjectCustomerQuoteLineMetrics[
       const revenue = roundCurrency(line.oneTimeRevenue + line.recurringRevenue);
       const cost = roundCurrency(line.oneTimeCost + line.recurringCost);
       const gp = roundCurrency(revenue - cost);
-      return `${line.label}: revenue ${revenue.toFixed(2)}, cost ${cost.toFixed(2)}, GP ${gp.toFixed(2)}.`;
+      return compact([
+        `${line.label}: revenue ${revenue.toFixed(2)}, cost ${cost.toFixed(2)}, GP ${gp.toFixed(2)}.`,
+        line.resolvedSpecSheetLabel ? `Spec ref: ${line.resolvedSpecSheetLabel}.` : "",
+        line.resolvedSpecSheetLocation ? `Spec location: ${line.resolvedSpecSheetLocation}.` : "",
+      ]).join(" ");
     });
 }
 

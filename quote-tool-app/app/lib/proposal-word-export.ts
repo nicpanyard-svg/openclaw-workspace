@@ -64,6 +64,11 @@ function getPricingLabel(row: ServicePricingRow) {
   return row.pricingStage === "final" ? "Final" : "Budgetary";
 }
 
+function supportingSpecParagraph(value: string | undefined) {
+  const label = value?.trim();
+  return label ? paragraph(`Supporting spec: ${label}`, { color: "60707F" }) : "";
+}
+
 function pxToEmu(value: number) {
   return Math.round(value * 9525);
 }
@@ -712,6 +717,7 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
                   row.rowType === "support" && row.includedText?.length
                     ? row.includedText.map((item) => paragraph(`* ${item}`, { color: "60707F" })).join("")
                     : "",
+                  supportingSpecParagraph(row.specSheetLabel),
                 ].join(""),
               },
               { width: 1100, content: paragraph(String(row.quantity ?? "-")) },
@@ -766,6 +772,7 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
                     ? [paragraph([row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • "), { color: "60707F" })]
                     : []),
                   row.description ? paragraph(row.description, { color: "60707F" }) : "",
+                  supportingSpecParagraph(row.specSheetLabel),
                 ].join(""),
               },
               { width: 1100, content: paragraph(String(row.quantity)) },
@@ -806,7 +813,12 @@ function buildProposalDocumentXml(quote: QuoteRecord, images: { inetLogo: DocxIm
             cells: [
               {
                 width: 4300,
-                content: [paragraph(row.description, { bold: true }), paragraph(getPricingLabel(row), { color: "60707F" }), row.notes ? paragraph(row.notes, { color: "60707F" }) : ""].join(""),
+                content: [
+                  paragraph(row.description, { bold: true }),
+                  paragraph(getPricingLabel(row), { color: "60707F" }),
+                  row.notes ? paragraph(row.notes, { color: "60707F" }) : "",
+                  supportingSpecParagraph(row.specSheetLabel),
+                ].join(""),
               },
               { width: 1100, content: paragraph(String(row.quantity)) },
               { width: 1800, content: paragraph(formatCurrency(row.unitPrice, model.currencyCode)) },
