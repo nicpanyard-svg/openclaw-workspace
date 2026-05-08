@@ -58,7 +58,6 @@ import {
 } from "@/app/lib/quote-record";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 import { createBlankQuoteRecord } from "@/app/lib/quote-template";
-import { buildProposalApprovalWorkbook } from "@/app/lib/proposal-xlsx-export";
 
 type EquipmentDraft = {
   itemName: string;
@@ -1891,23 +1890,6 @@ export default function QuotePreview() {
     router.push(buildProposalPreviewPath(persisted.proposal.id));
   };
 
-  const exportApprovalWorkbook = async () => {
-    try {
-      const { blob, fileName } = await buildProposalApprovalWorkbook(quote);
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      link.href = objectUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-    } catch {
-      setWorkflowNotice("Approval workbook export failed. Try again from Preview Proposal if the problem continues.");
-    }
-  };
-
   const copyProposalFromBuilder = () => {
     const persisted = persistProposalState();
     if (!persisted || typeof window === "undefined") return;
@@ -1949,17 +1931,23 @@ export default function QuotePreview() {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/" className="pill-button">
-              My Proposals
+              Start Page
             </Link>
+            <Link href="/workspace" className="pill-button">
+              Workspace
+            </Link>
+            <button type="button" className="pill-button" onClick={persistProposalState} disabled={!customerEntryComplete}>Save Draft</button>
+            <button type="button" className="pill-button" onClick={copyProposalFromBuilder} disabled={!customerEntryComplete}>Copy Proposal</button>
             <button type="button" className="pill-button pill-button-active" onClick={handlePreviewProposal} disabled={!customerEntryComplete}>
               Preview Proposal
             </button>
-            <button type="button" className="pill-button" onClick={persistProposalState} disabled={!customerEntryComplete}>Save Draft</button>
-            <button type="button" className="pill-button" onClick={copyProposalFromBuilder} disabled={!customerEntryComplete}>Copy Proposal</button>
-            <button type="button" className="pill-button pill-button-active" onClick={() => void exportApprovalWorkbook()} disabled={!customerEntryComplete}>
-              Export Approval Workbook
-            </button>
           </div>
+
+          {!builderLocked ? (
+            <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#f7fafc] px-4 py-3 text-[13px] text-[#435160]">
+              Review and exports now flow through <strong>Preview Proposal</strong>. Open the customer-facing document there for Approval Workbook, Word, and PDF output.
+            </div>
+          ) : null}
 
           {(workflowNotice || majorProjectHasBlockingErrors) && (
             <div className={`mt-4 rounded-[18px] border px-4 py-3 text-[13px] ${majorProjectHasBlockingErrors ? "border-[#e7b7b7] bg-[#fff4f4] text-[#8d1f1f]" : "border-[#d8e0e8] bg-[#f7fafc] text-[#435160]"}`}>
@@ -3162,6 +3150,16 @@ export default function QuotePreview() {
                 <div className="summary-block"><div className="summary-label">Section B output</div><div className="summary-value">{contentPresence.hasSectionBContent ? `${quote.sections.sectionB.lineItems.length} hardware row(s)` : "No hardware added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionBContent ? (suggestedAccessories.length > 0 ? `${suggestedAccessories.length} accessory suggestion(s) available` : "All suggested accessories are already added") : "Add equipment only when this quote actually needs one-time hardware."}</div></div>
                 <div className="summary-block"><div className="summary-label">Section C output</div><div className="summary-value">{contentPresence.hasSectionCContent ? quote.sections.sectionC.title : "No field services added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionCContent ? `${quote.sections.sectionC.lineItems.length} service row(s) • ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "budgetary").length} budgetary / ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "final").length} final` : "Field services stay out of the proposal until live rows exist."}</div></div>
                 <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>Recurring monthly</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>{contentPresence.hasSectionBContent && <div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>}{contentPresence.hasSectionCContent && <div className="flex justify-between gap-3"><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>}{quote.metadata.quoteType === "lease" && <div className="flex justify-between gap-3 text-[#b00000]"><span>Blended lease monthly</span><strong>{hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}</strong></div>}</div></div>
+                <div className="summary-block">
+                  <div className="summary-label">Review handoff</div>
+                  <div className="summary-value">Save here. Export from Preview.</div>
+                  <div className="summary-subvalue">Keep the editor focused on setup and pricing. Use Preview Proposal for the customer-facing document plus Approval Workbook, Word, and PDF exports.</div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" className="pill-button" onClick={persistProposalState}>Save Draft</button>
+                    <button type="button" className="pill-button pill-button-active" onClick={handlePreviewProposal}>Preview Proposal</button>
+                    <Link href="/workspace" className="pill-button">Workspace</Link>
+                  </div>
+                </div>
                 <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">Keep it simple: build the quote, review the proposal, and send it with confidence.</div>
               </div>
             </section>
