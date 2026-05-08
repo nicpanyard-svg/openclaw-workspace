@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
-import {
-  buildProposalPdfFileName,
-  cacheProposalPdfQuote,
-  cleanupCachedProposalPdfQuote,
-} from "@/app/lib/proposal-pdf-cache";
+import { buildProposalPdfFileName } from "@/app/lib/proposal-pdf-cache";
+import { renderHtmlPdf } from "@/app/lib/proposal-html-pdf";
 import type { QuoteRecord } from "@/app/lib/quote-record";
+import {
+  PROPOSAL_STORAGE_FALLBACK_KEY,
+  PROPOSAL_STORAGE_KEY,
+  serializeQuoteRecord,
+} from "@/app/lib/proposal-state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  let token: string | null = null;
-
   try {
     const body = (await request.json()) as { quote?: QuoteRecord; proposalId?: string | null };
     const quote = body.quote;
@@ -26,12 +26,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Requested proposal does not match the export payload." }, { status: 400 });
     }
 
-    token = await cacheProposalPdfQuote(quote, proposalId ?? quoteProposalId);
-
-    const { renderHtmlPdf } = await import("@/app/lib/proposal-html-pdf");
     const requestUrl = new URL(request.url);
-    const proposalPrintUrl = `${requestUrl.origin}/proposal/print?token=${encodeURIComponent(token)}&autoprint=0&pdf=1${proposalId || quoteProposalId ? `&proposalId=${encodeURIComponent(proposalId ?? quoteProposalId ?? "")}` : ""}`;
-    const pdf = await renderHtmlPdf(proposalPrintUrl);
+    const serializedQuote = serializeQuoteRecord(quote);
+    const pdf = await renderHtmlPdf(
+      `${requestUrl.origin}/proposal/print?autoprint=0&pdf=1`,
+      undefined,
+      {
+        localStorage: {
+          [PROPOSAL_STORAGE_FALLBACK_KEY]: serializedQuote,
+        },
+        sessionStorage: {
+          [PROPOSAL_STORAGE_KEY]: serializedQuote,
+        },
+      },
+    );
     const fileName = buildProposalPdfFileName(quote);
 
     return new NextResponse(Buffer.from(pdf), {
@@ -45,7 +53,5 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to generate proposal PDF.";
     return NextResponse.json({ error: message }, { status: 500 });
-  } finally {
-    await cleanupCachedProposalPdfQuote(token);
   }
 }

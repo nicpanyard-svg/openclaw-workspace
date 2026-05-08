@@ -4,6 +4,11 @@ import puppeteer, { type PDFOptions } from "puppeteer-core";
 
 const VERCEL_EXECUTION_ENV = Boolean(process.env.VERCEL || process.env.AWS_REGION || process.env.AWS_EXECUTION_ENV);
 
+type BrowserStorageState = {
+  localStorage?: Record<string, string>;
+  sessionStorage?: Record<string, string>;
+};
+
 function resolveLocalChromeExecutable() {
   const configuredPath =
     process.env.PUPPETEER_EXECUTABLE_PATH ??
@@ -87,8 +92,26 @@ function buildPdfOptions(options?: PDFOptions): PDFOptions {
   };
 }
 
-export async function renderHtmlPdf(url: string, options?: PDFOptions) {
+async function primePageStorage(
+  page: Awaited<ReturnType<Awaited<ReturnType<typeof puppeteer.launch>>["newPage"]>>,
+  storageState?: BrowserStorageState,
+) {
+  if (!storageState) return;
+
+  await page.evaluateOnNewDocument((state) => {
+    Object.entries(state.localStorage ?? {}).forEach(([key, value]) => {
+      window.localStorage.setItem(key, value);
+    });
+
+    Object.entries(state.sessionStorage ?? {}).forEach(([key, value]) => {
+      window.sessionStorage.setItem(key, value);
+    });
+  }, storageState);
+}
+
+export async function renderHtmlPdf(url: string, options?: PDFOptions, storageState?: BrowserStorageState) {
   return withPdfPage(async (page) => {
+    await primePageStorage(page, storageState);
     await page.goto(url, { waitUntil: "networkidle0" });
     await page.evaluateHandle("document.fonts.ready");
     return page.pdf(buildPdfOptions(options));
