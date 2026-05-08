@@ -29,7 +29,7 @@ import {
   type SavedCustomerProfile,
 } from "@/app/lib/customer-profiles";
 import { ensureNickTrainingDemoProfiles, ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
-import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState, getActiveMajorProjectOption } from "@/app/lib/major-project";
+import { applyMajorProjectToQuote, buildMajorProjectMetrics, convertMajorProjectQuickBuilderToMappedModel, ensureMajorProjectState, getActiveMajorProjectOption } from "@/app/lib/major-project";
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
 import {
   createDefaultServiceAgreementProfile,
@@ -1189,7 +1189,7 @@ export default function QuotePreview() {
     updateMajorProjectQuote((draft) => {
       if (!draft.majorProject) return draft;
       draft.majorProject.builderMode = mode;
-      return draft;
+      return mode === "advanced" ? convertMajorProjectQuickBuilderToMappedModel(draft) : draft;
     });
   };
 

@@ -338,6 +338,136 @@ function normalizeOption(option: Partial<MajorProjectOption> | undefined, index:
   };
 }
 
+function quickBuilderScheduleForRow(row: MajorProjectSimpleRow) {
+  return row.bucket === "hardware" || row.bucket === "install" ? "one_time" as const : "recurring" as const;
+}
+
+function quickBuilderLineTypeForRow(row: MajorProjectSimpleRow): MajorProjectComponent["lineType"] {
+  switch (row.bucket) {
+    case "hardware":
+      return "hardware";
+    case "install":
+      return "installation";
+    case "support_recurring":
+      return "support";
+    case "mrr":
+      return "managed_service";
+    case "other_vendor":
+      return "subscription";
+    case "other_recurring":
+      return "service";
+    default:
+      return "other";
+  }
+}
+
+function quickBuilderBundleCategoryForRow(row: MajorProjectSimpleRow) {
+  switch (row.bucket) {
+    case "hardware":
+      return "hardware";
+    case "install":
+      return "services";
+    default:
+      return "recurring";
+  }
+}
+
+function quickBuilderPresentationCategoryForRow(row: MajorProjectSimpleRow): MajorProjectCustomerQuoteLine["presentationCategory"] {
+  switch (row.bucket) {
+    case "hardware":
+      return "hardware";
+    case "install":
+      return "services";
+    case "mrr":
+    case "other_vendor":
+    case "support_recurring":
+    case "other_recurring":
+      return "recurring";
+    default:
+      return "other";
+  }
+}
+
+function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorProjectOption {
+  const simpleRows = option.simpleRows ?? [];
+  const existingComponents = option.components ?? [];
+  const existingBundles = option.bundles ?? [];
+  const existingQuoteLines = option.customerQuoteLines ?? [];
+
+  if (!simpleRows.length) return option;
+  if (existingComponents.length || existingBundles.length || existingQuoteLines.length) return option;
+
+  const components = simpleRows.map((row, index) => {
+    const label = row.label?.trim() || row.description?.trim() || `Quick Builder row ${index + 1}`;
+    const bundleId = `quick-builder-bundle-${row.id}`;
+
+    return normalizeComponent({
+      id: `quick-builder-component-${row.id}`,
+      internalName: label,
+      customerFacingLabel: row.label?.trim() || label,
+      vendor: "Quick Builder",
+      category: quickBuilderBundleCategoryForRow(row),
+      lineType: quickBuilderLineTypeForRow(row),
+      quantity: row.quantity,
+      unit: row.unit || "ea",
+      customerUnitPrice: row.customerUnitPrice,
+      customerExtendedPrice: row.customerExtendedPrice,
+      vendorUnitCost: row.ourUnitCost,
+      vendorExtendedCost: row.ourExtendedCost,
+      schedule: quickBuilderScheduleForRow(row),
+      costBasis: "estimate",
+      resaleBasis: "cost_plus",
+      bundleAssignmentId: bundleId,
+      notes: row.description,
+    }, index);
+  });
+
+  const bundles = simpleRows.map((row, index) => {
+    const componentId = `quick-builder-component-${row.id}`;
+    const label = row.label?.trim() || row.description?.trim() || `Quick Builder row ${index + 1}`;
+
+    return normalizeBundle({
+      id: `quick-builder-bundle-${row.id}`,
+      internalName: label,
+      customerFacingLabel: row.label?.trim() || label,
+      description: row.description,
+      specSheetLabel: row.specSheetLabel,
+      specSheetLocation: row.specSheetLocation,
+      componentIds: [componentId],
+      includedCostComponentIds: [componentId],
+      includedRevenueComponentIds: [componentId],
+      schedule: quickBuilderScheduleForRow(row),
+      category: quickBuilderBundleCategoryForRow(row),
+    }, index);
+  });
+
+  const customerQuoteLines = simpleRows.map((row, index) => {
+    const componentId = `quick-builder-component-${row.id}`;
+    const bundleId = `quick-builder-bundle-${row.id}`;
+    const label = row.label?.trim() || row.description?.trim() || `Quick Builder row ${index + 1}`;
+
+    return normalizeCustomerQuoteLine({
+      id: `quick-builder-quote-line-${row.id}`,
+      label,
+      description: row.description,
+      specSheetLabel: row.specSheetLabel,
+      specSheetLocation: row.specSheetLocation,
+      bundleIds: [bundleId],
+      includedCostComponentIds: [componentId],
+      includedRevenueComponentIds: [componentId],
+      schedule: quickBuilderScheduleForRow(row),
+      presentationCategory: quickBuilderPresentationCategoryForRow(row),
+    }, index);
+  });
+
+  return normalizeOption({
+    ...option,
+    components,
+    bundles,
+    customerQuoteLines,
+  }, 0);
+}
+
 function sumComponents(components: MajorProjectComponent[], schedule: "one_time" | "recurring", value: "revenue" | "cost", predicate?: (component: MajorProjectComponent) => boolean) {
   return components.reduce((sum, component) => {
     if (component.schedule !== schedule) return sum;
@@ -846,6 +976,18 @@ export function ensureMajorProjectState(quote: QuoteRecord): QuoteRecord {
       options,
       builderMode: resolvedBuilderMode,
       activeOptionId: quote.majorProject?.activeOptionId ?? options[0]?.id ?? defaults.activeOptionId,
+    },
+  };
+}
+
+export function convertMajorProjectQuickBuilderToMappedModel(quote: QuoteRecord): QuoteRecord {
+  const safeQuote = ensureMajorProjectState(quote);
+
+  return {
+    ...safeQuote,
+    majorProject: {
+      ...safeQuote.majorProject,
+      options: safeQuote.majorProject.options.map((option) => buildMappedOptionFromQuickBuilder(option)),
     },
   };
 }
