@@ -66,6 +66,24 @@ coverage/
 *-screenshot.png
 linkedin-loggedin.png
 linkedin-test-screenshot.png
+rapidquote*.png
+tmp_rq_*.png
+tmp_rq_*.js
+rapidquote_*.png
+rapidquote_*.js
+rq_store.json
+quote-tool-app/*.pdf
+quote-tool-app/*.png
+quote-tool-app/*.docx
+quote-tool-app/*-e2e-results.json
+quote-tool-app/docs/
+quote-tool-app/tmp/
+quote-tool-app/playwright-report/
+quote-tool-app/test-results/
+quote-tool-app/RQ-*.pdf
+quote-tool-app/RQ-*.docx
+quote-tool-app/qa-*.png
+quote-tool-app/rapidquote-*.png
 
 # Embedded repos
 OpenOutreach/
@@ -73,3 +91,9 @@ inet-world/
 
 # Misc generated files
 *.tsbuildinfo
+codex/
+rapidquote-vercel-profile/
+rq_chunks/
+state/
+
+.vercel
