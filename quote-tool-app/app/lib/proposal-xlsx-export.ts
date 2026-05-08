@@ -6,7 +6,6 @@ import type {
   MajorProjectSimpleRow,
   QuoteRecord,
 } from "@/app/lib/quote-record";
-import * as XLSX from "xlsx";
 
 type ApprovalWorkbookLine = {
   item: string;
@@ -50,6 +49,25 @@ type ApprovalWorkbookModel = {
   vendorNotes: string[];
   serviceReferences: string[];
   internalNotes: string[];
+};
+
+type ExcelJSModule = typeof import("exceljs");
+type Workbook = import("exceljs").Workbook;
+type Worksheet = import("exceljs").Worksheet;
+type CellValue = string | number | null;
+
+const BRAND = {
+  greenDark: "FF245C36",
+  green: "FF4F8C45",
+  greenSoft: "FFDDECD7",
+  greenPale: "FFF4FAF1",
+  gold: "FFC69214",
+  cream: "FFF8F5EA",
+  slate: "FF425466",
+  slateSoft: "FFEAF0F5",
+  border: "FF97AB9A",
+  text: "FF1F2933",
+  white: "FFFFFFFF",
 };
 
 function compact(values: Array<string | undefined | null>) {
@@ -324,7 +342,7 @@ function buildWorkbookModel(quote: QuoteRecord): ApprovalWorkbookModel {
   ]);
 
   return {
-    fileNameBase: `${fileSafeName(quote.metadata.proposalNumber)}-approval-workbook-v3`,
+    fileNameBase: `${fileSafeName(quote.metadata.proposalNumber)}-approval-workbook-v4`,
     quoteDate: quote.metadata.proposalDate,
     customerName: quote.customer.name,
     proposalNumber: quote.metadata.proposalNumber,
@@ -354,41 +372,6 @@ function buildWorkbookModel(quote: QuoteRecord): ApprovalWorkbookModel {
   };
 }
 
-function createWorksheet(rows: Array<Array<string | number | null | undefined>>) {
-  return XLSX.utils.aoa_to_sheet(rows.map((row) => row.map((cell) => cell ?? "")));
-}
-
-function setColumnWidths(worksheet: XLSX.WorkSheet, widths: number[]) {
-  worksheet["!cols"] = widths.map((wch) => ({ wch }));
-}
-
-function setRowHeights(worksheet: XLSX.WorkSheet, heights: number[]) {
-  worksheet["!rows"] = heights.map((hpt) => ({ hpt }));
-}
-
-function addMerges(worksheet: XLSX.WorkSheet, merges: string[]) {
-  worksheet["!merges"] = merges.map((value) => XLSX.utils.decode_range(value));
-}
-
-function setCellNumberFormat(worksheet: XLSX.WorkSheet, address: string, format: string) {
-  const cell = worksheet[address];
-  if (cell) {
-    cell.z = format;
-  }
-}
-
-function setColumnNumberFormat(
-  worksheet: XLSX.WorkSheet,
-  column: string,
-  startRow: number,
-  endRow: number,
-  format: string,
-) {
-  for (let row = startRow; row <= endRow; row += 1) {
-    setCellNumberFormat(worksheet, `${column}${row}`, format);
-  }
-}
-
 function buildLineTotals(lines: ApprovalWorkbookLine[]) {
   const revenue = roundCurrency(lines.reduce((sum, line) => sum + line.customerPricing, 0));
   const cost = roundCurrency(lines.reduce((sum, line) => sum + line.ourCost, 0));
@@ -401,276 +384,668 @@ function buildLineTotals(lines: ApprovalWorkbookLine[]) {
   };
 }
 
-function buildExecutiveSummarySheet(model: ApprovalWorkbookModel) {
-  const rows: Array<Array<string | number | null>> = [
-    [null, "iNet Managed Technology Services", null, null, null, null, "iNet", null],
-    [null, "RAPIDQUOTE INTERNAL APPROVAL WORKBOOK"],
-    [null, "Executive Summary / Approval Routing"],
-    [],
-    [null, "Workbook purpose"],
-    [null, "Management review copy for internal pricing, margin, and approval routing before customer-facing release."],
-    [],
-    [null, "Proposal Overview"],
-    [null, "Proposal Number", model.proposalNumber, null, "Date", model.quoteDate, "Prepared By", model.preparedBy],
-    [null, "Customer", model.customerName, null, "Workflow", model.workflowLabel, "Option", model.optionLabel],
-    [null, "Project Name", model.projectName, null, "Status", model.statusLabel, "Recurring MRR", model.recurringRevenue],
-    [null, "Project Summary"],
-    [null, model.projectDescription || "No project description provided."],
-    [],
-    [null, "Executive Financial Snapshot"],
-    [null, "Bucket", "Customer Price", "Our Cost", "Gross Profit", "Gross Margin", "Commercial view", "Management note"],
-    [null, "Recurring", model.recurringRevenue, model.recurringCost, model.recurringGrossProfit, model.recurringGrossMarginPercent / 100, "Monthly / recurring program value", "Review service commitment and margin durability."],
-    [null, "One-time", model.oneTimeRevenue, model.oneTimeCost, model.oneTimeGrossProfit, model.oneTimeGrossMarginPercent / 100, "Hardware, install, and project services", "Confirm deployment scope and upfront recovery."],
-    [null, "Total Deal", model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100, "Overall customer commitment", "Use as the executive approval checkpoint."],
-    [],
-    [null, "Approval Recommendation"],
-    [null, "Use the financial snapshot plus the supporting line item and assumptions tabs to confirm price position, cost coverage, and any exception approvals before release."],
-    [],
-    [null, "Approval Routing / Signatures"],
-    [null, "Role", "Approver", "Signature", null, "Date", null, "Comments"],
-    [null, "CEO", "", "______________________________", null, "______________", null, ""],
-    [null, "CFO", "", "______________________________", null, "______________", null, ""],
-    [null, "Region GM / Area GM", "", "______________________________", null, "______________", null, ""],
-    [null, "VP Operations / VP Engineering", "", "______________________________", null, "______________", null, ""],
-    [null, "SVP / VP Sales", "", "______________________________", null, "______________", null, ""],
-    [],
-    [null, "Workbook Notes"],
-    [null, "Detailed pricing support is included on the Line Item Detail sheet. Narrative assumptions, vendor notes, and service references are included on the Assumptions & Notes sheet."],
+function eachCell(
+  worksheet: Worksheet,
+  fromRow: number,
+  toRow: number,
+  fromCol: number,
+  toCol: number,
+  cb: (cell: import("exceljs").Cell, row: number, col: number) => void,
+) {
+  for (let row = fromRow; row <= toRow; row += 1) {
+    for (let col = fromCol; col <= toCol; col += 1) {
+      cb(worksheet.getCell(row, col), row, col);
+    }
+  }
+}
+
+function applyOuterBorder(worksheet: Worksheet, fromRow: number, toRow: number, fromCol: number, toCol: number, color = BRAND.border) {
+  eachCell(worksheet, fromRow, toRow, fromCol, toCol, (cell, row, col) => {
+    cell.border = {
+      top: row === fromRow ? { style: "thin", color: { argb: color } } : cell.border?.top,
+      left: col === fromCol ? { style: "thin", color: { argb: color } } : cell.border?.left,
+      bottom: row === toRow ? { style: "thin", color: { argb: color } } : cell.border?.bottom,
+      right: col === toCol ? { style: "thin", color: { argb: color } } : cell.border?.right,
+    };
+  });
+}
+
+function applySectionBand(worksheet: Worksheet, row: number, fromCol: number, toCol: number, label: string, color = BRAND.green) {
+  worksheet.mergeCells(row, fromCol, row, toCol);
+  const cell = worksheet.getCell(row, fromCol);
+  cell.value = label;
+  cell.font = { name: "Arial", bold: true, size: 11, color: { argb: BRAND.white } };
+  cell.alignment = { vertical: "middle", horizontal: "left" };
+  cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: color } };
+  worksheet.getRow(row).height = 21;
+  applyOuterBorder(worksheet, row, row, fromCol, toCol, color);
+}
+
+function styleLabelValueRow(worksheet: Worksheet, row: number, labelCol: number, valueCol: number, label: string, value: CellValue, valueToCol = valueCol) {
+  const labelCell = worksheet.getCell(row, labelCol);
+  labelCell.value = label;
+  labelCell.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.slate } };
+  labelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenSoft } };
+  labelCell.alignment = { vertical: "middle", horizontal: "left" };
+  labelCell.border = {
+    top: { style: "thin", color: { argb: BRAND.border } },
+    left: { style: "thin", color: { argb: BRAND.border } },
+    bottom: { style: "thin", color: { argb: BRAND.border } },
+    right: { style: "thin", color: { argb: BRAND.border } },
+  };
+
+  if (valueToCol > valueCol) {
+    worksheet.mergeCells(row, valueCol, row, valueToCol);
+  }
+
+  const valueCell = worksheet.getCell(row, valueCol);
+  valueCell.value = value;
+  valueCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
+  valueCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.white } };
+  valueCell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  applyOuterBorder(worksheet, row, row, valueCol, valueToCol, BRAND.border);
+}
+
+function styleMoneyCell(cell: import("exceljs").Cell, value: number) {
+  cell.value = value;
+  cell.numFmt = '"$"#,##0.00';
+  cell.alignment = { vertical: "middle", horizontal: "right" };
+}
+
+function stylePercentCell(cell: import("exceljs").Cell, value: number) {
+  cell.value = value;
+  cell.numFmt = "0.0%";
+  cell.alignment = { vertical: "middle", horizontal: "right" };
+}
+
+function applyTableHeader(worksheet: Worksheet, row: number, labels: string[]) {
+  labels.forEach((label, index) => {
+    const cell = worksheet.getCell(row, index + 1);
+    cell.value = label;
+    cell.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.white } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
+    cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    cell.border = {
+      top: { style: "thin", color: { argb: BRAND.greenDark } },
+      left: { style: "thin", color: { argb: BRAND.greenDark } },
+      bottom: { style: "thin", color: { argb: BRAND.greenDark } },
+      right: { style: "thin", color: { argb: BRAND.greenDark } },
+    };
+  });
+  worksheet.getRow(row).height = 28;
+}
+
+function applyBodyCellStyle(cell: import("exceljs").Cell, fill: string) {
+  cell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
+  cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill } };
+  cell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
+  cell.border = {
+    top: { style: "thin", color: { argb: BRAND.border } },
+    left: { style: "thin", color: { argb: BRAND.border } },
+    bottom: { style: "thin", color: { argb: BRAND.border } },
+    right: { style: "thin", color: { argb: BRAND.border } },
+  };
+}
+
+function applyMetricCard(worksheet: Worksheet, row: number, fromCol: number, toCol: number, label: string, value: string, accent: string) {
+  worksheet.mergeCells(row, fromCol, row, toCol);
+  worksheet.mergeCells(row + 1, fromCol, row + 1, toCol);
+
+  const titleCell = worksheet.getCell(row, fromCol);
+  titleCell.value = label;
+  titleCell.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.white } };
+  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: accent } };
+  titleCell.alignment = { vertical: "middle", horizontal: "center" };
+
+  const valueCell = worksheet.getCell(row + 1, fromCol);
+  valueCell.value = value;
+  valueCell.font = { name: "Arial", bold: true, size: 14, color: { argb: BRAND.text } };
+  valueCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
+  valueCell.alignment = { vertical: "middle", horizontal: "center" };
+
+  applyOuterBorder(worksheet, row, row + 1, fromCol, toCol);
+}
+
+function formatMoney(value: number) {
+  return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatPercent(percentAsWhole: number) {
+  return `${percentAsWhole.toFixed(1)}%`;
+}
+
+async function loadImageAsBase64(path: string) {
+  try {
+    const response = await fetch(path);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await new Promise<string | null>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function addWorkbookLogo(
+  exceljs: ExcelJSModule,
+  workbook: Workbook,
+  worksheet: Worksheet,
+  range: { tl: { col: number; row: number }; br: { col: number; row: number } },
+) {
+  const base64 = await loadImageAsBase64("/inet-logo.png");
+  if (!base64) return false;
+  const imageId = workbook.addImage({
+    base64,
+    extension: "png",
+  });
+  worksheet.addImage(imageId, range as unknown as Parameters<Worksheet["addImage"]>[1]);
+  return true;
+}
+
+function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, model: ApprovalWorkbookModel) {
+  const sheet = workbook.addWorksheet("Executive Summary", {
+    properties: { defaultRowHeight: 18 },
+    views: [{ state: "frozen", ySplit: 8 }],
+  });
+
+  sheet.pageSetup = {
+    paperSize: 9,
+    orientation: "landscape",
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 1,
+    margins: { left: 0.35, right: 0.35, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 },
+  };
+
+  sheet.columns = [
+    { width: 5 },
+    { width: 18 },
+    { width: 19 },
+    { width: 17 },
+    { width: 17 },
+    { width: 17 },
+    { width: 16 },
+    { width: 16 },
+    { width: 20 },
   ];
 
-  const sheet = createWorksheet(rows);
-  setColumnWidths(sheet, [4, 22, 26, 14, 18, 16, 18, 26]);
-  addMerges(sheet, [
-    "B1:F1",
-    "G1:H3",
-    "B2:H2",
-    "B3:H3",
-    "B5:H5",
-    "B6:H6",
-    "B8:H8",
-    "C9:D9",
-    "C10:D10",
-    "C11:D11",
-    "B12:H12",
-    "B13:H13",
-    "B15:H15",
-    "B21:H21",
-    "B22:H22",
-    "B24:H24",
-    "D25:E25",
-    "F25:G25",
-    "D26:E26",
-    "D27:E27",
-    "D28:E28",
-    "D29:E29",
-    "D30:E30",
-    "F26:G26",
-    "F27:G27",
-    "F28:G28",
-    "F29:G29",
-    "F30:G30",
-    "B32:H32",
-    "B33:H33",
-  ]);
-  setRowHeights(sheet, [22, 26, 20, 8, 18, 34, 8, 18, 18, 18, 18, 18, 42, 8, 18, 18, 18, 18, 18, 8, 18, 34, 8, 18, 18, 20, 20, 20, 20, 20, 8, 18, 34]);
-  ["C16", "D16", "E16", "C17", "D17", "E17", "C18", "D18", "E18", "H11"].forEach((address) => setCellNumberFormat(sheet, address, "$#,##0.00"));
-  ["F16", "F17", "F18"].forEach((address) => setCellNumberFormat(sheet, address, "0.0%"));
+  sheet.mergeCells("B1:I1");
+  sheet.getCell("B1").value = "INTERNAL APPROVAL WORKBOOK";
+  sheet.getCell("B1").font = { name: "Arial", bold: true, size: 18, color: { argb: BRAND.white } };
+  sheet.getCell("B1").alignment = { vertical: "middle", horizontal: "center" };
+  sheet.getCell("B1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
+  sheet.getRow(1).height = 26;
+
+  sheet.mergeCells("D2:I3");
+  const titleCell = sheet.getCell("D2");
+  titleCell.value = "RapidQuote Executive Approval Summary";
+  titleCell.font = { name: "Arial", bold: true, size: 20, color: { argb: BRAND.greenDark } };
+  titleCell.alignment = { vertical: "middle", horizontal: "left" };
+
+  sheet.mergeCells("D4:I4");
+  const subtitleCell = sheet.getCell("D4");
+  subtitleCell.value = "Branded internal management review copy aligned to pricing, approvals, and release readiness.";
+  subtitleCell.font = { name: "Arial", size: 10, color: { argb: BRAND.slate } };
+  subtitleCell.alignment = { vertical: "middle", horizontal: "left" };
+
+  sheet.mergeCells("B5:I5");
+  sheet.getCell("B5").value = "";
+  sheet.getCell("B5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.gold } };
+  sheet.getRow(5).height = 6;
+
+  applyMetricCard(sheet, 6, 2, 3, "Recurring Revenue", formatMoney(model.recurringRevenue), BRAND.green);
+  applyMetricCard(sheet, 6, 4, 5, "One-time Revenue", formatMoney(model.oneTimeRevenue), BRAND.slate);
+  applyMetricCard(sheet, 6, 6, 7, "Total Gross Profit", formatMoney(model.totalGrossProfit), BRAND.greenDark);
+  applyMetricCard(sheet, 6, 8, 9, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.gold);
+
+  applySectionBand(sheet, 9, 2, 9, "Proposal Overview");
+  styleLabelValueRow(sheet, 10, 2, 3, "Proposal Number", model.proposalNumber);
+  styleLabelValueRow(sheet, 10, 5, 6, "Proposal Date", model.quoteDate);
+  styleLabelValueRow(sheet, 10, 8, 9, "Prepared By", model.preparedBy);
+  styleLabelValueRow(sheet, 11, 2, 3, "Customer", model.customerName);
+  styleLabelValueRow(sheet, 11, 5, 6, "Workflow", model.workflowLabel);
+  styleLabelValueRow(sheet, 11, 8, 9, "Option", model.optionLabel);
+  styleLabelValueRow(sheet, 12, 2, 5, "Project Name", model.projectName, 5);
+  styleLabelValueRow(sheet, 12, 6, 7, "Status", model.statusLabel);
+  styleLabelValueRow(sheet, 12, 8, 9, "Workbook", "Approval XLSX v4");
+
+  applySectionBand(sheet, 14, 2, 9, "Executive Summary");
+  sheet.mergeCells("B15:I17");
+  const summaryCell = sheet.getCell("B15");
+  summaryCell.value = model.projectDescription || "No project description provided.";
+  summaryCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
+  summaryCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenPale } };
+  summaryCell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
+  applyOuterBorder(sheet, 15, 17, 2, 9);
+  sheet.getRow(15).height = 22;
+  sheet.getRow(16).height = 22;
+  sheet.getRow(17).height = 22;
+
+  applySectionBand(sheet, 19, 2, 9, "Financial Snapshot");
+  applyTableHeader(sheet, 20, ["Bucket", "Customer Price", "Our Cost", "Gross Profit", "Gross Margin", "Commercial View", "Management Note", "", ""]);
+  sheet.mergeCells("G20:H20");
+  sheet.mergeCells("I20:I20");
+
+  const metricRows = [
+    ["Recurring", model.recurringRevenue, model.recurringCost, model.recurringGrossProfit, model.recurringGrossMarginPercent / 100, "Monthly / recurring program value", "Review durability of services margin."],
+    ["One-time", model.oneTimeRevenue, model.oneTimeCost, model.oneTimeGrossProfit, model.oneTimeGrossMarginPercent / 100, "Hardware, install, and services", "Confirm deployment recovery and exceptions."],
+    ["Total Deal", model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100, "Overall customer commitment", "Use as the primary executive checkpoint."],
+  ] as const;
+
+  metricRows.forEach((entry, index) => {
+    const rowNumber = 21 + index;
+    const fill = index % 2 === 0 ? BRAND.white : BRAND.greenPale;
+    const row = sheet.getRow(rowNumber);
+    row.height = 22;
+    applyBodyCellStyle(sheet.getCell(rowNumber, 2), fill);
+    sheet.getCell(rowNumber, 2).value = entry[0];
+    [3, 4, 5].forEach((col, metricIndex) => {
+      const cell = sheet.getCell(rowNumber, col);
+      applyBodyCellStyle(cell, fill);
+      styleMoneyCell(cell, entry[metricIndex + 1] as number);
+    });
+    const percentCell = sheet.getCell(rowNumber, 6);
+    applyBodyCellStyle(percentCell, fill);
+    stylePercentCell(percentCell, entry[4]);
+    const viewCell = sheet.getCell(rowNumber, 7);
+    const noteCell = sheet.getCell(rowNumber, 8);
+    applyBodyCellStyle(viewCell, fill);
+    applyBodyCellStyle(noteCell, fill);
+    viewCell.value = entry[5];
+    noteCell.value = entry[6];
+    sheet.mergeCells(rowNumber, 8, rowNumber, 9);
+    applyOuterBorder(sheet, rowNumber, rowNumber, 8, 9);
+  });
+
+  applySectionBand(sheet, 25, 2, 9, "Approval Routing / Signatures");
+  applyTableHeader(sheet, 26, ["Role", "Approver", "Approval Decision", "Signature", "", "Date", "", "Comments", ""]);
+  sheet.mergeCells("E26:F26");
+  sheet.mergeCells("H26:I26");
+
+  [
+    "CEO",
+    "CFO",
+    "Region GM / Area GM",
+    "VP Operations / VP Engineering",
+    "SVP / VP Sales",
+  ].forEach((role, index) => {
+    const rowNumber = 27 + index;
+    const fill = index % 2 === 0 ? BRAND.cream : BRAND.white;
+    for (let col = 1; col <= 9; col += 1) {
+      applyBodyCellStyle(sheet.getCell(rowNumber, col), fill);
+    }
+    sheet.getCell(rowNumber, 1).value = role;
+    sheet.getCell(rowNumber, 2).value = "";
+    sheet.getCell(rowNumber, 3).value = "Approve / Revise";
+    sheet.getCell(rowNumber, 4).value = " ";
+    sheet.mergeCells(rowNumber, 4, rowNumber, 5);
+    sheet.getCell(rowNumber, 6).value = " ";
+    sheet.mergeCells(rowNumber, 6, rowNumber, 7);
+    sheet.mergeCells(rowNumber, 8, rowNumber, 9);
+    sheet.getCell(rowNumber, 8).value = "";
+    applyOuterBorder(sheet, rowNumber, rowNumber, 4, 5);
+    applyOuterBorder(sheet, rowNumber, rowNumber, 6, 7);
+    applyOuterBorder(sheet, rowNumber, rowNumber, 8, 9);
+    sheet.getCell(rowNumber, 4).border = {
+      bottom: { style: "thin", color: { argb: BRAND.slate } },
+      left: { style: "thin", color: { argb: BRAND.border } },
+      top: { style: "thin", color: { argb: BRAND.border } },
+      right: { style: "thin", color: { argb: BRAND.border } },
+    };
+    sheet.getCell(rowNumber, 6).border = {
+      bottom: { style: "thin", color: { argb: BRAND.slate } },
+      left: { style: "thin", color: { argb: BRAND.border } },
+      top: { style: "thin", color: { argb: BRAND.border } },
+      right: { style: "thin", color: { argb: BRAND.border } },
+    };
+  });
+
+  applySectionBand(sheet, 33, 2, 9, "Workbook Notes");
+  sheet.mergeCells("B34:I35");
+  const noteCell = sheet.getCell("B34");
+  noteCell.value = "Use the line-item detail and assumptions tabs for the supporting pricing narrative, vendor context, and approval-only notes prior to customer-facing release.";
+  noteCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
+  noteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
+  noteCell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
+  applyOuterBorder(sheet, 34, 35, 2, 9);
+
+  void exceljs;
   return sheet;
 }
 
-function buildLineItemDetailSheet(model: ApprovalWorkbookModel) {
+function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookModel) {
+  const sheet = workbook.addWorksheet("Line Item Detail", {
+    properties: { defaultRowHeight: 18 },
+    views: [{ state: "frozen", ySplit: 8 }],
+  });
+
+  sheet.pageSetup = {
+    paperSize: 9,
+    orientation: "landscape",
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+  };
+
+  sheet.columns = [
+    { width: 22 },
+    { width: 34 },
+    { width: 18 },
+    { width: 11 },
+    { width: 8 },
+    { width: 8 },
+    { width: 15 },
+    { width: 15 },
+    { width: 15 },
+    { width: 12 },
+    { width: 34 },
+  ];
+
+  sheet.mergeCells("A1:K1");
+  const titleCell = sheet.getCell("A1");
+  titleCell.value = "Detailed Pricing Support";
+  titleCell.font = { name: "Arial", bold: true, size: 18, color: { argb: BRAND.white } };
+  titleCell.alignment = { vertical: "middle", horizontal: "center" };
+  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
+  sheet.getRow(1).height = 26;
+
+  sheet.mergeCells("A2:K2");
+  const subCell = sheet.getCell("A2");
+  subCell.value = `${model.customerName} | ${model.projectName} | ${model.proposalNumber}`;
+  subCell.font = { name: "Arial", size: 10, color: { argb: BRAND.slate } };
+  subCell.alignment = { vertical: "middle", horizontal: "center" };
+
+  applyMetricCard(sheet, 4, 1, 2, "Recurring", formatMoney(model.recurringRevenue), BRAND.green);
+  applyMetricCard(sheet, 4, 3, 4, "One-time", formatMoney(model.oneTimeRevenue), BRAND.slate);
+  applyMetricCard(sheet, 4, 5, 6, "Total Revenue", formatMoney(model.totalRevenue), BRAND.greenDark);
+  applyMetricCard(sheet, 4, 7, 8, "Total Cost", formatMoney(model.totalCost), BRAND.gold);
+  applyMetricCard(sheet, 4, 9, 11, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.green);
+
+  const headers = [
+    "Item",
+    "Description",
+    "Category / Bucket",
+    "Schedule",
+    "Qty",
+    "Unit",
+    "Customer Pricing",
+    "Our Cost",
+    "Gross Profit",
+    "Gross Margin",
+    "Notes / Assumptions",
+  ];
+
   const recurringLines = model.lines.filter((line) => line.schedule === "Recurring");
   const oneTimeLines = model.lines.filter((line) => line.schedule !== "Recurring");
   const recurringTotals = buildLineTotals(recurringLines);
   const oneTimeTotals = buildLineTotals(oneTimeLines);
 
-  const rows: Array<Array<string | number>> = [
-    ["Line Item Detail Schedule"],
-    [`Proposal ${model.proposalNumber}`, model.customerName, model.projectName, model.workflowLabel, "", "", "", "", "", "", ""],
-    [],
-    ["Deal Snapshot", "", "", "", "", "", "", "", "", "", ""],
-    ["Recurring Revenue", "One-time Revenue", "Total Deal", "Total Cost", "Gross Profit", "Gross Margin", "Prepared By", "Customer", "Workflow", "Option", "Status"],
-    [model.recurringRevenue, model.oneTimeRevenue, model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100, model.preparedBy, model.customerName, model.workflowLabel, model.optionLabel, model.statusLabel],
-    [],
-    ["Recurring Line Items", "", "", "", "", "", "", "", "", "", ""],
-    [
-      "Item",
-      "Description",
-      "Category / Bucket",
-      "Schedule",
-      "Qty",
-      "Unit",
-      "Customer Pricing",
-      "Our Cost",
-      "Gross Profit",
-      "Gross Margin",
-      "Notes / Assumptions",
-    ],
-    ...(recurringLines.length > 0
-      ? recurringLines.map((line) => [
-        line.item,
-        line.description,
-        line.category,
-        line.schedule,
-        line.quantity === "" ? "" : line.quantity,
-        line.unit,
-        line.customerPricing,
-        line.ourCost,
-        line.grossProfit,
-        line.grossMarginPercent / 100,
-        line.notes,
-      ])
-      : [["No recurring items.", "", "", "", "", "", "", "", "", "", ""]]),
-    ["Recurring Subtotal", "", "", "", "", "", recurringTotals.revenue, recurringTotals.cost, recurringTotals.grossProfit, recurringTotals.grossMarginPercent, ""],
-    [],
-    ["One-time Line Items", "", "", "", "", "", "", "", "", "", ""],
-    [
-      "Item",
-      "Description",
-      "Category / Bucket",
-      "Schedule",
-      "Qty",
-      "Unit",
-      "Customer Pricing",
-      "Our Cost",
-      "Gross Profit",
-      "Gross Margin",
-      "Notes / Assumptions",
-    ],
-    ...(oneTimeLines.length > 0
-      ? oneTimeLines.map((line) => [
-        line.item,
-        line.description,
-        line.category,
-        line.schedule,
-        line.quantity === "" ? "" : line.quantity,
-        line.unit,
-        line.customerPricing,
-        line.ourCost,
-        line.grossProfit,
-        line.grossMarginPercent / 100,
-        line.notes,
-      ])
-      : [["No one-time items.", "", "", "", "", "", "", "", "", "", ""]]),
-    ["One-time Subtotal", "", "", "", "", "", oneTimeTotals.revenue, oneTimeTotals.cost, oneTimeTotals.grossProfit, oneTimeTotals.grossMarginPercent, ""],
-    [],
-    ["TOTAL DEAL", "", "", "", "", "", model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100, ""],
-  ];
+  let currentRow = 8;
+  applySectionBand(sheet, currentRow, 1, 11, "Recurring Line Items");
+  currentRow += 1;
+  applyTableHeader(sheet, currentRow, headers);
+  currentRow += 1;
 
-  const sheet = createWorksheet(rows);
-  setColumnWidths(sheet, [24, 42, 18, 12, 8, 8, 16, 16, 16, 14, 34]);
-  const recurringHeaderRow = 9;
-  const recurringDataStartRow = 10;
-  const recurringSubtotalRow = recurringDataStartRow + Math.max(recurringLines.length, 1);
-  const oneTimeSectionRow = recurringSubtotalRow + 2;
-  const oneTimeHeaderRow = oneTimeSectionRow + 1;
-  const oneTimeDataStartRow = oneTimeHeaderRow + 1;
-  const oneTimeSubtotalRow = oneTimeDataStartRow + Math.max(oneTimeLines.length, 1);
-  const totalRow = rows.length;
-  addMerges(sheet, [
-    "A1:K1",
-    "A2:K2",
-    "A4:K4",
-    `A8:K8`,
-    `A${oneTimeSectionRow}:K${oneTimeSectionRow}`,
-    `A${recurringSubtotalRow}:F${recurringSubtotalRow}`,
-    `A${oneTimeSubtotalRow}:F${oneTimeSubtotalRow}`,
-    `A${totalRow}:F${totalRow}`,
-  ]);
-  setRowHeights(sheet, rows.map((_, index) => {
-    if (index === 0) return 24;
-    if (index === 1) return 18;
-    if (index === 3 || index === 7 || index === oneTimeSectionRow - 1) return 18;
-    if (index === 4 || index === 8 || index === oneTimeHeaderRow - 1) return 20;
-    return 17;
-  }));
-  ["A6", "B6", "C6", "D6", "E6"].forEach((address) => setCellNumberFormat(sheet, address, "$#,##0.00"));
-  setCellNumberFormat(sheet, "F6", "0.0%");
-  setColumnNumberFormat(sheet, "G", recurringDataStartRow, recurringSubtotalRow, "$#,##0.00");
-  setColumnNumberFormat(sheet, "H", recurringDataStartRow, recurringSubtotalRow, "$#,##0.00");
-  setColumnNumberFormat(sheet, "I", recurringDataStartRow, recurringSubtotalRow, "$#,##0.00");
-  setColumnNumberFormat(sheet, "J", recurringDataStartRow, recurringSubtotalRow, "0.0%");
-  setColumnNumberFormat(sheet, "G", oneTimeDataStartRow, oneTimeSubtotalRow, "$#,##0.00");
-  setColumnNumberFormat(sheet, "H", oneTimeDataStartRow, oneTimeSubtotalRow, "$#,##0.00");
-  setColumnNumberFormat(sheet, "I", oneTimeDataStartRow, oneTimeSubtotalRow, "$#,##0.00");
-  setColumnNumberFormat(sheet, "J", oneTimeDataStartRow, oneTimeSubtotalRow, "0.0%");
-  setCellNumberFormat(sheet, "G" + totalRow, "$#,##0.00");
-  setCellNumberFormat(sheet, "H" + totalRow, "$#,##0.00");
-  setCellNumberFormat(sheet, "I" + totalRow, "$#,##0.00");
-  setCellNumberFormat(sheet, "J" + totalRow, "0.0%");
-  sheet["!freeze"] = { xSplit: 0, ySplit: recurringHeaderRow, topLeftCell: "A10", activePane: "bottomLeft", state: "frozen" } as never;
+  const writeLineRows = (lines: ApprovalWorkbookLine[]) => {
+    const source = lines.length > 0 ? lines : [{
+      item: "No items.",
+      description: "",
+      category: "",
+      schedule: "",
+      quantity: "",
+      unit: "",
+      customerPricing: 0,
+      ourCost: 0,
+      grossProfit: 0,
+      grossMarginPercent: 0,
+      notes: "",
+    }];
+
+    source.forEach((line, index) => {
+      const fill = index % 2 === 0 ? BRAND.white : BRAND.greenPale;
+      const row = sheet.getRow(currentRow);
+      row.height = 20;
+      const values: CellValue[] = [
+        line.item,
+        line.description,
+        line.category,
+        line.schedule,
+        line.quantity === "" ? "" : line.quantity,
+        line.unit,
+        line.customerPricing,
+        line.ourCost,
+        line.grossProfit,
+        line.grossMarginPercent / 100,
+        line.notes,
+      ];
+
+      values.forEach((value, colIndex) => {
+        const cell = sheet.getCell(currentRow, colIndex + 1);
+        applyBodyCellStyle(cell, fill);
+        cell.value = value;
+      });
+
+      [7, 8, 9].forEach((col) => {
+        sheet.getCell(currentRow, col).numFmt = '"$"#,##0.00';
+        sheet.getCell(currentRow, col).alignment = { vertical: "top", horizontal: "right" };
+      });
+      sheet.getCell(currentRow, 10).numFmt = "0.0%";
+      sheet.getCell(currentRow, 10).alignment = { vertical: "top", horizontal: "right" };
+
+      currentRow += 1;
+    });
+  };
+
+  writeLineRows(recurringLines);
+
+  sheet.mergeCells(currentRow, 1, currentRow, 6);
+  const recurringSubtotalLabel = sheet.getCell(currentRow, 1);
+  recurringSubtotalLabel.value = "Recurring Subtotal";
+  recurringSubtotalLabel.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.text } };
+  recurringSubtotalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
+  recurringSubtotalLabel.alignment = { vertical: "middle", horizontal: "left" };
+  applyOuterBorder(sheet, currentRow, currentRow, 1, 6);
+
+  [7, 8, 9, 10].forEach((col, index) => {
+    const cell = sheet.getCell(currentRow, col);
+    applyBodyCellStyle(cell, BRAND.cream);
+    cell.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.text } };
+    if (col === 10) {
+      stylePercentCell(cell, recurringTotals.grossMarginPercent);
+    } else {
+      styleMoneyCell(cell, [recurringTotals.revenue, recurringTotals.cost, recurringTotals.grossProfit][index]);
+    }
+  });
+  applyBodyCellStyle(sheet.getCell(currentRow, 11), BRAND.cream);
+  currentRow += 2;
+
+  applySectionBand(sheet, currentRow, 1, 11, "One-time Line Items");
+  currentRow += 1;
+  applyTableHeader(sheet, currentRow, headers);
+  currentRow += 1;
+  writeLineRows(oneTimeLines);
+
+  sheet.mergeCells(currentRow, 1, currentRow, 6);
+  const oneTimeSubtotalLabel = sheet.getCell(currentRow, 1);
+  oneTimeSubtotalLabel.value = "One-time Subtotal";
+  oneTimeSubtotalLabel.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.text } };
+  oneTimeSubtotalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
+  oneTimeSubtotalLabel.alignment = { vertical: "middle", horizontal: "left" };
+  applyOuterBorder(sheet, currentRow, currentRow, 1, 6);
+
+  [7, 8, 9, 10].forEach((col, index) => {
+    const cell = sheet.getCell(currentRow, col);
+    applyBodyCellStyle(cell, BRAND.cream);
+    cell.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.text } };
+    if (col === 10) {
+      stylePercentCell(cell, oneTimeTotals.grossMarginPercent);
+    } else {
+      styleMoneyCell(cell, [oneTimeTotals.revenue, oneTimeTotals.cost, oneTimeTotals.grossProfit][index]);
+    }
+  });
+  applyBodyCellStyle(sheet.getCell(currentRow, 11), BRAND.cream);
+  currentRow += 2;
+
+  sheet.mergeCells(currentRow, 1, currentRow, 6);
+  const totalLabel = sheet.getCell(currentRow, 1);
+  totalLabel.value = "TOTAL DEAL";
+  totalLabel.font = { name: "Arial", bold: true, size: 11, color: { argb: BRAND.white } };
+  totalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
+  totalLabel.alignment = { vertical: "middle", horizontal: "left" };
+  applyOuterBorder(sheet, currentRow, currentRow, 1, 6, BRAND.greenDark);
+
+  [7, 8, 9].forEach((col, index) => {
+    const cell = sheet.getCell(currentRow, col);
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
+    cell.font = { name: "Arial", bold: true, size: 11, color: { argb: BRAND.white } };
+    styleMoneyCell(cell, [model.totalRevenue, model.totalCost, model.totalGrossProfit][index]);
+    cell.border = {
+      top: { style: "thin", color: { argb: BRAND.greenDark } },
+      left: { style: "thin", color: { argb: BRAND.greenDark } },
+      bottom: { style: "thin", color: { argb: BRAND.greenDark } },
+      right: { style: "thin", color: { argb: BRAND.greenDark } },
+    };
+  });
+  const totalPercent = sheet.getCell(currentRow, 10);
+  totalPercent.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
+  totalPercent.font = { name: "Arial", bold: true, size: 11, color: { argb: BRAND.white } };
+  stylePercentCell(totalPercent, model.totalGrossMarginPercent / 100);
+  totalPercent.border = {
+    top: { style: "thin", color: { argb: BRAND.greenDark } },
+    left: { style: "thin", color: { argb: BRAND.greenDark } },
+    bottom: { style: "thin", color: { argb: BRAND.greenDark } },
+    right: { style: "thin", color: { argb: BRAND.greenDark } },
+  };
+  const totalNotes = sheet.getCell(currentRow, 11);
+  totalNotes.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
+  totalNotes.border = {
+    top: { style: "thin", color: { argb: BRAND.greenDark } },
+    left: { style: "thin", color: { argb: BRAND.greenDark } },
+    bottom: { style: "thin", color: { argb: BRAND.greenDark } },
+    right: { style: "thin", color: { argb: BRAND.greenDark } },
+  };
+
   return sheet;
 }
 
 function buildSectionRows(title: string, entries: string[]) {
-  const rows: Array<Array<string>> = [[title, "", "", ""]];
-  if (entries.length === 0) {
-    rows.push(["", "No notes recorded.", "", ""]);
-  } else {
-    entries.forEach((entry, index) => rows.push(["", `${index + 1}. ${entry}`, "", ""]));
-  }
-  rows.push([]);
+  const rows: Array<Array<string>> = [[title], ...(
+    entries.length > 0
+      ? entries.map((entry, index) => [`${index + 1}. ${entry}`])
+      : [["No notes recorded."]]
+  )];
   return rows;
 }
 
-function buildNotesSheet(model: ApprovalWorkbookModel) {
-  const rows: Array<Array<string>> = [
-    ["Assumptions, Notes, and Review Support", "", "", ""],
-    ["Use this sheet as the narrative backup for the executive summary and line item detail tabs.", "", "", ""],
-    [],
-    ["Review guide", "", "", ""],
-    ["Use commercial assumptions for pricing context, vendor notes for sourcing backup, service references for SLA dependencies, and internal notes for approval-only context.", "", "", ""],
-    [],
-    ...buildSectionRows("Commercial assumptions", model.assumptions),
-    ...buildSectionRows("Vendor notes", model.vendorNotes),
-    ...buildSectionRows("SLA / service references", model.serviceReferences),
-    ...buildSectionRows("Internal notes", model.internalNotes),
+function buildNotesSheet(workbook: Workbook, model: ApprovalWorkbookModel) {
+  const sheet = workbook.addWorksheet("Assumptions & Notes", {
+    properties: { defaultRowHeight: 18 },
+    views: [{ state: "frozen", ySplit: 5 }],
+  });
+
+  sheet.pageSetup = {
+    paperSize: 9,
+    orientation: "portrait",
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    margins: { left: 0.35, right: 0.35, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 },
+  };
+
+  sheet.columns = [
+    { width: 4 },
+    { width: 102 },
   ];
 
-  const sheet = createWorksheet(rows);
-  setColumnWidths(sheet, [4, 90, 10, 10]);
-  const sectionHeaderRows = rows
-    .map((row, index) => ({ row, index: index + 1 }))
-    .filter(({ row }) => row[0] && row[1] === "" && row[2] === "" && row[3] === "");
-  addMerges(sheet, [
-    "A1:D1",
-    "A2:D2",
-    "A4:D4",
-    "A5:D5",
-    ...sectionHeaderRows
-      .filter(({ index }) => index > 5)
-      .map(({ index }) => `A${index}:D${index}`),
-  ]);
-  setRowHeights(sheet, rows.map((_, index) => {
-    if (index === 0) return 24;
-    if (index === 1 || index === 4) return 22;
-    if (index === 3) return 18;
-    return 18;
-  }));
-  sheet["!freeze"] = { xSplit: 0, ySplit: 5, topLeftCell: "A6", activePane: "bottomLeft", state: "frozen" } as never;
+  sheet.mergeCells("A1:B1");
+  const titleCell = sheet.getCell("A1");
+  titleCell.value = "Assumptions, Notes, and Review Support";
+  titleCell.font = { name: "Arial", bold: true, size: 18, color: { argb: BRAND.white } };
+  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
+  titleCell.alignment = { vertical: "middle", horizontal: "center" };
+  sheet.getRow(1).height = 26;
+
+  sheet.mergeCells("A2:B2");
+  const introCell = sheet.getCell("A2");
+  introCell.value = "Narrative backup for pricing assumptions, vendor sourcing, service dependencies, and internal-only approval context.";
+  introCell.font = { name: "Arial", size: 10, color: { argb: BRAND.slate } };
+  introCell.alignment = { vertical: "middle", horizontal: "left" };
+
+  applySectionBand(sheet, 4, 1, 2, "Review Guide");
+  sheet.mergeCells("A5:B6");
+  const guideCell = sheet.getCell("A5");
+  guideCell.value = "Use commercial assumptions for pricing context, vendor notes for sourcing support, service references for SLA dependencies, and internal notes for approval-only context.";
+  guideCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
+  guideCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
+  guideCell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
+  applyOuterBorder(sheet, 5, 6, 1, 2);
+
+  let currentRow = 8;
+  [
+    buildSectionRows("Commercial assumptions", model.assumptions),
+    buildSectionRows("Vendor notes", model.vendorNotes),
+    buildSectionRows("SLA / service references", model.serviceReferences),
+    buildSectionRows("Internal notes", model.internalNotes),
+  ].forEach((sectionRows) => {
+    applySectionBand(sheet, currentRow, 1, 2, sectionRows[0][0], BRAND.green);
+    currentRow += 1;
+
+    sectionRows.slice(1).forEach((entry, index) => {
+      sheet.mergeCells(currentRow, 1, currentRow, 2);
+      const cell = sheet.getCell(currentRow, 1);
+      cell.value = entry[0];
+      cell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: index % 2 === 0 ? BRAND.white : BRAND.greenPale } };
+      cell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
+      applyOuterBorder(sheet, currentRow, currentRow, 1, 2);
+      sheet.getRow(currentRow).height = 28;
+      currentRow += 1;
+    });
+
+    currentRow += 1;
+  });
+
   return sheet;
 }
 
 export async function buildProposalApprovalWorkbook(quote: QuoteRecord) {
   const model = buildWorkbookModel(quote);
-  const workbook = XLSX.utils.book_new();
+  const exceljs = await import("exceljs");
+  const workbook = new exceljs.Workbook();
 
-  const summarySheet = buildExecutiveSummarySheet(model);
-  const detailSheet = buildLineItemDetailSheet(model);
-  const notesSheet = buildNotesSheet(model);
+  workbook.creator = "RapidQuote";
+  workbook.company = "iNet Managed Technology Services";
+  workbook.created = new Date();
+  workbook.modified = new Date();
+  workbook.subject = "Internal Approval Workbook";
+  workbook.title = `${model.proposalNumber} Approval Workbook`;
+  workbook.calcProperties.fullCalcOnLoad = true;
 
-  XLSX.utils.book_append_sheet(workbook, summarySheet, "Executive Summary");
-  XLSX.utils.book_append_sheet(workbook, detailSheet, "Line Item Detail");
-  XLSX.utils.book_append_sheet(workbook, notesSheet, "Assumptions & Notes");
+  const summarySheet = buildExecutiveSummarySheet(exceljs, workbook, model);
+  const detailSheet = buildLineItemDetailSheet(workbook, model);
+  const notesSheet = buildNotesSheet(workbook, model);
 
-  const array = XLSX.write(workbook, {
-    bookType: "xlsx",
-    type: "array",
-    compression: true,
+  const logoEmbedded = await addWorkbookLogo(exceljs, workbook, summarySheet, {
+    tl: { col: 1.2, row: 1.2 },
+    br: { col: 3.2, row: 4.2 },
   });
 
+  if (logoEmbedded) {
+    await addWorkbookLogo(exceljs, workbook, detailSheet, {
+      tl: { col: 9.2, row: 0.4 },
+      br: { col: 10.9, row: 2.4 },
+    });
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+
   return {
-    blob: new Blob([array], {
+    blob: new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }),
     fileName: `${model.fileNameBase}.xlsx`,
