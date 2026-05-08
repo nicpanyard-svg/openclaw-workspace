@@ -324,7 +324,7 @@ function buildWorkbookModel(quote: QuoteRecord): ApprovalWorkbookModel {
   ]);
 
   return {
-    fileNameBase: `${fileSafeName(quote.metadata.proposalNumber)}-approval-workbook-v2`,
+    fileNameBase: `${fileSafeName(quote.metadata.proposalNumber)}-approval-workbook-v3`,
     quoteDate: quote.metadata.proposalDate,
     customerName: quote.customer.name,
     proposalNumber: quote.metadata.proposalNumber,
@@ -362,63 +362,91 @@ function setColumnWidths(worksheet: XLSX.WorkSheet, widths: number[]) {
   worksheet["!cols"] = widths.map((wch) => ({ wch }));
 }
 
+function setRowHeights(worksheet: XLSX.WorkSheet, heights: number[]) {
+  worksheet["!rows"] = heights.map((hpt) => ({ hpt }));
+}
+
 function addMerges(worksheet: XLSX.WorkSheet, merges: string[]) {
   worksheet["!merges"] = merges.map((value) => XLSX.utils.decode_range(value));
 }
 
+function buildLineTotals(lines: ApprovalWorkbookLine[]) {
+  const revenue = roundCurrency(lines.reduce((sum, line) => sum + line.customerPricing, 0));
+  const cost = roundCurrency(lines.reduce((sum, line) => sum + line.ourCost, 0));
+  const grossProfit = roundCurrency(lines.reduce((sum, line) => sum + line.grossProfit, 0));
+  return {
+    revenue,
+    cost,
+    grossProfit,
+    grossMarginPercent: safePercent(grossProfit, revenue),
+  };
+}
+
 function buildExecutiveSummarySheet(model: ApprovalWorkbookModel) {
   const rows: Array<Array<string | number | null>> = [
-    [null, "RapidQuote Internal Approval Workbook"],
-    [null, "Executive Summary / Approval"],
+    [null, "RAPIDQUOTE INTERNAL APPROVAL WORKBOOK"],
+    [null, "Executive Summary / Approval Routing"],
     [],
-    [null, "Date", model.quoteDate],
-    [null, "Customer", model.customerName],
-    [null, "Proposal Number", model.proposalNumber],
-    [null, "Project Name", model.projectName],
-    [null, "Prepared By", model.preparedBy],
-    [null, "Workflow", `${model.workflowLabel} | ${model.optionLabel} | ${model.statusLabel}`],
-    [null, "Project Description", model.projectDescription || "No project description provided."],
+    [null, "Proposal Number", model.proposalNumber, null, null, "Date", model.quoteDate],
+    [null, "Customer", model.customerName, null, null, "Prepared By", model.preparedBy],
+    [null, "Project Name", model.projectName, null, null, "Workflow", model.workflowLabel],
+    [null, "Option / Status", `${model.optionLabel} / ${model.statusLabel}`, null, null, "Recurring Revenue", model.recurringRevenue],
+    [null, "Project Description"],
+    [null, model.projectDescription || "No project description provided."],
     [],
-    [null, "Financial Summary"],
-    [null, "Bucket", "Customer Price", "Our Cost", "Gross Profit", "Gross Margin"],
-    [null, "Recurring", model.recurringRevenue, model.recurringCost, model.recurringGrossProfit, model.recurringGrossMarginPercent / 100],
-    [null, "One-time", model.oneTimeRevenue, model.oneTimeCost, model.oneTimeGrossProfit, model.oneTimeGrossMarginPercent / 100],
-    [null, "Total", model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100],
+    [null, "Executive Financial Summary"],
+    [null, "Bucket", "Customer Price", "Our Cost", "Gross Profit", "Gross Margin", "Notes"],
+    [null, "Recurring", model.recurringRevenue, model.recurringCost, model.recurringGrossProfit, model.recurringGrossMarginPercent / 100, "Monthly / recurring program value"],
+    [null, "One-time", model.oneTimeRevenue, model.oneTimeCost, model.oneTimeGrossProfit, model.oneTimeGrossMarginPercent / 100, "Hardware, install, and project services"],
+    [null, "Total Deal", model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100, "Overall customer commitment"],
     [],
-    [null, "Approval Signatures"],
-    [null, "CEO:", "", "", "", "", "Date:", ""],
-    [null, "CFO:", "", "", "", "", "Date:", ""],
-    [null, "Region GM and/or Area GM:", "", "", "", "", "Date:", ""],
-    [null, "VP Operations and/or VP Engineering:", "", "", "", "", "Date:", ""],
-    [null, "SVP and/or VP Sales:", "", "", "", "", "Date:", ""],
+    [null, "Approval Routing / Signatures"],
+    [null, "CEO", "______________________________", null, null, "Date", "______________"],
+    [null, "CFO", "______________________________", null, null, "Date", "______________"],
+    [null, "Region GM / Area GM", "______________________________", null, null, "Date", "______________"],
+    [null, "VP Operations / VP Engineering", "______________________________", null, null, "Date", "______________"],
+    [null, "SVP / VP Sales", "______________________________", null, null, "Date", "______________"],
+    [],
+    [null, "Distribution Notes"],
+    [null, "Use the detail and assumptions tabs for backup support. Keep the workbook on the XLSX export path for clean open / review."],
   ];
 
   const sheet = createWorksheet(rows);
-  setColumnWidths(sheet, [4, 28, 22, 16, 16, 16, 14, 16]);
+  setColumnWidths(sheet, [4, 24, 28, 16, 10, 18, 18, 18]);
   addMerges(sheet, [
     "B1:H1",
     "B2:H2",
-    "C4:H4",
-    "C5:H5",
-    "C6:H6",
-    "C7:H7",
-    "C8:H8",
-    "C9:H9",
-    "C10:H10",
-    "B12:H12",
-    "B18:H18",
-    "C19:F19",
-    "C20:F20",
-    "C21:F21",
-    "C22:F22",
-    "C23:F23",
+    "C4:E4",
+    "C5:E5",
+    "C6:E6",
+    "C7:E7",
+    "B8:H8",
+    "B9:H9",
+    "B11:H11",
+    "B17:H17",
+    "C18:E18",
+    "C19:E19",
+    "C20:E20",
+    "C21:E21",
+    "C22:E22",
+    "B24:H24",
+    "B25:H25",
   ]);
+  setRowHeights(sheet, [24, 20, 8, 18, 18, 18, 18, 18, 36, 8, 18, 18, 18, 18, 18, 8, 18, 20, 20, 20, 20, 20, 8, 18, 30]);
   return sheet;
 }
 
 function buildLineItemDetailSheet(model: ApprovalWorkbookModel) {
+  const recurringLines = model.lines.filter((line) => line.schedule === "Recurring");
+  const oneTimeLines = model.lines.filter((line) => line.schedule !== "Recurring");
+  const renderedRecurringCount = Math.max(recurringLines.length, 1);
+  const renderedOneTimeCount = Math.max(oneTimeLines.length, 1);
+  const recurringTotals = buildLineTotals(recurringLines);
+  const oneTimeTotals = buildLineTotals(oneTimeLines);
+
   const rows: Array<Array<string | number>> = [
     ["Line Item Detail"],
+    [`Proposal ${model.proposalNumber}`, model.customerName, model.projectName, model.workflowLabel, "", "", "", "", "", "", ""],
     [],
     [
       "Item",
@@ -433,35 +461,72 @@ function buildLineItemDetailSheet(model: ApprovalWorkbookModel) {
       "Gross Margin",
       "Notes / Assumptions",
     ],
-    ...model.lines.map((line) => [
-      line.item,
-      line.description,
-      line.category,
-      line.schedule,
-      line.quantity === "" ? "" : line.quantity,
-      line.unit,
-      line.customerPricing,
-      line.ourCost,
-      line.grossProfit,
-      line.grossMarginPercent / 100,
-      line.notes,
-    ]),
-    ["Totals", "", "", "", "", "", model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100, ""],
+    ["RECURRING ITEMS", "", "", "", "", "", "", "", "", "", ""],
+    ...(recurringLines.length > 0
+      ? recurringLines.map((line) => [
+        line.item,
+        line.description,
+        line.category,
+        line.schedule,
+        line.quantity === "" ? "" : line.quantity,
+        line.unit,
+        line.customerPricing,
+        line.ourCost,
+        line.grossProfit,
+        line.grossMarginPercent / 100,
+        line.notes,
+      ])
+      : [["No recurring items.", "", "", "", "", "", "", "", "", "", ""]]),
+    ["Recurring Subtotal", "", "", "", "", "", recurringTotals.revenue, recurringTotals.cost, recurringTotals.grossProfit, recurringTotals.grossMarginPercent, ""],
+    [],
+    ["ONE-TIME ITEMS", "", "", "", "", "", "", "", "", "", ""],
+    ...(oneTimeLines.length > 0
+      ? oneTimeLines.map((line) => [
+        line.item,
+        line.description,
+        line.category,
+        line.schedule,
+        line.quantity === "" ? "" : line.quantity,
+        line.unit,
+        line.customerPricing,
+        line.ourCost,
+        line.grossProfit,
+        line.grossMarginPercent / 100,
+        line.notes,
+      ])
+      : [["No one-time items.", "", "", "", "", "", "", "", "", "", ""]]),
+    ["One-time Subtotal", "", "", "", "", "", oneTimeTotals.revenue, oneTimeTotals.cost, oneTimeTotals.grossProfit, oneTimeTotals.grossMarginPercent, ""],
+    [],
+    ["TOTAL DEAL", "", "", "", "", "", model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100, ""],
   ];
 
   const sheet = createWorksheet(rows);
-  setColumnWidths(sheet, [26, 42, 20, 12, 10, 10, 16, 16, 16, 14, 42]);
-  sheet["!autofilter"] = { ref: `A3:K${rows.length}` };
-  sheet["!freeze"] = { xSplit: 0, ySplit: 3, topLeftCell: "A4", activePane: "bottomLeft", state: "frozen" } as never;
+  setColumnWidths(sheet, [24, 38, 18, 12, 8, 8, 16, 16, 16, 14, 40]);
+  const oneTimeHeaderRow = 8 + renderedRecurringCount;
+  addMerges(sheet, [
+    "A1:K1",
+    "A2:K2",
+    "A5:K5",
+    `A${oneTimeHeaderRow}:K${oneTimeHeaderRow}`,
+    `A${rows.length}:F${rows.length}`,
+  ]);
+  setRowHeights(sheet, rows.map((_, index) => {
+    if (index === 0) return 24;
+    if (index === 1) return 18;
+    if (index === 4 || index === oneTimeHeaderRow - 1) return 18;
+    return 16;
+  }));
+  sheet["!autofilter"] = { ref: `A4:K${rows.length}` };
+  sheet["!freeze"] = { xSplit: 0, ySplit: 4, topLeftCell: "A5", activePane: "bottomLeft", state: "frozen" } as never;
   return sheet;
 }
 
 function buildSectionRows(title: string, entries: string[]) {
-  const rows: Array<Array<string>> = [[title]];
+  const rows: Array<Array<string>> = [[title, "", "", ""]];
   if (entries.length === 0) {
-    rows.push(["No notes recorded."]);
+    rows.push(["", "No notes recorded.", "", ""]);
   } else {
-    entries.forEach((entry) => rows.push([entry]));
+    entries.forEach((entry, index) => rows.push(["", `${index + 1}. ${entry}`, "", ""]));
   }
   rows.push([]);
   return rows;
@@ -469,7 +534,8 @@ function buildSectionRows(title: string, entries: string[]) {
 
 function buildNotesSheet(model: ApprovalWorkbookModel) {
   const rows: Array<Array<string>> = [
-    ["Assumptions / Notes"],
+    ["Instructions, Assumptions, and Notes", "", "", ""],
+    ["Use this sheet as the narrative backup for the executive summary and line item detail tabs.", "", "", ""],
     [],
     ...buildSectionRows("Commercial assumptions", model.assumptions),
     ...buildSectionRows("Vendor notes", model.vendorNotes),
@@ -478,7 +544,18 @@ function buildNotesSheet(model: ApprovalWorkbookModel) {
   ];
 
   const sheet = createWorksheet(rows);
-  setColumnWidths(sheet, [110]);
+  setColumnWidths(sheet, [4, 88, 10, 10]);
+  const sectionHeaderRows = rows
+    .map((row, index) => ({ row, index: index + 1 }))
+    .filter(({ row }) => row[0] && row[1] === "" && row[2] === "" && row[3] === "");
+  addMerges(sheet, [
+    "A1:D1",
+    "A2:D2",
+    ...sectionHeaderRows
+      .filter(({ index }) => index > 3)
+      .map(({ index }) => `A${index}:D${index}`),
+  ]);
+  setRowHeights(sheet, rows.map((_, index) => (index === 0 ? 24 : index === 1 ? 20 : 18)));
   return sheet;
 }
 
