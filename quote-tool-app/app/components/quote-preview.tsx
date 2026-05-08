@@ -36,6 +36,7 @@ import {
   createServiceRowFromAgreementCategory,
   normalizeServiceAgreementProfile,
 } from "@/app/lib/service-agreement";
+import { buildServiceAgreementDocument } from "@/app/lib/service-agreement-export";
 import {
   type MajorProjectBundle,
   type MajorProjectBuilderMode,
@@ -1105,6 +1106,22 @@ export default function QuotePreview() {
     draft.serviceAgreement.profile.updatedAt = new Date().toISOString();
     return draft;
   });
+
+  const handleExportServiceAgreement = async () => {
+    try {
+      const { blob, fileName } = await buildServiceAgreementDocument(quote);
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch {
+      window.alert("Unable to export the SLA document right now. Please try again.");
+    }
+  };
 
   const applyCustomerServiceAgreementDefaults = () => {
     if (!selectedCustomerProfile) return;
@@ -3040,11 +3057,16 @@ export default function QuotePreview() {
                         Keep SLA pricing defaults with the install and site service workflow, then add the categories you need into Section C.
                       </p>
                     </div>
-                    {selectedCustomerProfile && hasSelectedCustomerServiceAgreement ? (
-                      <button type="button" className="pill-button" onClick={applyCustomerServiceAgreementDefaults}>
-                        Refresh from customer defaults
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className="pill-button" onClick={() => void handleExportServiceAgreement()}>
+                        Export SLA Document
                       </button>
-                    ) : null}
+                      {selectedCustomerProfile && hasSelectedCustomerServiceAgreement ? (
+                        <button type="button" className="pill-button" onClick={applyCustomerServiceAgreementDefaults}>
+                          Refresh from customer defaults
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
