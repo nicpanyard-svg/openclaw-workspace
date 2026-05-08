@@ -530,17 +530,18 @@ async function loadImageAsBase64(path: string) {
   }
 }
 
-async function addWorkbookLogo(
-  exceljs: ExcelJSModule,
+async function addWorkbookImage(
   workbook: Workbook,
   worksheet: Worksheet,
+  assetPath: string,
+  extension: "png" | "jpeg",
   range: { tl: { col: number; row: number }; br: { col: number; row: number } },
 ) {
-  const base64 = await loadImageAsBase64("/inet-logo.png");
+  const base64 = await loadImageAsBase64(assetPath);
   if (!base64) return false;
   const imageId = workbook.addImage({
     base64,
-    extension: "png",
+    extension,
   });
   worksheet.addImage(imageId, range as unknown as Parameters<Worksheet["addImage"]>[1]);
   return true;
@@ -583,19 +584,38 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
   sheet.mergeCells("D2:I3");
   const titleCell = sheet.getCell("D2");
   titleCell.value = "RapidQuote Executive Approval Summary";
-  titleCell.font = { name: "Arial", bold: true, size: 20, color: { argb: BRAND.greenDark } };
+  titleCell.font = { name: "Arial", bold: true, size: 22, color: { argb: BRAND.greenDark } };
   titleCell.alignment = { vertical: "middle", horizontal: "left" };
+  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
+  applyOuterBorder(sheet, 2, 3, 4, 9);
+
+  sheet.mergeCells("B2:C4");
+  sheet.getCell("B2").value = "";
+  sheet.getCell("B2").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenPale } };
+  applyOuterBorder(sheet, 2, 4, 2, 3);
 
   sheet.mergeCells("D4:I4");
   const subtitleCell = sheet.getCell("D4");
   subtitleCell.value = "Branded internal management review copy aligned to pricing, approvals, and release readiness.";
   subtitleCell.font = { name: "Arial", size: 10, color: { argb: BRAND.slate } };
   subtitleCell.alignment = { vertical: "middle", horizontal: "left" };
+  subtitleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
+  applyOuterBorder(sheet, 4, 4, 4, 9);
 
-  sheet.mergeCells("B5:I5");
-  sheet.getCell("B5").value = "";
-  sheet.getCell("B5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.gold } };
-  sheet.getRow(5).height = 6;
+  sheet.mergeCells("B5:E5");
+  sheet.getCell("B5").value = "INTERNAL ONLY  |  EXECUTIVE REVIEW  |  APPROVAL-READY";
+  sheet.getCell("B5").font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.white } };
+  sheet.getCell("B5").alignment = { vertical: "middle", horizontal: "center" };
+  sheet.getCell("B5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.green } };
+  applyOuterBorder(sheet, 5, 5, 2, 5, BRAND.green);
+
+  sheet.mergeCells("F5:I5");
+  sheet.getCell("F5").value = `Status: ${model.statusLabel}  |  Workflow: ${model.workflowLabel}`;
+  sheet.getCell("F5").font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.text } };
+  sheet.getCell("F5").alignment = { vertical: "middle", horizontal: "center" };
+  sheet.getCell("F5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.gold } };
+  applyOuterBorder(sheet, 5, 5, 6, 9, BRAND.gold);
+  sheet.getRow(5).height = 20;
 
   applyMetricCard(sheet, 6, 2, 3, "Recurring Revenue", formatMoney(model.recurringRevenue), BRAND.green);
   applyMetricCard(sheet, 6, 4, 5, "One-time Revenue", formatMoney(model.oneTimeRevenue), BRAND.slate);
@@ -614,21 +634,41 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
   styleLabelValueRow(sheet, 12, 8, 9, "Workbook", "Approval XLSX v4");
 
   applySectionBand(sheet, 14, 2, 9, "Executive Summary");
-  sheet.mergeCells("B15:I17");
+  sheet.mergeCells("B15:F18");
   const summaryCell = sheet.getCell("B15");
   summaryCell.value = model.projectDescription || "No project description provided.";
   summaryCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
   summaryCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenPale } };
   summaryCell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
-  applyOuterBorder(sheet, 15, 17, 2, 9);
-  sheet.getRow(15).height = 22;
-  sheet.getRow(16).height = 22;
-  sheet.getRow(17).height = 22;
+  applyOuterBorder(sheet, 15, 18, 2, 6);
 
-  applySectionBand(sheet, 19, 2, 9, "Financial Snapshot");
-  applyTableHeader(sheet, 20, ["Bucket", "Customer Price", "Our Cost", "Gross Profit", "Gross Margin", "Commercial View", "Management Note", "", ""]);
-  sheet.mergeCells("G20:H20");
-  sheet.mergeCells("I20:I20");
+  sheet.mergeCells("G15:I15");
+  const checkpointHeader = sheet.getCell("G15");
+  checkpointHeader.value = "Management checkpoints";
+  checkpointHeader.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.white } };
+  checkpointHeader.alignment = { vertical: "middle", horizontal: "center" };
+  checkpointHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.green } };
+  applyOuterBorder(sheet, 15, 15, 7, 9, BRAND.green);
+
+  sheet.mergeCells("G16:I18");
+  const checkpointCell = sheet.getCell("G16");
+  checkpointCell.value = [
+    `Total margin: ${formatPercent(model.totalGrossMarginPercent)}`,
+    "Approval packet includes financials, routing, and support notes.",
+    "Use detail and notes tabs before customer-facing release.",
+  ].join("\n");
+  checkpointCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
+  checkpointCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
+  checkpointCell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
+  applyOuterBorder(sheet, 16, 18, 7, 9);
+  [15, 16, 17, 18].forEach((rowNumber) => {
+    sheet.getRow(rowNumber).height = rowNumber === 15 ? 20 : 22;
+  });
+
+  applySectionBand(sheet, 20, 2, 9, "Financial Snapshot");
+  applyTableHeader(sheet, 21, ["Bucket", "Customer Price", "Our Cost", "Gross Profit", "Gross Margin", "Commercial View", "Management Note", "", ""]);
+  sheet.mergeCells("G21:H21");
+  sheet.mergeCells("I21:I21");
 
   const metricRows = [
     ["Recurring", model.recurringRevenue, model.recurringCost, model.recurringGrossProfit, model.recurringGrossMarginPercent / 100, "Monthly / recurring program value", "Review durability of services margin."],
@@ -637,7 +677,7 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
   ] as const;
 
   metricRows.forEach((entry, index) => {
-    const rowNumber = 21 + index;
+    const rowNumber = 22 + index;
     const fill = index % 2 === 0 ? BRAND.white : BRAND.greenPale;
     const row = sheet.getRow(rowNumber);
     row.height = 22;
@@ -661,10 +701,18 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
     applyOuterBorder(sheet, rowNumber, rowNumber, 8, 9);
   });
 
-  applySectionBand(sheet, 25, 2, 9, "Approval Routing / Signatures");
-  applyTableHeader(sheet, 26, ["Role", "Approver", "Approval Decision", "Signature", "", "Date", "", "Comments", ""]);
-  sheet.mergeCells("E26:F26");
-  sheet.mergeCells("H26:I26");
+  applySectionBand(sheet, 26, 2, 9, "Approval Routing / Signatures");
+  sheet.mergeCells("B27:I27");
+  sheet.getCell("B27").value = "Document approvals, release comments, and signatures here before this quote moves into any customer-facing workflow.";
+  sheet.getCell("B27").font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
+  sheet.getCell("B27").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  sheet.getCell("B27").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
+  applyOuterBorder(sheet, 27, 27, 2, 9);
+  sheet.getRow(27).height = 24;
+
+  applyTableHeader(sheet, 28, ["Role", "Approver", "Approval Decision", "Signature", "", "Date", "", "Comments", ""]);
+  sheet.mergeCells("E28:F28");
+  sheet.mergeCells("H28:I28");
 
   [
     "CEO",
@@ -673,20 +721,21 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
     "VP Operations / VP Engineering",
     "SVP / VP Sales",
   ].forEach((role, index) => {
-    const rowNumber = 27 + index;
+    const rowNumber = 29 + index;
     const fill = index % 2 === 0 ? BRAND.cream : BRAND.white;
     for (let col = 1; col <= 9; col += 1) {
       applyBodyCellStyle(sheet.getCell(rowNumber, col), fill);
     }
     sheet.getCell(rowNumber, 1).value = role;
     sheet.getCell(rowNumber, 2).value = "";
-    sheet.getCell(rowNumber, 3).value = "Approve / Revise";
+    sheet.getCell(rowNumber, 3).value = "Approve / Revise / Hold";
     sheet.getCell(rowNumber, 4).value = " ";
     sheet.mergeCells(rowNumber, 4, rowNumber, 5);
     sheet.getCell(rowNumber, 6).value = " ";
     sheet.mergeCells(rowNumber, 6, rowNumber, 7);
     sheet.mergeCells(rowNumber, 8, rowNumber, 9);
     sheet.getCell(rowNumber, 8).value = "";
+    sheet.getRow(rowNumber).height = 26;
     applyOuterBorder(sheet, rowNumber, rowNumber, 4, 5);
     applyOuterBorder(sheet, rowNumber, rowNumber, 6, 7);
     applyOuterBorder(sheet, rowNumber, rowNumber, 8, 9);
@@ -704,14 +753,21 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
     };
   });
 
-  applySectionBand(sheet, 33, 2, 9, "Workbook Notes");
-  sheet.mergeCells("B34:I35");
-  const noteCell = sheet.getCell("B34");
-  noteCell.value = "Use the line-item detail and assumptions tabs for the supporting pricing narrative, vendor context, and approval-only notes prior to customer-facing release.";
+  applySectionBand(sheet, 35, 2, 9, "Release Readiness Notes");
+  sheet.mergeCells("B36:I38");
+  const noteCell = sheet.getCell("B36");
+  noteCell.value = [
+    "Use the Line Item Detail tab for pricing support and the Assumptions & Notes tab for vendor, SLA, and internal review narrative.",
+    "Keep signatures, comments, and management decisions on this summary page so the workbook reads like a complete approval packet.",
+    "This workbook remains internal-only and should be reviewed before any customer-facing release.",
+  ].join("\n");
   noteCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
   noteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
   noteCell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
-  applyOuterBorder(sheet, 34, 35, 2, 9);
+  applyOuterBorder(sheet, 36, 38, 2, 9);
+  sheet.getRow(36).height = 22;
+  sheet.getRow(37).height = 22;
+  sheet.getRow(38).height = 22;
 
   void exceljs;
   return sheet;
@@ -760,11 +816,25 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   subCell.font = { name: "Arial", size: 10, color: { argb: BRAND.slate } };
   subCell.alignment = { vertical: "middle", horizontal: "center" };
 
+  sheet.mergeCells("A3:K3");
+  sheet.getCell("A3").value = "Internal pricing backup for approval review, margin defense, and release readiness.";
+  sheet.getCell("A3").font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.text } };
+  sheet.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
+  sheet.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.gold } };
+  applyOuterBorder(sheet, 3, 3, 1, 11, BRAND.gold);
+
   applyMetricCard(sheet, 4, 1, 2, "Recurring", formatMoney(model.recurringRevenue), BRAND.green);
   applyMetricCard(sheet, 4, 3, 4, "One-time", formatMoney(model.oneTimeRevenue), BRAND.slate);
   applyMetricCard(sheet, 4, 5, 6, "Total Revenue", formatMoney(model.totalRevenue), BRAND.greenDark);
   applyMetricCard(sheet, 4, 7, 8, "Total Cost", formatMoney(model.totalCost), BRAND.gold);
   applyMetricCard(sheet, 4, 9, 11, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.green);
+
+  sheet.mergeCells("A7:K7");
+  sheet.getCell("A7").value = "Review recurring and one-time line items below. Use notes to explain allocation logic, vendor context, or pass-through treatment.";
+  sheet.getCell("A7").font = { name: "Arial", size: 9, color: { argb: BRAND.text } };
+  sheet.getCell("A7").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  sheet.getCell("A7").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
+  applyOuterBorder(sheet, 7, 7, 1, 11);
 
   const headers = [
     "Item",
@@ -976,6 +1046,13 @@ function buildNotesSheet(workbook: Workbook, model: ApprovalWorkbookModel) {
   introCell.font = { name: "Arial", size: 10, color: { argb: BRAND.slate } };
   introCell.alignment = { vertical: "middle", horizontal: "left" };
 
+  sheet.mergeCells("A3:B3");
+  sheet.getCell("A3").value = "Use this tab to document why the deal is priced this way and what leadership should know before release.";
+  sheet.getCell("A3").font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.text } };
+  sheet.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
+  sheet.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.gold } };
+  applyOuterBorder(sheet, 3, 3, 1, 2, BRAND.gold);
+
   applySectionBand(sheet, 4, 1, 2, "Review Guide");
   sheet.mergeCells("A5:B6");
   const guideCell = sheet.getCell("A5");
@@ -1030,17 +1107,34 @@ export async function buildProposalApprovalWorkbook(quote: QuoteRecord) {
   const detailSheet = buildLineItemDetailSheet(workbook, model);
   const notesSheet = buildNotesSheet(workbook, model);
 
-  const logoEmbedded = await addWorkbookLogo(exceljs, workbook, summarySheet, {
+  const summaryLogoEmbedded = await addWorkbookImage(workbook, summarySheet, "/rapidquote-logo.jpg", "jpeg", {
     tl: { col: 1.2, row: 1.2 },
     br: { col: 3.2, row: 4.2 },
   });
 
-  if (logoEmbedded) {
-    await addWorkbookLogo(exceljs, workbook, detailSheet, {
-      tl: { col: 9.2, row: 0.4 },
-      br: { col: 10.9, row: 2.4 },
+  if (summaryLogoEmbedded) {
+    await addWorkbookImage(workbook, detailSheet, "/rapidquote-logo.jpg", "jpeg", {
+      tl: { col: 9.1, row: 0.3 },
+      br: { col: 11, row: 2.2 },
+    });
+    await addWorkbookImage(workbook, notesSheet, "/rapidquote-logo.jpg", "jpeg", {
+      tl: { col: 0.05, row: 0.2 },
+      br: { col: 0.95, row: 1.9 },
     });
   }
+
+  await addWorkbookImage(workbook, summarySheet, "/proposal-footer-hex.jpg", "jpeg", {
+    tl: { col: 7.1, row: 35.1 },
+    br: { col: 9.2, row: 38.5 },
+  });
+  await addWorkbookImage(workbook, detailSheet, "/proposal-footer-hex.jpg", "jpeg", {
+    tl: { col: 8.1, row: 35.2 },
+    br: { col: 11, row: 39.2 },
+  });
+  await addWorkbookImage(workbook, notesSheet, "/proposal-footer-hex.jpg", "jpeg", {
+    tl: { col: 0.8, row: 29.5 },
+    br: { col: 2, row: 33.5 },
+  });
 
   const buffer = await workbook.xlsx.writeBuffer();
 
