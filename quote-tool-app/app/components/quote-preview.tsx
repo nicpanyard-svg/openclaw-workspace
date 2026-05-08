@@ -2478,8 +2478,8 @@ export default function QuotePreview() {
                       <summary className="list-none rounded-[14px] border border-[#d7e0e8] bg-white px-4 py-3 transition hover:border-[#b8c7d4] hover:bg-[#f8fbfd] cursor-pointer">
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <div className="text-[14px] font-semibold text-[#16202b]">Open advanced worksheet</div>
-                            <div className="mt-1 text-[12px] text-[#627181]">Advanced setup and internal tools for deeper packaging control.</div>
+                            <div className="text-[14px] font-semibold text-[#16202b]">Open mapped model worksheet</div>
+                            <div className="mt-1 text-[12px] text-[#627181]">Switch from the fast quote builder into the mapped model when the project needs deeper internal packaging control.</div>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="rounded-full border border-[#d7e0e8] bg-[#f8fbfd] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">
@@ -2496,21 +2496,21 @@ export default function QuotePreview() {
                       </summary>
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
                         <ToggleCard
-                          label="Quote rows"
-                          description="Keep the main builder focused on quote-ready rows with live sell, cost, and margin."
+                          label="Build Fast"
+                          description="Stay in the fast quote builder with quote-ready rows, live sell, cost, and margin."
                           active={majorProjectState.builderMode !== "advanced"}
                           onClick={() => setMajorProjectBuilderMode("simple")}
                         />
                         <ToggleCard
-                          label="Internal model"
-                          description="Use components, bundles, and quote lines only when the project needs deeper internal packaging control."
+                          label="Convert to Mapped Model"
+                          description="Move this proposal into the mapped model for components, bundles, and customer-facing quote lines."
                           active={majorProjectState.builderMode === "advanced"}
                           onClick={() => setMajorProjectBuilderMode("advanced")}
                         />
                       </div>
                       {majorProjectState.builderMode === "advanced" ? (
                         <div className="mt-3 rounded-[16px] border border-[#ead7da] bg-white px-4 py-3 text-[13px] text-[#5d6772]">
-                          This proposal is currently driven by the internal advanced model. Keep the main page focused on quote building, then open the worksheet below only when deeper internal mapping is needed.
+                          This proposal is currently driven by the mapped model. Keep the main page focused on quote building, then open the worksheet below when you need deeper internal mapping.
                         </div>
                       ) : null}
                     </details>
@@ -2518,12 +2518,12 @@ export default function QuotePreview() {
                       <div className="space-y-4">
                         {majorProjectState.builderMode === "advanced" ? (
                           <div className="rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
-                            Quote rows remain the primary quoting surface. The internal component and bundle model is tucked away below and still drives downstream output for this proposal.
+                            Build Fast remains the primary quoting surface. The mapped model is tucked away below and still drives downstream output for this proposal.
                           </div>
                         ) : null}
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
                           <div>
-                            <strong className="text-[#16202b]">Build Major Project rows directly.</strong>
+                            <strong className="text-[#16202b]">Build Fast with quote rows.</strong>
                             <div className="mt-1">Each row carries its own sell price, our cost, margin, and downstream bucket assignment.</div>
                           </div>
                           <button type="button" className="pill-button pill-button-active" onClick={addMajorProjectSimpleRow}>Add row</button>
