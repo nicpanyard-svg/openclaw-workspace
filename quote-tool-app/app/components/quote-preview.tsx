@@ -2122,9 +2122,9 @@ export default function QuotePreview() {
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                           <div>
                             <div className="builder-eyebrow">Customer-level service pricing agreement</div>
-                            <h4 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#16202b]">Saved SLA defaults</h4>
+                            <h4 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#16202b]">SLA defaults move with service pricing</h4>
                             <p className="mt-2 text-[13px] leading-[1.55] text-[#60707f]">
-                              Store the customer&apos;s service pricing agreement here, then reuse those defaults in Quick Quote service rows.
+                              Review and edit SLA defaults in Quick Quote step 3 so the pricing defaults live next to install and site service rows.
                             </p>
                           </div>
                           {selectedCustomerProfile && hasSelectedCustomerServiceAgreement ? (
@@ -2134,37 +2134,11 @@ export default function QuotePreview() {
                           ) : null}
                         </div>
 
-                        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                          <label className="builder-field compact xl:col-span-2"><span>Agreement name</span><input value={quoteServiceAgreementProfile.agreementLabel} onChange={(e) => updateAgreementProfileField("agreementLabel", e.target.value)} placeholder="Customer service pricing agreement" /></label>
-                          <label className="builder-field compact"><span>Signed date</span><input type="date" value={quoteServiceAgreementProfile.signedDate ?? ""} onChange={(e) => updateAgreementProfileField("signedDate", e.target.value)} /></label>
-                          <label className="builder-field compact"><span>Accepted date</span><input type="date" value={quoteServiceAgreementProfile.acceptedDate ?? ""} onChange={(e) => updateAgreementProfileField("acceptedDate", e.target.value)} /></label>
-                        </div>
-
-                        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                          <label className="builder-field compact"><span>SLA PDF / file name</span><input value={quoteServiceAgreementProfile.sourceDocument?.fileName ?? ""} onChange={(e) => updateAgreementAttachmentField("fileName", e.target.value)} placeholder="signed-service-agreement.pdf" /></label>
-                          <label className="builder-field compact"><span>Document reference / URL</span><input value={quoteServiceAgreementProfile.sourceDocument?.fileUrl ?? ""} onChange={(e) => updateAgreementAttachmentField("fileUrl", e.target.value)} placeholder="Internal link or storage reference" /></label>
-                          <label className="builder-field compact"><span>Attachment note</span><input value={quoteServiceAgreementProfile.sourceDocument?.note ?? ""} onChange={(e) => updateAgreementAttachmentField("note", e.target.value)} placeholder="Where the signed PDF lives" /></label>
-                        </div>
-
-                        <label className="builder-field compact mt-4"><span>Agreement notes</span><textarea rows={3} value={quoteServiceAgreementProfile.notes ?? ""} onChange={(e) => updateAgreementProfileField("notes", e.target.value)} placeholder="Internal guidance or exceptions for using this customer's service pricing defaults" /></label>
-
-                        <div className="mt-4 space-y-3">
-                          {quoteServiceAgreementProfile.categories.map((category) => (
-                            <div key={category.key} className={`rounded-[18px] border p-4 ${serviceAgreementCategoryTone(category.rateBasis)}`}>
-                              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                <div>
-                                  <div className="text-[15px] font-semibold text-[#16202b]">{category.label}</div>
-                                  <div className="mt-1 text-[12px] font-medium uppercase tracking-[0.14em] text-[#7a8793]">{serviceAgreementRateBasisLabel(category.rateBasis)}</div>
-                                </div>
-                                <div className="grid gap-3 md:grid-cols-3 lg:min-w-[620px]">
-                                  <label className="builder-field compact"><span>Rate basis</span><select value={category.rateBasis} onChange={(e) => updateAgreementCategoryField(category.key, "rateBasis", e.target.value)}><option value="na">N/A</option><option value="standard">Standard</option><option value="non_standard">Non-standard</option></select></label>
-                                  <label className="builder-field compact"><span>Labor rate</span><input type="number" step="0.01" value={category.laborRate ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "laborRate", e.target.value)} placeholder="0.00" /></label>
-                                  <label className="builder-field compact"><span>Mileage rate</span><input type="number" step="0.01" value={category.mileageRate ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "mileageRate", e.target.value)} placeholder="0.00" /></label>
-                                </div>
-                              </div>
-                              <label className="builder-field compact mt-3"><span>Notes</span><input value={category.notes ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "notes", e.target.value)} placeholder="Scope note, exception, or dispatch guidance" /></label>
-                            </div>
-                          ))}
+                        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                          <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Agreement</strong>{quoteServiceAgreementProfile.agreementLabel || "No SLA name set"}<br />{quote.serviceAgreement.sourceCustomerProfileName || quote.customer.name || "Not linked to a saved customer"}</div>
+                          <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Attachment</strong>{quoteServiceAgreementProfile.sourceDocument?.fileName || "No source document reference"}<br />{quoteServiceAgreementProfile.sourceDocument?.note || quoteServiceAgreementProfile.sourceDocument?.fileUrl || "Signed/source PDF can be referenced in step 3"}</div>
+                          <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Accepted dates</strong>{quoteServiceAgreementProfile.signedDate || "No signed date"}<br />{quoteServiceAgreementProfile.acceptedDate || "No accepted date"}</div>
+                          <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Ready categories</strong>{activeServiceAgreementCategories.length} pricing default{activeServiceAgreementCategories.length === 1 ? "" : "s"}<br />{quote.serviceAgreement.lastAppliedAt ? "Applied to this quote" : "Quote-level profile ready to use"}</div>
                         </div>
                       </div>
 
@@ -3063,7 +3037,7 @@ export default function QuotePreview() {
                         {quoteServiceAgreementProfile.agreementLabel || "Customer SLA pricing profile"}
                       </h3>
                       <p className="mt-2 text-[13px] leading-[1.55] text-[#60707f]">
-                        Add structured SLA categories into Section C without exposing the raw internal agreement form in the proposal.
+                        Keep SLA pricing defaults with the install and site service workflow, then add the categories you need into Section C.
                       </p>
                     </div>
                     {selectedCustomerProfile && hasSelectedCustomerServiceAgreement ? (
@@ -3080,32 +3054,54 @@ export default function QuotePreview() {
                     <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Ready categories</strong>{activeServiceAgreementCategories.length} pricing default{activeServiceAgreementCategories.length === 1 ? "" : "s"}<br />{quote.serviceAgreement.lastAppliedAt ? "Applied to this quote" : "Quote-level profile ready to use"}</div>
                   </div>
 
-                  {activeServiceAgreementCategories.length ? (
-                    <div className="mt-4 grid gap-3 xl:grid-cols-2">
-                      {activeServiceAgreementCategories.map((category) => (
-                        <div key={category.key} className={`rounded-[18px] border p-4 ${serviceAgreementCategoryTone(category.rateBasis)}`}>
-                          <div className="flex items-start justify-between gap-3">
+                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <label className="builder-field compact xl:col-span-2"><span>Agreement name</span><input value={quoteServiceAgreementProfile.agreementLabel} onChange={(e) => updateAgreementProfileField("agreementLabel", e.target.value)} placeholder="Customer service pricing agreement" /></label>
+                    <label className="builder-field compact"><span>Signed date</span><input type="date" value={quoteServiceAgreementProfile.signedDate ?? ""} onChange={(e) => updateAgreementProfileField("signedDate", e.target.value)} /></label>
+                    <label className="builder-field compact"><span>Accepted date</span><input type="date" value={quoteServiceAgreementProfile.acceptedDate ?? ""} onChange={(e) => updateAgreementProfileField("acceptedDate", e.target.value)} /></label>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <label className="builder-field compact"><span>SLA PDF / file name</span><input value={quoteServiceAgreementProfile.sourceDocument?.fileName ?? ""} onChange={(e) => updateAgreementAttachmentField("fileName", e.target.value)} placeholder="signed-service-agreement.pdf" /></label>
+                    <label className="builder-field compact"><span>Document reference / URL</span><input value={quoteServiceAgreementProfile.sourceDocument?.fileUrl ?? ""} onChange={(e) => updateAgreementAttachmentField("fileUrl", e.target.value)} placeholder="Internal link or storage reference" /></label>
+                    <label className="builder-field compact"><span>Attachment note</span><input value={quoteServiceAgreementProfile.sourceDocument?.note ?? ""} onChange={(e) => updateAgreementAttachmentField("note", e.target.value)} placeholder="Where the signed PDF lives" /></label>
+                  </div>
+
+                  <label className="builder-field compact mt-4"><span>Agreement notes</span><textarea rows={3} value={quoteServiceAgreementProfile.notes ?? ""} onChange={(e) => updateAgreementProfileField("notes", e.target.value)} placeholder="Internal guidance or exceptions for using this customer's service pricing defaults" /></label>
+
+                  <div className="mt-4 space-y-3">
+                    {quoteServiceAgreementProfile.categories.map((category) => (
+                      <div key={category.key} className={`rounded-[18px] border p-4 ${serviceAgreementCategoryTone(category.rateBasis)}`}>
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <div className="text-[16px] font-semibold text-[#16202b]">{category.label}</div>
+                            <div className="mt-1 text-[12px] font-medium uppercase tracking-[0.14em] text-[#7a8793]">{serviceAgreementRateBasisLabel(category.rateBasis)}</div>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-3 lg:min-w-[620px]">
+                            <label className="builder-field compact"><span>Rate basis</span><select value={category.rateBasis} onChange={(e) => updateAgreementCategoryField(category.key, "rateBasis", e.target.value)}><option value="na">N/A</option><option value="standard">Standard</option><option value="non_standard">Non-standard</option></select></label>
+                            <label className="builder-field compact"><span>Labor rate</span><input type="number" step="0.01" value={category.laborRate ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "laborRate", e.target.value)} placeholder="0.00" /></label>
+                            <label className="builder-field compact"><span>Mileage rate</span><input type="number" step="0.01" value={category.mileageRate ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "mileageRate", e.target.value)} placeholder="0.00" /></label>
+                          </div>
+                        </div>
+                        <label className="builder-field compact mt-3"><span>Notes</span><input value={category.notes ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "notes", e.target.value)} placeholder="Scope note, exception, or dispatch guidance" /></label>
+                        {category.rateBasis !== "na" ? (
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#51606d]">
                             <div>
-                              <div className="text-[16px] font-semibold text-[#16202b]">{category.label}</div>
-                              <div className="mt-1 text-[12px] font-medium uppercase tracking-[0.14em] text-[#7a8793]">{serviceAgreementRateBasisLabel(category.rateBasis)}</div>
+                              Labor {category.laborRate !== null ? formatCurrency(category.laborRate, currencyCode) : "Not set"} • Mileage {category.mileageRate !== null ? formatCurrency(category.mileageRate, currencyCode) : "Not set"}
                             </div>
                             <button type="button" className="pill-button pill-button-active" onClick={() => addAgreementCategoryToSectionC(category)}>
                               Add to Section C
                             </button>
                           </div>
-                          <div className="mt-3 grid gap-3 md:grid-cols-2 text-[13px] text-[#51606d]">
-                            <div><strong className="block text-[#16202b]">Labor rate</strong>{category.laborRate !== null ? formatCurrency(category.laborRate, currencyCode) : "Not set"}</div>
-                            <div><strong className="block text-[#16202b]">Mileage rate</strong>{category.mileageRate !== null ? formatCurrency(category.mileageRate, currencyCode) : "Not set"}</div>
-                          </div>
-                          {category.notes ? <div className="mt-3 text-[13px] leading-[1.5] text-[#60707f]">{category.notes}</div> : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+
+                  {!activeServiceAgreementCategories.length ? (
                     <div className="mt-4 rounded-[18px] border border-dashed border-[#d9e0e7] bg-white p-4 text-[13px] leading-[1.55] text-[#5d6772]">
-                      No active SLA pricing defaults are loaded on this quote yet. Save them at the customer level in Step 1, or keep using manual service rows.
+                      No active SLA pricing defaults are loaded on this quote yet. Turn on the categories you need here, or keep using manual service rows.
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="mt-5 space-y-3">{quote.sections.sectionC.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Service row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">Optional field service</div></div><RowActions totalRows={quote.sections.sectionC.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(targetPosition) => moveServiceRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} /></div><div className="grid gap-3 lg:grid-cols-[2fr_.7fr_.8fr_1fr]"><label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateServiceRow(row.id, "description", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateServiceRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateServiceRow(row.id, "unitPrice", e.target.value)} /></label><label className="builder-field compact"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(e) => updateServiceRow(row.id, "pricingStage", e.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label></div><label className="builder-field compact mt-3"><span>Notes</span><input value={row.notes ?? ""} onChange={(e) => updateServiceRow(row.id, "notes", e.target.value)} /></label><div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.serviceCategory === "site_inspection" ? "Site inspection" : row.serviceCategory === "installation" ? "Installation" : "Custom service"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div>)}</div>
