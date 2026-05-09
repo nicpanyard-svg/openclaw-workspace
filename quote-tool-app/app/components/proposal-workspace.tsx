@@ -341,6 +341,7 @@ export function ProposalWorkspace() {
           </div>
           <div className="workspace-actions workspace-dashboard-actions">
             <Link href="/signup" className="workspace-secondary-button">Request access</Link>
+            <Link href="/new?mode=new&entry=major-project" className="workspace-secondary-button">New Major Project</Link>
             <Link href="/new?mode=new" className="workspace-primary-button">+ New Proposal</Link>
           </div>
         </section>
@@ -361,6 +362,14 @@ export function ProposalWorkspace() {
               <div className="workspace-support-label">Sent</div>
               <strong>{launchpadStats.sent} proposals sent</strong>
               <p className="workspace-support-copy">Customer-facing proposals that now need follow-up or opportunity management in Salesforce.</p>
+            </div>
+            <div className="workspace-launchpad-card">
+              <div className="workspace-support-label">Major Project</div>
+              <strong>Keep the structured workflow easy to find</strong>
+              <p className="workspace-support-copy">Open a new draft directly in Major Project mode when the opportunity needs internal rows, mapped bundles, and customer-facing quote-line control.</p>
+              <div className="mt-3">
+                <Link href="/new?mode=new&entry=major-project" className="workspace-secondary-button">Launch Major Project</Link>
+              </div>
             </div>
           </div>
         </section>

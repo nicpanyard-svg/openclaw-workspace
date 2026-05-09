@@ -78,7 +78,7 @@ type MajorProjectEditorTab = "components" | "bundles" | "quote_lines";
 type MajorProjectStepStatus = "current" | "complete" | "locked";
 type MajorProjectScheduleFilter = "all" | "one_time" | "recurring";
 type CustomerEntryMode = "start" | "select" | "create" | "review";
-type EntryIntent = "new-customer" | "select-customer" | null;
+type EntryIntent = "new-customer" | "select-customer" | "major-project" | "major-project-select-customer" | null;
 
 const emptyEquipmentDraft: EquipmentDraft = {
   itemName: "",
@@ -140,7 +140,7 @@ function resolveCustomerEntryMode(params: {
 
   if (hasCustomer) return "review" satisfies CustomerEntryMode;
   if (intent === "new-customer") return "create" satisfies CustomerEntryMode;
-  if (intent === "select-customer") {
+  if (intent === "select-customer" || intent === "major-project-select-customer") {
     return (savedProfileCount > 0 ? "select" : "create") satisfies CustomerEntryMode;
   }
   return (savedProfileCount > 0 ? "start" : "create") satisfies CustomerEntryMode;
@@ -741,6 +741,13 @@ export default function QuotePreview() {
 
     if (requestedCustomerProfile) {
       applyCustomerProfileToQuote(nextQuote, requestedCustomerProfile);
+    }
+
+    if (entryIntent === "major-project" || entryIntent === "major-project-select-customer") {
+      nextQuote.metadata.workflowMode = "major_project";
+      if (nextQuote.majorProject) {
+        nextQuote.majorProject.enabled = true;
+      }
     }
 
     if (forceNewDraft) {
@@ -2260,6 +2267,9 @@ export default function QuotePreview() {
               <div className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#f8fbfd] p-4 md:p-5">
                 <div className="builder-eyebrow">Workflow mode</div>
                 <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Quote path</h3>
+                <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
+                  Keep Major Project visible here: switch modes at any time, or launch a new draft directly into the structured project workflow from the Start page or workspace.
+                </p>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <ToggleCard
                     label="Quick Quote"
@@ -2401,13 +2411,13 @@ export default function QuotePreview() {
               )}
 
               {isMajorProject && majorProjectState && (
-                <div className="mt-5 space-y-3 rounded-[20px] border border-[#ead9db] bg-[#fff9f9] p-3 md:p-4">
+                <div id="major-project-workflow" className="mt-5 space-y-3 rounded-[20px] border border-[#ead9db] bg-[#fff9f9] p-3 md:p-4">
                   <div className="builder-eyebrow">Major Project mode</div>
                   <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
-                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Build the quote first</h3>
+                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Major Project workflow</h3>
                       <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                        Keep the primary page focused on the quote itself. Deeper commercial setup and internal modeling stay tucked away unless you need them.
+                        This workflow stays visible on the main quoting page so you can move from fast rows into mapped internal packaging without hunting for a separate tool.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">

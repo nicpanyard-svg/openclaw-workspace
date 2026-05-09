@@ -206,7 +206,7 @@ export function RapidQuoteFrontDoor() {
           </section>
         ) : null}
 
-        <section className="grid gap-4 xl:grid-cols-3">
+        <section className="grid gap-4 xl:grid-cols-4">
           <article className="rounded-[26px] border border-[#dde3e8] bg-white p-5 shadow-[0_12px_28px_rgba(31,42,52,0.06)]">
             <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Path 1</div>
             <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.03em] text-[#16202b]">Create New Customer</h2>
@@ -261,6 +261,21 @@ export function RapidQuoteFrontDoor() {
             </div>
             <div className="mt-5 flex flex-wrap gap-3">
               <Link href="/workspace" className="inline-flex rounded-full border border-[#d5dce3] bg-white px-5 py-3 text-[14px] font-semibold text-[#24303b]">Open proposal workspace</Link>
+            </div>
+          </article>
+
+          <article className="rounded-[26px] border border-[#f0d4d4] bg-[#fff7f7] p-5 shadow-[0_12px_28px_rgba(176,0,0,0.08)]">
+            <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#b00000]">Major Project</div>
+            <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.03em] text-[#16202b]">Open Major Project Workflow</h2>
+            <p className="mt-3 text-[14px] leading-[1.55] text-[#5d6772]">Keep the structured project path visible: start in the quote builder, then move into rows, mapped bundles, and customer-facing quote lines as needed.</p>
+            <ul className="mt-4 space-y-2 text-[13px] text-[#60707f]">
+              <li>• Best for multi-site or internally packaged solutions</li>
+              <li>• Starts the editor directly in Major Project mode</li>
+              <li>• Still works with either a new or saved customer</li>
+            </ul>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link href="/new?mode=new&entry=major-project" className="inline-flex rounded-full bg-[#b00000] px-5 py-3 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(176,0,0,0.18)]">Start Major Project</Link>
+              <Link href="/new?mode=new&entry=major-project-select-customer" className="inline-flex rounded-full border border-[#d7dde4] bg-white px-5 py-3 text-[14px] font-semibold text-[#24303b]">Choose customer first</Link>
             </div>
           </article>
         </section>
