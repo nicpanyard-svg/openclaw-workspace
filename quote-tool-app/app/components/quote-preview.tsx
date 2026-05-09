@@ -2675,17 +2675,13 @@ export default function QuotePreview() {
                       </div>
                       {majorProjectState.builderMode === "advanced" ? (
                         <div className="mt-3 rounded-[16px] border border-[#ead7da] bg-white px-4 py-3 text-[13px] text-[#5d6772]">
-                          This proposal is currently driven by the mapped model. Keep the main page focused on quote building, then open the worksheet below when you need deeper internal mapping.
+                          This proposal is currently driven by the mapped model. The Build Fast row builder is hidden so the mapped workflow stays primary on this page.
                         </div>
                       ) : null}
                     </details>
 
+                      {majorProjectState.builderMode !== "advanced" ? (
                       <div className="space-y-4">
-                        {majorProjectState.builderMode === "advanced" ? (
-                          <div className="rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
-                            Build Fast remains the primary quoting surface. The mapped model is tucked away below and still drives downstream output for this proposal.
-                          </div>
-                        ) : null}
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
                           <div>
                             <strong className="text-[#16202b]">Build Fast with quote rows.</strong>
@@ -2694,7 +2690,7 @@ export default function QuotePreview() {
                           <button type="button" className="pill-button pill-button-active" onClick={addMajorProjectSimpleRow}>Add row</button>
                         </div>
 
-                        {(activeMajorOptionSimpleRows.length > 0 || majorProjectState.builderMode === "advanced") ? (
+                        {activeMajorOptionSimpleRows.length > 0 ? (
                           <details className="rounded-[18px] border border-[#e1e7ed] bg-[#fbfcfe] p-4">
                             <summary className="cursor-pointer list-none text-[14px] font-semibold text-[#16202b]">Show bucket totals</summary>
                             <div className="mt-4 grid gap-4 xl:grid-cols-3">
@@ -2785,6 +2781,7 @@ export default function QuotePreview() {
                           </div>
                         )}
                       </div>
+                      ) : null}
 
                     {majorProjectState.builderMode === "advanced" && (
                     <>
