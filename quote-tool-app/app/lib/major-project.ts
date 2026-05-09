@@ -4,6 +4,7 @@ import type {
   MajorProjectComponent,
   MajorProjectCustomerQuoteLine,
   MajorProjectOption,
+  MajorProjectSpecAttachment,
   MajorProjectSimpleBucket,
   MajorProjectSimpleRow,
   QuoteRecord,
@@ -101,6 +102,16 @@ export type MajorProjectMetrics = {
   totalCost: number;
   totalGrossProfit: number;
   totalGrossMarginPercent: number;
+};
+
+export type MajorProjectOutputSpecAttachment = {
+  attachment: MajorProjectSpecAttachment;
+  sourceType: "simple_row" | "bundle" | "quote_line";
+  sourceId: string;
+  sourceLabel: string;
+  outputSection: "sectionA" | "sectionB" | "sectionC";
+  outputItemId: string;
+  outputItemLabel: string;
 };
 
 function createDefaultSimpleRow(): MajorProjectSimpleRow {
@@ -1086,6 +1097,170 @@ export function buildMajorProjectMetrics(quote: QuoteRecord): MajorProjectMetric
     totalGrossProfit,
     totalGrossMarginPercent: totalRevenue > 0 ? (totalGrossProfit / totalRevenue) * 100 : 0,
   };
+}
+
+function createOutputSpecAttachmentEntry(params: {
+  attachment: MajorProjectSpecAttachment | undefined;
+  sourceType: MajorProjectOutputSpecAttachment["sourceType"];
+  sourceId: string;
+  sourceLabel?: string;
+  outputSection: MajorProjectOutputSpecAttachment["outputSection"];
+  outputItemId: string;
+  outputItemLabel?: string;
+}): MajorProjectOutputSpecAttachment | null {
+  if (!params.attachment) return null;
+  return {
+    attachment: params.attachment,
+    sourceType: params.sourceType,
+    sourceId: params.sourceId,
+    sourceLabel: params.sourceLabel?.trim() || params.sourceId,
+    outputSection: params.outputSection,
+    outputItemId: params.outputItemId,
+    outputItemLabel: params.outputItemLabel?.trim() || params.outputItemId,
+  };
+}
+
+export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): MajorProjectOutputSpecAttachment[] {
+  const safeQuote = ensureMajorProjectState(quote);
+  const state = safeQuote.majorProject;
+  const activeOption = getActiveMajorProjectOption(safeQuote);
+  const metrics = buildMajorProjectMetrics(safeQuote);
+
+  if (!activeOption) return [];
+
+  const attachments: MajorProjectOutputSpecAttachment[] = [];
+  const pushAttachment = (entry: MajorProjectOutputSpecAttachment | null) => {
+    if (entry) attachments.push(entry);
+  };
+
+  if (!metrics.hasThreeLayerModel) {
+    const simpleRows = activeOption.simpleRows ?? [];
+    const recurringRows = simpleRows.filter((row) => row.bucket === "mrr" || row.bucket === "other_vendor" || row.bucket === "support_recurring" || row.bucket === "other_recurring");
+    const includeRecurringRows = recurringRows.length > 0 || metrics.recurringRevenue > 0;
+
+    if (includeRecurringRows) {
+      for (const row of recurringRows) {
+        pushAttachment(createOutputSpecAttachmentEntry({
+          attachment: row.specSheetAttachment,
+          sourceType: "simple_row",
+          sourceId: row.id,
+          sourceLabel: row.label || row.description,
+          outputSection: "sectionA",
+          outputItemId: row.id,
+          outputItemLabel: row.label || row.description,
+        }));
+      }
+    }
+
+    if (state.commercial.includeHardware && metrics.hardwareRevenue > 0) {
+      for (const row of simpleRows.filter((candidate) => candidate.bucket === "hardware")) {
+        pushAttachment(createOutputSpecAttachmentEntry({
+          attachment: row.specSheetAttachment,
+          sourceType: "simple_row",
+          sourceId: row.id,
+          sourceLabel: row.label || row.description,
+          outputSection: "sectionB",
+          outputItemId: row.id,
+          outputItemLabel: row.label || row.description,
+        }));
+      }
+    }
+
+    if (metrics.installRevenue > 0 || metrics.otherOneTimeRevenue > 0 || metrics.optionalServicesRevenue > 0) {
+      for (const row of simpleRows.filter((candidate) => candidate.bucket === "install")) {
+        pushAttachment(createOutputSpecAttachmentEntry({
+          attachment: row.specSheetAttachment,
+          sourceType: "simple_row",
+          sourceId: row.id,
+          sourceLabel: row.label || row.description,
+          outputSection: "sectionC",
+          outputItemId: row.id,
+          outputItemLabel: row.label || row.description,
+        }));
+      }
+    }
+
+    return attachments;
+  }
+
+  const bundlesById = new Map(metrics.bundles.map((bundle) => [bundle.id, bundle]));
+  const recurringQuoteLine = metrics.customerQuoteLines.find((line) => line.presentationCategory === "recurring");
+  if (recurringQuoteLine && recurringQuoteLine.recurringRevenue > 0) {
+    pushAttachment(createOutputSpecAttachmentEntry({
+      attachment: recurringQuoteLine.specSheetAttachment,
+      sourceType: "quote_line",
+      sourceId: recurringQuoteLine.id,
+      sourceLabel: recurringQuoteLine.label,
+      outputSection: "sectionA",
+      outputItemId: "major_recurring",
+      outputItemLabel: recurringQuoteLine.label,
+    }));
+
+    for (const bundleId of recurringQuoteLine.resolvedBundleIds) {
+      const bundle = bundlesById.get(bundleId);
+      pushAttachment(createOutputSpecAttachmentEntry({
+        attachment: bundle?.specSheetAttachment,
+        sourceType: "bundle",
+        sourceId: bundleId,
+        sourceLabel: bundle?.customerFacingLabel || bundle?.internalName,
+        outputSection: "sectionA",
+        outputItemId: "major_recurring",
+        outputItemLabel: recurringQuoteLine.label,
+      }));
+    }
+  }
+
+  for (const line of metrics.customerQuoteLines.filter((candidate) => candidate.presentationCategory === "hardware" && candidate.oneTimeRevenue > 0)) {
+    pushAttachment(createOutputSpecAttachmentEntry({
+      attachment: line.specSheetAttachment,
+      sourceType: "quote_line",
+      sourceId: line.id,
+      sourceLabel: line.label,
+      outputSection: "sectionB",
+      outputItemId: line.id,
+      outputItemLabel: line.label,
+    }));
+
+    for (const bundleId of line.resolvedBundleIds) {
+      const bundle = bundlesById.get(bundleId);
+      pushAttachment(createOutputSpecAttachmentEntry({
+        attachment: bundle?.specSheetAttachment,
+        sourceType: "bundle",
+        sourceId: bundleId,
+        sourceLabel: bundle?.customerFacingLabel || bundle?.internalName,
+        outputSection: "sectionB",
+        outputItemId: line.id,
+        outputItemLabel: line.label,
+      }));
+    }
+  }
+
+  for (const line of metrics.customerQuoteLines.filter((candidate) => candidate.presentationCategory !== "hardware" && candidate.presentationCategory !== "recurring" && candidate.oneTimeRevenue > 0)) {
+    pushAttachment(createOutputSpecAttachmentEntry({
+      attachment: line.specSheetAttachment,
+      sourceType: "quote_line",
+      sourceId: line.id,
+      sourceLabel: line.label,
+      outputSection: "sectionC",
+      outputItemId: line.id,
+      outputItemLabel: line.label,
+    }));
+
+    for (const bundleId of line.resolvedBundleIds) {
+      const bundle = bundlesById.get(bundleId);
+      pushAttachment(createOutputSpecAttachmentEntry({
+        attachment: bundle?.specSheetAttachment,
+        sourceType: "bundle",
+        sourceId: bundleId,
+        sourceLabel: bundle?.customerFacingLabel || bundle?.internalName,
+        outputSection: "sectionC",
+        outputItemId: line.id,
+        outputItemLabel: line.label,
+      }));
+    }
+  }
+
+  return attachments;
 }
 
 export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
