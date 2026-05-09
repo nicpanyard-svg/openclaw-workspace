@@ -51,6 +51,34 @@ function supportingSpecLabel(value: string | undefined) {
   return label ? `Supporting spec: ${label}` : null;
 }
 
+function normalizeHeadingText(value: string | undefined) {
+  return (value ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function isRedundantHeadingText(value: string | undefined, comparisons: Array<string | undefined>) {
+  const normalizedValue = normalizeHeadingText(value);
+  if (!normalizedValue) return true;
+  return comparisons.some((comparison) => {
+    const normalizedComparison = normalizeHeadingText(comparison);
+    return Boolean(
+      normalizedComparison &&
+      normalizedComparison !== normalizedValue &&
+      (normalizedComparison.includes(normalizedValue) || normalizedValue.includes(normalizedComparison)),
+    );
+  });
+}
+
+function buildSectionHeadingContent(badge: string, overline: string, title: string) {
+  const resolvedTitle = title.trim();
+  const resolvedBadge = isRedundantHeadingText(badge, [overline, resolvedTitle]) ? null : badge;
+  const resolvedOverline = isRedundantHeadingText(overline, [badge, resolvedTitle]) ? null : overline;
+  return {
+    badge: resolvedBadge,
+    overline: resolvedOverline,
+    title: resolvedTitle,
+  };
+}
+
 function cleanLines(lines: Array<string | null | undefined>) {
   return lines.map((line) => (line ?? "").trim()).filter(Boolean);
 }
@@ -81,6 +109,9 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
     .filter((value): value is string => Boolean(value?.length));
   const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => (paragraph ?? "").trim().length > 0);
   const executiveSummaryParagraphs = executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary;
+  const sectionAHeading = buildSectionHeadingContent("Services", "Recurring services", quote.sections.sectionA.title);
+  const sectionBHeading = buildSectionHeadingContent("Equipment", "Equipment and accessories", quote.sections.sectionB.title);
+  const sectionCHeading = buildSectionHeadingContent("Services", "Field services", quote.sections.sectionC.title);
   const billToLines = cleanLines([
     quote.billTo.companyName ?? "",
     quote.billTo.attention ?? "",
@@ -412,9 +443,9 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
           </div>
 
           <div className="proposal-section-heading keep-with-next">
-            <div className="section-heading-badge">Services</div>
-            <div className="proposal-overline">Recurring services</div>
-            <h2 className="proposal-section-title">{quote.sections.sectionA.title}</h2>
+            {sectionAHeading.badge ? <div className="section-heading-badge">{sectionAHeading.badge}</div> : null}
+            {sectionAHeading.overline ? <div className="proposal-overline">{sectionAHeading.overline}</div> : null}
+            <h2 className="proposal-section-title">{sectionAHeading.title}</h2>
             <p className="proposal-intro">
               {quote.sections.sectionA.introText ||
                 `The pricing below reflects a ${quote.sections.sectionA.termMonths}-month commercial term.`}
@@ -493,9 +524,9 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
           </div>
 
           <div className="proposal-section-heading keep-with-next">
-            <div className="section-heading-badge">Equipment</div>
-            <div className="proposal-overline">Equipment and accessories</div>
-            <h2 className="proposal-section-title">{quote.sections.sectionB.title}</h2>
+            {sectionBHeading.badge ? <div className="section-heading-badge">{sectionBHeading.badge}</div> : null}
+            {sectionBHeading.overline ? <div className="proposal-overline">{sectionBHeading.overline}</div> : null}
+            <h2 className="proposal-section-title">{sectionBHeading.title}</h2>
             <p className="proposal-intro">
               {quote.sections.sectionB.introText ||
                 "The prices below reflect one-time hardware and accessory charges."}
@@ -554,9 +585,9 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
           </div>
 
           <div className="proposal-section-heading keep-with-next">
-            <div className="section-heading-badge">Services</div>
-            <div className="proposal-overline">Field services</div>
-            <h2 className="proposal-section-title">{quote.sections.sectionC.title}</h2>
+            {sectionCHeading.badge ? <div className="section-heading-badge">{sectionCHeading.badge}</div> : null}
+            {sectionCHeading.overline ? <div className="proposal-overline">{sectionCHeading.overline}</div> : null}
+            <h2 className="proposal-section-title">{sectionCHeading.title}</h2>
             <p className="proposal-intro">
               {quote.sections.sectionC.introText ||
                 "Field services can be included as budgetary or final pricing."}

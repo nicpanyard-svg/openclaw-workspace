@@ -754,6 +754,34 @@ function supportingSpecLabel(value: string | undefined) {
   return label ? `Supporting spec: ${label}` : null;
 }
 
+function normalizeHeadingText(value: string | undefined) {
+  return (value ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function isRedundantHeadingText(value: string | undefined, comparisons: Array<string | undefined>) {
+  const normalizedValue = normalizeHeadingText(value);
+  if (!normalizedValue) return true;
+  return comparisons.some((comparison) => {
+    const normalizedComparison = normalizeHeadingText(comparison);
+    return Boolean(
+      normalizedComparison &&
+      normalizedComparison !== normalizedValue &&
+      (normalizedComparison.includes(normalizedValue) || normalizedValue.includes(normalizedComparison)),
+    );
+  });
+}
+
+function buildSectionHeadingContent(badge: string, overline: string, title: string) {
+  const resolvedTitle = title.trim();
+  const resolvedBadge = isRedundantHeadingText(badge, [overline, resolvedTitle]) ? null : badge;
+  const resolvedOverline = isRedundantHeadingText(overline, [badge, resolvedTitle]) ? null : overline;
+  return {
+    badge: resolvedBadge,
+    overline: resolvedOverline,
+    title: resolvedTitle,
+  };
+}
+
 function TableRow({ children, style }: { children: React.ReactNode; style?: React.ComponentProps<typeof View>["style"] }) {
   return <View style={style ? [styles.row, style].flat() : styles.row}>{children}</View>;
 }
@@ -783,6 +811,9 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
     value: item.formattedValue,
     tone: item.tone,
   }));
+  const sectionAHeading = buildSectionHeadingContent("Services", "Recurring services", model.sectionATitle);
+  const sectionBHeading = buildSectionHeadingContent("Equipment", "Equipment and accessories", model.sectionBTitle);
+  const sectionCHeading = buildSectionHeadingContent("Services", "Field services", model.sectionCTitle);
 
   return (
     <>
@@ -975,9 +1006,9 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
           </View>
 
           <View style={styles.sectionHeading}>
-            <Text style={styles.sectionBadge}>Services</Text>
-            <Text style={styles.overline}>Recurring services</Text>
-            <Text style={styles.sectionTitle}>{model.sectionATitle}</Text>
+            {sectionAHeading.badge ? <Text style={styles.sectionBadge}>{sectionAHeading.badge}</Text> : null}
+            {sectionAHeading.overline ? <Text style={styles.overline}>{sectionAHeading.overline}</Text> : null}
+            <Text style={styles.sectionTitle}>{sectionAHeading.title}</Text>
             <Text style={styles.introText}>{model.sectionAIntro}</Text>
           </View>
 
@@ -1057,9 +1088,9 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
           </View>
 
           <View style={styles.sectionHeading}>
-            <Text style={styles.sectionBadge}>Equipment</Text>
-            <Text style={styles.overline}>Equipment and accessories</Text>
-            <Text style={styles.sectionTitle}>{model.sectionBTitle}</Text>
+            {sectionBHeading.badge ? <Text style={styles.sectionBadge}>{sectionBHeading.badge}</Text> : null}
+            {sectionBHeading.overline ? <Text style={styles.overline}>{sectionBHeading.overline}</Text> : null}
+            <Text style={styles.sectionTitle}>{sectionBHeading.title}</Text>
             <Text style={styles.introText}>{model.sectionBIntro}</Text>
           </View>
 
@@ -1115,9 +1146,9 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
           </View>
 
           <View style={styles.sectionHeading}>
-            <Text style={styles.sectionBadge}>Services</Text>
-            <Text style={styles.overline}>Field services</Text>
-            <Text style={styles.sectionTitle}>{model.sectionCTitle}</Text>
+            {sectionCHeading.badge ? <Text style={styles.sectionBadge}>{sectionCHeading.badge}</Text> : null}
+            {sectionCHeading.overline ? <Text style={styles.overline}>{sectionCHeading.overline}</Text> : null}
+            <Text style={styles.sectionTitle}>{sectionCHeading.title}</Text>
             <Text style={styles.introText}>{model.sectionCIntro}</Text>
           </View>
 
