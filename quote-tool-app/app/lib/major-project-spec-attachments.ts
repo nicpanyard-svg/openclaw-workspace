@@ -2,6 +2,7 @@ import type { MajorProjectSpecAttachment } from "@/app/lib/quote-record";
 
 const ATTACHMENT_DB_NAME = "rapidquote-major-project-specs";
 const ATTACHMENT_STORE_NAME = "attachments";
+export const MAJOR_PROJECT_SPEC_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
 
 type MajorProjectSpecAttachmentRecord = MajorProjectSpecAttachment & {
   fileBlob: Blob;
@@ -9,6 +10,30 @@ type MajorProjectSpecAttachmentRecord = MajorProjectSpecAttachment & {
 
 function normalizeText(value: unknown) {
   return typeof value === "string" ? value : "";
+}
+
+function normalizeFileName(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function normalizeMimeType(value: string) {
+  return value.trim().toLowerCase();
+}
+
+export function isMajorProjectSpecAttachmentPdf(fileName: string, mimeType: string) {
+  const normalizedFileName = normalizeFileName(fileName);
+  const normalizedMimeType = normalizeMimeType(mimeType);
+  return normalizedMimeType.includes("pdf") || normalizedFileName.endsWith(".pdf");
+}
+
+export function validateMajorProjectSpecAttachmentFile(file: Pick<File, "name" | "size" | "type">) {
+  if (!isMajorProjectSpecAttachmentPdf(file.name, file.type)) {
+    throw new Error("Only PDF spec sheet attachments are supported.");
+  }
+
+  if (file.size > MAJOR_PROJECT_SPEC_ATTACHMENT_MAX_BYTES) {
+    throw new Error(`Spec sheet PDFs must be ${Math.round(MAJOR_PROJECT_SPEC_ATTACHMENT_MAX_BYTES / (1024 * 1024))} MB or smaller.`);
+  }
 }
 
 export function normalizeMajorProjectSpecAttachment(value: unknown): MajorProjectSpecAttachment | undefined {
@@ -80,6 +105,8 @@ export function createMajorProjectSpecAttachmentStorageKey(itemId: string) {
 }
 
 export async function persistMajorProjectSpecAttachmentFile(file: File, storageKey: string) {
+  validateMajorProjectSpecAttachmentFile(file);
+
   const attachment: MajorProjectSpecAttachment = {
     storageKey,
     fileName: file.name,

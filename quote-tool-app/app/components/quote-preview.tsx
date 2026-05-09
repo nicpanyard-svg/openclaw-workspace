@@ -57,7 +57,12 @@ import {
   type ServiceAgreementCategoryPricing,
   type ServicePricingRow,
 } from "@/app/lib/quote-record";
-import { createMajorProjectSpecAttachmentStorageKey, persistMajorProjectSpecAttachmentFile } from "@/app/lib/major-project-spec-attachments";
+import {
+  MAJOR_PROJECT_SPEC_ATTACHMENT_MAX_BYTES,
+  createMajorProjectSpecAttachmentStorageKey,
+  deleteMajorProjectSpecAttachmentFile,
+  persistMajorProjectSpecAttachmentFile,
+} from "@/app/lib/major-project-spec-attachments";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 import { createBlankQuoteRecord } from "@/app/lib/quote-template";
 
@@ -633,6 +638,26 @@ function formatAttachmentUpdatedAt(value: string) {
   }).format(date);
 }
 
+function countMajorProjectSpecAttachmentReferences(quote: QuoteRecord, storageKey: string) {
+  let total = 0;
+
+  for (const option of quote.majorProject?.options ?? []) {
+    for (const row of option.simpleRows ?? []) {
+      if (row.specSheetAttachment?.storageKey === storageKey) total += 1;
+    }
+
+    for (const bundle of option.bundles ?? []) {
+      if (bundle.specSheetAttachment?.storageKey === storageKey) total += 1;
+    }
+
+    for (const line of option.customerQuoteLines ?? []) {
+      if (line.specSheetAttachment?.storageKey === storageKey) total += 1;
+    }
+  }
+
+  return total;
+}
+
 function stripFileExtension(fileName: string) {
   return fileName.replace(/\.[^.]+$/, "");
 }
@@ -703,15 +728,15 @@ function MajorProjectSpecAttachmentField({
         <input
           id={inputId}
           type="file"
-          accept=".pdf,image/*"
+          accept=".pdf,application/pdf"
           className="hidden"
           onChange={(event) => {
             void handleFile(event.target.files?.[0]);
             event.target.value = "";
           }}
         />
-        <span className="block text-[14px] font-semibold text-[#17212c]">{isSaving ? "Saving attachment..." : "Drag and drop a spec sheet here"}</span>
-        <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose a PDF or image file.</span>
+        <span className="block text-[14px] font-semibold text-[#17212c]">{isSaving ? "Saving attachment..." : "Drag and drop a PDF spec sheet here"}</span>
+        <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose a PDF file up to {formatAttachmentSize(MAJOR_PROJECT_SPEC_ATTACHMENT_MAX_BYTES)}.</span>
         {attachment ? (
           <span className="mt-3 block rounded-[14px] border border-[#e4ebf2] bg-[#f8fbfd] px-3 py-3 text-[12px] text-[#334150]">
             <strong className="block text-[13px] text-[#16202b]">{attachment.fileName}</strong>
@@ -1122,6 +1147,11 @@ export default function QuotePreview() {
     () => customerProfiles.find((profile) => profile.id === selectedCustomerProfileId) ?? null,
     [customerProfiles, selectedCustomerProfileId],
   );
+  const releaseMajorProjectSpecAttachmentIfUnused = (attachment: MajorProjectSpecAttachment | undefined) => {
+    if (!attachment) return;
+    if (countMajorProjectSpecAttachmentReferences(quote, attachment.storageKey) > 1) return;
+    void deleteMajorProjectSpecAttachmentFile(attachment.storageKey).catch(() => {});
+  };
   const quoteServiceAgreementProfile = useMemo(
     () => normalizeServiceAgreementProfile(quote.serviceAgreement?.profile ?? createDefaultServiceAgreementProfile()),
     [quote.serviceAgreement],
@@ -1345,12 +1375,15 @@ export default function QuotePreview() {
   };
 
   const removeMajorProjectSimpleRow = (rowId: string) => {
+    let attachmentToRelease: MajorProjectSpecAttachment | undefined;
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option) return draft;
+      attachmentToRelease = option.simpleRows?.find((row) => row.id === rowId)?.specSheetAttachment;
       option.simpleRows = (option.simpleRows ?? []).filter((row) => row.id !== rowId);
       return draft;
     });
+    releaseMajorProjectSpecAttachmentIfUnused(attachmentToRelease);
   };
 
   const moveMajorProjectSimpleRow = (rowId: string, direction: -1 | 1) => {
@@ -1517,9 +1550,11 @@ export default function QuotePreview() {
   };
 
   const removeMajorProjectBundle = (bundleId: string) => {
+    let attachmentToRelease: MajorProjectSpecAttachment | undefined;
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option) return draft;
+      attachmentToRelease = option.bundles?.find((bundle) => bundle.id === bundleId)?.specSheetAttachment;
       option.bundles = (option.bundles ?? []).filter((bundle) => bundle.id !== bundleId);
       option.components = (option.components ?? []).map((component) => component.bundleAssignmentId === bundleId ? { ...component, bundleAssignmentId: "" } : component);
       option.customerQuoteLines = (option.customerQuoteLines ?? []).map((line) => ({
@@ -1528,6 +1563,7 @@ export default function QuotePreview() {
       }));
       return draft;
     });
+    releaseMajorProjectSpecAttachmentIfUnused(attachmentToRelease);
   };
 
   const updateActiveMajorQuoteLine = (quoteLineId: string, updater: (line: MajorProjectCustomerQuoteLine) => MajorProjectCustomerQuoteLine) => {
@@ -1585,12 +1621,15 @@ export default function QuotePreview() {
   };
 
   const removeMajorProjectQuoteLine = (quoteLineId: string) => {
+    let attachmentToRelease: MajorProjectSpecAttachment | undefined;
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option) return draft;
+      attachmentToRelease = option.customerQuoteLines?.find((line) => line.id === quoteLineId)?.specSheetAttachment;
       option.customerQuoteLines = (option.customerQuoteLines ?? []).filter((line) => line.id !== quoteLineId);
       return draft;
     });
+    releaseMajorProjectSpecAttachmentIfUnused(attachmentToRelease);
   };
 
   const updateActiveSectionARow = (rowId: string, field: string, value: string) => {
@@ -2724,7 +2763,13 @@ export default function QuotePreview() {
                                     itemId={row.id}
                                     attachment={row.specSheetAttachment}
                                     specSheetLabel={row.specSheetLabel}
-                                    onAttachmentChange={(attachment) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, specSheetAttachment: attachment }))}
+                                    onAttachmentChange={(attachment) => {
+                                      const previousAttachment = row.specSheetAttachment;
+                                      updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, specSheetAttachment: attachment }));
+                                      if (previousAttachment?.storageKey !== attachment?.storageKey) {
+                                        releaseMajorProjectSpecAttachmentIfUnused(previousAttachment);
+                                      }
+                                    }}
                                     onSpecSheetLabelChange={(value) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, specSheetLabel: value }))}
                                   />
                                   <div className="mt-3 grid gap-3 md:grid-cols-5 text-[12px] text-[#5f6c78]">
@@ -2879,7 +2924,13 @@ export default function QuotePreview() {
                                 itemId={bundle.id}
                                 attachment={bundle.specSheetAttachment}
                                 specSheetLabel={bundle.specSheetLabel}
-                                onAttachmentChange={(attachment) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetAttachment: attachment }))}
+                                onAttachmentChange={(attachment) => {
+                                  const previousAttachment = bundle.specSheetAttachment;
+                                  updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetAttachment: attachment }));
+                                  if (previousAttachment?.storageKey !== attachment?.storageKey) {
+                                    releaseMajorProjectSpecAttachmentIfUnused(previousAttachment);
+                                  }
+                                }}
                                 onSpecSheetLabelChange={(value) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetLabel: value }))}
                               />
                               <div className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
@@ -2948,7 +2999,13 @@ export default function QuotePreview() {
                                 itemId={line.id}
                                 attachment={line.specSheetAttachment}
                                 specSheetLabel={line.specSheetLabel}
-                                onAttachmentChange={(attachment) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, specSheetAttachment: attachment }))}
+                                onAttachmentChange={(attachment) => {
+                                  const previousAttachment = line.specSheetAttachment;
+                                  updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, specSheetAttachment: attachment }));
+                                  if (previousAttachment?.storageKey !== attachment?.storageKey) {
+                                    releaseMajorProjectSpecAttachmentIfUnused(previousAttachment);
+                                  }
+                                }}
                                 onSpecSheetLabelChange={(value) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, specSheetLabel: value }))}
                               />
                               <div className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">

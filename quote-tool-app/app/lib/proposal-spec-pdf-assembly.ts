@@ -1,14 +1,8 @@
 import { PDFDocument } from "pdf-lib";
 import { resolveMajorProjectOutputSpecAttachments } from "@/app/lib/major-project";
-import { getMajorProjectSpecAttachmentFile } from "@/app/lib/major-project-spec-attachments";
+import { getMajorProjectSpecAttachmentFile, isMajorProjectSpecAttachmentPdf } from "@/app/lib/major-project-spec-attachments";
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
 import type { QuoteRecord } from "@/app/lib/quote-record";
-
-function isPdfAttachment(fileName: string, mimeType: string) {
-  const normalizedMimeType = mimeType.trim().toLowerCase();
-  const normalizedFileName = fileName.trim().toLowerCase();
-  return normalizedMimeType.includes("pdf") || normalizedFileName.endsWith(".pdf");
-}
 
 function buildPageRange(start: number, endExclusive: number) {
   return Array.from({ length: Math.max(endExclusive - start, 0) }, (_, index) => start + index);
@@ -40,7 +34,7 @@ export async function assembleFinalProposalPdf(basePdfBlob: Blob, quote: QuoteRe
 
   const loadedAttachments = await Promise.all(
     resolvedAttachments.map(async (entry) => {
-      if (!isPdfAttachment(entry.attachment.fileName, entry.attachment.mimeType)) {
+      if (!isMajorProjectSpecAttachmentPdf(entry.attachment.fileName, entry.attachment.mimeType)) {
         return null;
       }
 

@@ -9,7 +9,7 @@ import {
   getQuoteContentPresence,
   getRecurringMonthlyTotal,
 } from "@/app/lib/proposal-commercial-summary";
-import { getMajorProjectSpecAttachmentFile } from "@/app/lib/major-project-spec-attachments";
+import { getMajorProjectSpecAttachmentFile, isMajorProjectSpecAttachmentPdf } from "@/app/lib/major-project-spec-attachments";
 import { resolveMajorProjectOutputSpecAttachments, type MajorProjectOutputSpecAttachment } from "@/app/lib/major-project";
 import type { QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
@@ -24,6 +24,12 @@ type ResolvedSpecSheetPreview = MajorProjectOutputSpecAttachment & {
   objectUrl: string | null;
   loadError: string | null;
 };
+
+function isImageAttachment(fileName: string, mimeType: string) {
+  const normalizedMimeType = mimeType.trim().toLowerCase();
+  const normalizedFileName = fileName.trim().toLowerCase();
+  return normalizedMimeType.startsWith("image/") || [".png", ".jpg", ".jpeg", ".gif", ".webp"].some((extension) => normalizedFileName.endsWith(extension));
+}
 
 function formatCurrency(value: number, currencyCode = "USD") {
   return new Intl.NumberFormat("en-US", {
@@ -111,6 +117,9 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
 
       const nextPreviews = await Promise.all(
         resolvedSpecSheetAttachments.map(async (entry) => {
+          const isPdfAttachment = isMajorProjectSpecAttachmentPdf(entry.attachment.fileName, entry.attachment.mimeType);
+          const isImageSpecAttachment = isImageAttachment(entry.attachment.fileName, entry.attachment.mimeType);
+
           try {
             const fileBlob = await getMajorProjectSpecAttachmentFile(entry.attachment.storageKey);
 
@@ -118,7 +127,15 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
               return {
                 ...entry,
                 objectUrl: null,
-                loadError: "Attachment preview unavailable.",
+                loadError: "Attachment file is missing from local storage.",
+              } satisfies ResolvedSpecSheetPreview;
+            }
+
+            if (!isPdfAttachment && !isImageSpecAttachment) {
+              return {
+                ...entry,
+                objectUrl: null,
+                loadError: "HTML preview is not available for this attachment type.",
               } satisfies ResolvedSpecSheetPreview;
             }
 
@@ -588,8 +605,11 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
 
       {specSheetPreviews.map((specSheet, index) => {
         const sectionLabel = getSpecOutputSectionLabel(specSheet.outputSection);
-        const isPdf = specSheet.attachment.mimeType.toLowerCase().includes("pdf");
-        const isImage = specSheet.attachment.mimeType.toLowerCase().startsWith("image/");
+        const isPdf = isMajorProjectSpecAttachmentPdf(specSheet.attachment.fileName, specSheet.attachment.mimeType);
+        const isImage = isImageAttachment(specSheet.attachment.fileName, specSheet.attachment.mimeType);
+        const fallbackMessage = !specSheet.objectUrl
+          ? (specSheet.loadError ?? "Attachment preview unavailable.")
+          : (!isPdf && !isImage ? "HTML preview is not available for this attachment type." : null);
 
         return (
           <section
@@ -635,16 +655,9 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
                 />
               ) : null}
 
-              {!isPdf && !isImage ? (
+              {fallbackMessage ? (
                 <div className="proposal-spec-sheet-empty">
-                  <strong>Preview not available in HTML.</strong>
-                  <span>{specSheet.attachment.fileName}</span>
-                </div>
-              ) : null}
-
-              {!specSheet.objectUrl && specSheet.loadError ? (
-                <div className="proposal-spec-sheet-empty">
-                  <strong>{specSheet.loadError}</strong>
+                  <strong>{fallbackMessage}</strong>
                   <span>{specSheet.attachment.fileName}</span>
                 </div>
               ) : null}
