@@ -42,6 +42,7 @@ import {
   type MajorProjectBuilderMode,
   type MajorProjectComponent,
   type MajorProjectCustomerQuoteLine,
+  type MajorProjectSpecAttachment,
   type MajorProjectSimpleBucket,
   type MajorProjectSimpleRow,
   type AddressBlock,
@@ -56,6 +57,7 @@ import {
   type ServiceAgreementCategoryPricing,
   type ServicePricingRow,
 } from "@/app/lib/quote-record";
+import { createMajorProjectSpecAttachmentStorageKey, persistMajorProjectSpecAttachmentFile } from "@/app/lib/major-project-spec-attachments";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 import { createBlankQuoteRecord } from "@/app/lib/quote-template";
 
@@ -569,6 +571,7 @@ function createMajorProjectBundleDraft(index: number): MajorProjectBundle {
     description: "",
     specSheetLabel: "",
     specSheetLocation: "",
+    specSheetAttachment: undefined,
     componentIds: [],
     includedCostComponentIds: [],
     includedRevenueComponentIds: [],
@@ -584,6 +587,7 @@ function createMajorProjectQuoteLineDraft(index: number): MajorProjectCustomerQu
     description: "",
     specSheetLabel: "",
     specSheetLocation: "",
+    specSheetAttachment: undefined,
     bundleIds: [],
     includedCostComponentIds: [],
     includedRevenueComponentIds: [],
@@ -599,6 +603,7 @@ function createMajorProjectSimpleRowDraft(index: number): MajorProjectSimpleRow 
     description: "",
     specSheetLabel: "",
     specSheetLocation: "",
+    specSheetAttachment: undefined,
     quantity: 1,
     unit: "ea",
     customerUnitPrice: 0,
@@ -607,6 +612,117 @@ function createMajorProjectSimpleRowDraft(index: number): MajorProjectSimpleRow 
     ourExtendedCost: 0,
     bucket: "hardware",
   };
+}
+
+function formatAttachmentSize(sizeBytes: number) {
+  if (sizeBytes >= 1024 * 1024) return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (sizeBytes >= 1024) return `${Math.round(sizeBytes / 1024)} KB`;
+  return `${sizeBytes} B`;
+}
+
+function formatAttachmentUpdatedAt(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function stripFileExtension(fileName: string) {
+  return fileName.replace(/\.[^.]+$/, "");
+}
+
+function MajorProjectSpecAttachmentField({
+  itemId,
+  attachment,
+  specSheetLabel,
+  onAttachmentChange,
+  onSpecSheetLabelChange,
+}: {
+  itemId: string;
+  attachment: MajorProjectSpecAttachment | undefined;
+  specSheetLabel: string | undefined;
+  onAttachmentChange: (attachment: MajorProjectSpecAttachment | undefined) => void;
+  onSpecSheetLabelChange?: (value: string) => void;
+}) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  const inputId = `major-project-spec-${itemId}`;
+
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return;
+
+    setError("");
+    setIsSaving(true);
+
+    try {
+      const nextAttachment = await persistMajorProjectSpecAttachmentFile(file, createMajorProjectSpecAttachmentStorageKey(itemId));
+      onAttachmentChange(nextAttachment);
+
+      if (onSpecSheetLabelChange && !specSheetLabel?.trim()) {
+        onSpecSheetLabelChange(stripFileExtension(file.name));
+      }
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to save the attachment.");
+    } finally {
+      setIsSaving(false);
+      setIsDragging(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-[18px] border border-[#d8e0e8] bg-[#f8fbfd] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-[14px] font-semibold text-[#16202b]">Spec sheet attachment</div>
+          <div className="mt-1 text-[12px] text-[#60707f]">Stored on this exact item for later proposal assembly.</div>
+        </div>
+        {attachment ? <button type="button" className="rounded-full border border-[#d5dde6] bg-white px-3 py-1 text-[12px] font-semibold text-[#334150]" onClick={() => { setError(""); onAttachmentChange(undefined); }}>Remove file</button> : null}
+      </div>
+      <label
+        htmlFor={inputId}
+        className={`mt-3 block cursor-pointer rounded-[18px] border border-dashed bg-white px-4 py-4 text-left transition ${isDragging ? "border-[#2f6fed] bg-[#edf4ff]" : "border-[#cfd7e0]"}`}
+        onDragOver={(event) => {
+          event.preventDefault();
+          if (!isSaving) setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setIsDragging(false);
+          if (isSaving) return;
+          void handleFile(event.dataTransfer.files?.[0]);
+        }}
+      >
+        <input
+          id={inputId}
+          type="file"
+          accept=".pdf,image/*"
+          className="hidden"
+          onChange={(event) => {
+            void handleFile(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+        />
+        <span className="block text-[14px] font-semibold text-[#17212c]">{isSaving ? "Saving attachment..." : "Drag and drop a spec sheet here"}</span>
+        <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose a PDF or image file.</span>
+        {attachment ? (
+          <span className="mt-3 block rounded-[14px] border border-[#e4ebf2] bg-[#f8fbfd] px-3 py-3 text-[12px] text-[#334150]">
+            <strong className="block text-[13px] text-[#16202b]">{attachment.fileName}</strong>
+            <span className="mt-1 block">{formatAttachmentSize(attachment.sizeBytes)}{attachment.mimeType ? ` • ${attachment.mimeType}` : ""}</span>
+            {formatAttachmentUpdatedAt(attachment.updatedAt) ? <span className="mt-1 block">Saved {formatAttachmentUpdatedAt(attachment.updatedAt)}</span> : null}
+          </span>
+        ) : null}
+      </label>
+      {error ? <div className="mt-2 text-[12px] text-[#b42318]">{error}</div> : null}
+    </div>
+  );
 }
 
 function MajorProjectStepCard({
@@ -2604,6 +2720,13 @@ export default function QuotePreview() {
                                     <label className="builder-field compact"><span>Supporting spec label</span><input value={row.specSheetLabel ?? ""} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, specSheetLabel: e.target.value }))} placeholder="Starlink Performance dish spec" /></label>
                                     <label className="builder-field compact"><span>Internal spec location</span><input value={row.specSheetLocation ?? ""} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, specSheetLocation: e.target.value }))} placeholder="SharePoint / vendor folder / PDF name" /></label>
                                   </div>
+                                  <MajorProjectSpecAttachmentField
+                                    itemId={row.id}
+                                    attachment={row.specSheetAttachment}
+                                    specSheetLabel={row.specSheetLabel}
+                                    onAttachmentChange={(attachment) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, specSheetAttachment: attachment }))}
+                                    onSpecSheetLabelChange={(value) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, specSheetLabel: value }))}
+                                  />
                                   <div className="mt-3 grid gap-3 md:grid-cols-5 text-[12px] text-[#5f6c78]">
                                     <div className="rounded-[14px] bg-white px-3 py-2">Ext. revenue {formatCurrency(rowRevenue, currencyCode)}</div>
                                     <div className="rounded-[14px] bg-white px-3 py-2">Ext. cost {formatCurrency(rowCost, currencyCode)}</div>
@@ -2752,6 +2875,13 @@ export default function QuotePreview() {
                                 <label className="builder-field compact"><span>Supporting spec label</span><input value={bundle.specSheetLabel ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetLabel: e.target.value }))} placeholder="VSAT outdoor unit spec" /></label>
                                 <label className="builder-field compact"><span>Internal spec location</span><input value={bundle.specSheetLocation ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetLocation: e.target.value }))} placeholder="SharePoint / vendor folder / PDF name" /></label>
                               </div>
+                              <MajorProjectSpecAttachmentField
+                                itemId={bundle.id}
+                                attachment={bundle.specSheetAttachment}
+                                specSheetLabel={bundle.specSheetLabel}
+                                onAttachmentChange={(attachment) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetAttachment: attachment }))}
+                                onSpecSheetLabelChange={(value) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetLabel: value }))}
+                              />
                               <div className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                                 <div className="flex items-center justify-between gap-3"><div className="text-[14px] font-semibold text-[#16202b]">Included components</div><div className="text-[12px] text-[#7a8793]">{bundleMetrics?.resolvedComponentIds.length ?? 0} mapped</div></div>
                                 <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -2814,6 +2944,13 @@ export default function QuotePreview() {
                                 <label className="builder-field compact"><span>Supporting spec label</span><input value={line.specSheetLabel ?? ""} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, specSheetLabel: e.target.value }))} placeholder="Optional customer-facing spec label" /></label>
                                 <label className="builder-field compact"><span>Internal spec location</span><input value={line.specSheetLocation ?? ""} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, specSheetLocation: e.target.value }))} placeholder="SharePoint / vendor folder / PDF name" /></label>
                               </div>
+                              <MajorProjectSpecAttachmentField
+                                itemId={line.id}
+                                attachment={line.specSheetAttachment}
+                                specSheetLabel={line.specSheetLabel}
+                                onAttachmentChange={(attachment) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, specSheetAttachment: attachment }))}
+                                onSpecSheetLabelChange={(value) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, specSheetLabel: value }))}
+                              />
                               <div className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                                 <div className="text-[14px] font-semibold text-[#16202b]">Bundles shown on this quote line</div>
                                 <div className="mt-3 grid gap-2 md:grid-cols-2">

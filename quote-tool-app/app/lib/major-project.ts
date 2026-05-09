@@ -8,6 +8,7 @@ import type {
   MajorProjectSimpleRow,
   QuoteRecord,
 } from "@/app/lib/quote-record";
+import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spec-attachments";
 
 export type MajorProjectServiceMix = "managed-network" | "starlink-pool" | "starlink-per-site" | "hybrid";
 export type MajorProjectValidationSeverity = "error" | "warning";
@@ -109,6 +110,7 @@ function createDefaultSimpleRow(): MajorProjectSimpleRow {
     description: "",
     specSheetLabel: "",
     specSheetLocation: "",
+    specSheetAttachment: undefined,
     quantity: 1,
     unit: "ea",
     customerUnitPrice: 0,
@@ -153,6 +155,7 @@ function createDefaultBundle(): MajorProjectBundle {
     description: "",
     specSheetLabel: "",
     specSheetLocation: "",
+    specSheetAttachment: undefined,
     componentIds: [],
     includedCostComponentIds: [],
     includedRevenueComponentIds: [],
@@ -168,6 +171,7 @@ function createDefaultCustomerQuoteLine(): MajorProjectCustomerQuoteLine {
     description: "",
     specSheetLabel: "",
     specSheetLocation: "",
+    specSheetAttachment: undefined,
     bundleIds: [],
     includedCostComponentIds: [],
     includedRevenueComponentIds: [],
@@ -234,6 +238,7 @@ function normalizeBundle(bundle: Partial<MajorProjectBundle> | undefined, index:
     id: bundle?.id ?? `major-bundle-${index + 1}`,
     specSheetLabel: bundle?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
     specSheetLocation: bundle?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
+    specSheetAttachment: normalizeMajorProjectSpecAttachment(bundle?.specSheetAttachment),
     componentIds,
     includedCostComponentIds: uniqueIds(bundle?.includedCostComponentIds?.length ? bundle.includedCostComponentIds : componentIds),
     includedRevenueComponentIds: uniqueIds(bundle?.includedRevenueComponentIds?.length ? bundle.includedRevenueComponentIds : componentIds),
@@ -248,6 +253,7 @@ function normalizeCustomerQuoteLine(line: Partial<MajorProjectCustomerQuoteLine>
     id: line?.id ?? `major-quote-line-${index + 1}`,
     specSheetLabel: line?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
     specSheetLocation: line?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
+    specSheetAttachment: normalizeMajorProjectSpecAttachment(line?.specSheetAttachment),
     bundleIds: uniqueIds(line?.bundleIds ?? []),
     includedCostComponentIds: uniqueIds(line?.includedCostComponentIds ?? []),
     includedRevenueComponentIds: uniqueIds(line?.includedRevenueComponentIds ?? []),
@@ -303,6 +309,7 @@ function normalizeSimpleRow(row: Partial<MajorProjectSimpleRow> | undefined, ind
     label: row?.label ?? defaults.label,
     specSheetLabel: row?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
     specSheetLocation: row?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
+    specSheetAttachment: normalizeMajorProjectSpecAttachment(row?.specSheetAttachment),
     quantity,
     customerUnitPrice,
     customerExtendedPrice: roundCurrency(customerExtendedPrice),
@@ -433,6 +440,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
       description: row.description,
       specSheetLabel: row.specSheetLabel,
       specSheetLocation: row.specSheetLocation,
+      specSheetAttachment: row.specSheetAttachment,
       componentIds: [componentId],
       includedCostComponentIds: [componentId],
       includedRevenueComponentIds: [componentId],
@@ -452,6 +460,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
       description: row.description,
       specSheetLabel: row.specSheetLabel,
       specSheetLocation: row.specSheetLocation,
+      specSheetAttachment: row.specSheetAttachment,
       bundleIds: [bundleId],
       includedCostComponentIds: [componentId],
       includedRevenueComponentIds: [componentId],

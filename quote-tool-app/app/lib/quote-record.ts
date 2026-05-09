@@ -62,6 +62,7 @@ export type PoolPricingRow = {
   monthlyRate?: number | null;
   totalMonthlyRate?: number | null;
   includedText?: string[];
+  specSheetLabel?: string;
   sourceLabel?: string;
 };
 
@@ -75,6 +76,7 @@ export type PerKitPricingRow = {
   monthlyRate?: number | null;
   totalMonthlyRate?: number | null;
   includedText?: string[];
+  specSheetLabel?: string;
   sourceLabel?: string;
 };
 
@@ -89,6 +91,7 @@ export type EquipmentPricingRow = {
   unitPrice: number;
   totalPrice: number;
   description?: string;
+  specSheetLabel?: string;
   sourceLabel?: string;
 };
 
@@ -101,6 +104,7 @@ export type ServicePricingRow = {
   totalPrice: number;
   unitLabel?: string;
   notes?: string;
+  specSheetLabel?: string;
   sourceLabel?: string;
   pricingStage?: "budgetary" | "final";
   serviceCategory?: "site_inspection" | "installation" | "custom";
@@ -120,6 +124,14 @@ export type ServiceAgreementCategoryKey =
   | "site_survey";
 
 export type ServiceAgreementRateBasis = "standard" | "non_standard" | "na";
+
+export type MajorProjectSpecAttachment = {
+  storageKey: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  updatedAt: string;
+};
 
 export type ServiceAgreementAttachment = {
   fileName: string;
@@ -326,6 +338,9 @@ export type MajorProjectBundle = {
   internalName: string;
   customerFacingLabel: string;
   description?: string;
+  specSheetLabel?: string;
+  specSheetLocation?: string;
+  specSheetAttachment?: MajorProjectSpecAttachment;
   componentIds: string[];
   includedCostComponentIds?: string[];
   includedRevenueComponentIds?: string[];
@@ -337,6 +352,9 @@ export type MajorProjectCustomerQuoteLine = {
   id: string;
   label: string;
   description?: string;
+  specSheetLabel?: string;
+  specSheetLocation?: string;
+  specSheetAttachment?: MajorProjectSpecAttachment;
   bundleIds: string[];
   includedCostComponentIds?: string[];
   includedRevenueComponentIds?: string[];
@@ -360,6 +378,9 @@ export type MajorProjectSimpleRow = {
   id: string;
   label: string;
   description?: string;
+  specSheetLabel?: string;
+  specSheetLocation?: string;
+  specSheetAttachment?: MajorProjectSpecAttachment;
   quantity: number;
   unit?: string;
   customerUnitPrice: number;

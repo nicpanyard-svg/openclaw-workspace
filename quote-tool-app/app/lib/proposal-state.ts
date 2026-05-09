@@ -1,6 +1,7 @@
 import { createDefaultIntegrationState } from "@/app/lib/crm";
 import { createDefaultCommercialState } from "@/app/lib/commercial-model";
 import { createDefaultMajorProjectState } from "@/app/lib/major-project";
+import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spec-attachments";
 import { createDefaultQuoteServiceAgreementState, normalizeQuoteServiceAgreementState } from "@/app/lib/service-agreement";
 import type { QuoteCustomField, QuoteRecord } from "@/app/lib/quote-record";
 
@@ -25,6 +26,28 @@ function normalizeCustomFields(fields: QuoteRecord["customFields"] | null | unde
     value: normalizeText(field?.value),
     visibility: field?.visibility === "internal" ? "internal" : "customer",
   }));
+}
+
+function normalizeMajorProjectAttachmentState(quote: QuoteRecord) {
+  const next = quote;
+  const options = next.majorProject?.options ?? [];
+
+  for (const option of options) {
+    option.simpleRows = (option.simpleRows ?? []).map((row) => ({
+      ...row,
+      specSheetAttachment: normalizeMajorProjectSpecAttachment(row.specSheetAttachment),
+    }));
+    option.bundles = (option.bundles ?? []).map((bundle) => ({
+      ...bundle,
+      specSheetAttachment: normalizeMajorProjectSpecAttachment(bundle.specSheetAttachment),
+    }));
+    option.customerQuoteLines = (option.customerQuoteLines ?? []).map((line) => ({
+      ...line,
+      specSheetAttachment: normalizeMajorProjectSpecAttachment(line.specSheetAttachment),
+    }));
+  }
+
+  return next;
 }
 
 export function serializeQuoteRecord(quote: QuoteRecord) {
@@ -73,7 +96,7 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
     const shippingSameAsBillTo = parsed.shippingSameAsBillTo ?? false;
     const inetAddressLines = normalizeLines(parsed.inet?.addressLines);
 
-    return {
+    return normalizeMajorProjectAttachmentState({
       ...parsed,
       customer: {
         ...parsed.customer,
@@ -148,7 +171,7 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
           : [executiveSummaryCustomerContext, executiveSummaryBody].filter((entry) => entry.trim().length > 0),
       },
       customFields: normalizeCustomFields(parsed.customFields),
-    };
+    });
   } catch {
     return null;
   }
