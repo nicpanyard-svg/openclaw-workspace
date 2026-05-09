@@ -170,7 +170,7 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
         <div className="proposal-route-shell">
           <div className="proposal-toolbar no-print">
             <div>
-              <div className="proposal-toolbar-label">Customer-facing document</div>
+              <div className="proposal-toolbar-label">App preview controls</div>
               <div className="proposal-toolbar-title">Proposal not found</div>
               <div className="proposal-toolbar-subtitle">
                 The requested proposal record no longer exists in local storage, so preview and export were blocked.
@@ -194,20 +194,20 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
       <div className="proposal-route-shell">
         <div className="proposal-toolbar no-print">
           <div>
-            <div className="proposal-toolbar-label">Customer-facing document</div>
-            <div className="proposal-toolbar-title">Preview Proposal</div>
+            <div className="proposal-toolbar-label">App preview controls</div>
+            <div className="proposal-toolbar-title">Proposal Preview</div>
             <div className="proposal-toolbar-subtitle">
               {usingSavedData
-                ? "This is the actual proposal document generated from your saved proposal data."
-                : "Previewing the current proposal document."}
+                ? "These controls are part of the app. The customer-facing proposal begins below and is the HTML source of truth used for PDF export."
+                : "These controls are part of the app. The customer-facing proposal begins below."}
             </div>
           </div>
           <div className="proposal-toolbar-actions">
             <button type="button" className="proposal-secondary-button" onClick={() => void handleExportApprovalWorkbook()}>
-              Export Approval XLSX
+              Export Approval Workbook
             </button>
             <button type="button" className="proposal-secondary-button" onClick={() => void handleViewPdf()}>
-              View PDF
+              Open PDF Preview
             </button>
             <button type="button" className="proposal-print-button" onClick={() => void handlePrintPdf()}>
               Download PDF
@@ -216,6 +216,10 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
         </div>
 
         <div className="proposal-preview-shell">
+          <div className="proposal-preview-pane-header no-print">
+            <div className="proposal-preview-pane-title">Customer proposal HTML</div>
+            <div className="proposal-toolbar-subtitle">Everything below is customer-facing proposal content, not app chrome.</div>
+          </div>
           <ProposalDocument quote={quote} />
         </div>
       </div>

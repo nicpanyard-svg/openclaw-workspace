@@ -350,7 +350,7 @@ function buildWorkbookModel(quote: QuoteRecord): ApprovalWorkbookModel {
   ]);
 
   return {
-    fileNameBase: `${fileSafeName(quote.metadata.proposalNumber)}-approval-workbook-v4`,
+    fileNameBase: `${fileSafeName(quote.metadata.proposalNumber)}-approval-workbook`,
     quoteDate: quote.metadata.proposalDate,
     customerName: quote.customer.name,
     proposalNumber: quote.metadata.proposalNumber,

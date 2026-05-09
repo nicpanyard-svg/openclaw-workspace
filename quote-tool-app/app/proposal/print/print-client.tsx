@@ -40,7 +40,7 @@ export function ProposalPrintClient({
       <div className="proposal-route-shell proposal-print-shell">
         <div className="proposal-toolbar no-print">
           <div>
-            <div className="proposal-toolbar-label">Print-ready document</div>
+            <div className="proposal-toolbar-label">App print controls</div>
             <div className="proposal-toolbar-title">Proposal not found</div>
             <div className="proposal-toolbar-subtitle">
               The requested proposal record could not be loaded, so print preview was blocked.
@@ -65,10 +65,10 @@ export function ProposalPrintClient({
       {autoPrintOnly ? <ProposalPrintTrigger /> : null}
       <div className="proposal-toolbar no-print">
         <div>
-          <div className="proposal-toolbar-label">Print-ready document</div>
-          <div className="proposal-toolbar-title">Print Proposal</div>
+          <div className="proposal-toolbar-label">App print controls</div>
+          <div className="proposal-toolbar-title">Print Preview</div>
           <div className="proposal-toolbar-subtitle">
-            This uses the exact same proposal document and saved state as the HTML preview. Use this page as the manual print fallback if direct PDF download is unavailable.
+            These controls are not part of the proposal document. The customer-facing proposal below is the same HTML source used for PDF export and browser print output.
           </div>
         </div>
         <div className="proposal-toolbar-actions">
@@ -76,6 +76,10 @@ export function ProposalPrintClient({
             Back to Preview
           </Link>
         </div>
+      </div>
+      <div className="proposal-preview-pane-header no-print">
+        <div className="proposal-preview-pane-title">Customer proposal HTML</div>
+        <div className="proposal-toolbar-subtitle">Everything below is customer-facing proposal content, not app chrome.</div>
       </div>
       <ProposalDocument quote={quote} />
     </div>

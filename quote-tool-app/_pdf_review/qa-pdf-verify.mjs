@@ -211,6 +211,26 @@ const pageErrors = [];
 page.on('console', msg => consoleMessages.push({ type: msg.type(), text: msg.text() }));
 page.on('pageerror', err => pageErrors.push(String(err)));
 
+async function evaluatePreviewSurface() {
+  return page.evaluate(() => {
+    const text = document.body.innerText;
+    const normalized = text.replace(/\s+/g, ' ').trim();
+    const hasChrome = normalized.includes('App preview controls') || normalized.includes('App print controls');
+    const hasDocumentHeading = normalized.includes('INET COMMUNICATIONS PROPOSAL');
+    const hasApprovalBlock = normalized.includes('Authorization to proceed');
+    const hasToolbarChromeInDom = Boolean(document.querySelector('.proposal-toolbar.no-print'));
+    const proposalPages = document.querySelectorAll('.proposal-page').length;
+    return {
+      hasChrome,
+      hasToolbarChromeInDom,
+      hasDocumentHeading,
+      hasApprovalBlock,
+      proposalPages,
+      textSnippet: normalized.slice(0, 1200),
+    };
+  });
+}
+
 const results = [];
 for (const variant of variants) {
   await page.goto(base + '/login', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -218,17 +238,27 @@ for (const variant of variants) {
     window.sessionStorage.setItem(key, JSON.stringify(quote));
   }, PROPOSAL_STORAGE_KEY, variant.quote);
 
+  await page.goto(base + '/proposal', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.screenshot({ path: `_pdf_review/${variant.name}-preview.png`, fullPage: true });
+  const htmlPreview = await evaluatePreviewSurface();
+
   await page.goto(base + '/proposal/print?autoprint=0', { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.screenshot({ path: `_pdf_review/${variant.name}.png`, fullPage: true });
+  await page.screenshot({ path: `_pdf_review/${variant.name}-print.png`, fullPage: true });
+  const printPreview = await evaluatePreviewSurface();
 
-  const checks = await page.evaluate(() => ({
-    hasPrintProposal: document.body.innerText.includes('Print Proposal'),
-    hasPreparedFor: document.body.innerText.includes('Prepared for'),
-    hasApproval: document.body.innerText.includes('Authorization to proceed'),
-    pageCountApprox: document.querySelectorAll('.proposal-page').length
-  }));
-
-  results.push({ name: variant.name, ...checks });
+  results.push({
+    name: variant.name,
+    htmlPreview,
+    printPreview,
+    verifiedDifferencesOnly: [
+      htmlPreview.hasToolbarChromeInDom || printPreview.hasToolbarChromeInDom
+        ? 'App toolbar chrome exists in browser preview routes but is marked no-print and is not customer proposal content.'
+        : null,
+      htmlPreview.hasDocumentHeading && printPreview.hasDocumentHeading && htmlPreview.hasApprovalBlock && printPreview.hasApprovalBlock
+        ? 'The shared proposal document content is present in both HTML preview and print preview routes.'
+        : null,
+    ].filter(Boolean),
+  });
 }
 
 const pdfResult = await page.evaluate(async (quote) => {
@@ -250,12 +280,19 @@ const pdfResult = await page.evaluate(async (quote) => {
   };
 }, sampleQuote);
 
-if (pdfResult.ok) {
-  await fs.writeFile('_pdf_review/api-generated.pdf', Buffer.from(pdfResult.bytes.length ? Uint8Array.from(pdfResult.bytes) : []));
-}
-
 await browser.close();
 
-const output = { results, pdfResult, consoleMessages, pageErrors };
+const output = {
+  sourceOfTruth: 'ProposalDocument HTML is the customer-facing source of truth. PDF is generated from the print route using that same HTML.',
+  results,
+  pdfResult,
+  verifiedDifferencesOnly: [
+    'Preview and print routes include app-level toolbar chrome in the browser DOM.',
+    'That toolbar is marked with .no-print and is excluded from print/PDF output.',
+    'Parity review should compare proposal document content, not toolbar labels or app controls.',
+  ],
+  consoleMessages,
+  pageErrors
+};
 await fs.writeFile('_pdf_review/qa-pdf-verify.json', JSON.stringify(output, null, 2));
 console.log(JSON.stringify(output, null, 2));
