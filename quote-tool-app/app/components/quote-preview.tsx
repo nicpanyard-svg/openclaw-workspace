@@ -1968,7 +1968,7 @@ export default function QuotePreview() {
 
           {!builderLocked ? (
             <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#f7fafc] px-4 py-3 text-[13px] text-[#435160]">
-              Review and exports now flow through <strong>Preview Proposal</strong>. Open the customer-facing document there for Approval Workbook, Word, and PDF output.
+              Review and exports now flow through <strong>Preview Proposal</strong>. Open the customer-facing document there for Approval Workbook and PDF output.
             </div>
           ) : null}
 
@@ -3192,7 +3192,7 @@ export default function QuotePreview() {
                 <div className="summary-block">
                   <div className="summary-label">Review handoff</div>
                   <div className="summary-value">Save here. Export from Preview.</div>
-                  <div className="summary-subvalue">Keep the editor focused on setup and pricing. Use Preview Proposal for the customer-facing document plus Approval Workbook, Word, and PDF exports.</div>
+                  <div className="summary-subvalue">Keep the editor focused on setup and pricing. Use Preview Proposal for the customer-facing document plus Approval Workbook and PDF exports.</div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button type="button" className="pill-button" onClick={persistProposalState}>Save Draft</button>
                     <button type="button" className="pill-button pill-button-active" onClick={handlePreviewProposal}>Preview Proposal</button>
