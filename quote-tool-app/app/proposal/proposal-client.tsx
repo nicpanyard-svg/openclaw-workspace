@@ -8,6 +8,7 @@ import { AuthGate } from "@/app/components/auth-shell";
 import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
 import { buildProposalPrintPath } from "@/app/lib/proposal-navigation";
+import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
 import { buildProposalApprovalWorkbook } from "@/app/lib/proposal-xlsx-export";
 
 export function ProposalClient({ requestedProposalId = null }: { requestedProposalId?: string | null }) {
@@ -33,7 +34,7 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
   const usingSavedData = resolved?.usingSavedData ?? false;
   const activeProposalId = resolved?.activeProposalId ?? null;
 
-  const generatePdfBlob = async () => {
+  const requestBasePdfBlob = async () => {
     if (!quote) {
       throw new Error("No proposal is available for export.");
     }
@@ -62,6 +63,15 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
         pdfRequestRef.current = null;
       }
     }
+  };
+
+  const generatePdfBlob = async () => {
+    if (!quote) {
+      throw new Error("No proposal is available for export.");
+    }
+
+    const basePdfBlob = await requestBasePdfBlob();
+    return assembleFinalProposalPdf(basePdfBlob, quote);
   };
 
   const handleViewPdf = async () => {
@@ -101,16 +111,9 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
       return;
     } catch {
       try {
-        const response = await fetch("/api/proposal-pdf", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ quote, proposalId: activeProposalId }),
-        });
-
-        if (response.ok) {
-          const blob = await response.blob();
+        const basePdfBlob = await requestBasePdfBlob();
+        if (basePdfBlob) {
+          const blob = await assembleFinalProposalPdf(basePdfBlob, quote);
           const objectUrl = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = objectUrl;
