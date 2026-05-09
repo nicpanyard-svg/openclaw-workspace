@@ -86,6 +86,11 @@ type MajorProjectStepStatus = "current" | "complete" | "locked";
 type MajorProjectScheduleFilter = "all" | "one_time" | "recurring";
 type CustomerEntryMode = "start" | "select" | "create" | "review";
 type EntryIntent = "new-customer" | "select-customer" | "major-project" | "major-project-select-customer" | null;
+type MajorProjectComponentBundleDraft = {
+  sourceComponentId: string;
+  selectedComponentIds: string[];
+  customerFacingLabel: string;
+};
 
 const emptyEquipmentDraft: EquipmentDraft = {
   itemName: "",
@@ -122,6 +127,36 @@ function normalizeSearchValue(value: string) {
 function majorProjectMarginPercent(revenue: number, cost: number) {
   if (revenue <= 0) return 0;
   return ((revenue - cost) / revenue) * 100;
+}
+
+function createMajorProjectBundleInternalName(customerFacingLabel: string, fallback: string) {
+  const trimmed = customerFacingLabel.trim();
+  return trimmed ? `${trimmed} bundle` : fallback;
+}
+
+function inferMajorProjectBundleSchedule(components: MajorProjectComponent[]): MajorProjectBundle["schedule"] {
+  const hasRecurring = components.some((component) => component.schedule === "recurring");
+  const hasOneTime = components.some((component) => component.schedule === "one_time");
+
+  if (hasRecurring && hasOneTime) return "mixed";
+  return hasRecurring ? "recurring" : "one_time";
+}
+
+function inferMajorProjectQuoteLineCategory(components: MajorProjectComponent[]): MajorProjectCustomerQuoteLine["presentationCategory"] {
+  const hasRecurringOnly = components.length > 0 && components.every((component) => component.schedule === "recurring");
+  if (hasRecurringOnly) return "recurring";
+
+  const serviceLineTypes = new Set<MajorProjectComponent["lineType"]>([
+    "installation",
+    "service",
+    "support",
+    "managed_service",
+    "optional_service",
+    "internal_labor",
+    "other",
+  ]);
+
+  return components.every((component) => serviceLineTypes.has(component.lineType)) ? "services" : "hardware";
 }
 
 function computeEquipmentRow(row: EquipmentPricingRow): EquipmentPricingRow {
@@ -824,6 +859,7 @@ export default function QuotePreview() {
   const [majorProjectComponentScheduleFilter, setMajorProjectComponentScheduleFilter] = useState<MajorProjectScheduleFilter>("all");
   const [majorProjectBundleSearch, setMajorProjectBundleSearch] = useState("");
   const [majorProjectQuoteLineSearch, setMajorProjectQuoteLineSearch] = useState("");
+  const [majorProjectComponentBundleDraft, setMajorProjectComponentBundleDraft] = useState<MajorProjectComponentBundleDraft | null>(null);
   const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1014,6 +1050,31 @@ export default function QuotePreview() {
       return !search || haystack.includes(search);
     });
   }, [activeMajorOptionQuoteLines, majorProjectQuoteLineSearch]);
+  useEffect(() => {
+    setMajorProjectComponentBundleDraft((current) => {
+      if (!current) return null;
+
+      const availableIds = new Set(activeMajorOptionComponents.map((component) => component.id));
+      if (!availableIds.has(current.sourceComponentId)) return null;
+
+      const selectedComponentIds = Array.from(new Set([
+        current.sourceComponentId,
+        ...current.selectedComponentIds.filter((componentId) => availableIds.has(componentId)),
+      ]));
+
+      if (
+        selectedComponentIds.length === current.selectedComponentIds.length
+        && selectedComponentIds.every((componentId, index) => componentId === current.selectedComponentIds[index])
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        selectedComponentIds,
+      };
+    });
+  }, [activeMajorOptionComponents]);
   const majorProjectVendorMarginCards = useMemo(() => majorProjectMetrics.vendorSummary.map((vendor) => {
     const revenue = vendor.oneTimeRevenue + vendor.recurringRevenue;
     const cost = vendor.oneTimeCost + vendor.recurringCost;
@@ -1505,6 +1566,136 @@ export default function QuotePreview() {
       }));
       return draft;
     });
+  };
+
+  const startMajorProjectComponentBundleDraft = (component: MajorProjectComponent) => {
+    setMajorProjectEditorTab("components");
+    setMajorProjectComponentBundleDraft({
+      sourceComponentId: component.id,
+      selectedComponentIds: [component.id],
+      customerFacingLabel: component.customerFacingLabel?.trim() || component.internalName?.trim() || "",
+    });
+    setWorkflowNotice(null);
+  };
+
+  const toggleMajorProjectComponentBundleSelection = (componentId: string) => {
+    setMajorProjectComponentBundleDraft((current) => {
+      if (!current || current.sourceComponentId === componentId) return current;
+
+      const selected = new Set(current.selectedComponentIds);
+      if (selected.has(componentId)) {
+        selected.delete(componentId);
+      } else {
+        selected.add(componentId);
+      }
+
+      return {
+        ...current,
+        selectedComponentIds: [current.sourceComponentId, ...Array.from(selected).filter((id) => id !== current.sourceComponentId)],
+      };
+    });
+  };
+
+  const cancelMajorProjectComponentBundleDraft = () => {
+    setMajorProjectComponentBundleDraft(null);
+  };
+
+  const confirmMajorProjectComponentBundleDraft = () => {
+    if (!majorProjectComponentBundleDraft) return;
+
+    const customerFacingLabel = majorProjectComponentBundleDraft.customerFacingLabel.trim();
+    const selectedComponentIds = Array.from(new Set(majorProjectComponentBundleDraft.selectedComponentIds));
+
+    if (!customerFacingLabel) {
+      setWorkflowNotice("Add the shared customer-facing name before creating the bundle.");
+      return;
+    }
+
+    if (selectedComponentIds.length < 2) {
+      setWorkflowNotice("Select at least one other component so the bundle includes more than the starting item.");
+      return;
+    }
+
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option) return draft;
+
+      const selectedComponentIdSet = new Set(selectedComponentIds);
+      const selectedComponents = (option.components ?? []).filter((component) => selectedComponentIdSet.has(component.id));
+      if (selectedComponents.length < 2) return draft;
+
+      const sourceComponent = selectedComponents.find((component) => component.id === majorProjectComponentBundleDraft.sourceComponentId) ?? selectedComponents[0];
+      const resolvedSelectedIds = selectedComponents.map((component) => component.id);
+      const nextBundle = createMajorProjectBundleDraft((option.bundles?.length ?? 0) + 1);
+      const bundleSchedule = inferMajorProjectBundleSchedule(selectedComponents);
+
+      nextBundle.internalName = createMajorProjectBundleInternalName(
+        customerFacingLabel,
+        sourceComponent.internalName?.trim() || nextBundle.internalName,
+      );
+      nextBundle.customerFacingLabel = customerFacingLabel;
+      nextBundle.description = sourceComponent.notes?.trim() || "";
+      nextBundle.componentIds = resolvedSelectedIds;
+      nextBundle.includedCostComponentIds = resolvedSelectedIds;
+      nextBundle.includedRevenueComponentIds = resolvedSelectedIds;
+      nextBundle.schedule = bundleSchedule;
+      nextBundle.category = sourceComponent.category?.trim() || nextBundle.category;
+
+      option.bundles = (option.bundles ?? []).map((bundle) => ({
+        ...bundle,
+        componentIds: (bundle.componentIds ?? []).filter((componentId) => !selectedComponentIdSet.has(componentId)),
+        includedCostComponentIds: (bundle.includedCostComponentIds ?? []).filter((componentId) => !selectedComponentIdSet.has(componentId)),
+        includedRevenueComponentIds: (bundle.includedRevenueComponentIds ?? []).filter((componentId) => !selectedComponentIdSet.has(componentId)),
+      }));
+
+      option.components = (option.components ?? []).map((component) => (
+        selectedComponentIdSet.has(component.id)
+          ? {
+              ...component,
+              bundleAssignmentId: nextBundle.id,
+              customerFacingLabel,
+            }
+          : component
+      ));
+
+      option.bundles = [
+        ...option.bundles.filter((bundle) => {
+          const hasListedComponents = (bundle.componentIds ?? []).length > 0;
+          const hasAssignedComponents = (option.components ?? []).some((component) => component.bundleAssignmentId === bundle.id);
+          return hasListedComponents || hasAssignedComponents;
+        }),
+        nextBundle,
+      ];
+
+      const validBundleIds = new Set(option.bundles.map((bundle) => bundle.id));
+      const cleanedQuoteLines = (option.customerQuoteLines ?? [])
+        .map((line) => ({
+          ...line,
+          bundleIds: (line.bundleIds ?? []).filter((bundleId) => validBundleIds.has(bundleId)),
+          includedCostComponentIds: (line.includedCostComponentIds ?? []).filter((componentId) => !selectedComponentIdSet.has(componentId)),
+          includedRevenueComponentIds: (line.includedRevenueComponentIds ?? []).filter((componentId) => !selectedComponentIdSet.has(componentId)),
+        }))
+        .filter((line) => (
+          (line.bundleIds?.length ?? 0) > 0
+          || (line.includedCostComponentIds?.length ?? 0) > 0
+          || (line.includedRevenueComponentIds?.length ?? 0) > 0
+        ));
+
+      const nextQuoteLine = createMajorProjectQuoteLineDraft(cleanedQuoteLines.length + 1);
+      nextQuoteLine.label = customerFacingLabel;
+      nextQuoteLine.bundleIds = [nextBundle.id];
+      nextQuoteLine.includedCostComponentIds = resolvedSelectedIds;
+      nextQuoteLine.includedRevenueComponentIds = resolvedSelectedIds;
+      nextQuoteLine.schedule = bundleSchedule;
+      nextQuoteLine.presentationCategory = inferMajorProjectQuoteLineCategory(selectedComponents);
+
+      option.customerQuoteLines = [...cleanedQuoteLines, nextQuoteLine];
+      return draft;
+    });
+
+    setMajorProjectComponentBundleDraft(null);
+    setMajorProjectEditorTab("bundles");
+    setWorkflowNotice(`Created bundle "${customerFacingLabel}" with ${selectedComponentIds.length} components and a matching customer quote line.`);
   };
 
   const updateActiveMajorBundle = (bundleId: string, updater: (bundle: MajorProjectBundle) => MajorProjectBundle) => {
@@ -2802,6 +2993,47 @@ export default function QuotePreview() {
                           </div>
                           <button type="button" className="pill-button pill-button-active" onClick={() => addMajorProjectComponent()}>Add component</button>
                         </div>
+                        {majorProjectComponentBundleDraft ? (
+                          <div className="rounded-[18px] border border-[#ead9db] bg-[#fff7f7] p-4 text-[13px] text-[#5d6772]">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <strong className="text-[#16202b]">Bundle with this</strong>
+                                <div className="mt-1">Select the other components that belong with this item, then give the bundled items one shared customer-facing name.</div>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  className="pill-button pill-button-active"
+                                  onClick={confirmMajorProjectComponentBundleDraft}
+                                  disabled={majorProjectComponentBundleDraft.selectedComponentIds.length < 2 || !majorProjectComponentBundleDraft.customerFacingLabel.trim()}
+                                >
+                                  Create bundle
+                                </button>
+                                <button type="button" className="pill-button" onClick={cancelMajorProjectComponentBundleDraft}>Cancel</button>
+                              </div>
+                            </div>
+                            <div className="mt-3 grid gap-3 lg:grid-cols-[.9fr_.8fr_1.3fr]">
+                              <div className="rounded-[16px] border border-[#eadfe2] bg-white px-4 py-3">
+                                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Starting item</div>
+                                <div className="mt-1 font-semibold text-[#16202b]">
+                                  {activeMajorOptionComponents.find((component) => component.id === majorProjectComponentBundleDraft.sourceComponentId)?.internalName || "Selected component"}
+                                </div>
+                              </div>
+                              <div className="rounded-[16px] border border-[#eadfe2] bg-white px-4 py-3">
+                                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Items selected</div>
+                                <div className="mt-1 font-semibold text-[#16202b]">{majorProjectComponentBundleDraft.selectedComponentIds.length}</div>
+                              </div>
+                              <label className="builder-field compact">
+                                <span>Shared customer-facing name</span>
+                                <input
+                                  value={majorProjectComponentBundleDraft.customerFacingLabel}
+                                  onChange={(e) => setMajorProjectComponentBundleDraft((current) => current ? { ...current, customerFacingLabel: e.target.value } : current)}
+                                  placeholder="Outdoor connectivity package"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        ) : null}
                         <div className="major-project-toolbar">
                           <label className="builder-field compact major-project-toolbar-search"><span>Find component</span><input value={majorProjectComponentSearch} onChange={(e) => setMajorProjectComponentSearch(e.target.value)} placeholder="Search name, vendor, category, notes" /></label>
                           <label className="builder-field compact"><span>Schedule</span><select value={majorProjectComponentScheduleFilter} onChange={(e) => setMajorProjectComponentScheduleFilter(e.target.value as MajorProjectScheduleFilter)}><option value="all">All schedules</option><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
@@ -2820,8 +3052,10 @@ export default function QuotePreview() {
                           const componentGrossProfit = componentRevenue - componentCost;
                           const componentMargin = majorProjectMarginPercent(componentRevenue, componentCost);
                           const assignedBundleLabel = bundleOptions.find((bundle) => bundle.id === component.bundleAssignmentId)?.label ?? "Unassigned";
+                          const isSelectedForBundle = majorProjectComponentBundleDraft?.selectedComponentIds.includes(component.id) ?? false;
+                          const isBundleSource = majorProjectComponentBundleDraft?.sourceComponentId === component.id;
                           return (
-                          <div key={component.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                          <div key={component.id} className={`rounded-[18px] border bg-[#fbfcfe] p-4 ${isSelectedForBundle ? "border-[#c75b5b] bg-[#fff8f8]" : "border-[#dde3e8]"}`}>
                             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                               <div>
                                 <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Component {index + 1}</div>
@@ -2830,9 +3064,23 @@ export default function QuotePreview() {
                                   <span className="major-project-chip">{component.schedule === "recurring" ? "Recurring" : "One-time"}</span>
                                   <span className="major-project-chip">{component.vendor || "No vendor"}</span>
                                   <span className="major-project-chip">{assignedBundleLabel}</span>
+                                  {isBundleSource ? <span className="major-project-chip">Bundle anchor</span> : null}
                                 </div>
                               </div>
                               <div className="flex flex-wrap gap-2">
+                                {majorProjectComponentBundleDraft ? (
+                                  <label className="inline-flex items-center gap-2 rounded-full border border-[#d7dde4] bg-white px-3 py-2 text-[12px] font-semibold text-[#24303b]">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelectedForBundle}
+                                      onChange={() => toggleMajorProjectComponentBundleSelection(component.id)}
+                                      disabled={isBundleSource}
+                                    />
+                                    {isBundleSource ? "Starting item" : "Include in bundle"}
+                                  </label>
+                                ) : (
+                                  <button type="button" className="pill-button" onClick={() => startMajorProjectComponentBundleDraft(component)}>Bundle with this</button>
+                                )}
                                 <button type="button" className="pill-button" onClick={() => duplicateMajorProjectComponent(component.id)}>Duplicate</button>
                                 <button type="button" className="pill-button" onClick={() => addMajorProjectComponent(component.bundleAssignmentId ?? "")}>Add similar</button>
                                 <button type="button" className="danger-button" onClick={() => removeMajorProjectComponent(component.id)}>Remove</button>
