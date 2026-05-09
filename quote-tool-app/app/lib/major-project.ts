@@ -1129,8 +1129,12 @@ export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): Ma
   if (!activeOption) return [];
 
   const attachments: MajorProjectOutputSpecAttachment[] = [];
+  const seenAttachmentStorageKeys = new Set<string>();
   const pushAttachment = (entry: MajorProjectOutputSpecAttachment | null) => {
-    if (entry) attachments.push(entry);
+    if (!entry) return;
+    if (seenAttachmentStorageKeys.has(entry.attachment.storageKey)) return;
+    seenAttachmentStorageKeys.add(entry.attachment.storageKey);
+    attachments.push(entry);
   };
 
   if (!metrics.hasThreeLayerModel) {
