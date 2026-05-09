@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import {
   buildProposalCommercialSummary,
   getEquipmentTotal,
@@ -6,6 +9,8 @@ import {
   getQuoteContentPresence,
   getRecurringMonthlyTotal,
 } from "@/app/lib/proposal-commercial-summary";
+import { getMajorProjectSpecAttachmentFile } from "@/app/lib/major-project-spec-attachments";
+import { resolveMajorProjectOutputSpecAttachments, type MajorProjectOutputSpecAttachment } from "@/app/lib/major-project";
 import type { QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
 type ProposalDocumentProps = {
@@ -13,6 +18,11 @@ type ProposalDocumentProps = {
   assetOverrides?: {
     inetLogoSrc?: string;
   };
+};
+
+type ResolvedSpecSheetPreview = MajorProjectOutputSpecAttachment & {
+  objectUrl: string | null;
+  loadError: string | null;
 };
 
 function formatCurrency(value: number, currencyCode = "USD") {
@@ -39,7 +49,21 @@ function cleanLines(lines: Array<string | null | undefined>) {
   return lines.map((line) => (line ?? "").trim()).filter(Boolean);
 }
 
+function getSpecOutputSectionLabel(outputSection: MajorProjectOutputSpecAttachment["outputSection"]) {
+  switch (outputSection) {
+    case "sectionA":
+      return "Recurring services";
+    case "sectionB":
+      return "Equipment and accessories";
+    case "sectionC":
+      return "Field services";
+    default:
+      return "Proposal section";
+  }
+}
+
 export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProps) {
+  const [specSheetPreviews, setSpecSheetPreviews] = useState<ResolvedSpecSheetPreview[]>([]);
   const currencyCode = quote.metadata.currencyCode || "USD";
   const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
   const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
@@ -68,11 +92,76 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
   );
   const contentPresence = getQuoteContentPresence(quote);
   const commercialSummaryItems = buildProposalCommercialSummary(quote);
+  const resolvedSpecSheetAttachments = useMemo(() => resolveMajorProjectOutputSpecAttachments(quote), [quote]);
   const pricingSnapshotItems = commercialSummaryItems.map((item) => ({
     ...item,
     value: formatCurrency(item.value, currencyCode),
     tone: item.tone ?? "default",
   }));
+
+  useEffect(() => {
+    let isCancelled = false;
+    const objectUrls: string[] = [];
+
+    async function loadSpecSheetPreviews() {
+      if (!resolvedSpecSheetAttachments.length) {
+        setSpecSheetPreviews([]);
+        return;
+      }
+
+      const nextPreviews = await Promise.all(
+        resolvedSpecSheetAttachments.map(async (entry) => {
+          try {
+            const fileBlob = await getMajorProjectSpecAttachmentFile(entry.attachment.storageKey);
+
+            if (!fileBlob) {
+              return {
+                ...entry,
+                objectUrl: null,
+                loadError: "Attachment preview unavailable.",
+              } satisfies ResolvedSpecSheetPreview;
+            }
+
+            const objectUrl = URL.createObjectURL(fileBlob);
+
+            if (isCancelled) {
+              URL.revokeObjectURL(objectUrl);
+              return {
+                ...entry,
+                objectUrl: null,
+                loadError: "Attachment preview unavailable.",
+              } satisfies ResolvedSpecSheetPreview;
+            }
+
+            objectUrls.push(objectUrl);
+
+            return {
+              ...entry,
+              objectUrl,
+              loadError: null,
+            } satisfies ResolvedSpecSheetPreview;
+          } catch {
+            return {
+              ...entry,
+              objectUrl: null,
+              loadError: "Attachment preview unavailable.",
+            } satisfies ResolvedSpecSheetPreview;
+          }
+        }),
+      );
+
+      if (!isCancelled) {
+        setSpecSheetPreviews(nextPreviews);
+      }
+    }
+
+    void loadSpecSheetPreviews();
+
+    return () => {
+      isCancelled = true;
+      objectUrls.forEach((objectUrl) => URL.revokeObjectURL(objectUrl));
+    };
+  }, [resolvedSpecSheetAttachments]);
 
   let printPageNumber = 1;
   const coverPageLabel = `Page ${printPageNumber++}`;
@@ -80,6 +169,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
   const recurringServicesPageLabel = quote.sections.sectionA.enabled ? `Page ${printPageNumber++}` : null;
   const equipmentPageLabel = quote.sections.sectionB.enabled ? `Page ${printPageNumber++}` : null;
   const fieldServicesPageLabel = quote.sections.sectionC.enabled ? `Page ${printPageNumber++}` : null;
+  const specSheetPageLabels = specSheetPreviews.map(() => `Page ${printPageNumber++}`);
   const termsPageLabel = `Page ${printPageNumber++}`;
   const closingPageLabel = `Page ${printPageNumber++}`;
 
@@ -495,6 +585,73 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
           </table>
         </section>
       )}
+
+      {specSheetPreviews.map((specSheet, index) => {
+        const sectionLabel = getSpecOutputSectionLabel(specSheet.outputSection);
+        const isPdf = specSheet.attachment.mimeType.toLowerCase().includes("pdf");
+        const isImage = specSheet.attachment.mimeType.toLowerCase().startsWith("image/");
+
+        return (
+          <section
+            key={specSheet.attachment.storageKey}
+            className="proposal-page proposal-spec-sheet-page"
+            data-page-label={specSheetPageLabels[index] ?? "Page"}
+          >
+            <div className="proposal-header">
+              <span>Supporting spec sheets</span>
+              <span>Proposal #{quote.metadata.proposalNumber}</span>
+            </div>
+
+            <div className="proposal-section-heading keep-with-next">
+              <div className="section-heading-badge">Specs</div>
+              <div className="proposal-overline">Supporting documentation</div>
+              <h2 className="proposal-section-title">Supporting Spec Sheet</h2>
+              <p className="proposal-intro">
+                This attachment supports {sectionLabel.toLowerCase()} and remains separate from the proposal pricing tables.
+              </p>
+            </div>
+
+            <div className="proposal-copy proposal-copy-card proposal-spec-sheet-meta print-keep-block">
+              <p><strong>Proposal section</strong> {sectionLabel}</p>
+              <p><strong>Output item</strong> {specSheet.outputItemLabel}</p>
+              <p><strong>Attachment source</strong> {specSheet.sourceLabel}</p>
+              <p><strong>File</strong> {specSheet.attachment.fileName}</p>
+            </div>
+
+            <div className="proposal-spec-sheet-frame">
+              {isImage && specSheet.objectUrl ? (
+                <img
+                  src={specSheet.objectUrl}
+                  alt={specSheet.attachment.fileName}
+                  className="proposal-spec-sheet-image"
+                />
+              ) : null}
+
+              {isPdf && specSheet.objectUrl ? (
+                <iframe
+                  src={`${specSheet.objectUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                  title={specSheet.attachment.fileName}
+                  className="proposal-spec-sheet-embed"
+                />
+              ) : null}
+
+              {!isPdf && !isImage ? (
+                <div className="proposal-spec-sheet-empty">
+                  <strong>Preview not available in HTML.</strong>
+                  <span>{specSheet.attachment.fileName}</span>
+                </div>
+              ) : null}
+
+              {!specSheet.objectUrl && specSheet.loadError ? (
+                <div className="proposal-spec-sheet-empty">
+                  <strong>{specSheet.loadError}</strong>
+                  <span>{specSheet.attachment.fileName}</span>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        );
+      })}
 
       <section className="proposal-page proposal-terms-page" data-page-label={termsPageLabel}>
         <div className="proposal-header">
