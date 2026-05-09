@@ -114,6 +114,35 @@ export type MajorProjectOutputSpecAttachment = {
   outputItemLabel: string;
 };
 
+const outputSpecAttachmentSectionOrder: Record<MajorProjectOutputSpecAttachment["outputSection"], number> = {
+  sectionA: 0,
+  sectionB: 1,
+  sectionC: 2,
+};
+
+const outputSpecAttachmentSourceTypeOrder: Record<MajorProjectOutputSpecAttachment["sourceType"], number> = {
+  quote_line: 0,
+  bundle: 1,
+  simple_row: 2,
+};
+
+function compareOutputSpecAttachmentText(left: string, right: string) {
+  return left.localeCompare(right, undefined, { sensitivity: "base", numeric: true });
+}
+
+function compareMajorProjectOutputSpecAttachments(left: MajorProjectOutputSpecAttachment, right: MajorProjectOutputSpecAttachment) {
+  return (
+    outputSpecAttachmentSectionOrder[left.outputSection] - outputSpecAttachmentSectionOrder[right.outputSection]
+    || compareOutputSpecAttachmentText(left.outputItemLabel, right.outputItemLabel)
+    || compareOutputSpecAttachmentText(left.outputItemId, right.outputItemId)
+    || outputSpecAttachmentSourceTypeOrder[left.sourceType] - outputSpecAttachmentSourceTypeOrder[right.sourceType]
+    || compareOutputSpecAttachmentText(left.sourceLabel, right.sourceLabel)
+    || compareOutputSpecAttachmentText(left.sourceId, right.sourceId)
+    || compareOutputSpecAttachmentText(left.attachment.fileName, right.attachment.fileName)
+    || compareOutputSpecAttachmentText(left.attachment.storageKey, right.attachment.storageKey)
+  );
+}
+
 function createDefaultSimpleRow(): MajorProjectSimpleRow {
   return {
     id: "major-simple-row-1",
@@ -1184,7 +1213,7 @@ export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): Ma
       }
     }
 
-    return attachments;
+    return attachments.sort(compareMajorProjectOutputSpecAttachments);
   }
 
   const bundlesById = new Map(metrics.bundles.map((bundle) => [bundle.id, bundle]));
@@ -1264,7 +1293,7 @@ export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): Ma
     }
   }
 
-  return attachments;
+  return attachments.sort(compareMajorProjectOutputSpecAttachments);
 }
 
 export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
