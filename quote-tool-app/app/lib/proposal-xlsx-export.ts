@@ -57,16 +57,16 @@ type Worksheet = import("exceljs").Worksheet;
 type CellValue = string | number | null;
 
 const BRAND = {
-  greenDark: "FF245C36",
-  green: "FF4F8C45",
-  greenSoft: "FFDDECD7",
-  greenPale: "FFF4FAF1",
-  gold: "FFC69214",
-  cream: "FFF8F5EA",
-  slate: "FF425466",
-  slateSoft: "FFEAF0F5",
-  border: "FF97AB9A",
-  text: "FF1F2933",
+  greenDark: "FF8C1212",
+  green: "FFAE0910",
+  greenSoft: "FFF7E7E7",
+  greenPale: "FFFFF8F8",
+  gold: "FFF5F7FA",
+  cream: "FFFBFCFE",
+  slate: "FF556270",
+  slateSoft: "FFF5F7FA",
+  border: "FFD7DDE5",
+  text: "FF18222C",
   white: "FFFFFFFF",
 };
 
@@ -538,12 +538,27 @@ async function loadImageAsBase64(path: string) {
   }
 }
 
+async function loadImageDimensions(path: string) {
+  try {
+    return await new Promise<{ width: number; height: number } | null>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+      image.onerror = () => reject(new Error(`Unable to load image dimensions for ${path}`));
+      image.src = path;
+    });
+  } catch {
+    return null;
+  }
+}
+
 async function addWorkbookImage(
   workbook: Workbook,
   worksheet: Worksheet,
   assetPath: string,
   extension: "png" | "jpeg",
-  range: { tl: { col: number; row: number }; br: { col: number; row: number } },
+  range:
+    | { tl: { col: number; row: number }; br: { col: number; row: number } }
+    | { tl: { col: number; row: number }; ext: { width: number; height: number } },
 ) {
   const base64 = await loadImageAsBase64(assetPath);
   if (!base64) return false;
@@ -553,6 +568,23 @@ async function addWorkbookImage(
   });
   worksheet.addImage(imageId, range as unknown as Parameters<Worksheet["addImage"]>[1]);
   return true;
+}
+
+async function addWorkbookImageByWidth(
+  workbook: Workbook,
+  worksheet: Worksheet,
+  assetPath: string,
+  extension: "png" | "jpeg",
+  tl: { col: number; row: number },
+  widthPx: number,
+) {
+  const dimensions = await loadImageDimensions(assetPath);
+  if (!dimensions) return false;
+  const heightPx = Math.round(widthPx * (dimensions.height / dimensions.width));
+  return addWorkbookImage(workbook, worksheet, assetPath, extension, {
+    tl,
+    ext: { width: widthPx, height: heightPx },
+  });
 }
 
 function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, model: ApprovalWorkbookModel) {
@@ -591,7 +623,7 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
 
   sheet.mergeCells("D2:I3");
   const titleCell = sheet.getCell("D2");
-  titleCell.value = "RapidQuote Executive Approval Summary";
+  titleCell.value = "iNet Executive Approval Summary";
   titleCell.font = { name: "Arial", bold: true, size: 22, color: { argb: BRAND.greenDark } };
   titleCell.alignment = { vertical: "middle", horizontal: "left" };
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
@@ -604,7 +636,7 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
 
   sheet.mergeCells("D4:I4");
   const subtitleCell = sheet.getCell("D4");
-  subtitleCell.value = "Branded internal management review copy aligned to pricing, approvals, and release readiness.";
+  subtitleCell.value = "Internal management review copy aligned to iNet proposal branding, pricing, approvals, and release readiness.";
   subtitleCell.font = { name: "Arial", size: 10, color: { argb: BRAND.slate } };
   subtitleCell.alignment = { vertical: "middle", horizontal: "left" };
   subtitleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
@@ -812,7 +844,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
 
   sheet.mergeCells("A1:K1");
   const titleCell = sheet.getCell("A1");
-  titleCell.value = "Detailed Pricing Support";
+  titleCell.value = "iNet Pricing Support";
   titleCell.font = { name: "Arial", bold: true, size: 18, color: { argb: BRAND.white } };
   titleCell.alignment = { vertical: "middle", horizontal: "center" };
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
@@ -825,7 +857,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   subCell.alignment = { vertical: "middle", horizontal: "center" };
 
   sheet.mergeCells("A3:K3");
-  sheet.getCell("A3").value = "Internal pricing backup for approval review, margin defense, and release readiness.";
+  sheet.getCell("A3").value = "Internal pricing backup for approval review, margin defense, and iNet release readiness.";
   sheet.getCell("A3").font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.text } };
   sheet.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
   sheet.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.gold } };
@@ -1042,7 +1074,7 @@ function buildNotesSheet(workbook: Workbook, model: ApprovalWorkbookModel) {
 
   sheet.mergeCells("A1:B1");
   const titleCell = sheet.getCell("A1");
-  titleCell.value = "Assumptions, Notes, and Review Support";
+  titleCell.value = "iNet Assumptions, Notes, and Review Support";
   titleCell.font = { name: "Arial", bold: true, size: 18, color: { argb: BRAND.white } };
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
   titleCell.alignment = { vertical: "middle", horizontal: "center" };
@@ -1108,27 +1140,31 @@ export async function buildProposalApprovalWorkbook(quote: QuoteRecord) {
   workbook.created = new Date();
   workbook.modified = new Date();
   workbook.subject = "Internal Approval Workbook";
-  workbook.title = `${model.proposalNumber} Approval Workbook`;
+  workbook.title = `${model.proposalNumber} iNet Approval Workbook`;
   workbook.calcProperties.fullCalcOnLoad = true;
 
   const summarySheet = buildExecutiveSummarySheet(exceljs, workbook, model);
   const detailSheet = buildLineItemDetailSheet(workbook, model);
   const notesSheet = buildNotesSheet(workbook, model);
 
-  const summaryLogoEmbedded = await addWorkbookImage(workbook, summarySheet, "/rapidquote-logo.jpg", "jpeg", {
-    tl: { col: 1.2, row: 1.2 },
-    br: { col: 3.2, row: 4.2 },
-  });
+  const summaryLogoEmbedded = await addWorkbookImageByWidth(
+    workbook,
+    summarySheet,
+    "/inet-logo.png",
+    "png",
+    { col: 1.35, row: 1.15 },
+    120,
+  );
 
   if (summaryLogoEmbedded) {
-    await addWorkbookImage(workbook, detailSheet, "/rapidquote-logo.jpg", "jpeg", {
-      tl: { col: 9.1, row: 0.3 },
-      br: { col: 11, row: 2.2 },
-    });
-    await addWorkbookImage(workbook, notesSheet, "/rapidquote-logo.jpg", "jpeg", {
-      tl: { col: 0.05, row: 0.2 },
-      br: { col: 0.95, row: 1.9 },
-    });
+    await addWorkbookImageByWidth(workbook, detailSheet, "/inet-logo.png", "png", {
+      col: 8.9,
+      row: 0.3,
+    }, 108);
+    await addWorkbookImageByWidth(workbook, notesSheet, "/inet-logo.png", "png", {
+      col: 0.08,
+      row: 0.2,
+    }, 72);
   }
 
   await addWorkbookImage(workbook, summarySheet, "/proposal-footer-hex.jpg", "jpeg", {
