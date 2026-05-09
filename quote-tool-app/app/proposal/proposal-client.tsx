@@ -8,7 +8,6 @@ import { AuthGate } from "@/app/components/auth-shell";
 import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
 import { buildProposalPrintPath } from "@/app/lib/proposal-navigation";
-import { buildProposalWordDocument } from "@/app/lib/proposal-word-export";
 import { buildProposalApprovalWorkbook } from "@/app/lib/proposal-xlsx-export";
 
 export function ProposalClient({ requestedProposalId = null }: { requestedProposalId?: string | null }) {
@@ -142,22 +141,6 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
     }
   };
 
-  const handleExportWord = async () => {
-    if (!quote) return;
-
-    const blob = await buildProposalWordDocument(quote);
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    const safeProposalNumber = quote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
-
-    link.href = objectUrl;
-    link.download = `${safeProposalNumber}.docx`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-  };
-
   const handleExportApprovalWorkbook = async () => {
     if (!quote) return;
 
@@ -222,9 +205,6 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
           <div className="proposal-toolbar-actions">
             <button type="button" className="proposal-secondary-button" onClick={() => void handleExportApprovalWorkbook()}>
               Export Approval XLSX
-            </button>
-            <button type="button" className="proposal-secondary-button" onClick={handleExportWord}>
-              Export Word
             </button>
             <button type="button" className="proposal-secondary-button" onClick={() => void handleViewPdf()}>
               View PDF
