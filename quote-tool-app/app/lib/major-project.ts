@@ -967,10 +967,10 @@ export function createDefaultMajorProjectState() {
     summary: {
       projectName: "",
       projectDescription: "",
-      versionLabel: "Commercial Model v1",
+      versionLabel: "",
       paymentTerms: "Net 30",
-      billingStart: "Upon delivery and activation",
-      assumptions: "Internal systems-integration commercial worksheet for multi-vendor projects. Internal components are the economics; bundles and customer labels are presentation layers.",
+      billingStart: "",
+      assumptions: "",
     },
     commercial: {
       termMonths: 36,
@@ -1339,9 +1339,10 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     ?? (activeOption?.simpleRows?.find((row) => row.bucket === "mrr")?.label)
     ?? state.commercial.recurringLabel
     ?? activeOption?.label
-    ?? state.summary.versionLabel;
+    ?? state.summary.projectName?.trim()
+    ?? "Major Project";
 
-  const recurringDescription = `${recurringDisplayLabel} — ${activeOption?.label ?? state.summary.versionLabel}`;
+  const recurringDescription = `${recurringDisplayLabel} — ${activeOption?.label ?? "Option 1"}`;
   const recurringSpecSheetLabel = metrics.customerQuoteLines.find((line) => line.presentationCategory === "recurring")?.resolvedSpecSheetLabel;
   const supportIncludedText = compact([
     `${siteCount} site${siteCount === 1 ? "" : "s"} under commercial management`,
@@ -1550,7 +1551,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         } : null,
       ]);
 
-  next.commercial.meta.optionLabel = activeOption?.label ?? state.summary.versionLabel;
+  next.commercial.meta.optionLabel = activeOption?.label ?? "Option 1";
   next.commercial.meta.comparisonGroup = state.summary.projectName || "Major Project";
   next.commercial.meta.notes = compact([
     state.summary.assumptions,
