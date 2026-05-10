@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { buildProposalPdfFileName } from "@/app/lib/proposal-pdf-cache";
+import {
+  buildProposalPdfFileName,
+  cacheProposalPdfQuote,
+  cleanupCachedProposalPdfQuote,
+} from "@/app/lib/proposal-pdf-cache";
 import { renderHtmlPdf } from "@/app/lib/proposal-html-pdf";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import {
@@ -28,28 +32,34 @@ export async function POST(request: Request) {
 
     const requestUrl = new URL(request.url);
     const serializedQuote = serializeQuoteRecord(quote);
-    const pdf = await renderHtmlPdf(
-      `${requestUrl.origin}/proposal/print?autoprint=0&pdf=1`,
-      undefined,
-      {
-        localStorage: {
-          [PROPOSAL_STORAGE_FALLBACK_KEY]: serializedQuote,
-        },
-        sessionStorage: {
-          [PROPOSAL_STORAGE_KEY]: serializedQuote,
-        },
-      },
-    );
-    const fileName = buildProposalPdfFileName(quote);
+    const token = await cacheProposalPdfQuote(quote, proposalId ?? quoteProposalId);
 
-    return new NextResponse(Buffer.from(pdf), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
-        "Cache-Control": "no-store",
-      },
-    });
+    try {
+      const pdf = await renderHtmlPdf(
+        `${requestUrl.origin}/proposal/print?autoprint=0&pdf=1&token=${encodeURIComponent(token)}&proposalId=${encodeURIComponent(proposalId ?? quoteProposalId ?? "")}`,
+        undefined,
+        {
+          localStorage: {
+            [PROPOSAL_STORAGE_FALLBACK_KEY]: serializedQuote,
+          },
+          sessionStorage: {
+            [PROPOSAL_STORAGE_KEY]: serializedQuote,
+          },
+        },
+      );
+      const fileName = buildProposalPdfFileName(quote);
+
+      return new NextResponse(Buffer.from(pdf), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${fileName}"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    } finally {
+      await cleanupCachedProposalPdfQuote(token);
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to generate proposal PDF.";
     return NextResponse.json({ error: message }, { status: 500 });
