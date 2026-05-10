@@ -588,6 +588,26 @@ const majorProjectBucketOptions: Array<{ value: MajorProjectSimpleBucket; label:
   { value: "other_recurring", label: "Other recurring", note: "Recurring allowance or other service" },
 ];
 
+const majorProjectVendorOptions = [
+  "Ilios-Integrators",
+  "Anixter Inc.",
+  "Easy Up",
+] as const;
+
+const majorProjectManufacturerOptions = [
+  "SpaceX",
+  "RAD",
+  "Ubiquiti",
+  "Axis",
+] as const;
+
+const MAJOR_PROJECT_CUSTOM_OPTION = "Custom";
+
+function resolvePresetOrCustomSelection(value: string | undefined, presets: readonly string[]) {
+  if (!value?.trim()) return "";
+  return presets.includes(value.trim()) ? value.trim() : MAJOR_PROJECT_CUSTOM_OPTION;
+}
+
 function majorProjectBucketLabel(bucket: MajorProjectSimpleBucket) {
   return majorProjectBucketOptions.find((option) => option.value === bucket)?.label ?? bucket;
 }
@@ -3141,8 +3161,50 @@ export default function QuotePreview() {
                             <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
                               <label className="builder-field compact"><span>Component name</span><input value={component.internalName} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
                               <label className="builder-field compact"><span>Customer label (optional)</span><input value={component.customerFacingLabel ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, customerFacingLabel: e.target.value }))} /></label>
-                              <label className="builder-field compact"><span>Vendor</span><input value={component.vendor} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, vendor: e.target.value }))} /></label>
-                              <label className="builder-field compact"><span>Manufacturer</span><input value={component.manufacturer ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, manufacturer: e.target.value }))} /></label>
+                              <label className="builder-field compact">
+                                <span>Vendor</span>
+                                <select
+                                  value={resolvePresetOrCustomSelection(component.vendor, majorProjectVendorOptions)}
+                                  onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({
+                                    ...current,
+                                    vendor: e.target.value === MAJOR_PROJECT_CUSTOM_OPTION ? "" : e.target.value,
+                                  }))}
+                                >
+                                  <option value="">Select vendor</option>
+                                  {majorProjectVendorOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                                  <option value={MAJOR_PROJECT_CUSTOM_OPTION}>{MAJOR_PROJECT_CUSTOM_OPTION}</option>
+                                </select>
+                                {resolvePresetOrCustomSelection(component.vendor, majorProjectVendorOptions) === MAJOR_PROJECT_CUSTOM_OPTION ? (
+                                  <input
+                                    className="mt-2"
+                                    value={component.vendor}
+                                    onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, vendor: e.target.value }))}
+                                    placeholder="Enter custom vendor"
+                                  />
+                                ) : null}
+                              </label>
+                              <label className="builder-field compact">
+                                <span>Manufacturer / Service Provider</span>
+                                <select
+                                  value={resolvePresetOrCustomSelection(component.manufacturer ?? "", majorProjectManufacturerOptions)}
+                                  onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({
+                                    ...current,
+                                    manufacturer: e.target.value === MAJOR_PROJECT_CUSTOM_OPTION ? "" : e.target.value,
+                                  }))}
+                                >
+                                  <option value="">Select manufacturer / service provider</option>
+                                  {majorProjectManufacturerOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                                  <option value={MAJOR_PROJECT_CUSTOM_OPTION}>{MAJOR_PROJECT_CUSTOM_OPTION}</option>
+                                </select>
+                                {resolvePresetOrCustomSelection(component.manufacturer ?? "", majorProjectManufacturerOptions) === MAJOR_PROJECT_CUSTOM_OPTION ? (
+                                  <input
+                                    className="mt-2"
+                                    value={component.manufacturer ?? ""}
+                                    onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, manufacturer: e.target.value }))}
+                                    placeholder="Enter custom manufacturer or service provider"
+                                  />
+                                ) : null}
+                              </label>
                               <label className="builder-field compact"><span>Line type</span><select value={component.lineType} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const lineType = e.target.value as MajorProjectComponent["lineType"]; return { ...current, lineType, category: majorProjectLineTypeLabel(lineType) }; })}><option value="hardware">Hardware</option><option value="software">Software</option><option value="subscription">Subscription</option><option value="installation">Installation</option><option value="service">Service</option><option value="support">Support</option><option value="managed_service">Managed service</option><option value="optional_service">Optional service</option><option value="internal_labor">Internal labor</option><option value="shipping">Shipping</option><option value="tax">Tax</option><option value="other">Other</option></select></label>
                               <label className="builder-field compact"><span>Schedule</span><select value={component.schedule} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, schedule: e.target.value as MajorProjectComponent["schedule"] }))}><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
                               <label className="builder-field compact"><span>Bundle assignment</span><select value={component.bundleAssignmentId ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, bundleAssignmentId: e.target.value }))}><option value="">Unassigned</option>{bundleOptions.map((bundle) => <option key={bundle.id} value={bundle.id}>{bundle.label}</option>)}</select></label>
