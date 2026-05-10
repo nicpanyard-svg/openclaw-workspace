@@ -885,7 +885,7 @@ function MajorProjectStepCard({
         </div>
         {!isCurrent ? (
           <button type="button" className="pill-button self-start" onClick={onOpen} disabled={isLocked}>
-            {isLocked ? "Finish earlier step first" : "Open step"}
+            {isLocked ? "Finish earlier step first" : "View step"}
           </button>
         ) : null}
       </div>
@@ -2847,7 +2847,7 @@ export default function QuotePreview() {
                     <div>
                       <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Major Project workflow</h3>
                       <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                        This workflow stays visible on the main quoting page so you can move from Quick Quote rows into Mapped Builder without hunting for a separate tool.
+                        This workflow stays on the main quoting page so you can move between Quick Quote and Mapped Builder in one place.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -2919,7 +2919,7 @@ export default function QuotePreview() {
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <div className="text-[14px] font-semibold text-[#16202b]">Choose your workflow</div>
-                            <div className="mt-1 text-[12px] text-[#627181]">Use Quick Quote for quote-ready rows, or switch to Mapped Builder for components, bundles, and structured quote lines.</div>
+                            <div className="mt-1 text-[12px] text-[#627181]">Pick the workflow that fits this option. Quick Quote builds quote-ready rows. Mapped Builder organizes components, bundles, and structured quote lines.</div>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="rounded-full border border-[#d7e0e8] bg-[#f8fbfd] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">
@@ -3452,7 +3452,7 @@ export default function QuotePreview() {
                           draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, visibility: nextVisibility } : item);
                           return draft;
                         });
-                      }}><option value="customer">Customer detail</option><option value="internal">Internal only</option></select></label>
+                      }}><option value="customer">Customer detail</option><option value="internal">Internal note</option></select></label>
                       <button type="button" className="danger-button self-end" onClick={() => {
                         setCustomSectionFields((current) => current.filter((item) => item.id !== field.id));
                         updateQuote((draft) => {
