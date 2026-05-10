@@ -3062,18 +3062,18 @@ export default function QuotePreview() {
                     <>
                     <MajorProjectStepCard
                       step="1"
-                      title="Internal components"
+                      title="Components"
                       count={activeMajorOptionComponents.length}
                       status={componentsStepStatus}
-                      summary="Enter the real parts, services, labor, cost, and sell price first."
-                      detail="Everything downstream rolls up from these rows."
+                      summary="Build the priced project scope with the parts, services, labor, cost, and sell price you need."
+                      detail="Bundles and proposal quote lines roll up from these rows."
                       onOpen={() => setMajorProjectEditorTab("components")}
                     >
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
                           <div>
-                            <strong className="text-[#16202b]">Internal components are the source of truth.</strong>
-                            <div className="mt-1">Set pricing, cost, schedule, and which internal bundle each component belongs to.</div>
+                            <strong className="text-[#16202b]">Components are the foundation for this workflow.</strong>
+                            <div className="mt-1">Set pricing, cost, schedule, and which bundle each component belongs to.</div>
                           </div>
                           <button type="button" className="pill-button pill-button-active" onClick={() => addMajorProjectComponent()}>Add component</button>
                         </div>
@@ -3122,7 +3122,7 @@ export default function QuotePreview() {
                         </div>
 
                         {activeMajorOptionComponents.length === 0 ? (
-                          <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No components yet. Add the first internal component so there is real economics behind the project.</div>
+                          <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No components yet. Add the first component so there is real pricing behind the project.</div>
                         ) : filteredMajorProjectComponents.length === 0 ? (
                           <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No components match the current filter. Clear the search or schedule filter to see everything again.</div>
                         ) : filteredMajorProjectComponents.map((component) => {
@@ -3167,7 +3167,7 @@ export default function QuotePreview() {
                               </div>
                             </div>
                             <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-                              <label className="builder-field compact"><span>Internal name</span><input value={component.internalName} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
+                              <label className="builder-field compact"><span>Component name</span><input value={component.internalName} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
                               <label className="builder-field compact"><span>Customer label (optional)</span><input value={component.customerFacingLabel ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, customerFacingLabel: e.target.value }))} /></label>
                               <label className="builder-field compact"><span>Vendor</span><input value={component.vendor} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, vendor: e.target.value }))} /></label>
                               <label className="builder-field compact"><span>Manufacturer</span><input value={component.manufacturer ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, manufacturer: e.target.value }))} /></label>
@@ -3207,16 +3207,16 @@ export default function QuotePreview() {
 
                     <MajorProjectStepCard
                       step="2"
-                      title="Internal bundles"
+                      title="Bundles"
                       count={activeMajorOptionBundles.length}
                       status={bundlesStepStatus}
-                      summary="Package the component rows into internal groups before anything turns customer-facing."
-                      detail="Each bundle should cleanly collect the economics it represents."
+                      summary="Group related components into the priced packages you want to carry forward."
+                      detail="Each bundle becomes a building block for downstream quote lines."
                       onOpen={() => setMajorProjectEditorTab("bundles")}
                     >
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
-                          <div><strong className="text-[#16202b]">Bundles are your internal grouping layer.</strong><div className="mt-1">Use them to collect the economic components that should roll together before anything becomes customer-facing.</div></div>
+                          <div><strong className="text-[#16202b]">Bundles organize how the solution is packaged.</strong><div className="mt-1">Use them to combine the components that should price and appear together downstream.</div></div>
                           <button type="button" className="pill-button pill-button-active" onClick={addMajorProjectBundle}>Add bundle</button>
                         </div>
                         <div className="major-project-toolbar">
@@ -3225,17 +3225,17 @@ export default function QuotePreview() {
                           <div className="major-project-toolbar-stat"><strong>{activeMajorOptionBundles.length}</strong><span>total</span></div>
                         </div>
 
-                        {activeMajorOptionBundles.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No bundles yet. Add one so components can roll into meaningful internal packages.</div> : filteredMajorProjectBundles.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No bundles match that search right now.</div> : filteredMajorProjectBundles.map((bundle) => {
+                        {activeMajorOptionBundles.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No bundles yet. Add one so related components can move forward as a packaged solution.</div> : filteredMajorProjectBundles.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No bundles match that search right now.</div> : filteredMajorProjectBundles.map((bundle) => {
                           const bundleMetrics = majorProjectMetrics.bundles.find((entry) => entry.id === bundle.id);
                           const selectedIds = new Set(bundle.componentIds ?? []);
                           return (
                             <div key={bundle.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
                               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Internal bundle</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{bundle.internalName}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{bundle.schedule ?? "mixed"}</span><span className="major-project-chip">{bundle.customerFacingLabel || "No customer label"}</span><span className="major-project-chip">{bundleMetrics?.resolvedComponentIds.length ?? 0} mapped</span></div>{bundle.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{bundle.description}</div> : null}</div>
+                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Bundle</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{bundle.internalName}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{bundle.schedule ?? "mixed"}</span><span className="major-project-chip">{bundle.customerFacingLabel || "No customer label"}</span><span className="major-project-chip">{bundleMetrics?.resolvedComponentIds.length ?? 0} mapped</span></div>{bundle.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{bundle.description}</div> : null}</div>
                                 <div className="flex flex-wrap gap-2"><button type="button" className="pill-button" onClick={() => duplicateMajorProjectBundle(bundle.id)}>Duplicate</button><button type="button" className="pill-button" onClick={() => addMajorProjectComponent(bundle.id)}>Add component into bundle</button><button type="button" className="danger-button" onClick={() => removeMajorProjectBundle(bundle.id)}>Remove</button></div>
                               </div>
                               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-                                <label className="builder-field compact"><span>Internal name</span><input value={bundle.internalName} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
+                                <label className="builder-field compact"><span>Bundle name</span><input value={bundle.internalName} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
                                 <label className="builder-field compact"><span>Customer-facing label</span><input value={bundle.customerFacingLabel} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, customerFacingLabel: e.target.value }))} /></label>
                                 <label className="builder-field compact"><span>Category</span><input value={bundle.category ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, category: e.target.value }))} /></label>
                                 <label className="builder-field compact"><span>Schedule</span><select value={bundle.schedule ?? "mixed"} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, schedule: e.target.value as MajorProjectBundle["schedule"] }))}><option value="mixed">Mixed</option><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
@@ -3243,7 +3243,7 @@ export default function QuotePreview() {
                               <label className="builder-field compact mt-3"><span>Description</span><textarea rows={2} value={bundle.description ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, description: e.target.value }))} /></label>
                               <div className="mt-3 grid gap-3 lg:grid-cols-2">
                                 <label className="builder-field compact"><span>Supporting spec label</span><input value={bundle.specSheetLabel ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetLabel: e.target.value }))} placeholder="VSAT outdoor unit spec" /></label>
-                                <label className="builder-field compact"><span>Internal spec location</span><input value={bundle.specSheetLocation ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetLocation: e.target.value }))} placeholder="SharePoint / vendor folder / PDF name" /></label>
+                                <label className="builder-field compact"><span>Spec file location</span><input value={bundle.specSheetLocation ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, specSheetLocation: e.target.value }))} placeholder="SharePoint / vendor folder / PDF name" /></label>
                               </div>
                               <MajorProjectSpecAttachmentField
                                 itemId={bundle.id}
@@ -3278,8 +3278,8 @@ export default function QuotePreview() {
                       title="Customer quote lines"
                       count={activeMajorOptionQuoteLines.length}
                       status={quoteLinesStepStatus}
-                      summary="Choose which bundles show up for the customer and where they land in the proposal."
-                      detail="Sections A, B, and C are downstream output only."
+                      summary="Choose which bundles appear in the proposal and where they land."
+                      detail="Sections A, B, and C populate from this workflow surface."
                       onOpen={() => setMajorProjectEditorTab("quote_lines")}
                     >
                       <div className="space-y-4">
