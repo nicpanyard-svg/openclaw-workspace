@@ -42,6 +42,7 @@ import {
   type MajorProjectBuilderMode,
   type MajorProjectComponent,
   type MajorProjectCustomerQuoteLine,
+  type MajorProjectOption,
   type MajorProjectSpecAttachment,
   type MajorProjectSimpleBucket,
   type MajorProjectSimpleRow,
@@ -189,6 +190,28 @@ function getNextMajorProjectLineItemNumber(lines: MajorProjectCustomerQuoteLine[
     return Math.max(max, fallbackLineItemNumber);
   }, 0);
   return highestLineItemNumber + 1;
+}
+
+function findSynchronizedQuoteLineForBundle(
+  option: MajorProjectOption,
+  bundleId: string,
+) {
+  const linkedQuoteLines = (option.customerQuoteLines ?? []).filter((line) => (line.bundleIds ?? []).includes(bundleId));
+  if (linkedQuoteLines.length !== 1) return null;
+  const [linkedQuoteLine] = linkedQuoteLines;
+  return (linkedQuoteLine.bundleIds ?? []).length === 1 ? linkedQuoteLine : null;
+}
+
+function findSynchronizedBundleForQuoteLine(
+  option: MajorProjectOption,
+  quoteLineId: string,
+) {
+  const quoteLine = option.customerQuoteLines?.find((line) => line.id === quoteLineId);
+  if (!quoteLine || (quoteLine.bundleIds ?? []).length !== 1) return null;
+  const [bundleId] = quoteLine.bundleIds;
+  const linkedQuoteLines = (option.customerQuoteLines ?? []).filter((line) => (line.bundleIds ?? []).includes(bundleId));
+  if (linkedQuoteLines.length !== 1) return null;
+  return option.bundles?.find((bundle) => bundle.id === bundleId) ?? null;
 }
 
 function computeEquipmentRow(row: EquipmentPricingRow): EquipmentPricingRow {
@@ -1735,7 +1758,20 @@ export default function QuotePreview() {
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option?.bundles) return draft;
-      option.bundles = option.bundles.map((bundle) => bundle.id === bundleId ? updater(bundle) : bundle);
+      const currentBundle = option.bundles.find((bundle) => bundle.id === bundleId);
+      if (!currentBundle) return draft;
+      const nextBundle = updater(currentBundle);
+      option.bundles = option.bundles.map((bundle) => bundle.id === bundleId ? nextBundle : bundle);
+      if (nextBundle.customerFacingLabel !== currentBundle.customerFacingLabel) {
+        const synchronizedQuoteLine = findSynchronizedQuoteLineForBundle(option, bundleId);
+        if (synchronizedQuoteLine) {
+          option.customerQuoteLines = (option.customerQuoteLines ?? []).map((line) => (
+            line.id === synchronizedQuoteLine.id
+              ? { ...line, label: nextBundle.customerFacingLabel }
+              : line
+          ));
+        }
+      }
       return draft;
     });
   };
@@ -1794,7 +1830,20 @@ export default function QuotePreview() {
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option?.customerQuoteLines) return draft;
-      option.customerQuoteLines = option.customerQuoteLines.map((line) => line.id === quoteLineId ? updater(line) : line);
+      const currentQuoteLine = option.customerQuoteLines.find((line) => line.id === quoteLineId);
+      if (!currentQuoteLine) return draft;
+      const nextQuoteLine = updater(currentQuoteLine);
+      option.customerQuoteLines = option.customerQuoteLines.map((line) => line.id === quoteLineId ? nextQuoteLine : line);
+      if (nextQuoteLine.label !== currentQuoteLine.label) {
+        const synchronizedBundle = findSynchronizedBundleForQuoteLine(option, quoteLineId);
+        if (synchronizedBundle) {
+          option.bundles = (option.bundles ?? []).map((bundle) => (
+            bundle.id === synchronizedBundle.id
+              ? { ...bundle, customerFacingLabel: nextQuoteLine.label }
+              : bundle
+          ));
+        }
+      }
       return draft;
     });
   };
