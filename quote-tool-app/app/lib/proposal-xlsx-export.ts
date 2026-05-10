@@ -621,26 +621,26 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
   sheet.getCell("B1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
   sheet.getRow(1).height = 26;
 
-  sheet.mergeCells("D2:I3");
-  const titleCell = sheet.getCell("D2");
+  sheet.mergeCells("B2:G3");
+  const titleCell = sheet.getCell("B2");
   titleCell.value = "iNet Executive Approval Summary";
   titleCell.font = { name: "Arial", bold: true, size: 22, color: { argb: BRAND.greenDark } };
   titleCell.alignment = { vertical: "middle", horizontal: "left" };
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
-  applyOuterBorder(sheet, 2, 3, 4, 9);
+  applyOuterBorder(sheet, 2, 3, 2, 7);
 
-  sheet.mergeCells("B2:C4");
-  sheet.getCell("B2").value = "";
-  sheet.getCell("B2").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenPale } };
-  applyOuterBorder(sheet, 2, 4, 2, 3);
+  sheet.mergeCells("H2:I4");
+  sheet.getCell("H2").value = "";
+  sheet.getCell("H2").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenPale } };
+  applyOuterBorder(sheet, 2, 4, 8, 9);
 
-  sheet.mergeCells("D4:I4");
-  const subtitleCell = sheet.getCell("D4");
+  sheet.mergeCells("B4:G4");
+  const subtitleCell = sheet.getCell("B4");
   subtitleCell.value = "Internal management review copy aligned to iNet proposal branding, pricing, approvals, and release readiness.";
   subtitleCell.font = { name: "Arial", size: 10, color: { argb: BRAND.slate } };
   subtitleCell.alignment = { vertical: "middle", horizontal: "left" };
   subtitleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
-  applyOuterBorder(sheet, 4, 4, 4, 9);
+  applyOuterBorder(sheet, 4, 4, 2, 7);
 
   sheet.mergeCells("B5:E5");
   sheet.getCell("B5").value = "INTERNAL ONLY  |  EXECUTIVE REVIEW  |  APPROVAL-READY";
@@ -1152,8 +1152,8 @@ export async function buildProposalApprovalWorkbook(quote: QuoteRecord) {
     summarySheet,
     "/inet-logo.png",
     "png",
-    { col: 1.35, row: 1.15 },
-    120,
+    { col: 7.12, row: 1.2 },
+    104,
   );
 
   if (summaryLogoEmbedded) {
