@@ -1673,6 +1673,24 @@ export default function QuotePreview() {
         includedRevenueComponentIds: (bundle.includedRevenueComponentIds ?? []).filter((componentId) => !selectedComponentIdSet.has(componentId)),
       }));
 
+      const cleanedQuoteLines = (option.customerQuoteLines ?? [])
+        .map((line) => ({
+          ...line,
+          bundleIds: (line.bundleIds ?? []).filter((bundleId) => bundleId !== nextBundle.id),
+          includedCostComponentIds: (line.includedCostComponentIds ?? []).filter((componentId) => !selectedComponentIdSet.has(componentId)),
+          includedRevenueComponentIds: (line.includedRevenueComponentIds ?? []).filter((componentId) => !selectedComponentIdSet.has(componentId)),
+        }))
+        .filter((line) => (
+          (line.bundleIds?.length ?? 0) > 0
+          || (line.includedCostComponentIds?.length ?? 0) > 0
+          || (line.includedRevenueComponentIds?.length ?? 0) > 0
+        ));
+
+      const nextLineItemNumber = getNextMajorProjectLineItemNumber(cleanedQuoteLines);
+      const customerFacingLabel = createMajorProjectLineItemNumberLabel(nextLineItemNumber);
+      const bundleDescription = createMajorProjectBundleDescription(selectedComponents, customerFacingLabel);
+      createdLineItemLabel = customerFacingLabel;
+
       option.components = (option.components ?? []).map((component) => (
         selectedComponentIdSet.has(component.id)
           ? {
@@ -1691,25 +1709,6 @@ export default function QuotePreview() {
         }),
         nextBundle,
       ];
-
-      const validBundleIds = new Set(option.bundles.map((bundle) => bundle.id));
-      const cleanedQuoteLines = (option.customerQuoteLines ?? [])
-        .map((line) => ({
-          ...line,
-          bundleIds: (line.bundleIds ?? []).filter((bundleId) => validBundleIds.has(bundleId)),
-          includedCostComponentIds: (line.includedCostComponentIds ?? []).filter((componentId) => !selectedComponentIdSet.has(componentId)),
-          includedRevenueComponentIds: (line.includedRevenueComponentIds ?? []).filter((componentId) => !selectedComponentIdSet.has(componentId)),
-        }))
-        .filter((line) => (
-          (line.bundleIds?.length ?? 0) > 0
-          || (line.includedCostComponentIds?.length ?? 0) > 0
-          || (line.includedRevenueComponentIds?.length ?? 0) > 0
-        ));
-
-      const nextLineItemNumber = getNextMajorProjectLineItemNumber(cleanedQuoteLines);
-      const customerFacingLabel = createMajorProjectLineItemNumberLabel(nextLineItemNumber);
-      const bundleDescription = createMajorProjectBundleDescription(selectedComponents, customerFacingLabel);
-      createdLineItemLabel = customerFacingLabel;
 
       nextBundle.customerFacingLabel = customerFacingLabel;
       nextBundle.description = bundleDescription;
