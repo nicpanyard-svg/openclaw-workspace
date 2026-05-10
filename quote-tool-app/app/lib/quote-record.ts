@@ -350,6 +350,7 @@ export type MajorProjectBundle = {
 
 export type MajorProjectCustomerQuoteLine = {
   id: string;
+  lineItemNumber?: number;
   label: string;
   description?: string;
   specSheetLabel?: string;

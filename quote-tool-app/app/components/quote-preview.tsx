@@ -179,6 +179,18 @@ function createMajorProjectLineItemNumberLabel(index: number) {
   return `${index}`;
 }
 
+function getNextMajorProjectLineItemNumber(lines: MajorProjectCustomerQuoteLine[]) {
+  const highestLineItemNumber = lines.reduce((max, line, index) => {
+    const lineItemNumber = Number(line.lineItemNumber);
+    if (Number.isInteger(lineItemNumber) && lineItemNumber > 0) {
+      return Math.max(max, lineItemNumber);
+    }
+    const fallbackLineItemNumber = /^\d+$/.test(line.label?.trim() ?? "") ? Number(line.label.trim()) : index + 1;
+    return Math.max(max, fallbackLineItemNumber);
+  }, 0);
+  return highestLineItemNumber + 1;
+}
+
 function computeEquipmentRow(row: EquipmentPricingRow): EquipmentPricingRow {
   return {
     ...row,
@@ -643,6 +655,7 @@ function createMajorProjectBundleDraft(index: number): MajorProjectBundle {
 function createMajorProjectQuoteLineDraft(index: number): MajorProjectCustomerQuoteLine {
   return {
     id: `major-quote-line-${Date.now()}-${index}`,
+    lineItemNumber: index,
     label: `Quote line ${index}`,
     description: "",
     specSheetLabel: "",
@@ -1693,7 +1706,7 @@ export default function QuotePreview() {
           || (line.includedRevenueComponentIds?.length ?? 0) > 0
         ));
 
-      const nextLineItemNumber = cleanedQuoteLines.length + 1;
+      const nextLineItemNumber = getNextMajorProjectLineItemNumber(cleanedQuoteLines);
       const customerFacingLabel = createMajorProjectLineItemNumberLabel(nextLineItemNumber);
       const bundleDescription = createMajorProjectBundleDescription(selectedComponents, customerFacingLabel);
       createdLineItemLabel = customerFacingLabel;
@@ -1701,6 +1714,7 @@ export default function QuotePreview() {
       nextBundle.customerFacingLabel = customerFacingLabel;
       nextBundle.description = bundleDescription;
       const nextQuoteLine = createMajorProjectQuoteLineDraft(nextLineItemNumber);
+      nextQuoteLine.lineItemNumber = nextLineItemNumber;
       nextQuoteLine.label = customerFacingLabel;
       nextQuoteLine.description = bundleDescription;
       nextQuoteLine.bundleIds = [nextBundle.id];
@@ -1790,7 +1804,7 @@ export default function QuotePreview() {
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option) return draft;
-      const nextIndex = (option.customerQuoteLines?.length ?? 0) + 1;
+      const nextIndex = getNextMajorProjectLineItemNumber(option.customerQuoteLines ?? []);
       const nextLine = createMajorProjectQuoteLineDraft(nextIndex);
       const firstUnusedBundle = (option.bundles ?? []).find((bundle) => !(option.customerQuoteLines ?? []).some((line) => (line.bundleIds ?? []).includes(bundle.id)));
       if (firstUnusedBundle) {
@@ -1822,9 +1836,11 @@ export default function QuotePreview() {
       if (!option?.customerQuoteLines) return draft;
       const line = option.customerQuoteLines.find((entry) => entry.id === quoteLineId);
       if (!line) return draft;
+      const nextLineItemNumber = getNextMajorProjectLineItemNumber(option.customerQuoteLines);
       option.customerQuoteLines = [...option.customerQuoteLines, {
         ...line,
         id: `${line.id}-copy-${Date.now()}`,
+        lineItemNumber: nextLineItemNumber,
         label: `${line.label || "Quote line"} copy`,
       }];
       return draft;

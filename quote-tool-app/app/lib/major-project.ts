@@ -207,6 +207,7 @@ function createDefaultBundle(): MajorProjectBundle {
 function createDefaultCustomerQuoteLine(): MajorProjectCustomerQuoteLine {
   return {
     id: "major-quote-line-1",
+    lineItemNumber: 1,
     label: "Integrated solution package",
     description: "",
     specSheetLabel: "",
@@ -218,6 +219,16 @@ function createDefaultCustomerQuoteLine(): MajorProjectCustomerQuoteLine {
     schedule: "mixed",
     presentationCategory: "other",
   };
+}
+
+function normalizeLineItemNumber(value: unknown, index: number, label?: string) {
+  const explicitValue = Number(value);
+  if (Number.isInteger(explicitValue) && explicitValue > 0) return explicitValue;
+
+  const trimmedLabel = label?.trim() ?? "";
+  if (/^\d+$/.test(trimmedLabel)) return Number(trimmedLabel);
+
+  return index + 1;
 }
 
 function uniqueIds(ids: Array<string | undefined | null>) {
@@ -291,6 +302,7 @@ function normalizeCustomerQuoteLine(line: Partial<MajorProjectCustomerQuoteLine>
     ...defaults,
     ...line,
     id: line?.id ?? `major-quote-line-${index + 1}`,
+    lineItemNumber: normalizeLineItemNumber(line?.lineItemNumber, index, line?.label),
     specSheetLabel: line?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
     specSheetLocation: line?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
     specSheetAttachment: normalizeMajorProjectSpecAttachment(line?.specSheetAttachment),
