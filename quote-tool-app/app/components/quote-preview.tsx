@@ -29,7 +29,7 @@ import {
   type SavedCustomerProfile,
 } from "@/app/lib/customer-profiles";
 import { ensureNickTrainingDemoProfiles, ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
-import { applyMajorProjectToQuote, buildMajorProjectMetrics, convertMajorProjectQuickBuilderToMappedModel, ensureMajorProjectState, getActiveMajorProjectOption } from "@/app/lib/major-project";
+import { applyMajorProjectToQuote, buildMajorProjectMetrics, convertMajorProjectQuickBuilderToMappedModel, ensureMajorProjectState, getActiveMajorProjectOption, majorProjectLineTypeLabel } from "@/app/lib/major-project";
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
 import {
   createDefaultServiceAgreementProfile,
@@ -639,7 +639,7 @@ function createMajorProjectComponentDraft(index: number, bundleId = ""): MajorPr
     customerFacingLabel: "",
     vendor: "",
     manufacturer: "",
-    category: "third-party hardware",
+    category: majorProjectLineTypeLabel("hardware"),
     lineType: "hardware",
     quantity: 1,
     unit: "ea",
@@ -1084,7 +1084,7 @@ export default function QuotePreview() {
         component.customerFacingLabel,
         component.vendor,
         component.manufacturer,
-        component.category,
+        component.lineType,
         component.bundleAssignmentId,
         component.notes,
       ].filter(Boolean).join(" ").toLowerCase();
@@ -3087,7 +3087,7 @@ export default function QuotePreview() {
                           </div>
                         ) : null}
                         <div className="major-project-toolbar">
-                          <label className="builder-field compact major-project-toolbar-search"><span>Find component</span><input value={majorProjectComponentSearch} onChange={(e) => setMajorProjectComponentSearch(e.target.value)} placeholder="Search name, vendor, category, notes" /></label>
+                          <label className="builder-field compact major-project-toolbar-search"><span>Find component</span><input value={majorProjectComponentSearch} onChange={(e) => setMajorProjectComponentSearch(e.target.value)} placeholder="Search name, vendor, line type, notes" /></label>
                           <label className="builder-field compact"><span>Schedule</span><select value={majorProjectComponentScheduleFilter} onChange={(e) => setMajorProjectComponentScheduleFilter(e.target.value as MajorProjectScheduleFilter)}><option value="all">All schedules</option><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
                           <div className="major-project-toolbar-stat"><strong>{filteredMajorProjectComponents.length}</strong><span>showing</span></div>
                           <div className="major-project-toolbar-stat"><strong>{activeMajorOptionComponents.length}</strong><span>total</span></div>
@@ -3143,8 +3143,7 @@ export default function QuotePreview() {
                               <label className="builder-field compact"><span>Customer label (optional)</span><input value={component.customerFacingLabel ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, customerFacingLabel: e.target.value }))} /></label>
                               <label className="builder-field compact"><span>Vendor</span><input value={component.vendor} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, vendor: e.target.value }))} /></label>
                               <label className="builder-field compact"><span>Manufacturer</span><input value={component.manufacturer ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, manufacturer: e.target.value }))} /></label>
-                              <label className="builder-field compact"><span>Category</span><input value={component.category} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, category: e.target.value }))} /></label>
-                              <label className="builder-field compact"><span>Line type</span><select value={component.lineType} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, lineType: e.target.value as MajorProjectComponent["lineType"] }))}><option value="hardware">Hardware</option><option value="software">Software</option><option value="subscription">Subscription</option><option value="installation">Installation</option><option value="service">Service</option><option value="support">Support</option><option value="managed_service">Managed service</option><option value="optional_service">Optional service</option><option value="internal_labor">Internal labor</option><option value="shipping">Shipping</option><option value="tax">Tax</option><option value="other">Other</option></select></label>
+                              <label className="builder-field compact"><span>Line type</span><select value={component.lineType} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const lineType = e.target.value as MajorProjectComponent["lineType"]; return { ...current, lineType, category: majorProjectLineTypeLabel(lineType) }; })}><option value="hardware">Hardware</option><option value="software">Software</option><option value="subscription">Subscription</option><option value="installation">Installation</option><option value="service">Service</option><option value="support">Support</option><option value="managed_service">Managed service</option><option value="optional_service">Optional service</option><option value="internal_labor">Internal labor</option><option value="shipping">Shipping</option><option value="tax">Tax</option><option value="other">Other</option></select></label>
                               <label className="builder-field compact"><span>Schedule</span><select value={component.schedule} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, schedule: e.target.value as MajorProjectComponent["schedule"] }))}><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
                               <label className="builder-field compact"><span>Bundle assignment</span><select value={component.bundleAssignmentId ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, bundleAssignmentId: e.target.value }))}><option value="">Unassigned</option>{bundleOptions.map((bundle) => <option key={bundle.id} value={bundle.id}>{bundle.label}</option>)}</select></label>
                             </div>

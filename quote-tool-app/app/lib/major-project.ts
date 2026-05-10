@@ -114,6 +114,35 @@ export type MajorProjectOutputSpecAttachment = {
   outputItemLabel: string;
 };
 
+export function majorProjectLineTypeLabel(lineType: MajorProjectComponent["lineType"]) {
+  switch (lineType) {
+    case "hardware":
+      return "Hardware";
+    case "software":
+      return "Software";
+    case "subscription":
+      return "Subscription";
+    case "installation":
+      return "Installation";
+    case "service":
+      return "Service";
+    case "support":
+      return "Support";
+    case "managed_service":
+      return "Managed service";
+    case "optional_service":
+      return "Optional service";
+    case "internal_labor":
+      return "Internal labor";
+    case "shipping":
+      return "Shipping";
+    case "tax":
+      return "Tax";
+    default:
+      return "Other";
+  }
+}
+
 const outputSpecAttachmentSectionOrder: Record<MajorProjectOutputSpecAttachment["outputSection"], number> = {
   sectionA: 0,
   sectionB: 1,
@@ -168,7 +197,7 @@ function createDefaultComponent(): MajorProjectComponent {
     customerFacingLabel: "",
     vendor: "",
     manufacturer: "",
-    category: "third-party hardware",
+    category: majorProjectLineTypeLabel("hardware"),
     lineType: "hardware",
     quantity: 1,
     unit: "ea",
@@ -259,6 +288,7 @@ function resolveMajorProjectBuilderMode(option: MajorProjectOption | null | unde
 
 function normalizeComponent(component: Partial<MajorProjectComponent> | undefined, index: number): MajorProjectComponent {
   const defaults = createDefaultComponent();
+  const lineType = component?.lineType ?? defaults.lineType;
   const quantity = Math.max(Number(component?.quantity ?? defaults.quantity) || defaults.quantity, 0);
   const customerUnitPrice = Number(component?.customerUnitPrice ?? defaults.customerUnitPrice) || 0;
   const vendorUnitCost = Number(component?.vendorUnitCost ?? defaults.vendorUnitCost) || 0;
@@ -270,6 +300,8 @@ function normalizeComponent(component: Partial<MajorProjectComponent> | undefine
     ...component,
     id: component?.id ?? `major-component-${index + 1}`,
     internalName: component?.internalName ?? defaults.internalName,
+    lineType,
+    category: majorProjectLineTypeLabel(lineType),
     bundleAssignmentId: component?.bundleAssignmentId?.trim() ?? "",
     quantity,
     customerUnitPrice,

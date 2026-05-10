@@ -1,6 +1,6 @@
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import type { MajorProjectCustomerQuoteLineMetrics } from "@/app/lib/major-project";
-import { buildMajorProjectMetrics } from "@/app/lib/major-project";
+import { buildMajorProjectMetrics, majorProjectLineTypeLabel } from "@/app/lib/major-project";
 import type {
   MajorProjectComponent,
   MajorProjectSimpleRow,
@@ -198,7 +198,7 @@ function buildAdvancedMajorProjectLines(components: MajorProjectComponent[]) {
         component.manufacturer ? `Mfr: ${component.manufacturer}` : "",
         component.notes,
       ]).join(" | "),
-      category: component.category || component.lineType,
+      category: majorProjectLineTypeLabel(component.lineType),
       schedule: component.schedule === "recurring" ? "Recurring" : "One-time",
       quantity: component.quantity,
       unit: component.unit || "ea",
