@@ -604,8 +604,10 @@ const majorProjectManufacturerOptions = [
 const MAJOR_PROJECT_CUSTOM_OPTION = "Custom";
 
 function resolvePresetOrCustomSelection(value: string | undefined, presets: readonly string[]) {
-  if (!value?.trim()) return "";
-  return presets.includes(value.trim()) ? value.trim() : MAJOR_PROJECT_CUSTOM_OPTION;
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "";
+  if (trimmed === MAJOR_PROJECT_CUSTOM_OPTION) return MAJOR_PROJECT_CUSTOM_OPTION;
+  return presets.includes(trimmed) ? trimmed : MAJOR_PROJECT_CUSTOM_OPTION;
 }
 
 function majorProjectBucketLabel(bucket: MajorProjectSimpleBucket) {
@@ -3167,7 +3169,7 @@ export default function QuotePreview() {
                                   value={resolvePresetOrCustomSelection(component.vendor, majorProjectVendorOptions)}
                                   onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({
                                     ...current,
-                                    vendor: e.target.value === MAJOR_PROJECT_CUSTOM_OPTION ? "" : e.target.value,
+                                    vendor: e.target.value === MAJOR_PROJECT_CUSTOM_OPTION ? MAJOR_PROJECT_CUSTOM_OPTION : e.target.value,
                                   }))}
                                 >
                                   <option value="">Select vendor</option>
@@ -3177,7 +3179,7 @@ export default function QuotePreview() {
                                 {resolvePresetOrCustomSelection(component.vendor, majorProjectVendorOptions) === MAJOR_PROJECT_CUSTOM_OPTION ? (
                                   <input
                                     className="mt-2"
-                                    value={component.vendor}
+                                    value={component.vendor === MAJOR_PROJECT_CUSTOM_OPTION ? "" : component.vendor}
                                     onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, vendor: e.target.value }))}
                                     placeholder="Enter custom vendor"
                                   />
@@ -3189,7 +3191,7 @@ export default function QuotePreview() {
                                   value={resolvePresetOrCustomSelection(component.manufacturer ?? "", majorProjectManufacturerOptions)}
                                   onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({
                                     ...current,
-                                    manufacturer: e.target.value === MAJOR_PROJECT_CUSTOM_OPTION ? "" : e.target.value,
+                                    manufacturer: e.target.value === MAJOR_PROJECT_CUSTOM_OPTION ? MAJOR_PROJECT_CUSTOM_OPTION : e.target.value,
                                   }))}
                                 >
                                   <option value="">Select manufacturer / service provider</option>
@@ -3199,7 +3201,7 @@ export default function QuotePreview() {
                                 {resolvePresetOrCustomSelection(component.manufacturer ?? "", majorProjectManufacturerOptions) === MAJOR_PROJECT_CUSTOM_OPTION ? (
                                   <input
                                     className="mt-2"
-                                    value={component.manufacturer ?? ""}
+                                    value={component.manufacturer === MAJOR_PROJECT_CUSTOM_OPTION ? "" : component.manufacturer ?? ""}
                                     onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, manufacturer: e.target.value }))}
                                     placeholder="Enter custom manufacturer or service provider"
                                   />
