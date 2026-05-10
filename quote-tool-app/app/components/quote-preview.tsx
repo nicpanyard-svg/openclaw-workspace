@@ -89,7 +89,6 @@ type EntryIntent = "new-customer" | "select-customer" | "major-project" | "major
 type MajorProjectComponentBundleDraft = {
   sourceComponentId: string;
   selectedComponentIds: string[];
-  customerFacingLabel: string;
 };
 
 const emptyEquipmentDraft: EquipmentDraft = {
@@ -174,6 +173,10 @@ function inferMajorProjectQuoteLineCategory(components: MajorProjectComponent[])
   ]);
 
   return components.every((component) => serviceLineTypes.has(component.lineType)) ? "services" : "hardware";
+}
+
+function createMajorProjectLineItemNumberLabel(index: number) {
+  return `${index}`;
 }
 
 function computeEquipmentRow(row: EquipmentPricingRow): EquipmentPricingRow {
@@ -1590,7 +1593,6 @@ export default function QuotePreview() {
     setMajorProjectComponentBundleDraft({
       sourceComponentId: component.id,
       selectedComponentIds: [component.id],
-      customerFacingLabel: component.customerFacingLabel?.trim() || component.internalName?.trim() || "",
     });
     setWorkflowNotice(null);
   };
@@ -1620,13 +1622,8 @@ export default function QuotePreview() {
   const confirmMajorProjectComponentBundleDraft = () => {
     if (!majorProjectComponentBundleDraft) return;
 
-    const customerFacingLabel = majorProjectComponentBundleDraft.customerFacingLabel.trim();
     const selectedComponentIds = Array.from(new Set(majorProjectComponentBundleDraft.selectedComponentIds));
-
-    if (!customerFacingLabel) {
-      setWorkflowNotice("Add the shared customer-facing name before creating the bundle.");
-      return;
-    }
+    let createdLineItemLabel = "";
 
     if (selectedComponentIds.length < 2) {
       setWorkflowNotice("Select at least one other component so the bundle includes more than the starting item.");
@@ -1646,14 +1643,10 @@ export default function QuotePreview() {
       const nextBundle = createMajorProjectBundleDraft((option.bundles?.length ?? 0) + 1);
       const bundleSchedule = inferMajorProjectBundleSchedule(selectedComponents);
 
-      const bundleDescription = createMajorProjectBundleDescription(selectedComponents, customerFacingLabel);
-
       nextBundle.internalName = createMajorProjectBundleInternalName(
         sourceComponent,
         sourceComponent.internalName?.trim() || nextBundle.internalName,
       );
-      nextBundle.customerFacingLabel = customerFacingLabel;
-      nextBundle.description = bundleDescription;
       nextBundle.componentIds = resolvedSelectedIds;
       nextBundle.includedCostComponentIds = resolvedSelectedIds;
       nextBundle.includedRevenueComponentIds = resolvedSelectedIds;
@@ -1700,7 +1693,14 @@ export default function QuotePreview() {
           || (line.includedRevenueComponentIds?.length ?? 0) > 0
         ));
 
-      const nextQuoteLine = createMajorProjectQuoteLineDraft(cleanedQuoteLines.length + 1);
+      const nextLineItemNumber = cleanedQuoteLines.length + 1;
+      const customerFacingLabel = createMajorProjectLineItemNumberLabel(nextLineItemNumber);
+      const bundleDescription = createMajorProjectBundleDescription(selectedComponents, customerFacingLabel);
+      createdLineItemLabel = customerFacingLabel;
+
+      nextBundle.customerFacingLabel = customerFacingLabel;
+      nextBundle.description = bundleDescription;
+      const nextQuoteLine = createMajorProjectQuoteLineDraft(nextLineItemNumber);
       nextQuoteLine.label = customerFacingLabel;
       nextQuoteLine.description = bundleDescription;
       nextQuoteLine.bundleIds = [nextBundle.id];
@@ -1715,7 +1715,7 @@ export default function QuotePreview() {
 
     setMajorProjectComponentBundleDraft(null);
     setMajorProjectEditorTab("bundles");
-    setWorkflowNotice(`Created bundle "${customerFacingLabel}" with ${selectedComponentIds.length} components and a matching customer quote line.`);
+    setWorkflowNotice(`Created bundle for line item ${createdLineItemLabel || "number"} with ${selectedComponentIds.length} components and a matching customer quote line.`);
   };
 
   const updateActiveMajorBundle = (bundleId: string, updater: (bundle: MajorProjectBundle) => MajorProjectBundle) => {
@@ -3018,21 +3018,21 @@ export default function QuotePreview() {
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div>
                                 <strong className="text-[#16202b]">Bundle with this</strong>
-                                <div className="mt-1">Select the other components that belong with this item, then give the bundled items one shared customer-facing name.</div>
+                                <div className="mt-1">Select the other components that belong with this item. The generated bundle and customer quote line will use the next line item number automatically.</div>
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 <button
                                   type="button"
                                   className="pill-button pill-button-active"
                                   onClick={confirmMajorProjectComponentBundleDraft}
-                                  disabled={majorProjectComponentBundleDraft.selectedComponentIds.length < 2 || !majorProjectComponentBundleDraft.customerFacingLabel.trim()}
+                                  disabled={majorProjectComponentBundleDraft.selectedComponentIds.length < 2}
                                 >
                                   Create bundle
                                 </button>
                                 <button type="button" className="pill-button" onClick={cancelMajorProjectComponentBundleDraft}>Cancel</button>
                               </div>
                             </div>
-                            <div className="mt-3 grid gap-3 lg:grid-cols-[.9fr_.8fr_1.3fr]">
+                            <div className="mt-3 grid gap-3 lg:grid-cols-3">
                               <div className="rounded-[16px] border border-[#eadfe2] bg-white px-4 py-3">
                                 <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Starting item</div>
                                 <div className="mt-1 font-semibold text-[#16202b]">
@@ -3043,14 +3043,10 @@ export default function QuotePreview() {
                                 <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Items selected</div>
                                 <div className="mt-1 font-semibold text-[#16202b]">{majorProjectComponentBundleDraft.selectedComponentIds.length}</div>
                               </div>
-                              <label className="builder-field compact">
-                                <span>Shared customer-facing name</span>
-                                <input
-                                  value={majorProjectComponentBundleDraft.customerFacingLabel}
-                                  onChange={(e) => setMajorProjectComponentBundleDraft((current) => current ? { ...current, customerFacingLabel: e.target.value } : current)}
-                                  placeholder="Outdoor connectivity package"
-                                />
-                              </label>
+                              <div className="rounded-[16px] border border-[#eadfe2] bg-white px-4 py-3">
+                                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Customer label</div>
+                                <div className="mt-1 font-semibold text-[#16202b]">Next line item number</div>
+                              </div>
                             </div>
                           </div>
                         ) : null}
