@@ -2847,7 +2847,7 @@ export default function QuotePreview() {
                     <div>
                       <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Major Project workflow</h3>
                       <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                        This workflow stays visible on the main quoting page so you can move from fast rows into mapped internal packaging without hunting for a separate tool.
+                        This workflow stays visible on the main quoting page so you can move from Quick Quote rows into Mapped Builder without hunting for a separate tool.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -2914,16 +2914,16 @@ export default function QuotePreview() {
                   </div>
 
                   <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
-                    <details className="group rounded-[16px] border border-[#efe3e5] bg-[#fffafa] p-3">
-                      <summary className="list-none rounded-[14px] border border-[#d7e0e8] bg-white px-4 py-3 transition hover:border-[#b8c7d4] hover:bg-[#f8fbfd] cursor-pointer">
+                    <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] p-4">
+                      <div>
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <div className="text-[14px] font-semibold text-[#16202b]">Open mapped model worksheet</div>
-                            <div className="mt-1 text-[12px] text-[#627181]">Switch from the fast quote builder into the mapped model when the project needs deeper internal packaging control.</div>
+                            <div className="text-[14px] font-semibold text-[#16202b]">Choose your workflow</div>
+                            <div className="mt-1 text-[12px] text-[#627181]">Use Quick Quote for quote-ready rows, or switch to Mapped Builder for components, bundles, and structured quote lines.</div>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="rounded-full border border-[#d7e0e8] bg-[#f8fbfd] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">
-                              Internal only
+                              Mapped Builder
                             </span>
                             <span
                               aria-hidden="true"
@@ -2933,33 +2933,33 @@ export default function QuotePreview() {
                             </span>
                           </div>
                         </div>
-                      </summary>
+                      </div>
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
                         <ToggleCard
-                          label="Build Fast"
-                          description="Stay in the fast quote builder with quote-ready rows, live sell, cost, and margin."
+                          label="Quick Quote"
+                          description="Build with quote-ready rows, live sell, cost, margin, and downstream bucket assignment."
                           active={majorProjectState.builderMode !== "advanced"}
                           onClick={() => setMajorProjectBuilderMode("simple")}
                         />
                         <ToggleCard
-                          label="Convert to Mapped Model"
-                          description="Move this proposal into the mapped model for components, bundles, and customer-facing quote lines."
+                          label="Mapped Builder"
+                          description="Build from mapped components and bundles while keeping customer-facing quote lines structured."
                           active={majorProjectState.builderMode === "advanced"}
                           onClick={() => setMajorProjectBuilderMode("advanced")}
                         />
                       </div>
                       {majorProjectState.builderMode === "advanced" ? (
                         <div className="mt-3 rounded-[16px] border border-[#ead7da] bg-white px-4 py-3 text-[13px] text-[#5d6772]">
-                          This proposal is currently driven by the mapped model. The Build Fast row builder is hidden so the mapped workflow stays primary on this page.
+                          This proposal is currently using Mapped Builder. Quick Quote rows stay out of the way so this workflow remains focused.
                         </div>
                       ) : null}
-                    </details>
+                    </div>
 
                       {majorProjectState.builderMode !== "advanced" ? (
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
                           <div>
-                            <strong className="text-[#16202b]">Build Fast with quote rows.</strong>
+                            <strong className="text-[#16202b]">Quick Quote with quote rows.</strong>
                             <div className="mt-1">Each row carries its own sell price, our cost, margin, and downstream bucket assignment.</div>
                           </div>
                           <button type="button" className="pill-button pill-button-active" onClick={addMajorProjectSimpleRow}>Add row</button>
