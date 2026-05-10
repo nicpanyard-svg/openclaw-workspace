@@ -129,9 +129,26 @@ function majorProjectMarginPercent(revenue: number, cost: number) {
   return ((revenue - cost) / revenue) * 100;
 }
 
-function createMajorProjectBundleInternalName(customerFacingLabel: string, fallback: string) {
-  const trimmed = customerFacingLabel.trim();
-  return trimmed ? `${trimmed} bundle` : fallback;
+function createMajorProjectBundleInternalName(sourceComponent: MajorProjectComponent | undefined, fallback: string) {
+  const trimmed = sourceComponent?.internalName?.trim();
+  return trimmed || fallback;
+}
+
+function createMajorProjectBundleDescription(components: MajorProjectComponent[], customerFacingLabel: string) {
+  const sharedLabel = normalizeSearchValue(customerFacingLabel);
+  const seen = new Set<string>();
+  const details: string[] = [];
+
+  for (const component of components) {
+    for (const candidate of [component.customerFacingLabel?.trim(), component.notes?.trim()]) {
+      const normalized = normalizeSearchValue(candidate ?? "");
+      if (!normalized || normalized === sharedLabel || seen.has(normalized)) continue;
+      seen.add(normalized);
+      details.push(candidate!);
+    }
+  }
+
+  return details.join(" | ");
 }
 
 function inferMajorProjectBundleSchedule(components: MajorProjectComponent[]): MajorProjectBundle["schedule"] {
@@ -1629,12 +1646,14 @@ export default function QuotePreview() {
       const nextBundle = createMajorProjectBundleDraft((option.bundles?.length ?? 0) + 1);
       const bundleSchedule = inferMajorProjectBundleSchedule(selectedComponents);
 
+      const bundleDescription = createMajorProjectBundleDescription(selectedComponents, customerFacingLabel);
+
       nextBundle.internalName = createMajorProjectBundleInternalName(
-        customerFacingLabel,
+        sourceComponent,
         sourceComponent.internalName?.trim() || nextBundle.internalName,
       );
       nextBundle.customerFacingLabel = customerFacingLabel;
-      nextBundle.description = sourceComponent.notes?.trim() || "";
+      nextBundle.description = bundleDescription;
       nextBundle.componentIds = resolvedSelectedIds;
       nextBundle.includedCostComponentIds = resolvedSelectedIds;
       nextBundle.includedRevenueComponentIds = resolvedSelectedIds;
@@ -1683,6 +1702,7 @@ export default function QuotePreview() {
 
       const nextQuoteLine = createMajorProjectQuoteLineDraft(cleanedQuoteLines.length + 1);
       nextQuoteLine.label = customerFacingLabel;
+      nextQuoteLine.description = bundleDescription;
       nextQuoteLine.bundleIds = [nextBundle.id];
       nextQuoteLine.includedCostComponentIds = resolvedSelectedIds;
       nextQuoteLine.includedRevenueComponentIds = resolvedSelectedIds;
@@ -3151,7 +3171,7 @@ export default function QuotePreview() {
                           return (
                             <div key={bundle.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
                               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Internal bundle</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{bundle.internalName}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{bundle.schedule ?? "mixed"}</span><span className="major-project-chip">{bundle.customerFacingLabel || "No customer label"}</span><span className="major-project-chip">{bundleMetrics?.resolvedComponentIds.length ?? 0} mapped</span></div></div>
+                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Internal bundle</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{bundle.internalName}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{bundle.schedule ?? "mixed"}</span><span className="major-project-chip">{bundle.customerFacingLabel || "No customer label"}</span><span className="major-project-chip">{bundleMetrics?.resolvedComponentIds.length ?? 0} mapped</span></div>{bundle.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{bundle.description}</div> : null}</div>
                                 <div className="flex flex-wrap gap-2"><button type="button" className="pill-button" onClick={() => duplicateMajorProjectBundle(bundle.id)}>Duplicate</button><button type="button" className="pill-button" onClick={() => addMajorProjectComponent(bundle.id)}>Add component into bundle</button><button type="button" className="danger-button" onClick={() => removeMajorProjectBundle(bundle.id)}>Remove</button></div>
                               </div>
                               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
@@ -3226,7 +3246,7 @@ export default function QuotePreview() {
                           return (
                             <div key={line.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
                               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Customer quote line</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{line.label}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{line.presentationCategory ?? "other"}</span><span className="major-project-chip">{line.schedule ?? "mixed"}</span><span className="major-project-chip">{metrics?.resolvedBundleIds.length ?? 0} bundle feeds</span></div></div>
+                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Customer quote line</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{line.label}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{line.presentationCategory ?? "other"}</span><span className="major-project-chip">{line.schedule ?? "mixed"}</span><span className="major-project-chip">{metrics?.resolvedBundleIds.length ?? 0} bundle feeds</span></div>{line.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{line.description}</div> : null}</div>
                                 <div className="flex flex-wrap gap-2"><button type="button" className="pill-button" onClick={() => duplicateMajorProjectQuoteLine(line.id)}>Duplicate</button><button type="button" className="danger-button" onClick={() => removeMajorProjectQuoteLine(line.id)}>Remove</button></div>
                               </div>
                               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
