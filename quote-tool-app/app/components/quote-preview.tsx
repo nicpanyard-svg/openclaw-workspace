@@ -3154,18 +3154,19 @@ export default function QuotePreview() {
                               <label className="builder-field compact"><span>Customer unit price</span><input type="number" step="0.01" value={component.customerUnitPrice} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(e.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /></label>
                               <label className="builder-field compact"><span>Vendor unit cost</span><input type="number" step="0.01" value={component.vendorUnitCost} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const vendorUnitCost = Math.max(parseNumber(e.target.value), 0); return { ...current, vendorUnitCost, vendorExtendedCost: Number((current.quantity * vendorUnitCost).toFixed(2)) }; })} /></label>
                             </div>
-                            <details className="mt-3 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
-                              <summary className="cursor-pointer list-none text-[14px] font-semibold text-[#16202b]">
-                                More controls
-                                <span className="ml-2 text-[12px] font-normal text-[#6a7682]">Basis, pass-through, and notes.</span>
-                              </summary>
+                            <label className="builder-field compact mt-3">
+                              <span>Line item description</span>
+                              <textarea rows={2} value={component.notes ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, notes: e.target.value }))} placeholder="Customer-facing description that should travel with this line item" />
+                            </label>
+                            <div className="mt-3 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
+                              <div className="text-[14px] font-semibold text-[#16202b]">Pricing controls</div>
+                              <div className="mt-1 text-[12px] text-[#6a7682]">Keep commercial basis and pass-through settings available without hiding the line item description.</div>
                               <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
                                 <label className="builder-field compact"><span>Cost basis</span><select value={component.costBasis} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, costBasis: e.target.value as MajorProjectComponent["costBasis"] }))}><option value="vendor_quote">Vendor quote</option><option value="msrp">MSRP</option><option value="estimate">Estimate</option><option value="internal_labor">Internal labor</option><option value="blended">Blended</option><option value="other">Other</option></select></label>
                                 <label className="builder-field compact"><span>Resale basis</span><select value={component.resaleBasis} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, resaleBasis: e.target.value as MajorProjectComponent["resaleBasis"] }))}><option value="fixed_fee">Fixed fee</option><option value="cost_plus">Cost plus</option><option value="target_margin">Target margin</option><option value="pass_through">Pass through</option><option value="bundle">Bundle</option><option value="other">Other</option></select></label>
                                 <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={component.passThrough} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, passThrough: e.target.checked }))} /> Pass-through</label>
                               </div>
-                              <label className="builder-field compact mt-3"><span>Notes</span><textarea rows={2} value={component.notes ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, notes: e.target.value }))} /></label>
-                            </details>
+                            </div>
                             <div className="mt-3 grid gap-3 lg:grid-cols-4 text-[12px] text-[#5f6c78]">
                               <div className="rounded-[14px] bg-white px-3 py-2">Revenue {formatCurrency(componentRevenue, currencyCode)}</div>
                               <div className="rounded-[14px] bg-white px-3 py-2">Cost {formatCurrency(componentCost, currencyCode)}</div>
