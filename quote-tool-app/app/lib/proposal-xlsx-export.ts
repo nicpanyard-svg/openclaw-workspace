@@ -55,6 +55,29 @@ type ExcelJSModule = typeof import("exceljs");
 type Workbook = import("exceljs").Workbook;
 type Worksheet = import("exceljs").Worksheet;
 type CellValue = string | number | null;
+type FormulaCellValue = { formula: string; result: number };
+type MetricCardValue = string | (FormulaCellValue & { numFmt: string });
+
+type ApprovalWorkbookRollupRefs = {
+  recurring: {
+    revenue: string;
+    cost: string;
+    grossProfit: string;
+    grossMargin: string;
+  };
+  oneTime: {
+    revenue: string;
+    cost: string;
+    grossProfit: string;
+    grossMargin: string;
+  };
+  total: {
+    revenue: string;
+    cost: string;
+    grossProfit: string;
+    grossMargin: string;
+  };
+};
 
 const BRAND = {
   greenDark: "FF8C1212",
@@ -90,6 +113,27 @@ function normalizeQuantity(value: number | string | null | undefined): number | 
 
 function fileSafeName(value: string) {
   return value.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
+}
+
+function toExcelColumn(columnNumber: number) {
+  let current = columnNumber;
+  let result = "";
+
+  while (current > 0) {
+    const remainder = (current - 1) % 26;
+    result = String.fromCharCode(65 + remainder) + result;
+    current = Math.floor((current - 1) / 26);
+  }
+
+  return result;
+}
+
+function excelCellRef(columnNumber: number, rowNumber: number) {
+  return `${toExcelColumn(columnNumber)}${rowNumber}`;
+}
+
+function worksheetCellRef(sheetName: string, columnNumber: number, rowNumber: number) {
+  return `'${sheetName.replace(/'/g, "''")}'!${excelCellRef(columnNumber, rowNumber)}`;
 }
 
 function allocateCostsByRevenue<T extends { revenue: number }>(items: T[], totalCost: number) {
@@ -466,6 +510,18 @@ function stylePercentCell(cell: import("exceljs").Cell, value: number) {
   cell.alignment = { vertical: "middle", horizontal: "right" };
 }
 
+function styleFormulaMoneyCell(cell: import("exceljs").Cell, formula: string, result: number) {
+  cell.value = { formula, result };
+  cell.numFmt = '"$"#,##0.00';
+  cell.alignment = { vertical: "middle", horizontal: "right" };
+}
+
+function styleFormulaPercentCell(cell: import("exceljs").Cell, formula: string, result: number) {
+  cell.value = { formula, result };
+  cell.numFmt = "0.0%";
+  cell.alignment = { vertical: "middle", horizontal: "right" };
+}
+
 function applyTableHeader(worksheet: Worksheet, row: number, labels: string[]) {
   labels.forEach((label, index) => {
     const cell = worksheet.getCell(row, index + 1);
@@ -495,7 +551,7 @@ function applyBodyCellStyle(cell: import("exceljs").Cell, fill: string) {
   };
 }
 
-function applyMetricCard(worksheet: Worksheet, row: number, fromCol: number, toCol: number, label: string, value: string, accent: string) {
+function applyMetricCard(worksheet: Worksheet, row: number, fromCol: number, toCol: number, label: string, value: MetricCardValue, accent: string) {
   worksheet.mergeCells(row, fromCol, row, toCol);
   worksheet.mergeCells(row + 1, fromCol, row + 1, toCol);
 
@@ -506,10 +562,15 @@ function applyMetricCard(worksheet: Worksheet, row: number, fromCol: number, toC
   titleCell.alignment = { vertical: "middle", horizontal: "center" };
 
   const valueCell = worksheet.getCell(row + 1, fromCol);
-  valueCell.value = value;
   valueCell.font = { name: "Arial", bold: true, size: 14, color: { argb: BRAND.text } };
   valueCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
   valueCell.alignment = { vertical: "middle", horizontal: "center" };
+  if (typeof value === "string") {
+    valueCell.value = value;
+  } else {
+    valueCell.value = { formula: value.formula, result: value.result };
+    valueCell.numFmt = value.numFmt;
+  }
 
   applyOuterBorder(worksheet, row, row + 1, fromCol, toCol);
 }
@@ -587,7 +648,12 @@ async function addWorkbookImageByWidth(
   });
 }
 
-function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, model: ApprovalWorkbookModel) {
+function buildExecutiveSummarySheet(
+  exceljs: ExcelJSModule,
+  workbook: Workbook,
+  model: ApprovalWorkbookModel,
+  rollups: ApprovalWorkbookRollupRefs,
+) {
   const sheet = workbook.addWorksheet("Executive Summary", {
     properties: { defaultRowHeight: 18 },
     views: [{ state: "frozen", ySplit: 8 }],
@@ -657,10 +723,26 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
   applyOuterBorder(sheet, 5, 5, 6, 9, BRAND.gold);
   sheet.getRow(5).height = 20;
 
-  applyMetricCard(sheet, 6, 2, 3, "Recurring Revenue", formatMoney(model.recurringRevenue), BRAND.green);
-  applyMetricCard(sheet, 6, 4, 5, "One-time Revenue", formatMoney(model.oneTimeRevenue), BRAND.slate);
-  applyMetricCard(sheet, 6, 6, 7, "Total Gross Profit", formatMoney(model.totalGrossProfit), BRAND.greenDark);
-  applyMetricCard(sheet, 6, 8, 9, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.gold);
+  applyMetricCard(sheet, 6, 2, 3, "Recurring Revenue", {
+    formula: rollups.recurring.revenue,
+    result: model.recurringRevenue,
+    numFmt: '"$"#,##0.00',
+  }, BRAND.green);
+  applyMetricCard(sheet, 6, 4, 5, "One-time Revenue", {
+    formula: rollups.oneTime.revenue,
+    result: model.oneTimeRevenue,
+    numFmt: '"$"#,##0.00',
+  }, BRAND.slate);
+  applyMetricCard(sheet, 6, 6, 7, "Total Gross Profit", {
+    formula: rollups.total.grossProfit,
+    result: model.totalGrossProfit,
+    numFmt: '"$"#,##0.00',
+  }, BRAND.greenDark);
+  applyMetricCard(sheet, 6, 8, 9, "Gross Margin", {
+    formula: rollups.total.grossMargin,
+    result: model.totalGrossMarginPercent / 100,
+    numFmt: "0.0%",
+  }, BRAND.gold);
 
   applySectionBand(sheet, 9, 2, 9, "Proposal Overview");
   styleLabelValueRow(sheet, 10, 2, 3, "Proposal Number", model.proposalNumber);
@@ -711,9 +793,33 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
   sheet.mergeCells("I21:I21");
 
   const metricRows = [
-    ["Recurring", model.recurringRevenue, model.recurringCost, model.recurringGrossProfit, model.recurringGrossMarginPercent / 100, "Monthly / recurring program value", "Review durability of services margin."],
-    ["One-time", model.oneTimeRevenue, model.oneTimeCost, model.oneTimeGrossProfit, model.oneTimeGrossMarginPercent / 100, "Hardware, install, and services", "Confirm deployment recovery and exceptions."],
-    ["Total Deal", model.totalRevenue, model.totalCost, model.totalGrossProfit, model.totalGrossMarginPercent / 100, "Overall customer commitment", "Use as the primary executive checkpoint."],
+    [
+      "Recurring",
+      { formula: rollups.recurring.revenue, result: model.recurringRevenue },
+      { formula: rollups.recurring.cost, result: model.recurringCost },
+      { formula: rollups.recurring.grossProfit, result: model.recurringGrossProfit },
+      { formula: rollups.recurring.grossMargin, result: model.recurringGrossMarginPercent / 100 },
+      "Monthly / recurring program value",
+      "Review durability of services margin.",
+    ],
+    [
+      "One-time",
+      { formula: rollups.oneTime.revenue, result: model.oneTimeRevenue },
+      { formula: rollups.oneTime.cost, result: model.oneTimeCost },
+      { formula: rollups.oneTime.grossProfit, result: model.oneTimeGrossProfit },
+      { formula: rollups.oneTime.grossMargin, result: model.oneTimeGrossMarginPercent / 100 },
+      "Hardware, install, and services",
+      "Confirm deployment recovery and exceptions.",
+    ],
+    [
+      "Total Deal",
+      { formula: rollups.total.revenue, result: model.totalRevenue },
+      { formula: rollups.total.cost, result: model.totalCost },
+      { formula: rollups.total.grossProfit, result: model.totalGrossProfit },
+      { formula: rollups.total.grossMargin, result: model.totalGrossMarginPercent / 100 },
+      "Overall customer commitment",
+      "Use as the primary executive checkpoint.",
+    ],
   ] as const;
 
   metricRows.forEach((entry, index) => {
@@ -726,11 +832,13 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
     [3, 4, 5].forEach((col, metricIndex) => {
       const cell = sheet.getCell(rowNumber, col);
       applyBodyCellStyle(cell, fill);
-      styleMoneyCell(cell, entry[metricIndex + 1] as number);
+      const metric = entry[metricIndex + 1] as FormulaCellValue;
+      styleFormulaMoneyCell(cell, metric.formula, metric.result);
     });
     const percentCell = sheet.getCell(rowNumber, 6);
     applyBodyCellStyle(percentCell, fill);
-    stylePercentCell(percentCell, entry[4]);
+    const percentMetric = entry[4] as FormulaCellValue;
+    styleFormulaPercentCell(percentCell, percentMetric.formula, percentMetric.result);
     const viewCell = sheet.getCell(rowNumber, 7);
     const noteCell = sheet.getCell(rowNumber, 8);
     applyBodyCellStyle(viewCell, fill);
@@ -814,7 +922,8 @@ function buildExecutiveSummarySheet(exceljs: ExcelJSModule, workbook: Workbook, 
 }
 
 function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookModel) {
-  const sheet = workbook.addWorksheet("Line Item Detail", {
+  const sheetName = "Line Item Detail";
+  const sheet = workbook.addWorksheet(sheetName, {
     properties: { defaultRowHeight: 18 },
     views: [{ state: "frozen", ySplit: 8 }],
   });
@@ -835,6 +944,8 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
     { width: 11 },
     { width: 8 },
     { width: 8 },
+    { width: 13 },
+    { width: 13 },
     { width: 15 },
     { width: 15 },
     { width: 15 },
@@ -842,7 +953,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
     { width: 34 },
   ];
 
-  sheet.mergeCells("A1:K1");
+  sheet.mergeCells("A1:M1");
   const titleCell = sheet.getCell("A1");
   titleCell.value = "iNet Pricing Support";
   titleCell.font = { name: "Arial", bold: true, size: 18, color: { argb: BRAND.white } };
@@ -850,31 +961,31 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
   sheet.getRow(1).height = 26;
 
-  sheet.mergeCells("A2:K2");
+  sheet.mergeCells("A2:M2");
   const subCell = sheet.getCell("A2");
   subCell.value = `${model.customerName} | ${model.projectName} | ${model.proposalNumber}`;
   subCell.font = { name: "Arial", size: 10, color: { argb: BRAND.slate } };
   subCell.alignment = { vertical: "middle", horizontal: "center" };
 
-  sheet.mergeCells("A3:K3");
+  sheet.mergeCells("A3:M3");
   sheet.getCell("A3").value = "Internal pricing backup for approval review, margin defense, and iNet release readiness.";
   sheet.getCell("A3").font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.text } };
   sheet.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
   sheet.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.gold } };
-  applyOuterBorder(sheet, 3, 3, 1, 11, BRAND.gold);
+  applyOuterBorder(sheet, 3, 3, 1, 13, BRAND.gold);
 
   applyMetricCard(sheet, 4, 1, 2, "Recurring", formatMoney(model.recurringRevenue), BRAND.green);
   applyMetricCard(sheet, 4, 3, 4, "One-time", formatMoney(model.oneTimeRevenue), BRAND.slate);
   applyMetricCard(sheet, 4, 5, 6, "Total Revenue", formatMoney(model.totalRevenue), BRAND.greenDark);
   applyMetricCard(sheet, 4, 7, 8, "Total Cost", formatMoney(model.totalCost), BRAND.gold);
-  applyMetricCard(sheet, 4, 9, 11, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.green);
+  applyMetricCard(sheet, 4, 9, 13, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.green);
 
-  sheet.mergeCells("A7:K7");
-  sheet.getCell("A7").value = "Review recurring and one-time line items below. Use notes to explain allocation logic, vendor context, or pass-through treatment.";
+  sheet.mergeCells("A7:M7");
+  sheet.getCell("A7").value = "Edit Qty, Sell / Unit, or Cost / Unit below to recalculate extended pricing, gross profit, gross margin, and executive rollups automatically.";
   sheet.getCell("A7").font = { name: "Arial", size: 9, color: { argb: BRAND.text } };
   sheet.getCell("A7").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
   sheet.getCell("A7").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
-  applyOuterBorder(sheet, 7, 7, 1, 11);
+  applyOuterBorder(sheet, 7, 7, 1, 13);
 
   const headers = [
     "Item",
@@ -883,6 +994,8 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
     "Schedule",
     "Qty",
     "Unit",
+    "Sell / Unit",
+    "Cost / Unit",
     "Customer Pricing",
     "Our Cost",
     "Gross Profit",
@@ -896,7 +1009,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   const oneTimeTotals = buildLineTotals(oneTimeLines);
 
   let currentRow = 8;
-  applySectionBand(sheet, currentRow, 1, 11, "Recurring Line Items");
+  applySectionBand(sheet, currentRow, 1, 13, "Recurring Line Items");
   currentRow += 1;
   applyTableHeader(sheet, currentRow, headers);
   currentRow += 1;
@@ -915,22 +1028,33 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
       grossMarginPercent: 0,
       notes: "",
     }];
+    const startRow = currentRow;
 
     source.forEach((line, index) => {
       const fill = index % 2 === 0 ? BRAND.white : BRAND.greenPale;
       const row = sheet.getRow(currentRow);
       row.height = 20;
+      const quantityValue = line.quantity === "" ? "" : line.quantity;
+      const quantityNumber = typeof quantityValue === "number" && Number.isFinite(quantityValue) ? quantityValue : null;
+      const sellPerUnit = quantityNumber && quantityNumber !== 0
+        ? roundCurrency(line.customerPricing / quantityNumber)
+        : roundCurrency(line.customerPricing);
+      const costPerUnit = quantityNumber && quantityNumber !== 0
+        ? roundCurrency(line.ourCost / quantityNumber)
+        : roundCurrency(line.ourCost);
       const values: CellValue[] = [
         line.item,
         line.description,
         line.category,
         line.schedule,
-        line.quantity === "" ? "" : line.quantity,
+        quantityValue,
         line.unit,
-        line.customerPricing,
-        line.ourCost,
-        line.grossProfit,
-        line.grossMarginPercent / 100,
+        sellPerUnit,
+        costPerUnit,
+        null,
+        null,
+        null,
+        null,
         line.notes,
       ];
 
@@ -940,80 +1064,134 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
         cell.value = value;
       });
 
-      [7, 8, 9].forEach((col) => {
+      [7, 8].forEach((col) => {
         sheet.getCell(currentRow, col).numFmt = '"$"#,##0.00';
         sheet.getCell(currentRow, col).alignment = { vertical: "top", horizontal: "right" };
       });
-      sheet.getCell(currentRow, 10).numFmt = "0.0%";
-      sheet.getCell(currentRow, 10).alignment = { vertical: "top", horizontal: "right" };
+      styleFormulaMoneyCell(
+        sheet.getCell(currentRow, 9),
+        `IF(OR(${excelCellRef(5, currentRow)}="",${excelCellRef(7, currentRow)}=""),0,${excelCellRef(5, currentRow)}*${excelCellRef(7, currentRow)})`,
+        line.customerPricing,
+      );
+      styleFormulaMoneyCell(
+        sheet.getCell(currentRow, 10),
+        `IF(OR(${excelCellRef(5, currentRow)}="",${excelCellRef(8, currentRow)}=""),0,${excelCellRef(5, currentRow)}*${excelCellRef(8, currentRow)})`,
+        line.ourCost,
+      );
+      styleFormulaMoneyCell(
+        sheet.getCell(currentRow, 11),
+        `${excelCellRef(9, currentRow)}-${excelCellRef(10, currentRow)}`,
+        line.grossProfit,
+      );
+      styleFormulaPercentCell(
+        sheet.getCell(currentRow, 12),
+        `IFERROR(${excelCellRef(11, currentRow)}/${excelCellRef(9, currentRow)},0)`,
+        line.grossMarginPercent / 100,
+      );
+      sheet.getCell(currentRow, 13).alignment = { vertical: "top", horizontal: "left", wrapText: true };
 
       currentRow += 1;
     });
+
+    return {
+      startRow,
+      endRow: currentRow - 1,
+    };
   };
 
-  writeLineRows(recurringLines);
+  const recurringSection = writeLineRows(recurringLines);
 
-  sheet.mergeCells(currentRow, 1, currentRow, 6);
+  sheet.mergeCells(currentRow, 1, currentRow, 8);
   const recurringSubtotalLabel = sheet.getCell(currentRow, 1);
   recurringSubtotalLabel.value = "Recurring Subtotal";
   recurringSubtotalLabel.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.text } };
   recurringSubtotalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
   recurringSubtotalLabel.alignment = { vertical: "middle", horizontal: "left" };
-  applyOuterBorder(sheet, currentRow, currentRow, 1, 6);
+  applyOuterBorder(sheet, currentRow, currentRow, 1, 8);
 
-  [7, 8, 9, 10].forEach((col, index) => {
+  const recurringSubtotalRow = currentRow;
+
+  [9, 10, 11, 12].forEach((col, index) => {
     const cell = sheet.getCell(currentRow, col);
     applyBodyCellStyle(cell, BRAND.cream);
     cell.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.text } };
-    if (col === 10) {
-      stylePercentCell(cell, recurringTotals.grossMarginPercent);
+    if (col === 12) {
+      styleFormulaPercentCell(
+        cell,
+        `IFERROR(${excelCellRef(11, currentRow)}/${excelCellRef(9, currentRow)},0)`,
+        recurringTotals.grossMarginPercent,
+      );
     } else {
-      styleMoneyCell(cell, [recurringTotals.revenue, recurringTotals.cost, recurringTotals.grossProfit][index]);
+      const result = [recurringTotals.revenue, recurringTotals.cost, recurringTotals.grossProfit][index] ?? 0;
+      styleFormulaMoneyCell(
+        cell,
+        `SUM(${excelCellRef(col, recurringSection.startRow)}:${excelCellRef(col, recurringSection.endRow)})`,
+        result,
+      );
     }
   });
-  applyBodyCellStyle(sheet.getCell(currentRow, 11), BRAND.cream);
+  applyBodyCellStyle(sheet.getCell(currentRow, 13), BRAND.cream);
   currentRow += 2;
 
-  applySectionBand(sheet, currentRow, 1, 11, "One-time Line Items");
+  applySectionBand(sheet, currentRow, 1, 13, "One-time Line Items");
   currentRow += 1;
   applyTableHeader(sheet, currentRow, headers);
   currentRow += 1;
-  writeLineRows(oneTimeLines);
+  const oneTimeSection = writeLineRows(oneTimeLines);
 
-  sheet.mergeCells(currentRow, 1, currentRow, 6);
+  sheet.mergeCells(currentRow, 1, currentRow, 8);
   const oneTimeSubtotalLabel = sheet.getCell(currentRow, 1);
   oneTimeSubtotalLabel.value = "One-time Subtotal";
   oneTimeSubtotalLabel.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.text } };
   oneTimeSubtotalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
   oneTimeSubtotalLabel.alignment = { vertical: "middle", horizontal: "left" };
-  applyOuterBorder(sheet, currentRow, currentRow, 1, 6);
+  applyOuterBorder(sheet, currentRow, currentRow, 1, 8);
 
-  [7, 8, 9, 10].forEach((col, index) => {
+  const oneTimeSubtotalRow = currentRow;
+
+  [9, 10, 11, 12].forEach((col, index) => {
     const cell = sheet.getCell(currentRow, col);
     applyBodyCellStyle(cell, BRAND.cream);
     cell.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.text } };
-    if (col === 10) {
-      stylePercentCell(cell, oneTimeTotals.grossMarginPercent);
+    if (col === 12) {
+      styleFormulaPercentCell(
+        cell,
+        `IFERROR(${excelCellRef(11, currentRow)}/${excelCellRef(9, currentRow)},0)`,
+        oneTimeTotals.grossMarginPercent,
+      );
     } else {
-      styleMoneyCell(cell, [oneTimeTotals.revenue, oneTimeTotals.cost, oneTimeTotals.grossProfit][index]);
+      const result = [oneTimeTotals.revenue, oneTimeTotals.cost, oneTimeTotals.grossProfit][index] ?? 0;
+      styleFormulaMoneyCell(
+        cell,
+        `SUM(${excelCellRef(col, oneTimeSection.startRow)}:${excelCellRef(col, oneTimeSection.endRow)})`,
+        result,
+      );
     }
   });
-  applyBodyCellStyle(sheet.getCell(currentRow, 11), BRAND.cream);
+  applyBodyCellStyle(sheet.getCell(currentRow, 13), BRAND.cream);
   currentRow += 2;
 
-  sheet.mergeCells(currentRow, 1, currentRow, 6);
+  sheet.mergeCells(currentRow, 1, currentRow, 8);
   const totalLabel = sheet.getCell(currentRow, 1);
   totalLabel.value = "TOTAL DEAL";
   totalLabel.font = { name: "Arial", bold: true, size: 11, color: { argb: BRAND.white } };
   totalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
   totalLabel.alignment = { vertical: "middle", horizontal: "left" };
-  applyOuterBorder(sheet, currentRow, currentRow, 1, 6, BRAND.greenDark);
+  applyOuterBorder(sheet, currentRow, currentRow, 1, 8, BRAND.greenDark);
 
-  [7, 8, 9].forEach((col, index) => {
+  const totalRow = currentRow;
+
+  [9, 10, 11].forEach((col, index) => {
     const cell = sheet.getCell(currentRow, col);
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
     cell.font = { name: "Arial", bold: true, size: 11, color: { argb: BRAND.white } };
-    styleMoneyCell(cell, [model.totalRevenue, model.totalCost, model.totalGrossProfit][index]);
+    const subtotalCol = col;
+    const result = [model.totalRevenue, model.totalCost, model.totalGrossProfit][index];
+    styleFormulaMoneyCell(
+      cell,
+      `${excelCellRef(subtotalCol, recurringSubtotalRow)}+${excelCellRef(subtotalCol, oneTimeSubtotalRow)}`,
+      result,
+    );
     cell.border = {
       top: { style: "thin", color: { argb: BRAND.greenDark } },
       left: { style: "thin", color: { argb: BRAND.greenDark } },
@@ -1021,17 +1199,21 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
       right: { style: "thin", color: { argb: BRAND.greenDark } },
     };
   });
-  const totalPercent = sheet.getCell(currentRow, 10);
+  const totalPercent = sheet.getCell(currentRow, 12);
   totalPercent.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
   totalPercent.font = { name: "Arial", bold: true, size: 11, color: { argb: BRAND.white } };
-  stylePercentCell(totalPercent, model.totalGrossMarginPercent / 100);
+  styleFormulaPercentCell(
+    totalPercent,
+    `IFERROR(${excelCellRef(11, currentRow)}/${excelCellRef(9, currentRow)},0)`,
+    model.totalGrossMarginPercent / 100,
+  );
   totalPercent.border = {
     top: { style: "thin", color: { argb: BRAND.greenDark } },
     left: { style: "thin", color: { argb: BRAND.greenDark } },
     bottom: { style: "thin", color: { argb: BRAND.greenDark } },
     right: { style: "thin", color: { argb: BRAND.greenDark } },
   };
-  const totalNotes = sheet.getCell(currentRow, 11);
+  const totalNotes = sheet.getCell(currentRow, 13);
   totalNotes.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
   totalNotes.border = {
     top: { style: "thin", color: { argb: BRAND.greenDark } },
@@ -1040,7 +1222,29 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
     right: { style: "thin", color: { argb: BRAND.greenDark } },
   };
 
-  return sheet;
+  return {
+    sheet,
+    rollups: {
+      recurring: {
+        revenue: worksheetCellRef(sheetName, 9, recurringSubtotalRow),
+        cost: worksheetCellRef(sheetName, 10, recurringSubtotalRow),
+        grossProfit: worksheetCellRef(sheetName, 11, recurringSubtotalRow),
+        grossMargin: worksheetCellRef(sheetName, 12, recurringSubtotalRow),
+      },
+      oneTime: {
+        revenue: worksheetCellRef(sheetName, 9, oneTimeSubtotalRow),
+        cost: worksheetCellRef(sheetName, 10, oneTimeSubtotalRow),
+        grossProfit: worksheetCellRef(sheetName, 11, oneTimeSubtotalRow),
+        grossMargin: worksheetCellRef(sheetName, 12, oneTimeSubtotalRow),
+      },
+      total: {
+        revenue: worksheetCellRef(sheetName, 9, totalRow),
+        cost: worksheetCellRef(sheetName, 10, totalRow),
+        grossProfit: worksheetCellRef(sheetName, 11, totalRow),
+        grossMargin: worksheetCellRef(sheetName, 12, totalRow),
+      },
+    },
+  };
 }
 
 function buildSectionRows(title: string, entries: string[]) {
@@ -1143,8 +1347,9 @@ export async function buildProposalApprovalWorkbook(quote: QuoteRecord) {
   workbook.title = `${model.proposalNumber} iNet Approval Workbook`;
   workbook.calcProperties.fullCalcOnLoad = true;
 
-  const summarySheet = buildExecutiveSummarySheet(exceljs, workbook, model);
-  const detailSheet = buildLineItemDetailSheet(workbook, model);
+  const detailSheetResult = buildLineItemDetailSheet(workbook, model);
+  const detailSheet = detailSheetResult.sheet;
+  const summarySheet = buildExecutiveSummarySheet(exceljs, workbook, model, detailSheetResult.rollups);
   const notesSheet = buildNotesSheet(workbook, model);
 
   const summaryLogoEmbedded = await addWorkbookImageByWidth(
