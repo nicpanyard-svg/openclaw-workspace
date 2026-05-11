@@ -40,6 +40,7 @@ import {
 import { buildServiceAgreementDocument } from "@/app/lib/service-agreement-export";
 import {
   type MajorProjectBundle,
+  type MajorProjectBomImportSheet,
   type MajorProjectBuilderMode,
   type MajorProjectComponent,
   type MajorProjectCustomerQuoteLine,
@@ -119,6 +120,20 @@ const MAJOR_PROJECT_BOM_ALLOWED_MIME_TYPES = new Set([
   "application/csv",
   "text/plain",
 ]);
+const MAJOR_PROJECT_BOM_MAX_SHEET_ROWS = 250;
+const MAJOR_PROJECT_BOM_PREVIEW_ROW_COUNT = 6;
+
+type MajorProjectBomColumnKey = "name" | "description" | "quantity" | "vendor" | "manufacturer" | "unitCost" | "totalCost";
+
+const MAJOR_PROJECT_BOM_COLUMN_MATCHERS: Record<MajorProjectBomColumnKey, string[]> = {
+  name: ["item name", "item", "product", "component", "equipment", "service", "part", "material"],
+  description: ["description", "scope", "details", "notes"],
+  quantity: ["qty", "quantity", "q'ty", "qyt", "count"],
+  vendor: ["vendor", "supplier", "distributor"],
+  manufacturer: ["manufacturer", "mfg", "make", "provider", "brand"],
+  unitCost: ["unit cost", "cost ea", "ea cost", "each cost", "unit price", "price each", "cost per", "unit amount"],
+  totalCost: ["extended cost", "ext cost", "line total", "total cost", "amount", "extended price", "ext price"],
+};
 
 function getFileExtension(fileName: string) {
   const trimmed = fileName.trim().toLowerCase();
@@ -160,7 +175,29 @@ async function readMajorProjectBomWorkbook(file: File) {
     throw new Error("Workbook parsed but no sheets were found.");
   }
 
-  return { sheetNames };
+  const sheets: MajorProjectBomImportSheet[] = sheetNames.map((sheetName) => {
+    const worksheet = workbook.Sheets[sheetName];
+    const rawRows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(worksheet, {
+      header: 1,
+      raw: false,
+      defval: "",
+      blankrows: false,
+    });
+    const normalizedRows = rawRows
+      .map((row, index) => ({
+        rowNumber: index + 1,
+        cells: (Array.isArray(row) ? row : []).map((value) => String(value ?? "").trim()),
+      }))
+      .filter((row) => row.cells.some((cell) => cell.trim().length > 0));
+
+    return {
+      name: sheetName,
+      rowCount: normalizedRows.length,
+      rows: normalizedRows.slice(0, MAJOR_PROJECT_BOM_MAX_SHEET_ROWS),
+    };
+  });
+
+  return { sheetNames, sheets };
 }
 
 function getMajorProjectBomStatusLabel(status: NonNullable<QuoteRecord["majorProject"]["bomImport"]>["status"]) {
@@ -196,8 +233,137 @@ function parseNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function parseMajorProjectBomCurrency(value: string | undefined) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed
+    .replace(/\$/g, "")
+    .replace(/,/g, "")
+    .replace(/\((.+)\)/, "-$1")
+    .replace(/[^0-9.-]/g, "");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function normalizeSearchValue(value: string) {
   return value.trim().toLowerCase();
+}
+
+function normalizeMajorProjectBomHeader(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function resolveMajorProjectBomHeaderRow(sheet: MajorProjectBomImportSheet) {
+  let bestIndex = -1;
+  let bestScore = 0;
+  const scanRows = sheet.rows.slice(0, Math.min(sheet.rows.length, 12));
+
+  for (const row of scanRows) {
+    let score = 0;
+    for (const cell of row.cells) {
+      const normalizedCell = normalizeMajorProjectBomHeader(cell);
+      if (!normalizedCell) continue;
+      for (const candidates of Object.values(MAJOR_PROJECT_BOM_COLUMN_MATCHERS)) {
+        if (candidates.some((candidate) => normalizedCell.includes(candidate))) {
+          score += 1;
+          break;
+        }
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = sheet.rows.findIndex((candidate) => candidate.rowNumber === row.rowNumber);
+    }
+  }
+
+  return bestScore >= 2 ? bestIndex : -1;
+}
+
+function resolveMajorProjectBomColumnMap(headerCells: string[]) {
+  const columnMap: Partial<Record<MajorProjectBomColumnKey, number>> = {};
+
+  headerCells.forEach((cell, index) => {
+    const normalizedCell = normalizeMajorProjectBomHeader(cell);
+    if (!normalizedCell) return;
+
+    for (const [columnKey, candidates] of Object.entries(MAJOR_PROJECT_BOM_COLUMN_MATCHERS) as Array<[MajorProjectBomColumnKey, string[]]>) {
+      if (columnMap[columnKey] !== undefined) continue;
+      if (candidates.some((candidate) => normalizedCell.includes(candidate))) {
+        columnMap[columnKey] = index;
+        break;
+      }
+    }
+  });
+
+  return columnMap;
+}
+
+function getMajorProjectBomCell(row: MajorProjectBomImportSheet["rows"][number], index: number | undefined) {
+  if (index === undefined || index < 0) return "";
+  return row.cells[index]?.trim() ?? "";
+}
+
+function createMajorProjectBomImportSourceTag(sheetName: string, rowNumber: number) {
+  return `BOM import source: ${sheetName} row ${rowNumber}`;
+}
+
+function createDraftMajorProjectComponentFromBomRow(params: {
+  row: MajorProjectBomImportSheet["rows"][number];
+  sheetName: string;
+  columnMap: Partial<Record<MajorProjectBomColumnKey, number>>;
+  importIndex: number;
+}): MajorProjectComponent | null {
+  const { row, sheetName, columnMap, importIndex } = params;
+  const name = getMajorProjectBomCell(row, columnMap.name);
+  const description = getMajorProjectBomCell(row, columnMap.description);
+  const vendor = getMajorProjectBomCell(row, columnMap.vendor);
+  const manufacturer = getMajorProjectBomCell(row, columnMap.manufacturer);
+  const quantityValue = getMajorProjectBomCell(row, columnMap.quantity);
+  const unitCostValue = getMajorProjectBomCell(row, columnMap.unitCost);
+  const totalCostValue = getMajorProjectBomCell(row, columnMap.totalCost);
+  const fallbackName = row.cells.find((cell) => /[a-z]/i.test(cell))?.trim() ?? "";
+  const resolvedName = name || description || fallbackName;
+
+  if (!resolvedName) return null;
+
+  const normalizedName = normalizeSearchValue(resolvedName);
+  if (["total", "subtotal", "grand total"].some((label) => normalizedName === label || normalizedName.startsWith(`${label} `))) {
+    return null;
+  }
+
+  const quantity = Math.max(parseMajorProjectBomCurrency(quantityValue) ?? 1, 0);
+  const rawUnitCost = parseMajorProjectBomCurrency(unitCostValue);
+  const rawTotalCost = parseMajorProjectBomCurrency(totalCostValue);
+  const vendorUnitCost = rawUnitCost ?? (rawTotalCost !== null && quantity > 0 ? Number((rawTotalCost / quantity).toFixed(2)) : 0);
+  const vendorExtendedCost = rawTotalCost ?? Number((quantity * vendorUnitCost).toFixed(2));
+  const hasObviousField = Boolean(name || description || vendor || manufacturer || rawUnitCost !== null || rawTotalCost !== null || quantityValue);
+
+  if (!hasObviousField) return null;
+
+  const draft = createMajorProjectComponentDraft(importIndex);
+  const noteParts = [
+    createMajorProjectBomImportSourceTag(sheetName, row.rowNumber),
+    description && description !== resolvedName ? description : "",
+  ].filter(Boolean);
+
+  return {
+    ...draft,
+    internalName: resolvedName,
+    customerFacingLabel: description && description !== resolvedName ? description : "",
+    vendor,
+    manufacturer,
+    quantity,
+    vendorUnitCost,
+    vendorExtendedCost,
+    notes: noteParts.join("\n"),
+  } satisfies MajorProjectComponent;
 }
 
 function majorProjectMarginPercent(revenue: number, cost: number) {
@@ -1167,6 +1333,15 @@ export default function QuotePreview() {
   const activeMajorOptionComponents = useMemo(() => activeMajorOption?.components ?? [], [activeMajorOption]);
   const activeMajorOptionBundles = useMemo(() => activeMajorOption?.bundles ?? [], [activeMajorOption]);
   const activeMajorOptionQuoteLines = useMemo(() => activeMajorOption?.customerQuoteLines ?? [], [activeMajorOption]);
+  const selectedMajorProjectBomSheet = useMemo(() => {
+    const bomImport = majorProjectState.bomImport;
+    if (!bomImport?.sheets?.length) return null;
+    return bomImport.sheets.find((sheet) => sheet.name === bomImport.selectedSheetName) ?? bomImport.sheets[0] ?? null;
+  }, [majorProjectState.bomImport]);
+  const previewMajorProjectBomRows = useMemo(
+    () => selectedMajorProjectBomSheet?.rows.slice(0, MAJOR_PROJECT_BOM_PREVIEW_ROW_COUNT) ?? [],
+    [selectedMajorProjectBomSheet],
+  );
   const componentOptions = useMemo(() => activeMajorOptionComponents.map((component) => ({
     id: component.id,
     label: component.internalName || component.customerFacingLabel || component.id,
@@ -1428,15 +1603,17 @@ export default function QuotePreview() {
         status: "reading",
         reviewState: "pending",
         sheetNames: [],
+        sheets: [],
+        selectedSheetName: undefined,
         readError: undefined,
+        importedComponentCount: undefined,
+        importedAt: undefined,
       };
       return draft;
     });
 
     try {
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
-      const sheetNames = workbook.SheetNames?.filter((name) => name.trim()) ?? [];
+      const { sheetNames, sheets } = await readMajorProjectBomWorkbook(file);
       updateMajorProjectQuote((draft) => {
         if (!draft.majorProject) return draft;
         draft.majorProject.bomImport = {
@@ -1448,7 +1625,11 @@ export default function QuotePreview() {
           status: "loaded",
           reviewState: "pre_import_review",
           sheetNames,
+          sheets,
+          selectedSheetName: sheetNames[0] ?? undefined,
           readError: undefined,
+          importedComponentCount: undefined,
+          importedAt: undefined,
         };
         return draft;
       });
@@ -1468,7 +1649,11 @@ export default function QuotePreview() {
           status: "error",
           reviewState: "pending",
           sheetNames: [],
+          sheets: [],
+          selectedSheetName: undefined,
           readError: message,
+          importedComponentCount: undefined,
+          importedAt: undefined,
         };
         return draft;
       });
@@ -1484,6 +1669,80 @@ export default function QuotePreview() {
       return draft;
     });
     setWorkflowNotice("Cleared the pending BOM workbook shell.");
+  };
+
+  const setMajorProjectBomSelectedSheet = (sheetName: string) => {
+    updateMajorProjectQuote((draft) => {
+      if (!draft.majorProject?.bomImport) return draft;
+      draft.majorProject.bomImport.selectedSheetName = sheetName;
+      return draft;
+    });
+  };
+
+  const importDraftMajorProjectBomComponents = () => {
+    const bomImport = majorProjectState.bomImport;
+    const selectedSheet = selectedMajorProjectBomSheet;
+    if (!bomImport || !selectedSheet) {
+      setWorkflowNotice("Capture a workbook and choose a tab before importing draft components.");
+      return;
+    }
+
+    const headerRowIndex = resolveMajorProjectBomHeaderRow(selectedSheet);
+    if (headerRowIndex === -1) {
+      setWorkflowNotice(`RapidQuote could not find an obvious header row in ${selectedSheet.name}. Choose a cleaner tab for this first import slice.`);
+      return;
+    }
+
+    const headerRow = selectedSheet.rows[headerRowIndex];
+    const columnMap = resolveMajorProjectBomColumnMap(headerRow.cells);
+    const bomSourcePrefix = `BOM import source: ${selectedSheet.name} row `;
+
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!draft.majorProject?.bomImport || !option) return draft;
+
+      const preservedComponents = (option.components ?? []).filter((component) => !(component.notes ?? "").startsWith(bomSourcePrefix));
+      const importedComponents = selectedSheet.rows
+        .slice(headerRowIndex + 1)
+        .map((row, index) => createDraftMajorProjectComponentFromBomRow({
+          row,
+          sheetName: selectedSheet.name,
+          columnMap,
+          importIndex: preservedComponents.length + index + 1,
+        }))
+        .filter((component): component is MajorProjectComponent => Boolean(component));
+
+      if (!importedComponents.length) {
+        draft.majorProject.bomImport.importedComponentCount = 0;
+        draft.majorProject.bomImport.importedAt = new Date().toISOString();
+        return draft;
+      }
+
+      option.components = [...preservedComponents, ...importedComponents];
+      draft.majorProject.builderMode = "advanced";
+      draft.majorProject.bomImport.importedComponentCount = importedComponents.length;
+      draft.majorProject.bomImport.importedAt = new Date().toISOString();
+      draft.majorProject.bomImport.reviewState = "pre_import_review";
+      return draft;
+    });
+
+    const importedCount = selectedSheet.rows
+      .slice(headerRowIndex + 1)
+      .map((row, index) => createDraftMajorProjectComponentFromBomRow({
+        row,
+        sheetName: selectedSheet.name,
+        columnMap,
+        importIndex: index + 1,
+      }))
+      .filter(Boolean)
+      .length;
+
+    setMajorProjectEditorTab("components");
+    setWorkflowNotice(
+      importedCount > 0
+        ? `Imported ${importedCount} draft component${importedCount === 1 ? "" : "s"} from ${selectedSheet.name}. Review them in Components before bundling.`
+        : `No obvious component rows were found in ${selectedSheet.name}.`,
+    );
   };
 
   const syncExecutiveSummaryParagraphs = (draft: QuoteRecord) => {
@@ -3060,7 +3319,7 @@ export default function QuotePreview() {
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <div className="text-[14px] font-semibold text-[#16202b]">BOM workbook import</div>
-                          <div className="mt-1 text-[12px] text-[#60707f]">Capture the spreadsheet now and wire parsing in a later slice. This does not create components yet.</div>
+                          <div className="mt-1 text-[12px] text-[#60707f]">Capture one workbook tab, review the obvious rows, and import draft components into the existing Major Project component list.</div>
                         </div>
                         {majorProjectState.bomImport ? <button type="button" className="rounded-full border border-[#d5dde6] bg-white px-3 py-1 text-[12px] font-semibold text-[#334150]" onClick={clearMajorProjectBomImport}>Remove workbook</button> : null}
                       </div>
@@ -3131,10 +3390,48 @@ export default function QuotePreview() {
                           </span>
                         ) : (
                           <span className="mt-3 block rounded-[14px] border border-[#e4ebf2] bg-[#fdfefe] px-3 py-3 text-[12px] text-[#5f6d7a]">
-                            Next slice: inspect workbook tabs, validate the file shape, and stage a review screen before any component generation.
+                            Next slice after this one: tighten column heuristics, support larger sheets, and optionally stage downstream bundle generation.
                           </span>
                         )}
                       </label>
+                      {selectedMajorProjectBomSheet ? (
+                        <div className="mt-3 rounded-[14px] border border-[#d9e6ef] bg-white px-3 py-3 text-[#334150]">
+                          <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#60707f]">Draft component import</strong>
+                          <label className="builder-field compact mt-3 block">
+                            <span>Workbook tab</span>
+                            <select value={majorProjectState.bomImport?.selectedSheetName ?? selectedMajorProjectBomSheet.name} onChange={(e) => setMajorProjectBomSelectedSheet(e.target.value)}>
+                              {(majorProjectState.bomImport?.sheets ?? []).map((sheet) => (
+                                <option key={sheet.name} value={sheet.name}>{sheet.name}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <div className="mt-2 text-[12px]">
+                            Using a conservative header match and only obvious non-empty rows. Stored {selectedMajorProjectBomSheet.rows.length} previewable row{selectedMajorProjectBomSheet.rows.length === 1 ? "" : "s"}
+                            {selectedMajorProjectBomSheet.rowCount > selectedMajorProjectBomSheet.rows.length ? ` out of ${selectedMajorProjectBomSheet.rowCount} non-empty rows.` : "."}
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button type="button" className="pill-button pill-button-active" onClick={importDraftMajorProjectBomComponents}>
+                              Import draft components
+                            </button>
+                          </div>
+                          {majorProjectState.bomImport?.importedAt ? (
+                            <div className="mt-2 text-[12px] text-[#60707f]">
+                              Last import: {majorProjectState.bomImport.importedComponentCount ?? 0} component{majorProjectState.bomImport.importedComponentCount === 1 ? "" : "s"}
+                              {formatAttachmentUpdatedAt(majorProjectState.bomImport.importedAt) ? ` • ${formatAttachmentUpdatedAt(majorProjectState.bomImport.importedAt)}` : ""}
+                            </div>
+                          ) : null}
+                          {previewMajorProjectBomRows.length ? (
+                            <div className="mt-3 rounded-[12px] border border-[#e4ebf2] bg-[#fbfdff] px-3 py-3 text-[12px] text-[#334150]">
+                              <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#60707f]">Preview rows</strong>
+                              {previewMajorProjectBomRows.map((row) => (
+                                <div key={`${selectedMajorProjectBomSheet.name}-${row.rowNumber}`} className="mt-2">
+                                  <strong>Row {row.rowNumber}:</strong> {row.cells.filter((cell) => cell.trim().length > 0).join(" | ")}
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
 
                     <details className="rounded-[14px] border border-[#efe3e5] bg-[#fffafa] p-3">

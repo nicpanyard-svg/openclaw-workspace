@@ -419,14 +419,31 @@ export type MajorProjectSummary = {
   assumptions: string;
 };
 
+export type MajorProjectBomImportSheetRow = {
+  rowNumber: number;
+  cells: string[];
+};
+
+export type MajorProjectBomImportSheet = {
+  name: string;
+  rowCount: number;
+  rows: MajorProjectBomImportSheetRow[];
+};
+
 export type MajorProjectBomImportState = {
   fileName: string;
   sizeBytes: number;
   mimeType?: string;
   capturedAt: string;
   source: "drop" | "picker";
-  status: "captured";
-  reviewState: "pending";
+  status: "captured" | "reading" | "loaded" | "error";
+  reviewState: "pending" | "pre_import_review";
+  sheetNames?: string[];
+  sheets?: MajorProjectBomImportSheet[];
+  selectedSheetName?: string;
+  readError?: string;
+  importedComponentCount?: number;
+  importedAt?: string;
 };
 
 export type MajorProjectCommercialInputs = {
