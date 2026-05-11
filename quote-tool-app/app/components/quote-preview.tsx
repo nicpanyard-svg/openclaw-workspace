@@ -3440,9 +3440,31 @@ export default function QuotePreview() {
                             </button>
                           </div>
                           {majorProjectState.bomImport?.importedAt ? (
-                            <div className="mt-2 text-[12px] text-[#60707f]">
-                              Last import: {majorProjectState.bomImport.importedComponentCount ?? 0} component{majorProjectState.bomImport.importedComponentCount === 1 ? "" : "s"}
-                              {formatAttachmentUpdatedAt(majorProjectState.bomImport.importedAt) ? ` • ${formatAttachmentUpdatedAt(majorProjectState.bomImport.importedAt)}` : ""}
+                            <div className="mt-2 space-y-3">
+                              <div className="text-[12px] text-[#60707f]">
+                                Last import: {majorProjectState.bomImport.importedComponentCount ?? 0} component{majorProjectState.bomImport.importedComponentCount === 1 ? "" : "s"}
+                                {formatAttachmentUpdatedAt(majorProjectState.bomImport.importedAt) ? ` • ${formatAttachmentUpdatedAt(majorProjectState.bomImport.importedAt)}` : ""}
+                              </div>
+                              <div className="rounded-[14px] border border-[#dfe7ef] bg-[#f8fbfd] px-4 py-4 text-[13px] text-[#334150]">
+                                <div className="text-[13px] font-semibold text-[#16202b]">What to do next</div>
+                                <div className="mt-2 text-[12px] leading-[1.6] text-[#5f6d7a]">
+                                  The BOM import gives you raw internal components. Next, review the imported components, develop customer pricing, then group them into bundles before you finalize customer-facing quote lines.
+                                </div>
+                                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                                  <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">1. Review components</div>
+                                    <div className="mt-2 text-[12px] text-[#435262]">Clean up names, quantities, vendors, manufacturers, and costs from the imported rows.</div>
+                                  </div>
+                                  <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">2. Develop pricing</div>
+                                    <div className="mt-2 text-[12px] text-[#435262]">Set customer pricing on the imported components before turning them into customer-ready bundles.</div>
+                                  </div>
+                                  <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">3. Build bundles</div>
+                                    <div className="mt-2 text-[12px] text-[#435262]">Group raw internal components into bundled customer-facing packages and then shape the final quote lines.</div>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           ) : null}
                           {previewMajorProjectBomRows.length ? (
