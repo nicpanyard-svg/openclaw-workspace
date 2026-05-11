@@ -89,6 +89,10 @@ const BRAND = {
   slate: "FF556270",
   slateSoft: "FFF5F7FA",
   border: "FFD7DDE5",
+  inputFill: "FFFFF8E1",
+  inputBorder: "FFD7B74A",
+  formulaFill: "FFF2F5F8",
+  formulaBorder: "FFB7C4D1",
   text: "FF18222C",
   white: "FFFFFFFF",
 };
@@ -606,6 +610,26 @@ function applyBodyCellStyle(cell: import("exceljs").Cell, fill: string) {
   };
 }
 
+function emphasizeEditableCell(cell: import("exceljs").Cell) {
+  cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.inputFill } };
+  cell.border = {
+    top: { style: "thin", color: { argb: BRAND.inputBorder } },
+    left: { style: "thin", color: { argb: BRAND.inputBorder } },
+    bottom: { style: "thin", color: { argb: BRAND.inputBorder } },
+    right: { style: "thin", color: { argb: BRAND.inputBorder } },
+  };
+}
+
+function emphasizeFormulaCell(cell: import("exceljs").Cell) {
+  cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.formulaFill } };
+  cell.border = {
+    top: { style: "thin", color: { argb: BRAND.formulaBorder } },
+    left: { style: "thin", color: { argb: BRAND.formulaBorder } },
+    bottom: { style: "thin", color: { argb: BRAND.formulaBorder } },
+    right: { style: "thin", color: { argb: BRAND.formulaBorder } },
+  };
+}
+
 function applyMetricCard(worksheet: Worksheet, row: number, fromCol: number, toCol: number, label: string, value: MetricCardValue, accent: string) {
   worksheet.mergeCells(row, fromCol, row, toCol);
   worksheet.mergeCells(row + 1, fromCol, row + 1, toCol);
@@ -1044,6 +1068,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
 
   styleLabelValueRow(sheet, 5, 9, 10, "Recurring Sell Basis", "Manual");
   unlockCell(sheet.getCell("J5"));
+  emphasizeEditableCell(sheet.getCell("J5"));
   applyListValidation(
     sheet.getCell("J5"),
     ["Manual", "Markup"],
@@ -1060,6 +1085,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   sheet.getCell("J6").numFmt = "0.0%";
   sheet.getCell("J6").alignment = { vertical: "middle", horizontal: "right" };
   unlockCell(sheet.getCell("J6"));
+  emphasizeEditableCell(sheet.getCell("J6"));
   applyPercentageNumberValidation(
     sheet.getCell("J6"),
     "Recurring Markup %",
@@ -1073,6 +1099,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
 
   styleLabelValueRow(sheet, 7, 9, 10, "One-time Sell Basis", "Manual");
   unlockCell(sheet.getCell("J7"));
+  emphasizeEditableCell(sheet.getCell("J7"));
   applyListValidation(
     sheet.getCell("J7"),
     ["Manual", "Markup"],
@@ -1089,6 +1116,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   sheet.getCell("J8").numFmt = "0.0%";
   sheet.getCell("J8").alignment = { vertical: "middle", horizontal: "right" };
   unlockCell(sheet.getCell("J8"));
+  emphasizeEditableCell(sheet.getCell("J8"));
   applyPercentageNumberValidation(
     sheet.getCell("J8"),
     "One-time Markup %",
@@ -1190,7 +1218,11 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
         sheet.getCell(currentRow, col).numFmt = '"$"#,##0.00';
         sheet.getCell(currentRow, col).alignment = { vertical: "top", horizontal: "right" };
       });
-      [5, 8, 14].forEach((col) => unlockCell(sheet.getCell(currentRow, col)));
+      [5, 8, 14].forEach((col) => {
+        const cell = sheet.getCell(currentRow, col);
+        unlockCell(cell);
+        emphasizeEditableCell(cell);
+      });
       applyNonNegativeNumberValidation(
         sheet.getCell(currentRow, 5),
         "Qty",
@@ -1217,26 +1249,31 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
         `IF(AND(${excelCellRef(4, currentRow)}="Recurring",$J$5="Markup"),IF(${excelCellRef(8, currentRow)}="",0,${excelCellRef(8, currentRow)}*(1+$J$6)),IF(AND(${excelCellRef(4, currentRow)}<>"Recurring",$J$7="Markup"),IF(${excelCellRef(8, currentRow)}="",0,${excelCellRef(8, currentRow)}*(1+$J$8)),${excelCellRef(14, currentRow)}))`,
         sellPerUnit,
       );
+      emphasizeFormulaCell(sheet.getCell(currentRow, 7));
       styleFormulaMoneyCell(
         sheet.getCell(currentRow, 9),
         `IF(OR(${excelCellRef(5, currentRow)}="",${excelCellRef(7, currentRow)}=""),0,${excelCellRef(5, currentRow)}*${excelCellRef(7, currentRow)})`,
         line.customerPricing,
       );
+      emphasizeFormulaCell(sheet.getCell(currentRow, 9));
       styleFormulaMoneyCell(
         sheet.getCell(currentRow, 10),
         `IF(OR(${excelCellRef(5, currentRow)}="",${excelCellRef(8, currentRow)}=""),0,${excelCellRef(5, currentRow)}*${excelCellRef(8, currentRow)})`,
         line.ourCost,
       );
+      emphasizeFormulaCell(sheet.getCell(currentRow, 10));
       styleFormulaMoneyCell(
         sheet.getCell(currentRow, 11),
         `${excelCellRef(9, currentRow)}-${excelCellRef(10, currentRow)}`,
         line.grossProfit,
       );
+      emphasizeFormulaCell(sheet.getCell(currentRow, 11));
       styleFormulaPercentCell(
         sheet.getCell(currentRow, 12),
         `IFERROR(${excelCellRef(11, currentRow)}/${excelCellRef(9, currentRow)},0)`,
         line.grossMarginPercent / 100,
       );
+      emphasizeFormulaCell(sheet.getCell(currentRow, 12));
       sheet.getCell(currentRow, 13).alignment = { vertical: "top", horizontal: "left", wrapText: true };
       sheet.getCell(currentRow, 14).alignment = { vertical: "top", horizontal: "right" };
 
