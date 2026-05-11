@@ -923,6 +923,9 @@ function buildExecutiveSummarySheet(
 
 function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookModel) {
   const sheetName = "Line Item Detail";
+  const recurringMarkupDefault = model.recurringCost > 0
+    ? roundCurrency(model.recurringRevenue / model.recurringCost - 1)
+    : 0;
   const sheet = workbook.addWorksheet(sheetName, {
     properties: { defaultRowHeight: 18 },
     views: [{ state: "frozen", ySplit: 8 }],
@@ -951,9 +954,10 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
     { width: 15 },
     { width: 12 },
     { width: 34 },
+    { width: 14 },
   ];
 
-  sheet.mergeCells("A1:M1");
+  sheet.mergeCells("A1:N1");
   const titleCell = sheet.getCell("A1");
   titleCell.value = "iNet Pricing Support";
   titleCell.font = { name: "Arial", bold: true, size: 18, color: { argb: BRAND.white } };
@@ -961,18 +965,18 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
   sheet.getRow(1).height = 26;
 
-  sheet.mergeCells("A2:M2");
+  sheet.mergeCells("A2:N2");
   const subCell = sheet.getCell("A2");
   subCell.value = `${model.customerName} | ${model.projectName} | ${model.proposalNumber}`;
   subCell.font = { name: "Arial", size: 10, color: { argb: BRAND.slate } };
   subCell.alignment = { vertical: "middle", horizontal: "center" };
 
-  sheet.mergeCells("A3:M3");
+  sheet.mergeCells("A3:N3");
   sheet.getCell("A3").value = "Internal pricing backup for approval review, margin defense, and iNet release readiness.";
   sheet.getCell("A3").font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.text } };
   sheet.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
   sheet.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.gold } };
-  applyOuterBorder(sheet, 3, 3, 1, 13, BRAND.gold);
+  applyOuterBorder(sheet, 3, 3, 1, 14, BRAND.gold);
 
   applyMetricCard(sheet, 4, 1, 2, "Recurring", formatMoney(model.recurringRevenue), BRAND.green);
   applyMetricCard(sheet, 4, 3, 4, "One-time", formatMoney(model.oneTimeRevenue), BRAND.slate);
@@ -980,12 +984,28 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   applyMetricCard(sheet, 4, 7, 8, "Total Cost", formatMoney(model.totalCost), BRAND.gold);
   applyMetricCard(sheet, 4, 9, 13, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.green);
 
-  sheet.mergeCells("A7:M7");
-  sheet.getCell("A7").value = "Edit Qty, Sell / Unit, or Cost / Unit below to recalculate extended pricing, gross profit, gross margin, and executive rollups automatically.";
+  styleLabelValueRow(sheet, 5, 9, 10, "Recurring Sell Basis", "Manual");
+  sheet.getCell("K5").value = "Set to Markup to derive recurring Sell / Unit from Cost / Unit.";
+  sheet.getCell("K5").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
+  sheet.getCell("K5").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  sheet.mergeCells("K5:N5");
+  applyOuterBorder(sheet, 5, 5, 11, 14);
+
+  styleLabelValueRow(sheet, 6, 9, 10, "Recurring Markup %", recurringMarkupDefault);
+  sheet.getCell("J6").numFmt = "0.0%";
+  sheet.getCell("J6").alignment = { vertical: "middle", horizontal: "right" };
+  sheet.getCell("K6").value = "Editable assumption driver for recurring rows when markup mode is enabled.";
+  sheet.getCell("K6").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
+  sheet.getCell("K6").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  sheet.mergeCells("K6:N6");
+  applyOuterBorder(sheet, 6, 6, 11, 14);
+
+  sheet.mergeCells("A7:N7");
+  sheet.getCell("A7").value = "Edit Qty, Cost / Unit, or Manual Sell / Unit below. To derive recurring sell price from cost, switch Recurring Sell Basis to Markup and update the Recurring Markup % driver.";
   sheet.getCell("A7").font = { name: "Arial", size: 9, color: { argb: BRAND.text } };
   sheet.getCell("A7").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
   sheet.getCell("A7").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
-  applyOuterBorder(sheet, 7, 7, 1, 13);
+  applyOuterBorder(sheet, 7, 7, 1, 14);
 
   const headers = [
     "Item",
@@ -1001,6 +1021,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
     "Gross Profit",
     "Gross Margin",
     "Notes / Assumptions",
+    "Manual Sell / Unit",
   ];
 
   const recurringLines = model.lines.filter((line) => line.schedule === "Recurring");
@@ -1009,7 +1030,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   const oneTimeTotals = buildLineTotals(oneTimeLines);
 
   let currentRow = 8;
-  applySectionBand(sheet, currentRow, 1, 13, "Recurring Line Items");
+  applySectionBand(sheet, currentRow, 1, 14, "Recurring Line Items");
   currentRow += 1;
   applyTableHeader(sheet, currentRow, headers);
   currentRow += 1;
@@ -1049,13 +1070,14 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
         line.schedule,
         quantityValue,
         line.unit,
-        sellPerUnit,
+        null,
         costPerUnit,
         null,
         null,
         null,
         null,
         line.notes,
+        sellPerUnit,
       ];
 
       values.forEach((value, colIndex) => {
@@ -1064,10 +1086,15 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
         cell.value = value;
       });
 
-      [7, 8].forEach((col) => {
+      [8, 14].forEach((col) => {
         sheet.getCell(currentRow, col).numFmt = '"$"#,##0.00';
         sheet.getCell(currentRow, col).alignment = { vertical: "top", horizontal: "right" };
       });
+      styleFormulaMoneyCell(
+        sheet.getCell(currentRow, 7),
+        `IF(AND($J$5="Markup",${excelCellRef(4, currentRow)}="Recurring"),IF(${excelCellRef(8, currentRow)}="",0,${excelCellRef(8, currentRow)}*(1+$J$6)),${excelCellRef(14, currentRow)})`,
+        sellPerUnit,
+      );
       styleFormulaMoneyCell(
         sheet.getCell(currentRow, 9),
         `IF(OR(${excelCellRef(5, currentRow)}="",${excelCellRef(7, currentRow)}=""),0,${excelCellRef(5, currentRow)}*${excelCellRef(7, currentRow)})`,
@@ -1089,6 +1116,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
         line.grossMarginPercent / 100,
       );
       sheet.getCell(currentRow, 13).alignment = { vertical: "top", horizontal: "left", wrapText: true };
+      sheet.getCell(currentRow, 14).alignment = { vertical: "top", horizontal: "right" };
 
       currentRow += 1;
     });
@@ -1130,10 +1158,10 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
       );
     }
   });
-  applyBodyCellStyle(sheet.getCell(currentRow, 13), BRAND.cream);
+  [13, 14].forEach((col) => applyBodyCellStyle(sheet.getCell(currentRow, col), BRAND.cream));
   currentRow += 2;
 
-  applySectionBand(sheet, currentRow, 1, 13, "One-time Line Items");
+  applySectionBand(sheet, currentRow, 1, 14, "One-time Line Items");
   currentRow += 1;
   applyTableHeader(sheet, currentRow, headers);
   currentRow += 1;
@@ -1168,7 +1196,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
       );
     }
   });
-  applyBodyCellStyle(sheet.getCell(currentRow, 13), BRAND.cream);
+  [13, 14].forEach((col) => applyBodyCellStyle(sheet.getCell(currentRow, col), BRAND.cream));
   currentRow += 2;
 
   sheet.mergeCells(currentRow, 1, currentRow, 8);
@@ -1216,6 +1244,14 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   const totalNotes = sheet.getCell(currentRow, 13);
   totalNotes.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
   totalNotes.border = {
+    top: { style: "thin", color: { argb: BRAND.greenDark } },
+    left: { style: "thin", color: { argb: BRAND.greenDark } },
+    bottom: { style: "thin", color: { argb: BRAND.greenDark } },
+    right: { style: "thin", color: { argb: BRAND.greenDark } },
+  };
+  const totalManualSell = sheet.getCell(currentRow, 14);
+  totalManualSell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenDark } };
+  totalManualSell.border = {
     top: { style: "thin", color: { argb: BRAND.greenDark } },
     left: { style: "thin", color: { argb: BRAND.greenDark } },
     bottom: { style: "thin", color: { argb: BRAND.greenDark } },
