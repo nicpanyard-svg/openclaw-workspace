@@ -76,16 +76,19 @@ export function resolveMajorProjectBomImportColumnMap(
   headerRowIndex: number;
   columnMap: Partial<Record<MajorProjectBomColumnKey, number>>;
 } {
+  const reviewedMap = reviewedColumnMapBySheet?.[sheet.name] ?? {};
   const headerRowIndex = resolveMajorProjectBomHeaderRow(sheet);
-  if (headerRowIndex === -1) {
+  const detectedMap = headerRowIndex >= 0
+    ? resolveMajorProjectBomColumnMap(sheet.rows[headerRowIndex]?.cells ?? [])
+    : {};
+
+  if (headerRowIndex === -1 && !Object.values(reviewedMap).some((value) => value !== undefined && value !== null)) {
     return {
       headerRowIndex,
       columnMap: {},
     };
   }
 
-  const detectedMap = resolveMajorProjectBomColumnMap(sheet.rows[headerRowIndex]?.cells ?? []);
-  const reviewedMap = reviewedColumnMapBySheet?.[sheet.name] ?? {};
   const columnKeys = Object.keys(MAJOR_PROJECT_BOM_COLUMN_MATCHERS) as MajorProjectBomColumnKey[];
   const columnMap: Partial<Record<MajorProjectBomColumnKey, number>> = {};
 

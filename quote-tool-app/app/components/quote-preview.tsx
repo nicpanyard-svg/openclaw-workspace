@@ -1687,8 +1687,8 @@ export default function QuotePreview() {
       selectedSheet,
       bomImport.reviewedColumnMapBySheet,
     );
-    if (headerRowIndex === -1) {
-      setWorkflowNotice(`RapidQuote could not find an obvious header row in ${selectedSheet.name}. Choose a cleaner tab for this first import slice.`);
+    if (headerRowIndex === -1 && !Object.keys(columnMap).length) {
+      setWorkflowNotice(`RapidQuote could not find an obvious header row in ${selectedSheet.name}. Map the needed columns first or choose a cleaner tab.`);
       return;
     }
 
@@ -1700,7 +1700,7 @@ export default function QuotePreview() {
 
       const preservedComponents = (option.components ?? []).filter((component) => !(component.notes ?? "").startsWith(bomSourcePrefix));
       const importedComponents = selectedSheet.rows
-        .slice(headerRowIndex + 1)
+        .slice(headerRowIndex >= 0 ? headerRowIndex + 1 : 0)
         .map((row, index) => createDraftMajorProjectComponentFromBomRow({
           row,
           sheetName: selectedSheet.name,
@@ -1724,7 +1724,7 @@ export default function QuotePreview() {
     });
 
     const importedCount = selectedSheet.rows
-      .slice(headerRowIndex + 1)
+      .slice(headerRowIndex >= 0 ? headerRowIndex + 1 : 0)
       .map((row, index) => createDraftMajorProjectComponentFromBomRow({
         row,
         sheetName: selectedSheet.name,
