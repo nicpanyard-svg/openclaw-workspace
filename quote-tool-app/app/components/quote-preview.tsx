@@ -40,6 +40,8 @@ import {
 import { buildServiceAgreementDocument } from "@/app/lib/service-agreement-export";
 import {
   type MajorProjectBundle,
+  type MajorProjectBomColumnMap,
+  type MajorProjectBomColumnKey,
   type MajorProjectBomImportSheet,
   type MajorProjectBuilderMode,
   type MajorProjectComponent,
@@ -123,7 +125,14 @@ const MAJOR_PROJECT_BOM_ALLOWED_MIME_TYPES = new Set([
 const MAJOR_PROJECT_BOM_MAX_SHEET_ROWS = 250;
 const MAJOR_PROJECT_BOM_PREVIEW_ROW_COUNT = 6;
 
-type MajorProjectBomColumnKey = "name" | "description" | "quantity" | "vendor" | "manufacturer" | "unitCost" | "totalCost";
+const MAJOR_PROJECT_BOM_REVIEW_FIELDS: Array<{ key: MajorProjectBomColumnKey; label: string }> = [
+  { key: "name", label: "Name" },
+  { key: "quantity", label: "Quantity" },
+  { key: "vendor", label: "Vendor" },
+  { key: "manufacturer", label: "Manufacturer / provider" },
+  { key: "unitCost", label: "Unit cost" },
+  { key: "totalCost", label: "Total cost" },
+];
 
 const MAJOR_PROJECT_BOM_COLUMN_MATCHERS: Record<MajorProjectBomColumnKey, string[]> = {
   name: ["item name", "item", "product", "component", "equipment", "service", "part", "material"],
@@ -1338,6 +1347,38 @@ export default function QuotePreview() {
     if (!bomImport?.sheets?.length) return null;
     return bomImport.sheets.find((sheet) => sheet.name === bomImport.selectedSheetName) ?? bomImport.sheets[0] ?? null;
   }, [majorProjectState.bomImport]);
+  const selectedMajorProjectBomHeaderRowIndex = useMemo(
+    () => (selectedMajorProjectBomSheet ? resolveMajorProjectBomHeaderRow(selectedMajorProjectBomSheet) : -1),
+    [selectedMajorProjectBomSheet],
+  );
+  const selectedMajorProjectBomHeaderCells = useMemo(
+    () => (selectedMajorProjectBomSheet && selectedMajorProjectBomHeaderRowIndex >= 0
+      ? selectedMajorProjectBomSheet.rows[selectedMajorProjectBomHeaderRowIndex]?.cells ?? []
+      : []),
+    [selectedMajorProjectBomSheet, selectedMajorProjectBomHeaderRowIndex],
+  );
+  const selectedMajorProjectBomColumnOptions = useMemo(() => {
+    const sourceCells = selectedMajorProjectBomHeaderCells.length
+      ? selectedMajorProjectBomHeaderCells
+      : selectedMajorProjectBomSheet?.rows.reduce<string[]>(
+          (widestRow, row) => (row.cells.length > widestRow.length ? row.cells : widestRow),
+          [],
+        ) ?? [];
+
+    return sourceCells.map((cell, index) => ({
+      value: index,
+      label: cell.trim() || `Column ${index + 1}`,
+    }));
+  }, [selectedMajorProjectBomHeaderCells, selectedMajorProjectBomSheet]);
+  const selectedMajorProjectBomReviewedColumnMap = useMemo<MajorProjectBomColumnMap>(() => {
+    if (!selectedMajorProjectBomSheet) return {};
+    const detectedMap = selectedMajorProjectBomHeaderCells.length ? resolveMajorProjectBomColumnMap(selectedMajorProjectBomHeaderCells) : {};
+    const reviewedMap = majorProjectState.bomImport?.reviewedColumnMapBySheet?.[selectedMajorProjectBomSheet.name] ?? {};
+    return {
+      ...detectedMap,
+      ...reviewedMap,
+    };
+  }, [majorProjectState.bomImport?.reviewedColumnMapBySheet, selectedMajorProjectBomHeaderCells, selectedMajorProjectBomSheet]);
   const previewMajorProjectBomRows = useMemo(
     () => selectedMajorProjectBomSheet?.rows.slice(0, MAJOR_PROJECT_BOM_PREVIEW_ROW_COUNT) ?? [],
     [selectedMajorProjectBomSheet],
@@ -1675,6 +1716,21 @@ export default function QuotePreview() {
     updateMajorProjectQuote((draft) => {
       if (!draft.majorProject?.bomImport) return draft;
       draft.majorProject.bomImport.selectedSheetName = sheetName;
+      return draft;
+    });
+  };
+
+  const setMajorProjectBomReviewedColumn = (sheetName: string, columnKey: MajorProjectBomColumnKey, columnIndex: number | null) => {
+    updateMajorProjectQuote((draft) => {
+      if (!draft.majorProject?.bomImport) return draft;
+      if (!draft.majorProject.bomImport.reviewedColumnMapBySheet) {
+        draft.majorProject.bomImport.reviewedColumnMapBySheet = {};
+      }
+      const reviewedMap = draft.majorProject.bomImport.reviewedColumnMapBySheet[sheetName] ?? {};
+      draft.majorProject.bomImport.reviewedColumnMapBySheet[sheetName] = {
+        ...reviewedMap,
+        [columnKey]: columnIndex,
+      };
       return draft;
     });
   };
@@ -3408,6 +3464,34 @@ export default function QuotePreview() {
                           <div className="mt-2 text-[12px]">
                             Using a conservative header match and only obvious non-empty rows. Stored {selectedMajorProjectBomSheet.rows.length} previewable row{selectedMajorProjectBomSheet.rows.length === 1 ? "" : "s"}
                             {selectedMajorProjectBomSheet.rowCount > selectedMajorProjectBomSheet.rows.length ? ` out of ${selectedMajorProjectBomSheet.rowCount} non-empty rows.` : "."}
+                          </div>
+                          <div className="mt-3 rounded-[12px] border border-[#e4ebf2] bg-[#fbfdff] px-3 py-3 text-[12px] text-[#334150]">
+                            <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#60707f]">Column mapping</strong>
+                            <div className="mt-2 text-[12px] text-[#60707f]">
+                              {selectedMajorProjectBomHeaderRowIndex >= 0
+                                ? `Detected header row ${selectedMajorProjectBomSheet.rows[selectedMajorProjectBomHeaderRowIndex]?.rowNumber ?? selectedMajorProjectBomHeaderRowIndex + 1}. Choose any columns you want to keep for the next import slice.`
+                                : "No obvious header row detected. Choose from the preview columns below if this sheet is still usable."}
+                            </div>
+                            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                              {MAJOR_PROJECT_BOM_REVIEW_FIELDS.map((field) => (
+                                <label key={field.key} className="builder-field compact">
+                                  <span>{field.label}</span>
+                                  <select
+                                    value={selectedMajorProjectBomReviewedColumnMap[field.key] ?? ""}
+                                    onChange={(e) => setMajorProjectBomReviewedColumn(
+                                      selectedMajorProjectBomSheet.name,
+                                      field.key,
+                                      e.target.value === "" ? null : Number(e.target.value),
+                                    )}
+                                  >
+                                    <option value="">Not mapped</option>
+                                    {selectedMajorProjectBomColumnOptions.map((option) => (
+                                      <option key={`${field.key}-${option.value}`} value={option.value}>{option.label}</option>
+                                    ))}
+                                  </select>
+                                </label>
+                              ))}
+                            </div>
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <button type="button" className="pill-button pill-button-active" onClick={importDraftMajorProjectBomComponents}>
