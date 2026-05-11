@@ -1128,12 +1128,26 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   sheet.mergeCells("K8:N8");
   applyOuterBorder(sheet, 8, 8, 11, 14);
 
-  sheet.mergeCells("A9:N9");
+  sheet.mergeCells("A9:H9");
   sheet.getCell("A9").value = "Edit Qty, Cost / Unit, or Manual Sell / Unit below. To derive sell price from cost, switch the matching Recurring or One-time Sell Basis to Markup and update that section's Markup % driver.";
   sheet.getCell("A9").font = { name: "Arial", size: 9, color: { argb: BRAND.text } };
   sheet.getCell("A9").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
   sheet.getCell("A9").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
-  applyOuterBorder(sheet, 9, 9, 1, 14);
+  applyOuterBorder(sheet, 9, 9, 1, 8);
+
+  sheet.mergeCells("I9:J9");
+  const editableLegendCell = sheet.getCell("I9");
+  editableLegendCell.value = "Warm cells = editable inputs";
+  editableLegendCell.font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.text } };
+  editableLegendCell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+  emphasizeEditableCell(editableLegendCell);
+
+  sheet.mergeCells("K9:N9");
+  const formulaLegendCell = sheet.getCell("K9");
+  formulaLegendCell.value = "Blue-gray cells = calculated / locked";
+  formulaLegendCell.font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.text } };
+  formulaLegendCell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+  emphasizeFormulaCell(formulaLegendCell);
 
   const headers = [
     "Item",
