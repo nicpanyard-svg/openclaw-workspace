@@ -926,9 +926,12 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   const recurringMarkupDefault = model.recurringCost > 0
     ? roundCurrency(model.recurringRevenue / model.recurringCost - 1)
     : 0;
+  const oneTimeMarkupDefault = model.oneTimeCost > 0
+    ? roundCurrency(model.oneTimeRevenue / model.oneTimeCost - 1)
+    : 0;
   const sheet = workbook.addWorksheet(sheetName, {
     properties: { defaultRowHeight: 18 },
-    views: [{ state: "frozen", ySplit: 8 }],
+    views: [{ state: "frozen", ySplit: 9 }],
   });
 
   sheet.pageSetup = {
@@ -1000,12 +1003,28 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   sheet.mergeCells("K6:N6");
   applyOuterBorder(sheet, 6, 6, 11, 14);
 
-  sheet.mergeCells("A7:N7");
-  sheet.getCell("A7").value = "Edit Qty, Cost / Unit, or Manual Sell / Unit below. To derive recurring sell price from cost, switch Recurring Sell Basis to Markup and update the Recurring Markup % driver.";
-  sheet.getCell("A7").font = { name: "Arial", size: 9, color: { argb: BRAND.text } };
-  sheet.getCell("A7").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-  sheet.getCell("A7").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
-  applyOuterBorder(sheet, 7, 7, 1, 14);
+  styleLabelValueRow(sheet, 7, 9, 10, "One-time Sell Basis", "Manual");
+  sheet.getCell("K7").value = "Set to Markup to derive one-time Sell / Unit from Cost / Unit.";
+  sheet.getCell("K7").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
+  sheet.getCell("K7").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  sheet.mergeCells("K7:N7");
+  applyOuterBorder(sheet, 7, 7, 11, 14);
+
+  styleLabelValueRow(sheet, 8, 9, 10, "One-time Markup %", oneTimeMarkupDefault);
+  sheet.getCell("J8").numFmt = "0.0%";
+  sheet.getCell("J8").alignment = { vertical: "middle", horizontal: "right" };
+  sheet.getCell("K8").value = "Editable assumption driver for one-time rows when markup mode is enabled.";
+  sheet.getCell("K8").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
+  sheet.getCell("K8").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  sheet.mergeCells("K8:N8");
+  applyOuterBorder(sheet, 8, 8, 11, 14);
+
+  sheet.mergeCells("A9:N9");
+  sheet.getCell("A9").value = "Edit Qty, Cost / Unit, or Manual Sell / Unit below. To derive sell price from cost, switch the matching Recurring or One-time Sell Basis to Markup and update that section's Markup % driver.";
+  sheet.getCell("A9").font = { name: "Arial", size: 9, color: { argb: BRAND.text } };
+  sheet.getCell("A9").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  sheet.getCell("A9").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
+  applyOuterBorder(sheet, 9, 9, 1, 14);
 
   const headers = [
     "Item",
@@ -1029,7 +1048,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   const recurringTotals = buildLineTotals(recurringLines);
   const oneTimeTotals = buildLineTotals(oneTimeLines);
 
-  let currentRow = 8;
+  let currentRow = 10;
   applySectionBand(sheet, currentRow, 1, 14, "Recurring Line Items");
   currentRow += 1;
   applyTableHeader(sheet, currentRow, headers);
@@ -1092,7 +1111,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
       });
       styleFormulaMoneyCell(
         sheet.getCell(currentRow, 7),
-        `IF(AND($J$5="Markup",${excelCellRef(4, currentRow)}="Recurring"),IF(${excelCellRef(8, currentRow)}="",0,${excelCellRef(8, currentRow)}*(1+$J$6)),${excelCellRef(14, currentRow)})`,
+        `IF(AND(${excelCellRef(4, currentRow)}="Recurring",$J$5="Markup"),IF(${excelCellRef(8, currentRow)}="",0,${excelCellRef(8, currentRow)}*(1+$J$6)),IF(AND(${excelCellRef(4, currentRow)}<>"Recurring",$J$7="Markup"),IF(${excelCellRef(8, currentRow)}="",0,${excelCellRef(8, currentRow)}*(1+$J$8)),${excelCellRef(14, currentRow)}))`,
         sellPerUnit,
       );
       styleFormulaMoneyCell(
