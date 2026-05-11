@@ -522,6 +522,10 @@ function styleFormulaPercentCell(cell: import("exceljs").Cell, formula: string, 
   cell.alignment = { vertical: "middle", horizontal: "right" };
 }
 
+function unlockCell(cell: import("exceljs").Cell) {
+  cell.protection = { locked: false };
+}
+
 function applyListValidation(cell: import("exceljs").Cell, allowedValues: string[], promptTitle: string, prompt: string) {
   cell.dataValidation = {
     type: "list",
@@ -1039,6 +1043,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   applyMetricCard(sheet, 4, 9, 13, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.green);
 
   styleLabelValueRow(sheet, 5, 9, 10, "Recurring Sell Basis", "Manual");
+  unlockCell(sheet.getCell("J5"));
   applyListValidation(
     sheet.getCell("J5"),
     ["Manual", "Markup"],
@@ -1054,6 +1059,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   styleLabelValueRow(sheet, 6, 9, 10, "Recurring Markup %", recurringMarkupDefault);
   sheet.getCell("J6").numFmt = "0.0%";
   sheet.getCell("J6").alignment = { vertical: "middle", horizontal: "right" };
+  unlockCell(sheet.getCell("J6"));
   applyPercentageNumberValidation(
     sheet.getCell("J6"),
     "Recurring Markup %",
@@ -1066,6 +1072,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   applyOuterBorder(sheet, 6, 6, 11, 14);
 
   styleLabelValueRow(sheet, 7, 9, 10, "One-time Sell Basis", "Manual");
+  unlockCell(sheet.getCell("J7"));
   applyListValidation(
     sheet.getCell("J7"),
     ["Manual", "Markup"],
@@ -1081,6 +1088,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   styleLabelValueRow(sheet, 8, 9, 10, "One-time Markup %", oneTimeMarkupDefault);
   sheet.getCell("J8").numFmt = "0.0%";
   sheet.getCell("J8").alignment = { vertical: "middle", horizontal: "right" };
+  unlockCell(sheet.getCell("J8"));
   applyPercentageNumberValidation(
     sheet.getCell("J8"),
     "One-time Markup %",
@@ -1182,6 +1190,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
         sheet.getCell(currentRow, col).numFmt = '"$"#,##0.00';
         sheet.getCell(currentRow, col).alignment = { vertical: "top", horizontal: "right" };
       });
+      [5, 8, 14].forEach((col) => unlockCell(sheet.getCell(currentRow, col)));
       applyNonNegativeNumberValidation(
         sheet.getCell(currentRow, 5),
         "Qty",
@@ -1532,6 +1541,22 @@ export async function buildProposalApprovalWorkbook(quote: QuoteRecord) {
   await addWorkbookImage(workbook, notesSheet, "/proposal-footer-hex.jpg", "jpeg", {
     tl: { col: 0.8, row: 29.5 },
     br: { col: 2, row: 33.5 },
+  });
+
+  await detailSheet.protect("", {
+    selectLockedCells: true,
+    selectUnlockedCells: true,
+    formatCells: false,
+    formatColumns: false,
+    formatRows: false,
+    insertColumns: false,
+    insertRows: false,
+    insertHyperlinks: false,
+    deleteColumns: false,
+    deleteRows: false,
+    sort: false,
+    autoFilter: false,
+    pivotTables: false,
   });
 
   const buffer = await workbook.xlsx.writeBuffer();
