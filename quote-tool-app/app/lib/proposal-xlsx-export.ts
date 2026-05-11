@@ -537,6 +537,21 @@ function applyListValidation(cell: import("exceljs").Cell, allowedValues: string
   };
 }
 
+function applyPercentageNumberValidation(cell: import("exceljs").Cell, promptTitle: string, prompt: string) {
+  cell.dataValidation = {
+    type: "custom",
+    allowBlank: false,
+    formulae: [`AND(ISNUMBER(${cell.address}),${cell.address}>=0)`],
+    showInputMessage: true,
+    promptTitle,
+    prompt,
+    showErrorMessage: true,
+    errorStyle: "stop",
+    errorTitle: "Invalid markup value",
+    error: "Enter a numeric percentage value greater than or equal to 0%.",
+  };
+}
+
 function applyTableHeader(worksheet: Worksheet, row: number, labels: string[]) {
   labels.forEach((label, index) => {
     const cell = worksheet.getCell(row, index + 1);
@@ -1018,6 +1033,11 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   styleLabelValueRow(sheet, 6, 9, 10, "Recurring Markup %", recurringMarkupDefault);
   sheet.getCell("J6").numFmt = "0.0%";
   sheet.getCell("J6").alignment = { vertical: "middle", horizontal: "right" };
+  applyPercentageNumberValidation(
+    sheet.getCell("J6"),
+    "Recurring Markup %",
+    "Enter a numeric percentage value such as 20% or 0.2.",
+  );
   sheet.getCell("K6").value = "Editable assumption driver for recurring rows when markup mode is enabled.";
   sheet.getCell("K6").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
   sheet.getCell("K6").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
@@ -1040,6 +1060,11 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   styleLabelValueRow(sheet, 8, 9, 10, "One-time Markup %", oneTimeMarkupDefault);
   sheet.getCell("J8").numFmt = "0.0%";
   sheet.getCell("J8").alignment = { vertical: "middle", horizontal: "right" };
+  applyPercentageNumberValidation(
+    sheet.getCell("J8"),
+    "One-time Markup %",
+    "Enter a numeric percentage value such as 20% or 0.2.",
+  );
   sheet.getCell("K8").value = "Editable assumption driver for one-time rows when markup mode is enabled.";
   sheet.getCell("K8").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
   sheet.getCell("K8").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
