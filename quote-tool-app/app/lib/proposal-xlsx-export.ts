@@ -552,6 +552,27 @@ function applyPercentageNumberValidation(cell: import("exceljs").Cell, promptTit
   };
 }
 
+function applyNonNegativeNumberValidation(
+  cell: import("exceljs").Cell,
+  promptTitle: string,
+  prompt: string,
+  errorTitle: string,
+  error: string,
+) {
+  cell.dataValidation = {
+    type: "custom",
+    allowBlank: false,
+    formulae: [`AND(ISNUMBER(${cell.address}),${cell.address}>=0)`],
+    showInputMessage: true,
+    promptTitle,
+    prompt,
+    showErrorMessage: true,
+    errorStyle: "stop",
+    errorTitle,
+    error,
+  };
+}
+
 function applyTableHeader(worksheet: Worksheet, row: number, labels: string[]) {
   labels.forEach((label, index) => {
     const cell = worksheet.getCell(row, index + 1);
@@ -1161,6 +1182,27 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
         sheet.getCell(currentRow, col).numFmt = '"$"#,##0.00';
         sheet.getCell(currentRow, col).alignment = { vertical: "top", horizontal: "right" };
       });
+      applyNonNegativeNumberValidation(
+        sheet.getCell(currentRow, 5),
+        "Qty",
+        "Enter a numeric quantity greater than or equal to 0.",
+        "Invalid quantity",
+        "Enter a numeric quantity greater than or equal to 0.",
+      );
+      applyNonNegativeNumberValidation(
+        sheet.getCell(currentRow, 8),
+        "Cost / Unit",
+        "Enter a numeric cost per unit greater than or equal to 0.",
+        "Invalid cost per unit",
+        "Enter a numeric cost per unit greater than or equal to 0.",
+      );
+      applyNonNegativeNumberValidation(
+        sheet.getCell(currentRow, 14),
+        "Manual Sell / Unit",
+        "Enter a numeric manual sell price per unit greater than or equal to 0.",
+        "Invalid manual sell price",
+        "Enter a numeric manual sell price per unit greater than or equal to 0.",
+      );
       styleFormulaMoneyCell(
         sheet.getCell(currentRow, 7),
         `IF(AND(${excelCellRef(4, currentRow)}="Recurring",$J$5="Markup"),IF(${excelCellRef(8, currentRow)}="",0,${excelCellRef(8, currentRow)}*(1+$J$6)),IF(AND(${excelCellRef(4, currentRow)}<>"Recurring",$J$7="Markup"),IF(${excelCellRef(8, currentRow)}="",0,${excelCellRef(8, currentRow)}*(1+$J$8)),${excelCellRef(14, currentRow)}))`,
