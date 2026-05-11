@@ -131,6 +131,11 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
           ...createDefaultMajorProjectState().summary,
           ...parsed.majorProject?.summary,
         },
+        bomImport: parsed.majorProject?.bomImport
+          ? {
+              ...parsed.majorProject.bomImport,
+            }
+          : createDefaultMajorProjectState().bomImport,
         commercial: {
           ...createDefaultMajorProjectState().commercial,
           ...parsed.majorProject?.commercial,

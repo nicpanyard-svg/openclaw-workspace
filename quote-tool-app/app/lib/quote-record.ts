@@ -419,6 +419,16 @@ export type MajorProjectSummary = {
   assumptions: string;
 };
 
+export type MajorProjectBomImportState = {
+  fileName: string;
+  sizeBytes: number;
+  mimeType?: string;
+  capturedAt: string;
+  source: "drop" | "picker";
+  status: "captured";
+  reviewState: "pending";
+};
+
 export type MajorProjectCommercialInputs = {
   termMonths: number;
   serviceMix: "managed-network" | "starlink-pool" | "starlink-per-site" | "hybrid";
@@ -447,6 +457,7 @@ export type MajorProjectState = {
   enabled: boolean;
   builderMode?: MajorProjectBuilderMode;
   summary: MajorProjectSummary;
+  bomImport?: MajorProjectBomImportState;
   commercial: MajorProjectCommercialInputs;
   options: MajorProjectOption[];
   activeOptionId: string;

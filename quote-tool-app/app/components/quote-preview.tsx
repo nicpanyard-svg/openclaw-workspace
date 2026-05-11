@@ -938,6 +938,7 @@ export default function QuotePreview() {
   const [majorProjectBundleSearch, setMajorProjectBundleSearch] = useState("");
   const [majorProjectQuoteLineSearch, setMajorProjectQuoteLineSearch] = useState("");
   const [majorProjectComponentBundleDraft, setMajorProjectComponentBundleDraft] = useState<MajorProjectComponentBundleDraft | null>(null);
+  const [isMajorProjectBomDragging, setIsMajorProjectBomDragging] = useState(false);
   const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1218,6 +1219,7 @@ export default function QuotePreview() {
       return summary;
     }, { recurring: 0, hardware: 0, services: 0 });
   }, [majorProjectMetrics.customerQuoteLines]);
+  const majorProjectBomInputId = "major-project-bom-import";
   const hasComponentsStepContent = activeMajorOptionComponents.length > 0;
   const hasBundleStepContent = activeMajorOptionBundles.length > 0;
   const hasQuoteLineStepContent = activeMajorOptionQuoteLines.length > 0;
@@ -1319,6 +1321,32 @@ export default function QuotePreview() {
 
   const updateMajorProjectQuote = (updater: (draft: QuoteRecord) => QuoteRecord) => {
     updateQuote((current) => applyMajorProjectToQuote(updater(ensureMajorProjectState(current))));
+  };
+
+  const captureMajorProjectBomImport = (file: File, source: "drop" | "picker") => {
+    updateMajorProjectQuote((draft) => {
+      if (!draft.majorProject) return draft;
+      draft.majorProject.bomImport = {
+        fileName: file.name,
+        sizeBytes: file.size,
+        mimeType: file.type || undefined,
+        capturedAt: new Date().toISOString(),
+        source,
+        status: "captured",
+        reviewState: "pending",
+      };
+      return draft;
+    });
+    setWorkflowNotice(`Captured BOM workbook shell for ${file.name}. Parsing is not enabled yet.`);
+  };
+
+  const clearMajorProjectBomImport = () => {
+    updateMajorProjectQuote((draft) => {
+      if (!draft.majorProject) return draft;
+      draft.majorProject.bomImport = undefined;
+      return draft;
+    });
+    setWorkflowNotice("Cleared the pending BOM workbook shell.");
   };
 
   const syncExecutiveSummaryParagraphs = (draft: QuoteRecord) => {
@@ -2891,6 +2919,57 @@ export default function QuotePreview() {
                       <label className="builder-field"><span>Option description</span><input value={activeMajorOption?.description ?? ""} onChange={(e) => updateActiveMajorOption("description", e.target.value)} /></label>
                     </div>
                     <label className="builder-field"><span>Project description</span><textarea rows={3} value={majorProjectState.summary.projectDescription} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.projectDescription = e.target.value; return draft; })} /></label>
+                    <div className="rounded-[18px] border border-[#d8e0e8] bg-[#f8fbfd] p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="text-[14px] font-semibold text-[#16202b]">BOM workbook import</div>
+                          <div className="mt-1 text-[12px] text-[#60707f]">Capture the spreadsheet now and wire parsing in a later slice. This does not create components yet.</div>
+                        </div>
+                        {majorProjectState.bomImport ? <button type="button" className="rounded-full border border-[#d5dde6] bg-white px-3 py-1 text-[12px] font-semibold text-[#334150]" onClick={clearMajorProjectBomImport}>Remove workbook</button> : null}
+                      </div>
+                      <label
+                        htmlFor={majorProjectBomInputId}
+                        className={`mt-3 w-full rounded-[18px] border border-dashed bg-white px-4 py-4 text-left transition ${isMajorProjectBomDragging ? "border-[#2f6fed] bg-[#edf4ff]" : "border-[#cfd7e0]"}`}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          setIsMajorProjectBomDragging(true);
+                        }}
+                        onDragLeave={() => setIsMajorProjectBomDragging(false)}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          setIsMajorProjectBomDragging(false);
+                          const file = event.dataTransfer.files?.[0];
+                          if (!file) return;
+                          captureMajorProjectBomImport(file, "drop");
+                        }}
+                      >
+                        <input
+                          id={majorProjectBomInputId}
+                          type="file"
+                          accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) captureMajorProjectBomImport(file, "picker");
+                            event.target.value = "";
+                          }}
+                        />
+                        <span className="block text-[14px] font-semibold text-[#17212c]">Drag and drop a BOM workbook here</span>
+                        <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose an `.xlsx`, `.xls`, or `.csv` file for the future import review flow.</span>
+                        {majorProjectState.bomImport ? (
+                          <span className="mt-3 block rounded-[14px] border border-[#e4ebf2] bg-[#f8fbfd] px-3 py-3 text-[12px] text-[#334150]">
+                            <strong className="block text-[13px] text-[#16202b]">{majorProjectState.bomImport.fileName}</strong>
+                            <span className="mt-1 block">{formatAttachmentSize(majorProjectState.bomImport.sizeBytes)}{majorProjectState.bomImport.mimeType ? ` • ${majorProjectState.bomImport.mimeType}` : ""}</span>
+                            <span className="mt-1 block">Review state: Pending workbook intake shell</span>
+                            {formatAttachmentUpdatedAt(majorProjectState.bomImport.capturedAt) ? <span className="mt-1 block">Captured {formatAttachmentUpdatedAt(majorProjectState.bomImport.capturedAt)} via {majorProjectState.bomImport.source === "drop" ? "drag and drop" : "file picker"}</span> : null}
+                          </span>
+                        ) : (
+                          <span className="mt-3 block rounded-[14px] border border-[#e4ebf2] bg-[#fdfefe] px-3 py-3 text-[12px] text-[#5f6d7a]">
+                            Next slice: inspect workbook tabs, validate the file shape, and stage a review screen before any component generation.
+                          </span>
+                        )}
+                      </label>
+                    </div>
 
                     <details className="rounded-[14px] border border-[#efe3e5] bg-[#fffafa] p-3">
                       <summary className="cursor-pointer list-none text-[13px] font-semibold text-[#16202b]">Advanced setup</summary>

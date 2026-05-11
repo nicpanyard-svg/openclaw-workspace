@@ -1004,6 +1004,7 @@ export function createDefaultMajorProjectState() {
       billingStart: "",
       assumptions: "",
     },
+    bomImport: undefined,
     commercial: {
       termMonths: 36,
       serviceMix: "managed-network" as MajorProjectServiceMix,
@@ -1062,6 +1063,11 @@ export function ensureMajorProjectState(quote: QuoteRecord): QuoteRecord {
         ...defaults.summary,
         ...quote.majorProject?.summary,
       },
+      bomImport: quote.majorProject?.bomImport
+        ? {
+            ...quote.majorProject.bomImport,
+          }
+        : defaults.bomImport,
       commercial: {
         ...defaults.commercial,
         ...quote.majorProject?.commercial,
