@@ -378,6 +378,13 @@ export function upsertProposal(store: ProposalStoreData, proposal: SavedProposal
   };
 }
 
+export function removeProposal(store: ProposalStoreData, proposalId: string): ProposalStoreData {
+  return {
+    ...store,
+    proposals: store.proposals.filter((proposal) => proposal.id !== proposalId),
+  };
+}
+
 export function getDefaultProposalStore(seedProposal: SavedProposalRecord): ProposalStoreData {
   const proposals: SavedProposalRecord[] = [
     seedProposal,

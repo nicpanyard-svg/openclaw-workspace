@@ -7,6 +7,7 @@ import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
+import { deleteProposalFromBrowserState } from "@/app/lib/proposal-delete";
 import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
@@ -89,6 +90,14 @@ function getNextStepLabel(proposal: SavedProposalRecord) {
 function getPriorityBucket(proposal: SavedProposalRecord) {
   if (proposal.status === "in_review") return "next";
   return "watch";
+}
+
+function confirmDeleteProposal(proposal: SavedProposalRecord) {
+  if (typeof window === "undefined") return false;
+
+  return window.confirm(
+    `Delete proposal ${proposal.quote.metadata.proposalNumber} for ${proposal.quote.customer.name}? This removes it from the RapidQuote workspace.`,
+  );
 }
 
 function StatFilterCard({
@@ -319,6 +328,16 @@ export function ProposalWorkspace() {
     setActiveProposalId(copiedProposal.id);
   };
 
+  const deleteProposal = (proposal: SavedProposalRecord) => {
+    if (!confirmDeleteProposal(proposal)) return;
+
+    const deletion = deleteProposalFromBrowserState(proposal.id);
+    if (!deletion) return;
+
+    setStore(deletion.nextStore);
+    setActiveProposalId(deletion.nextActiveProposalId);
+  };
+
   if (!isHydrated || !store || !currentOwner) {
     return <main className="workspace-shell"><div className="workspace-empty">Loading dashboard…</div></main>;
   }
@@ -470,6 +489,7 @@ export function ProposalWorkspace() {
               activeProposalId={activeProposal?.id ?? null}
               setActiveProposal={setActiveProposal}
               onCopyProposal={copyProposal}
+              onDeleteProposal={deleteProposal}
               tone="next"
             />
             <DashboardGroup
@@ -480,6 +500,7 @@ export function ProposalWorkspace() {
               activeProposalId={activeProposal?.id ?? null}
               setActiveProposal={setActiveProposal}
               onCopyProposal={copyProposal}
+              onDeleteProposal={deleteProposal}
               tone="watch"
             />
           </div>
@@ -504,6 +525,7 @@ function DashboardGroup({
   activeProposalId,
   setActiveProposal,
   onCopyProposal,
+  onDeleteProposal,
   tone,
 }: {
   title: string;
@@ -518,6 +540,7 @@ function DashboardGroup({
   activeProposalId: string | null;
   setActiveProposal: (proposalId: string) => void;
   onCopyProposal: (proposal: SavedProposalRecord) => void;
+  onDeleteProposal: (proposal: SavedProposalRecord) => void;
   tone: "next" | "watch";
 }) {
   return (
@@ -605,6 +628,9 @@ function DashboardGroup({
                     <button type="button" className="workspace-secondary-button" onClick={() => onCopyProposal(proposal)}>
                       Copy Proposal
                     </button>
+                    <button type="button" className="danger-button" onClick={() => onDeleteProposal(proposal)}>
+                      Delete
+                    </button>
                     <Link href={`/new?proposalId=${proposal.id}`} className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
                       Open Editor
                     </Link>
@@ -642,6 +668,14 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
     window.location.href = `/new?proposalId=${copiedProposal.id}`;
   };
+  const deleteProposal = () => {
+    if (!confirmDeleteProposal(proposal)) return;
+
+    const deletion = deleteProposalFromBrowserState(proposal.id);
+    if (!deletion) return;
+
+    window.location.href = "/workspace";
+  };
   const summary = buildProposalSummary(proposal);
   const commercial = buildCommercialMetrics(proposal.quote);
   const latestActivity = proposal.activity[proposal.activity.length - 1] ?? null;
@@ -659,6 +693,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
           <div className="workspace-actions">
             <span className={statusTone(proposal.status)}>{proposal.stageLabel}</span>
             <button type="button" className="workspace-secondary-button" onClick={copyProposal}>Copy Proposal</button>
+            <button type="button" className="danger-button" onClick={deleteProposal}>Delete</button>
             <Link href="/" className="workspace-secondary-button">Dashboard</Link>
             <Link href={buildProposalPreviewPath(proposal.id)} className="workspace-secondary-button">Preview Proposal</Link>
             <Link href={`/new?proposalId=${proposal.id}`} className="workspace-primary-button">Open Editor</Link>
