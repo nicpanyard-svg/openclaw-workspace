@@ -522,6 +522,21 @@ function styleFormulaPercentCell(cell: import("exceljs").Cell, formula: string, 
   cell.alignment = { vertical: "middle", horizontal: "right" };
 }
 
+function applyListValidation(cell: import("exceljs").Cell, allowedValues: string[], promptTitle: string, prompt: string) {
+  cell.dataValidation = {
+    type: "list",
+    allowBlank: false,
+    formulae: [`"${allowedValues.join(",")}"`],
+    showInputMessage: true,
+    promptTitle,
+    prompt,
+    showErrorMessage: true,
+    errorStyle: "stop",
+    errorTitle: "Invalid selection",
+    error: `Choose one of: ${allowedValues.join(", ")}.`,
+  };
+}
+
 function applyTableHeader(worksheet: Worksheet, row: number, labels: string[]) {
   labels.forEach((label, index) => {
     const cell = worksheet.getCell(row, index + 1);
@@ -988,6 +1003,12 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   applyMetricCard(sheet, 4, 9, 13, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.green);
 
   styleLabelValueRow(sheet, 5, 9, 10, "Recurring Sell Basis", "Manual");
+  applyListValidation(
+    sheet.getCell("J5"),
+    ["Manual", "Markup"],
+    "Recurring Sell Basis",
+    "Choose Manual or Markup.",
+  );
   sheet.getCell("K5").value = "Set to Markup to derive recurring Sell / Unit from Cost / Unit.";
   sheet.getCell("K5").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
   sheet.getCell("K5").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
@@ -1004,6 +1025,12 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   applyOuterBorder(sheet, 6, 6, 11, 14);
 
   styleLabelValueRow(sheet, 7, 9, 10, "One-time Sell Basis", "Manual");
+  applyListValidation(
+    sheet.getCell("J7"),
+    ["Manual", "Markup"],
+    "One-time Sell Basis",
+    "Choose Manual or Markup.",
+  );
   sheet.getCell("K7").value = "Set to Markup to derive one-time Sell / Unit from Cost / Unit.";
   sheet.getCell("K7").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
   sheet.getCell("K7").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
