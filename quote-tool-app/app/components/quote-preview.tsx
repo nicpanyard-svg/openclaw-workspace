@@ -4,6 +4,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import * as XLSX from "xlsx";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
@@ -87,6 +88,14 @@ type MajorProjectStepStatus = "current" | "complete" | "locked";
 type MajorProjectScheduleFilter = "all" | "one_time" | "recurring";
 type CustomerEntryMode = "start" | "select" | "create" | "review";
 type EntryIntent = "new-customer" | "select-customer" | "major-project" | "major-project-select-customer" | null;
+type MajorProjectBomCaptureError = {
+  fileName: string;
+  sizeBytes: number;
+  extension: string;
+  mimeType?: string;
+  message: string;
+  source: "drop" | "picker";
+};
 type MajorProjectComponentBundleDraft = {
   sourceComponentId: string;
   selectedComponentIds: string[];
@@ -101,6 +110,73 @@ const emptyEquipmentDraft: EquipmentDraft = {
   unitPrice: "0",
   description: "",
 };
+
+const MAJOR_PROJECT_BOM_ALLOWED_EXTENSIONS = [".xlsx", ".xls", ".csv"] as const;
+const MAJOR_PROJECT_BOM_ALLOWED_MIME_TYPES = new Set([
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "text/csv",
+  "application/csv",
+  "text/plain",
+]);
+
+function getFileExtension(fileName: string) {
+  const trimmed = fileName.trim().toLowerCase();
+  const lastDotIndex = trimmed.lastIndexOf(".");
+  return lastDotIndex >= 0 ? trimmed.slice(lastDotIndex) : "";
+}
+
+function formatMajorProjectBomFileType(fileName: string, mimeType?: string) {
+  const extension = getFileExtension(fileName);
+  if (extension) return extension.toUpperCase().replace(".", "");
+  if (mimeType?.trim()) return mimeType;
+  return "Unknown";
+}
+
+function validateMajorProjectBomFile(file: File) {
+  const extension = getFileExtension(file.name);
+  const mimeType = file.type.trim().toLowerCase();
+  const hasAllowedExtension = MAJOR_PROJECT_BOM_ALLOWED_EXTENSIONS.includes(
+    extension as (typeof MAJOR_PROJECT_BOM_ALLOWED_EXTENSIONS)[number],
+  );
+  const hasAllowedMimeType = mimeType ? MAJOR_PROJECT_BOM_ALLOWED_MIME_TYPES.has(mimeType) : false;
+
+  if (!hasAllowedExtension && !hasAllowedMimeType) {
+    return "Unsupported workbook type. Use an .xlsx, .xls, or .csv file for BOM review.";
+  }
+
+  return null;
+}
+
+async function readMajorProjectBomWorkbook(file: File) {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(new Uint8Array(buffer), {
+    type: "array",
+    dense: false,
+  });
+  const sheetNames = workbook.SheetNames.map((sheetName) => sheetName.trim()).filter(Boolean);
+
+  if (!sheetNames.length) {
+    throw new Error("Workbook parsed but no sheets were found.");
+  }
+
+  return { sheetNames };
+}
+
+function getMajorProjectBomStatusLabel(status: NonNullable<QuoteRecord["majorProject"]["bomImport"]>["status"]) {
+  switch (status) {
+    case "captured":
+      return "Captured";
+    case "reading":
+      return "Reading workbook";
+    case "loaded":
+      return "Workbook tabs ready for review";
+    case "error":
+      return "Workbook read failed";
+    default:
+      return status;
+  }
+}
 
 function formatCurrency(value: number, currencyCode = "USD") {
   return new Intl.NumberFormat("en-US", {
@@ -939,6 +1015,7 @@ export default function QuotePreview() {
   const [majorProjectQuoteLineSearch, setMajorProjectQuoteLineSearch] = useState("");
   const [majorProjectComponentBundleDraft, setMajorProjectComponentBundleDraft] = useState<MajorProjectComponentBundleDraft | null>(null);
   const [isMajorProjectBomDragging, setIsMajorProjectBomDragging] = useState(false);
+  const [majorProjectBomCaptureError, setMajorProjectBomCaptureError] = useState<MajorProjectBomCaptureError | null>(null);
   const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1323,24 +1400,84 @@ export default function QuotePreview() {
     updateQuote((current) => applyMajorProjectToQuote(updater(ensureMajorProjectState(current))));
   };
 
-  const captureMajorProjectBomImport = (file: File, source: "drop" | "picker") => {
+  const captureMajorProjectBomImport = async (file: File, source: "drop" | "picker") => {
+    const validationError = validateMajorProjectBomFile(file);
+    if (validationError) {
+      setMajorProjectBomCaptureError({
+        fileName: file.name,
+        sizeBytes: file.size,
+        extension: getFileExtension(file.name),
+        mimeType: file.type || undefined,
+        message: validationError,
+        source,
+      });
+      setWorkflowNotice(validationError);
+      return;
+    }
+
+    const capturedAt = new Date().toISOString();
+    setMajorProjectBomCaptureError(null);
     updateMajorProjectQuote((draft) => {
       if (!draft.majorProject) return draft;
       draft.majorProject.bomImport = {
         fileName: file.name,
         sizeBytes: file.size,
         mimeType: file.type || undefined,
-        capturedAt: new Date().toISOString(),
+        capturedAt,
         source,
-        status: "captured",
+        status: "reading",
         reviewState: "pending",
+        sheetNames: [],
+        readError: undefined,
       };
       return draft;
     });
-    setWorkflowNotice(`Captured BOM workbook shell for ${file.name}. Parsing is not enabled yet.`);
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheetNames = workbook.SheetNames?.filter((name) => name.trim()) ?? [];
+      updateMajorProjectQuote((draft) => {
+        if (!draft.majorProject) return draft;
+        draft.majorProject.bomImport = {
+          fileName: file.name,
+          sizeBytes: file.size,
+          mimeType: file.type || undefined,
+          capturedAt,
+          source,
+          status: "loaded",
+          reviewState: "pre_import_review",
+          sheetNames,
+          readError: undefined,
+        };
+        return draft;
+      });
+      setWorkflowNotice(sheetNames.length
+        ? `Captured ${file.name} and found ${sheetNames.length} workbook tab${sheetNames.length === 1 ? "" : "s"}.`
+        : `Captured ${file.name}, but no workbook tabs were detected.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to read workbook.";
+      updateMajorProjectQuote((draft) => {
+        if (!draft.majorProject) return draft;
+        draft.majorProject.bomImport = {
+          fileName: file.name,
+          sizeBytes: file.size,
+          mimeType: file.type || undefined,
+          capturedAt,
+          source,
+          status: "error",
+          reviewState: "pending",
+          sheetNames: [],
+          readError: message,
+        };
+        return draft;
+      });
+      setWorkflowNotice(`Captured ${file.name}, but RapidQuote could not read workbook tabs yet.`);
+    }
   };
 
   const clearMajorProjectBomImport = () => {
+    setMajorProjectBomCaptureError(null);
     updateMajorProjectQuote((draft) => {
       if (!draft.majorProject) return draft;
       draft.majorProject.bomImport = undefined;
@@ -2929,7 +3066,13 @@ export default function QuotePreview() {
                       </div>
                       <label
                         htmlFor={majorProjectBomInputId}
-                        className={`mt-3 w-full rounded-[18px] border border-dashed bg-white px-4 py-4 text-left transition ${isMajorProjectBomDragging ? "border-[#2f6fed] bg-[#edf4ff]" : "border-[#cfd7e0]"}`}
+                        className={`mt-3 w-full rounded-[18px] border border-dashed bg-white px-4 py-4 text-left transition ${
+                          isMajorProjectBomDragging
+                            ? "border-[#2f6fed] bg-[#edf4ff]"
+                            : majorProjectBomCaptureError
+                              ? "border-[#d35a5a] bg-[#fff4f4]"
+                              : "border-[#cfd7e0]"
+                        }`}
                         onDragOver={(event) => {
                           event.preventDefault();
                           setIsMajorProjectBomDragging(true);
@@ -2956,12 +3099,35 @@ export default function QuotePreview() {
                         />
                         <span className="block text-[14px] font-semibold text-[#17212c]">Drag and drop a BOM workbook here</span>
                         <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose an `.xlsx`, `.xls`, or `.csv` file for the future import review flow.</span>
+                        {majorProjectBomCaptureError ? (
+                          <span className="mt-3 block rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">
+                            <strong className="block text-[13px] text-[#8f2424]">File rejected</strong>
+                            <span className="mt-1 block">{majorProjectBomCaptureError.message}</span>
+                            <span className="mt-2 block"><strong>File name:</strong> {majorProjectBomCaptureError.fileName}</span>
+                            <span className="mt-1 block"><strong>File size:</strong> {formatAttachmentSize(majorProjectBomCaptureError.sizeBytes)}</span>
+                            <span className="mt-1 block"><strong>File type:</strong> {formatMajorProjectBomFileType(majorProjectBomCaptureError.fileName, majorProjectBomCaptureError.mimeType)}</span>
+                            {majorProjectBomCaptureError.mimeType ? <span className="mt-1 block"><strong>MIME type:</strong> {majorProjectBomCaptureError.mimeType}</span> : null}
+                            <span className="mt-1 block">Rejected from {majorProjectBomCaptureError.source === "drop" ? "drag and drop" : "file picker"}.</span>
+                          </span>
+                        ) : null}
                         {majorProjectState.bomImport ? (
                           <span className="mt-3 block rounded-[14px] border border-[#e4ebf2] bg-[#f8fbfd] px-3 py-3 text-[12px] text-[#334150]">
-                            <strong className="block text-[13px] text-[#16202b]">{majorProjectState.bomImport.fileName}</strong>
+                            <strong className="block text-[13px] text-[#16202b]">Captured workbook</strong>
                             <span className="mt-1 block">{formatAttachmentSize(majorProjectState.bomImport.sizeBytes)}{majorProjectState.bomImport.mimeType ? ` • ${majorProjectState.bomImport.mimeType}` : ""}</span>
-                            <span className="mt-1 block">Review state: Pending workbook intake shell</span>
+                            <span className="mt-1 block">Review state: {getMajorProjectBomStatusLabel(majorProjectState.bomImport.status)}</span>
                             {formatAttachmentUpdatedAt(majorProjectState.bomImport.capturedAt) ? <span className="mt-1 block">Captured {formatAttachmentUpdatedAt(majorProjectState.bomImport.capturedAt)} via {majorProjectState.bomImport.source === "drop" ? "drag and drop" : "file picker"}</span> : null}
+                            {majorProjectState.bomImport.sheetNames?.length ? (
+                              <span className="mt-3 block rounded-[12px] border border-[#d9e6ef] bg-white px-3 py-3 text-[#334150]">
+                                <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#60707f]">Workbook tabs</strong>
+                                <span className="mt-2 block text-[12px]">{majorProjectState.bomImport.sheetNames.join(", ")}</span>
+                              </span>
+                            ) : null}
+                            {majorProjectState.bomImport.readError ? (
+                              <span className="mt-3 block rounded-[12px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[#7f1d1d]">
+                                <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#8f2424]">Workbook read error</strong>
+                                <span className="mt-2 block">{majorProjectState.bomImport.readError}</span>
+                              </span>
+                            ) : null}
                           </span>
                         ) : (
                           <span className="mt-3 block rounded-[14px] border border-[#e4ebf2] bg-[#fdfefe] px-3 py-3 text-[12px] text-[#5f6d7a]">
