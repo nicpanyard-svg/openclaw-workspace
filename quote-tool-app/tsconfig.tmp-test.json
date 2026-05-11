@@ -3,6 +3,7 @@
   "compilerOptions": {
     "noEmit": false,
     "outDir": "./tmp-test-out",
+    "rootDir": ".",
     "module": "commonjs",
     "moduleResolution": "node"
   },
