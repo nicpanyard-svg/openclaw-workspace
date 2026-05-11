@@ -314,6 +314,48 @@ function resolveMajorProjectBomColumnMap(headerCells: string[]) {
   return columnMap;
 }
 
+function resolveMajorProjectBomImportColumnMap(
+  sheet: MajorProjectBomImportSheet,
+  reviewedColumnMapBySheet?: Partial<Record<string, MajorProjectBomColumnMap>>,
+): {
+  headerRowIndex: number;
+  columnMap: Partial<Record<MajorProjectBomColumnKey, number>>;
+} {
+  const headerRowIndex = resolveMajorProjectBomHeaderRow(sheet);
+  if (headerRowIndex === -1) {
+    return {
+      headerRowIndex,
+      columnMap: {},
+    };
+  }
+
+  const detectedMap = resolveMajorProjectBomColumnMap(sheet.rows[headerRowIndex]?.cells ?? []);
+  const reviewedMap = reviewedColumnMapBySheet?.[sheet.name] ?? {};
+  const columnKeys = Object.keys(MAJOR_PROJECT_BOM_COLUMN_MATCHERS) as MajorProjectBomColumnKey[];
+  const columnMap: Partial<Record<MajorProjectBomColumnKey, number>> = {};
+
+  columnKeys.forEach((columnKey) => {
+    const reviewedIndex = reviewedMap[columnKey];
+    if (reviewedIndex === null) {
+      return;
+    }
+    if (reviewedIndex !== undefined) {
+      columnMap[columnKey] = reviewedIndex;
+      return;
+    }
+
+    const detectedIndex = detectedMap[columnKey];
+    if (detectedIndex !== undefined) {
+      columnMap[columnKey] = detectedIndex;
+    }
+  });
+
+  return {
+    headerRowIndex,
+    columnMap,
+  };
+}
+
 function getMajorProjectBomCell(row: MajorProjectBomImportSheet["rows"][number], index: number | undefined) {
   if (index === undefined || index < 0) return "";
   return row.cells[index]?.trim() ?? "";
@@ -1743,14 +1785,15 @@ export default function QuotePreview() {
       return;
     }
 
-    const headerRowIndex = resolveMajorProjectBomHeaderRow(selectedSheet);
+    const { headerRowIndex, columnMap } = resolveMajorProjectBomImportColumnMap(
+      selectedSheet,
+      bomImport.reviewedColumnMapBySheet,
+    );
     if (headerRowIndex === -1) {
       setWorkflowNotice(`RapidQuote could not find an obvious header row in ${selectedSheet.name}. Choose a cleaner tab for this first import slice.`);
       return;
     }
 
-    const headerRow = selectedSheet.rows[headerRowIndex];
-    const columnMap = resolveMajorProjectBomColumnMap(headerRow.cells);
     const bomSourcePrefix = `BOM import source: ${selectedSheet.name} row `;
 
     updateMajorProjectQuote((draft) => {
