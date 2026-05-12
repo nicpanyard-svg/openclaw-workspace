@@ -394,7 +394,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
         </div>
 
         {quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent && executiveSummaryParagraphs.length > 0 && (
-          <div className="proposal-copy proposal-copy-card">
+          <div className="proposal-copy proposal-copy-card proposal-executive-summary-card">
             <div className="proposal-mini-heading">{quote.executiveSummary.heading?.trim() || "Executive Summary"}</div>
             {executiveSummaryParagraphs.map((paragraph, index) => (
               <p key={index} style={{ whiteSpace: "pre-line" }}>{paragraph}</p>

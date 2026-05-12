@@ -3173,6 +3173,19 @@ body {
     page-break-after: avoid;
   }
 
+  .proposal-executive-summary-card {
+    break-inside: auto;
+    page-break-inside: auto;
+    overflow: visible;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  .proposal-executive-summary-card .proposal-mini-heading {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
   .proposal-header {
     margin-bottom: 6px;
     padding-bottom: 6px;
