@@ -869,7 +869,6 @@ function buildExecutiveSummarySheet(
   applySectionBand(sheet, 20, 2, 9, "Financial Snapshot");
   applyTableHeader(sheet, 21, ["Bucket", "Customer Price", "Our Cost", "Gross Profit", "Gross Margin", "Commercial View", "Management Note", "", ""]);
   sheet.mergeCells("G21:H21");
-  sheet.mergeCells("I21:I21");
 
   const metricRows = [
     [
@@ -1010,7 +1009,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
     : 0;
   const sheet = workbook.addWorksheet(sheetName, {
     properties: { defaultRowHeight: 18 },
-    views: [{ state: "frozen", ySplit: 9 }],
+    views: [{ state: "frozen", ySplit: 10 }],
   });
 
   sheet.pageSetup = {
@@ -1066,84 +1065,84 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   applyMetricCard(sheet, 4, 7, 8, "Total Cost", formatMoney(model.totalCost), BRAND.gold);
   applyMetricCard(sheet, 4, 9, 13, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.green);
 
-  styleLabelValueRow(sheet, 5, 9, 10, "Recurring Sell Basis", "Manual");
-  unlockCell(sheet.getCell("J5"));
-  emphasizeEditableCell(sheet.getCell("J5"));
+  styleLabelValueRow(sheet, 6, 9, 10, "Recurring Sell Basis", "Manual");
+  unlockCell(sheet.getCell("J6"));
+  emphasizeEditableCell(sheet.getCell("J6"));
   applyListValidation(
-    sheet.getCell("J5"),
+    sheet.getCell("J6"),
     ["Manual", "Markup"],
     "Recurring Sell Basis",
     "Choose Manual or Markup.",
   );
-  sheet.getCell("K5").value = "Set to Markup to derive recurring Sell / Unit from Cost / Unit.";
-  sheet.getCell("K5").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
-  sheet.getCell("K5").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-  sheet.mergeCells("K5:N5");
-  applyOuterBorder(sheet, 5, 5, 11, 14);
-
-  styleLabelValueRow(sheet, 6, 9, 10, "Recurring Markup %", recurringMarkupDefault);
-  sheet.getCell("J6").numFmt = "0.0%";
-  sheet.getCell("J6").alignment = { vertical: "middle", horizontal: "right" };
-  unlockCell(sheet.getCell("J6"));
-  emphasizeEditableCell(sheet.getCell("J6"));
-  applyPercentageNumberValidation(
-    sheet.getCell("J6"),
-    "Recurring Markup %",
-    "Enter a numeric percentage value such as 20% or 0.2.",
-  );
-  sheet.getCell("K6").value = "Editable assumption driver for recurring rows when markup mode is enabled.";
+  sheet.getCell("K6").value = "Set to Markup to derive recurring Sell / Unit from Cost / Unit.";
   sheet.getCell("K6").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
   sheet.getCell("K6").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
   sheet.mergeCells("K6:N6");
   applyOuterBorder(sheet, 6, 6, 11, 14);
 
-  styleLabelValueRow(sheet, 7, 9, 10, "One-time Sell Basis", "Manual");
+  styleLabelValueRow(sheet, 7, 9, 10, "Recurring Markup %", recurringMarkupDefault);
+  sheet.getCell("J7").numFmt = "0.0%";
+  sheet.getCell("J7").alignment = { vertical: "middle", horizontal: "right" };
   unlockCell(sheet.getCell("J7"));
   emphasizeEditableCell(sheet.getCell("J7"));
-  applyListValidation(
+  applyPercentageNumberValidation(
     sheet.getCell("J7"),
-    ["Manual", "Markup"],
-    "One-time Sell Basis",
-    "Choose Manual or Markup.",
+    "Recurring Markup %",
+    "Enter a numeric percentage value such as 20% or 0.2.",
   );
-  sheet.getCell("K7").value = "Set to Markup to derive one-time Sell / Unit from Cost / Unit.";
+  sheet.getCell("K7").value = "Editable assumption driver for recurring rows when markup mode is enabled.";
   sheet.getCell("K7").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
   sheet.getCell("K7").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
   sheet.mergeCells("K7:N7");
   applyOuterBorder(sheet, 7, 7, 11, 14);
 
-  styleLabelValueRow(sheet, 8, 9, 10, "One-time Markup %", oneTimeMarkupDefault);
-  sheet.getCell("J8").numFmt = "0.0%";
-  sheet.getCell("J8").alignment = { vertical: "middle", horizontal: "right" };
+  styleLabelValueRow(sheet, 8, 9, 10, "One-time Sell Basis", "Manual");
   unlockCell(sheet.getCell("J8"));
   emphasizeEditableCell(sheet.getCell("J8"));
-  applyPercentageNumberValidation(
+  applyListValidation(
     sheet.getCell("J8"),
-    "One-time Markup %",
-    "Enter a numeric percentage value such as 20% or 0.2.",
+    ["Manual", "Markup"],
+    "One-time Sell Basis",
+    "Choose Manual or Markup.",
   );
-  sheet.getCell("K8").value = "Editable assumption driver for one-time rows when markup mode is enabled.";
+  sheet.getCell("K8").value = "Set to Markup to derive one-time Sell / Unit from Cost / Unit.";
   sheet.getCell("K8").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
   sheet.getCell("K8").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
   sheet.mergeCells("K8:N8");
   applyOuterBorder(sheet, 8, 8, 11, 14);
 
-  sheet.mergeCells("A9:H9");
-  sheet.getCell("A9").value = "Edit Qty, Cost / Unit, or Manual Sell / Unit below. To derive sell price from cost, switch the matching Recurring or One-time Sell Basis to Markup and update that section's Markup % driver.";
-  sheet.getCell("A9").font = { name: "Arial", size: 9, color: { argb: BRAND.text } };
-  sheet.getCell("A9").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-  sheet.getCell("A9").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
-  applyOuterBorder(sheet, 9, 9, 1, 8);
+  styleLabelValueRow(sheet, 9, 9, 10, "One-time Markup %", oneTimeMarkupDefault);
+  sheet.getCell("J9").numFmt = "0.0%";
+  sheet.getCell("J9").alignment = { vertical: "middle", horizontal: "right" };
+  unlockCell(sheet.getCell("J9"));
+  emphasizeEditableCell(sheet.getCell("J9"));
+  applyPercentageNumberValidation(
+    sheet.getCell("J9"),
+    "One-time Markup %",
+    "Enter a numeric percentage value such as 20% or 0.2.",
+  );
+  sheet.getCell("K9").value = "Editable assumption driver for one-time rows when markup mode is enabled.";
+  sheet.getCell("K9").font = { name: "Arial", size: 9, color: { argb: BRAND.slate } };
+  sheet.getCell("K9").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  sheet.mergeCells("K9:N9");
+  applyOuterBorder(sheet, 9, 9, 11, 14);
 
-  sheet.mergeCells("I9:J9");
-  const editableLegendCell = sheet.getCell("I9");
+  sheet.mergeCells("A10:H10");
+  sheet.getCell("A10").value = "Edit Qty, Cost / Unit, or Manual Sell / Unit below. To derive sell price from cost, switch the matching Recurring or One-time Sell Basis to Markup and update that section's Markup % driver.";
+  sheet.getCell("A10").font = { name: "Arial", size: 9, color: { argb: BRAND.text } };
+  sheet.getCell("A10").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  sheet.getCell("A10").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
+  applyOuterBorder(sheet, 10, 10, 1, 8);
+
+  sheet.mergeCells("I10:J10");
+  const editableLegendCell = sheet.getCell("I10");
   editableLegendCell.value = "Warm cells = editable inputs";
   editableLegendCell.font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.text } };
   editableLegendCell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
   emphasizeEditableCell(editableLegendCell);
 
-  sheet.mergeCells("K9:N9");
-  const formulaLegendCell = sheet.getCell("K9");
+  sheet.mergeCells("K10:N10");
+  const formulaLegendCell = sheet.getCell("K10");
   formulaLegendCell.value = "Blue-gray cells = calculated / locked";
   formulaLegendCell.font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.text } };
   formulaLegendCell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
@@ -1171,7 +1170,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   const recurringTotals = buildLineTotals(recurringLines);
   const oneTimeTotals = buildLineTotals(oneTimeLines);
 
-  let currentRow = 10;
+  let currentRow = 11;
   applySectionBand(sheet, currentRow, 1, 14, "Recurring Line Items");
   currentRow += 1;
   applyTableHeader(sheet, currentRow, headers);
