@@ -111,7 +111,10 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
   }));
   const oneTimeTotal = equipmentTotal + (contentPresence.hasSectionCContent ? serviceTotal : 0);
   const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => (paragraph ?? "").trim().length > 0);
-  const executiveSummaryParagraphs = executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary;
+  const executiveSummaryParagraphs = (executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary)
+    .flatMap((block) => block.replace(/\r\n/g, "\n").split(/\n\s*\n/))
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0);
 
   const billToLines = cleanLines([
     quote.billTo.companyName ?? "",

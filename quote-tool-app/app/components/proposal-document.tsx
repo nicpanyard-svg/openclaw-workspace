@@ -108,7 +108,10 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value?.length));
   const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => (paragraph ?? "").trim().length > 0);
-  const executiveSummaryParagraphs = executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary;
+  const executiveSummaryParagraphs = (executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary)
+    .flatMap((block) => block.replace(/\r\n/g, "\n").split(/\n\s*\n/))
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0);
   const sectionAHeading = buildSectionHeadingContent("Services", "Recurring services", quote.sections.sectionA.title);
   const sectionBHeading = buildSectionHeadingContent("Equipment", "Equipment and accessories", quote.sections.sectionB.title);
   const sectionCHeading = buildSectionHeadingContent("Services", "Field services", quote.sections.sectionC.title);
@@ -394,7 +397,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
           <div className="proposal-copy proposal-copy-card">
             <div className="proposal-mini-heading">{quote.executiveSummary.heading?.trim() || "Executive Summary"}</div>
             {executiveSummaryParagraphs.map((paragraph, index) => (
-              <p key={index}>{paragraph}</p>
+              <p key={index} style={{ whiteSpace: "pre-line" }}>{paragraph}</p>
             ))}
           </div>
         )}

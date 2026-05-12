@@ -955,7 +955,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
           <View style={styles.paragraphCard}>
             <Text style={styles.miniHeading}>{model.executiveSummaryHeading}</Text>
             {model.executiveSummaryParagraphs.map((paragraph, index) => (
-              <Text key={index} style={styles.paragraph}>{paragraph}</Text>
+              <Text key={index} style={styles.paragraph}>{paragraph.replace(/\r\n/g, "\n")}</Text>
             ))}
           </View>
         ) : null}
