@@ -101,6 +101,12 @@ function compact(values: Array<string | undefined | null>) {
   return values.map((value) => value?.trim()).filter((value): value is string => Boolean(value));
 }
 
+function compactMultiline(values: Array<string | undefined | null>) {
+  return values
+    .map((value) => value?.replace(/\r\n/g, "\n").trim())
+    .filter((value): value is string => Boolean(value));
+}
+
 function roundCurrency(value: number) {
   return Number(value.toFixed(2));
 }
@@ -325,11 +331,11 @@ function buildWorkbookModel(quote: QuoteRecord): ApprovalWorkbookModel {
   const majorProjectMetrics = buildMajorProjectMetrics(quote);
   const workflowLabel = quote.metadata.workflowMode === "major_project" ? "Major Project" : "Quick Quote";
   const projectName = quote.majorProject?.summary?.projectName?.trim() || quote.metadata.documentTitle || quote.customer.name;
-  const projectDescription = compact([
+  const projectDescription = compactMultiline([
     quote.majorProject?.summary?.projectDescription,
     quote.executiveSummary.customerContext,
     quote.executiveSummary.body,
-  ]).join(" ");
+  ]).join("\n\n");
 
   const lines = quote.metadata.workflowMode === "major_project" && quote.majorProject?.enabled
     ? (majorProjectMetrics.hasThreeLayerModel
@@ -862,8 +868,13 @@ function buildExecutiveSummarySheet(
   checkpointCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
   checkpointCell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
   applyOuterBorder(sheet, 16, 18, 7, 9);
-  [15, 16, 17, 18].forEach((rowNumber) => {
-    sheet.getRow(rowNumber).height = rowNumber === 15 ? 20 : 22;
+  const summaryLineCount = (model.projectDescription || "No project description provided.")
+    .split("\n")
+    .reduce((total, line) => total + Math.max(1, Math.ceil(Math.max(line.length, 1) / 62)), 0);
+  const summaryBodyHeight = Math.max(66, summaryLineCount * 15);
+  sheet.getRow(15).height = 20;
+  [16, 17, 18].forEach((rowNumber) => {
+    sheet.getRow(rowNumber).height = summaryBodyHeight / 3;
   });
 
   applySectionBand(sheet, 20, 2, 9, "Financial Snapshot");
