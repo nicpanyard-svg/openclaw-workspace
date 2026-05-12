@@ -453,6 +453,28 @@ function compactList(items: Array<string | undefined | null>) {
   return items.map((item) => item?.trim()).filter((item): item is string => Boolean(item));
 }
 
+function normalizeMultilineText(value: string) {
+  return value.replace(/\r\n/g, "\n");
+}
+
+function buildExecutiveSummaryParagraphs(customerContext?: string, body?: string) {
+  return compactList([
+    customerContext,
+    ...normalizeMultilineText(body ?? "")
+      .split(/\n\s*\n/)
+      .map((paragraph) => paragraph.trim()),
+  ]);
+}
+
+function insertTextAtSelection(
+  value: string,
+  selectionStart: number,
+  selectionEnd: number,
+  textToInsert: string,
+) {
+  return `${value.slice(0, selectionStart)}${textToInsert}${value.slice(selectionEnd)}`;
+}
+
 function countSectionAUnits(rows: Array<PoolPricingRow | PerKitPricingRow>) {
   return rows.reduce((sum, row) => {
     if (row.rowType === "support") return sum;
@@ -1743,10 +1765,10 @@ export default function QuotePreview() {
   };
 
   const syncExecutiveSummaryParagraphs = (draft: QuoteRecord) => {
-    draft.executiveSummary.paragraphs = compactList([
+    draft.executiveSummary.paragraphs = buildExecutiveSummaryParagraphs(
       draft.executiveSummary.customerContext,
       draft.executiveSummary.body,
-    ]);
+    );
   };
 
   const generateExecutiveSummary = () => {
@@ -4109,7 +4131,64 @@ export default function QuotePreview() {
               </div>
               <div className="mt-4 grid gap-4">
                 <label className="builder-field"><span>Customer context</span><textarea rows={3} value={quote.executiveSummary.customerContext ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.customerContext = e.target.value; syncExecutiveSummaryParagraphs(draft); return draft; })} /></label>
-                <label className="builder-field"><span>Summary body</span><textarea rows={6} value={quote.executiveSummary.body ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.body = e.target.value; syncExecutiveSummaryParagraphs(draft); return draft; })} /></label>
+                <div className="builder-field">
+                  <span>Summary body</span>
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="pill-button"
+                      onClick={() => {
+                        const nextValue = `${normalizeMultilineText(quote.executiveSummary.body ?? "")}\n• `;
+                        updateQuote((draft) => {
+                          draft.executiveSummary.body = nextValue.trimStart();
+                          syncExecutiveSummaryParagraphs(draft);
+                          return draft;
+                        });
+                      }}
+                    >
+                      Add bullet
+                    </button>
+                    <button
+                      type="button"
+                      className="pill-button"
+                      onClick={() => {
+                        const existingBody = normalizeMultilineText(quote.executiveSummary.body ?? "");
+                        const numberedCount = existingBody.split("\n").filter((line) => /^\s*\d+[.)]\s+/.test(line)).length;
+                        const nextValue = `${existingBody}\n${numberedCount + 1}. `;
+                        updateQuote((draft) => {
+                          draft.executiveSummary.body = nextValue.trimStart();
+                          syncExecutiveSummaryParagraphs(draft);
+                          return draft;
+                        });
+                      }}
+                    >
+                      Add numbered item
+                    </button>
+                    <button
+                      type="button"
+                      className="pill-button"
+                      onClick={() => {
+                        const nextValue = `${normalizeMultilineText(quote.executiveSummary.body ?? "")}\n\nSection Heading\n`;
+                        updateQuote((draft) => {
+                          draft.executiveSummary.body = nextValue.trimStart();
+                          syncExecutiveSummaryParagraphs(draft);
+                          return draft;
+                        });
+                      }}
+                    >
+                      Add section heading
+                    </button>
+                  </div>
+                  <textarea
+                    rows={14}
+                    className="min-h-[320px] resize-y"
+                    value={quote.executiveSummary.body ?? ""}
+                    onChange={(e) => updateQuote((draft) => { draft.executiveSummary.body = e.target.value; syncExecutiveSummaryParagraphs(draft); return draft; })}
+                  />
+                  <div className="mt-2 text-[12px] text-[#6b7683]">
+                    Keep one blank line between sections. Bullets, numbered items, and headings will now carry through to the approval workbook more cleanly.
+                  </div>
+                </div>
               </div>
             </section>
 
