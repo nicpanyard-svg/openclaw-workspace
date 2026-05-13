@@ -105,6 +105,8 @@ function getSpecOutputSectionLabel(outputSection: MajorProjectOutputSpecAttachme
 export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProps) {
   const [systemDrawingPreviews, setSystemDrawingPreviews] = useState<ResolvedSystemDrawingPreview[]>([]);
   const [specSheetPreviews, setSpecSheetPreviews] = useState<ResolvedSpecSheetPreview[]>([]);
+  const [systemDrawingPreviewsReady, setSystemDrawingPreviewsReady] = useState(false);
+  const [specSheetPreviewsReady, setSpecSheetPreviewsReady] = useState(false);
   const currencyCode = quote.metadata.currencyCode || "USD";
   const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
   const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
@@ -154,8 +156,11 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
     async function loadSystemDrawingPreviews() {
       if (!systemDrawingAttachments.length) {
         setSystemDrawingPreviews([]);
+        setSystemDrawingPreviewsReady(true);
         return;
       }
+
+      setSystemDrawingPreviewsReady(false);
 
       const nextPreviews = await Promise.all(
         systemDrawingAttachments.map(async (attachment) => {
@@ -188,6 +193,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
 
       if (!isCancelled) {
         setSystemDrawingPreviews(nextPreviews);
+        setSystemDrawingPreviewsReady(true);
       }
     }
 
@@ -206,8 +212,11 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
     async function loadSpecSheetPreviews() {
       if (!resolvedSpecSheetAttachments.length) {
         setSpecSheetPreviews([]);
+        setSpecSheetPreviewsReady(true);
         return;
       }
+
+      setSpecSheetPreviewsReady(false);
 
       const nextPreviews = await Promise.all(
         resolvedSpecSheetAttachments.map(async (entry) => {
@@ -263,6 +272,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
 
       if (!isCancelled) {
         setSpecSheetPreviews(nextPreviews);
+        setSpecSheetPreviewsReady(true);
       }
     }
 
@@ -288,7 +298,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
   const failedSpecSheetPreviews = specSheetPreviews.filter((entry) => !entry.objectUrl);
 
   return (
-    <main className="proposal-shell">
+    <main className="proposal-shell" data-attachments-ready={systemDrawingPreviewsReady && specSheetPreviewsReady ? "true" : "false"}>
       <section className="proposal-page cover-page proposal-page-with-band" data-page-label={coverPageLabel}>
         <div className="cover-grid">
           <div className="cover-topbar">

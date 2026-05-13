@@ -10,12 +10,14 @@ function buildPageRange(start: number, endExclusive: number) {
 
 function getSpecPlaceholderStartPageIndex(quote: QuoteRecord) {
   const contentPresence = getQuoteContentPresence(quote);
+  const systemDrawingCount = quote.majorProject?.summary?.systemDrawings?.length ?? 0;
 
   return (
     3
     + (quote.sections.sectionA.enabled && contentPresence.hasSectionAContent ? 1 : 0)
     + (quote.sections.sectionB.enabled && contentPresence.hasSectionBContent ? 1 : 0)
     + (quote.sections.sectionC.enabled && contentPresence.hasSectionCContent ? 1 : 0)
+    + systemDrawingCount
   );
 }
 

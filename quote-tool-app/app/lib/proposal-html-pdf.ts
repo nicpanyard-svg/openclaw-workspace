@@ -114,6 +114,14 @@ export async function renderHtmlPdf(url: string, options?: PDFOptions, storageSt
     await primePageStorage(page, storageState);
     await page.goto(url, { waitUntil: "networkidle0" });
     await page.evaluateHandle("document.fonts.ready");
+    try {
+      await page.waitForFunction(
+        () => document.querySelector(".proposal-shell")?.getAttribute("data-attachments-ready") === "true",
+        { timeout: 5000 },
+      );
+    } catch {
+      // Fall through when there are no async attachments or when the page does not expose the marker.
+    }
     return page.pdf(buildPdfOptions(options));
   });
 }
