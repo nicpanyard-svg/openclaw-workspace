@@ -243,7 +243,13 @@ export type QuoteApprovalDetails = {
   approvalNote?: string;
 };
 
+export type QuoteTermsPackageKey =
+  | "starlink_only"
+  | "integration_only"
+  | "starlink_plus_integration";
+
 export type QuoteTermsSection = {
+  selectedPackageKey?: QuoteTermsPackageKey;
   generalStarlinkServiceTermsTitle: string;
   generalStarlinkServiceTerms: string[];
   pricingTermsTitle: string;

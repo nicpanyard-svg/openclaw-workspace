@@ -19,6 +19,7 @@ import {
 } from "@/app/lib/proposal-state";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
+import { TERMS_PACKAGES, buildTermsFromPackage } from "@/app/lib/terms-packages";
 import {
   resolveMajorProjectBomColumnMap,
   resolveMajorProjectBomHeaderRow,
@@ -2749,6 +2750,11 @@ export default function QuotePreview() {
     return draft;
   });
 
+  const applyTermsPackage = (packageKey: (typeof TERMS_PACKAGES)[number]["key"]) => updateQuote((draft) => {
+    draft.terms = buildTermsFromPackage(packageKey);
+    return draft;
+  });
+
   const addCustomSectionField = (visibility: QuoteCustomField["visibility"] = "customer") => {
     const nextField = {
       id: `field_${Date.now()}`,
@@ -2974,6 +2980,25 @@ export default function QuotePreview() {
               Review and exports now flow through <strong>Preview Proposal</strong>. Open the customer-facing document there for Approval Workbook and PDF output.
             </div>
           ) : null}
+
+          <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#fbfcfe] px-4 py-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Terms package</div>
+                <div className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal terms and conditions package</div>
+                <div className="mt-2 text-[13px] text-[#60707f]">Choose the legal/commercial terms set that should flow into the proposal output. Placeholder packages are supported until final legal text is ready.</div>
+              </div>
+              <label className="builder-field compact min-w-[260px]">
+                <span>Applied package</span>
+                <select value={quote.terms.selectedPackageKey ?? "starlink_only"} onChange={(e) => applyTermsPackage(e.target.value as (typeof TERMS_PACKAGES)[number]["key"])}>
+                  {TERMS_PACKAGES.map((entry) => <option key={entry.key} value={entry.key}>{entry.label}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="mt-3 rounded-[14px] border border-[#e3e8ee] bg-white px-3 py-3 text-[13px] text-[#435160]">
+              {TERMS_PACKAGES.find((entry) => entry.key === (quote.terms.selectedPackageKey ?? "starlink_only"))?.description ?? TERMS_PACKAGES[0].description}
+            </div>
+          </div>
 
           {(workflowNotice || majorProjectHasBlockingErrors) && (
             <div className={`mt-4 rounded-[18px] border px-4 py-3 text-[13px] ${majorProjectHasBlockingErrors ? "border-[#e7b7b7] bg-[#fff4f4] text-[#8d1f1f]" : "border-[#d8e0e8] bg-[#f7fafc] text-[#435160]"}`}>

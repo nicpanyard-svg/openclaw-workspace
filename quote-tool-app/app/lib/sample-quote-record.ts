@@ -125,6 +125,7 @@ export const sampleQuoteRecord: QuoteRecord = {
     approvalNote: "Customer Name:",
   },
   terms: {
+    selectedPackageKey: "starlink_only",
     generalStarlinkServiceTermsTitle: "General Starlink Service Terms",
     generalStarlinkServiceTerms: [
       '1. “Local” service is for land based Starlink Services.',
