@@ -1123,6 +1123,36 @@ function majorProjectBucketLabel(bucket: MajorProjectSimpleBucket) {
   return majorProjectBucketOptions.find((option) => option.value === bucket)?.label ?? bucket;
 }
 
+function majorProjectVendorQuoteSchedule(bucket: MajorProjectSimpleBucket): MajorProjectComponent["schedule"] {
+  return bucket === "hardware" || bucket === "install" ? "one_time" : "recurring";
+}
+
+function majorProjectVendorQuoteLineType(bucket: MajorProjectSimpleBucket): MajorProjectComponent["lineType"] {
+  switch (bucket) {
+    case "hardware":
+      return "hardware";
+    case "install":
+      return "installation";
+    case "support_recurring":
+      return "support";
+    case "mrr":
+      return "managed_service";
+    case "other_vendor":
+      return "subscription";
+    case "other_recurring":
+      return "service";
+    default:
+      return "other";
+  }
+}
+
+function createMajorProjectVendorQuoteSourceText(vendorName: string | undefined, quoteLabel: string, rowNumber: number | undefined) {
+  return [
+    `Vendor quote source: ${vendorName ? `${vendorName} - ` : ""}${quoteLabel}`,
+    rowNumber ? `source row ${rowNumber}` : null,
+  ].filter(Boolean).join(" | ");
+}
+
 function AddressEditor({
   title,
   address,
@@ -2646,10 +2676,7 @@ export default function QuotePreview() {
         const quantity = Math.max(item.quantity, 0);
         const customerUnitPrice = Math.max(item.unitPrice, 0);
         const customerExtendedPrice = Number(((quantity || 1) * customerUnitPrice).toFixed(2));
-        const sourceText = [
-          `Vendor quote source: ${vendorName ? `${vendorName} - ` : ""}${quoteLabel}`,
-          item.rowNumber ? `source row ${item.rowNumber}` : null,
-        ].filter(Boolean).join(" | ");
+        const sourceText = createMajorProjectVendorQuoteSourceText(vendorName, quoteLabel, item.rowNumber);
 
         return {
           ...createMajorProjectSimpleRowDraft(nextIndex + itemIndex),
@@ -2689,6 +2716,77 @@ export default function QuotePreview() {
 
     if (importedCount > 0) {
       setWorkflowNotice(`Added ${importedCount} draft line item${importedCount === 1 ? "" : "s"} from the vendor quote.`);
+    }
+  };
+
+  const importMajorProjectVendorQuoteComponents = (quoteId: string) => {
+    let importedCount = 0;
+
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => (entry.vendorQuotes ?? []).some((vendorQuote) => vendorQuote.id === quoteId));
+      const vendorQuote = option?.vendorQuotes?.find((entry) => entry.id === quoteId);
+      if (!draft.majorProject || !option || !vendorQuote?.previewItems?.length) return draft;
+
+      const nextIndex = (option.components?.length ?? 0) + 1;
+      const vendorName = vendorQuote.vendorName?.trim() || undefined;
+      const quoteLabel = vendorQuote.quoteLabel?.trim() || stripFileExtension(vendorQuote.fileName);
+      const nextComponents = vendorQuote.previewItems.map((item, itemIndex) => {
+        const quantity = Math.max(item.quantity, 0) || 1;
+        const customerUnitPrice = Math.max(item.unitPrice, 0);
+        const customerExtendedPrice = Number(((quantity || 1) * customerUnitPrice).toFixed(2));
+        const lineType = majorProjectVendorQuoteLineType(item.bucket);
+        const sourceText = createMajorProjectVendorQuoteSourceText(vendorName, quoteLabel, item.rowNumber);
+        const draftComponent = createMajorProjectComponentDraft(nextIndex + itemIndex);
+
+        return {
+          ...draftComponent,
+          internalName: item.label || `Vendor quote component ${nextIndex + itemIndex}`,
+          customerFacingLabel: item.label || draftComponent.customerFacingLabel,
+          vendor: vendorName || item.vendor || draftComponent.vendor,
+          category: majorProjectLineTypeLabel(lineType),
+          lineType,
+          quantity,
+          unit: item.unit || "ea",
+          customerUnitPrice,
+          customerExtendedPrice,
+          vendorUnitCost: customerUnitPrice,
+          vendorExtendedCost: customerExtendedPrice,
+          schedule: majorProjectVendorQuoteSchedule(item.bucket),
+          costBasis: "vendor_quote" as const,
+          resaleBasis: "cost_plus" as const,
+          notes: [
+            item.description,
+            sourceText,
+            "Imported from a vendor quote into the mapped builder. Review customer sell, bundle placement, and proposal presentation before release approval.",
+          ].filter(Boolean).join("\n"),
+          importSource: {
+            type: "vendor_quote" as const,
+            importId: vendorQuote.id,
+            fileName: vendorQuote.fileName,
+            vendorName: vendorName || item.vendor,
+            rowNumber: item.rowNumber,
+          },
+        } satisfies MajorProjectComponent;
+      });
+
+      importedCount = nextComponents.length;
+      option.components = [...(option.components ?? []), ...nextComponents];
+      option.vendorQuotes = (option.vendorQuotes ?? []).map((entry) => entry.id === quoteId
+        ? {
+            ...entry,
+            importedComponentIds: [
+              ...(entry.importedComponentIds ?? []),
+              ...nextComponents.map((component) => component.id),
+            ],
+            importedAt: new Date().toISOString(),
+          }
+        : entry);
+      draft.majorProject.builderMode = "advanced";
+      return draft;
+    });
+
+    if (importedCount > 0) {
+      setWorkflowNotice(`Added ${importedCount} mapped component${importedCount === 1 ? "" : "s"} from the vendor quote and switched into Mapped Builder.`);
     }
   };
 
@@ -2752,6 +2850,159 @@ export default function QuotePreview() {
       }
     }
   };
+
+  const renderMajorProjectVendorQuoteIntake = () => (
+    <div className="rounded-[18px] border border-[#dce4ec] bg-[#f8fbfd] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-[14px] font-semibold text-[#16202b]">Vendor quote intake</div>
+          <div className="mt-1 text-[12px] text-[#60707f]">
+            Drop one or more vendor quote files here to seed either draft line items or mapped components. Spreadsheet quotes become preview rows. PDF quotes create a traceable placeholder so the quote can still enter the builder review flow.
+          </div>
+        </div>
+        <div className="rounded-full border border-[#d7e0e8] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">
+          {activeMajorOptionVendorQuotes.length} quote{activeMajorOptionVendorQuotes.length === 1 ? "" : "s"}
+        </div>
+      </div>
+      <label
+        htmlFor={majorProjectVendorQuoteInputId}
+        className={`mt-3 block w-full rounded-[18px] border border-dashed bg-white px-4 py-4 text-left transition ${
+          isMajorProjectVendorQuoteDragging
+            ? "border-[#2f6fed] bg-[#edf4ff]"
+            : majorProjectVendorQuoteCaptureError
+              ? "border-[#d35a5a] bg-[#fff4f4]"
+              : "border-[#cfd7e0]"
+        }`}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setIsMajorProjectVendorQuoteDragging(true);
+        }}
+        onDragLeave={() => setIsMajorProjectVendorQuoteDragging(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setIsMajorProjectVendorQuoteDragging(false);
+          captureMajorProjectVendorQuotes(event.dataTransfer.files, "drop");
+        }}
+      >
+        <input
+          id={majorProjectVendorQuoteInputId}
+          type="file"
+          multiple
+          accept=".xlsx,.xls,.csv,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/pdf"
+          className="hidden"
+          onChange={(event) => {
+            captureMajorProjectVendorQuotes(event.target.files, "picker");
+            event.target.value = "";
+          }}
+        />
+        <span className="block text-[14px] font-semibold text-[#17212c]">Drag and drop vendor quote files here</span>
+        <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose multiple `.xlsx`, `.xls`, `.csv`, or `.pdf` files. Imported content can become Quick Quote draft rows or mapped builder components while preserving vendor and source-row traceability.</span>
+        {majorProjectVendorQuoteCaptureError ? (
+          <span className="mt-3 block rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">
+            <strong className="block text-[13px] text-[#8f2424]">File rejected</strong>
+            <span className="mt-1 block">{majorProjectVendorQuoteCaptureError.message}</span>
+            <span className="mt-2 block text-[11px] text-[#9b4b4b]">
+              {majorProjectVendorQuoteCaptureError.fileName} • {formatAttachmentSize(majorProjectVendorQuoteCaptureError.sizeBytes)} • {formatMajorProjectVendorQuoteFileType(majorProjectVendorQuoteCaptureError.fileName, majorProjectVendorQuoteCaptureError.mimeType)}
+            </span>
+          </span>
+        ) : null}
+      </label>
+
+      {activeMajorOptionVendorQuotes.length ? (
+        <div className="mt-4 space-y-3">
+          {activeMajorOptionVendorQuotes.map((vendorQuote) => (
+            <div key={vendorQuote.id} className="rounded-[18px] border border-[#dfe6ed] bg-white p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">{getMajorProjectVendorQuoteStatusLabel(vendorQuote.status)}</div>
+                  <div className="mt-1 text-[16px] font-semibold text-[#16202b]">{vendorQuote.fileName}</div>
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[#60707f]">
+                    <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{formatAttachmentSize(vendorQuote.sizeBytes)}</span>
+                    <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{formatMajorProjectVendorQuoteFileType(vendorQuote.fileName, vendorQuote.mimeType)}</span>
+                    <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{vendorQuote.previewItems?.length ?? 0} preview item{(vendorQuote.previewItems?.length ?? 0) === 1 ? "" : "s"}</span>
+                    {vendorQuote.importedRowIds?.length ? <span className="rounded-full border border-[#dbe7df] bg-[#f5fbf6] px-3 py-1 text-[#215a36]">{vendorQuote.importedRowIds.length} draft row{vendorQuote.importedRowIds.length === 1 ? "" : "s"} created</span> : null}
+                    {vendorQuote.importedComponentIds?.length ? <span className="rounded-full border border-[#dce5fb] bg-[#f2f6ff] px-3 py-1 text-[#234d99]">{vendorQuote.importedComponentIds.length} component{vendorQuote.importedComponentIds.length === 1 ? "" : "s"} created</span> : null}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="pill-button pill-button-active"
+                    disabled={vendorQuote.status !== "loaded" || !(vendorQuote.previewItems?.length)}
+                    onClick={() => importMajorProjectVendorQuoteRows(vendorQuote.id)}
+                  >
+                    Add draft rows
+                  </button>
+                  <button
+                    type="button"
+                    className="pill-button"
+                    disabled={vendorQuote.status !== "loaded" || !(vendorQuote.previewItems?.length)}
+                    onClick={() => importMajorProjectVendorQuoteComponents(vendorQuote.id)}
+                  >
+                    Add components
+                  </button>
+                  <button type="button" className="danger-button" onClick={() => removeActiveMajorVendorQuote(vendorQuote.id)}>Remove</button>
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1.4fr]">
+                <label className="builder-field compact">
+                  <span>Vendor / source label</span>
+                  <input
+                    value={vendorQuote.vendorName ?? ""}
+                    onChange={(event) => updateActiveMajorVendorQuote(vendorQuote.id, (current) => ({ ...current, vendorName: event.target.value }))}
+                    placeholder="Enter vendor name"
+                  />
+                </label>
+                <label className="builder-field compact">
+                  <span>Quote reference</span>
+                  <input
+                    value={vendorQuote.quoteLabel ?? ""}
+                    onChange={(event) => updateActiveMajorVendorQuote(vendorQuote.id, (current) => ({ ...current, quoteLabel: event.target.value }))}
+                    placeholder="Internal quote label or file reference"
+                  />
+                </label>
+              </div>
+
+              {vendorQuote.readError ? (
+                <div className="mt-3 rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">{vendorQuote.readError}</div>
+              ) : null}
+
+              {vendorQuote.previewItems?.length ? (
+                <div className="mt-3 rounded-[16px] border border-[#e5ebf1] bg-[#fbfdff] p-3">
+                  <div className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#60707f]">Import preview</div>
+                  {vendorQuote.previewItems.length > MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT ? (
+                    <div className="mt-1 text-[12px] text-[#60707f]">Showing the first {MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT} parsed rows. Import will create all {vendorQuote.previewItems.length} draft rows or mapped components.</div>
+                  ) : null}
+                  <div className="mt-2 space-y-2">
+                    {vendorQuote.previewItems.slice(0, MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT).map((item) => (
+                      <div key={item.id} className="rounded-[14px] border border-[#e6edf3] bg-white px-3 py-3 text-[12px] text-[#42515f]">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <strong className="text-[13px] text-[#16202b]">{item.label}</strong>
+                          <div className="flex flex-wrap gap-2">
+                            <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">{majorProjectBucketLabel(item.bucket)}</span>
+                            <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">{item.quantity} {item.unit || "ea"}</span>
+                            {item.rowNumber ? <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">Source row {item.rowNumber}</span> : null}
+                          </div>
+                        </div>
+                        {item.description ? <div className="mt-2 text-[#5f6c78]">{item.description}</div> : null}
+                        <div className="mt-2 flex flex-wrap gap-4 text-[#5f6c78]">
+                          <span>Draft sell {formatCurrency(item.unitPrice, currencyCode)}</span>
+                          <span>Draft cost {formatCurrency(item.unitPrice, currencyCode)}</span>
+                          <span>Ext. {formatCurrency(item.extendedPrice, currencyCode)}</span>
+                          {item.vendor ? <span>Vendor {item.vendor}</span> : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 
   const addMajorProjectOption = () => {
     updateMajorProjectQuote((draft) => {
@@ -4476,6 +4727,8 @@ export default function QuotePreview() {
                       ) : null}
                     </div>
 
+                    {majorProjectState.builderMode === "advanced" ? renderMajorProjectVendorQuoteIntake() : null}
+
                       {majorProjectState.builderMode !== "advanced" ? (
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
@@ -4809,6 +5062,8 @@ export default function QuotePreview() {
                                   <span className="major-project-chip">{component.schedule === "recurring" ? "Recurring" : "One-time"}</span>
                                   <span className="major-project-chip">{component.vendor || "No vendor"}</span>
                                   <span className="major-project-chip">{assignedBundleLabel}</span>
+                                  {component.importSource ? <span className="major-project-chip">Vendor quote: {component.importSource.vendorName || component.importSource.fileName}</span> : null}
+                                  {component.importSource?.rowNumber ? <span className="major-project-chip">Source row {component.importSource.rowNumber}</span> : null}
                                   {isBundleSource ? <span className="major-project-chip">Bundle anchor</span> : null}
                                 </div>
                               </div>

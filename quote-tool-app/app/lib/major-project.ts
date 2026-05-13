@@ -340,6 +340,7 @@ function normalizeComponent(component: Partial<MajorProjectComponent> | undefine
     customerExtendedPrice: roundCurrency(customerExtendedPrice),
     vendorUnitCost,
     vendorExtendedCost: roundCurrency(vendorExtendedCost),
+    importSource: normalizeSimpleRowImportSource(component?.importSource),
   };
 }
 
@@ -481,6 +482,7 @@ function normalizeVendorQuoteImport(entry: Partial<MajorProjectVendorQuoteImport
     readError: normalizeText(entry?.readError) || undefined,
     previewItems: (entry?.previewItems ?? []).map((item, itemIndex) => normalizeVendorQuoteDraftItem(item, itemIndex)),
     importedRowIds: Array.from(new Set((entry?.importedRowIds ?? []).map((value) => normalizeText(value)).filter(Boolean))),
+    importedComponentIds: Array.from(new Set((entry?.importedComponentIds ?? []).map((value) => normalizeText(value)).filter(Boolean))),
     importedAt: normalizeText(entry?.importedAt) || undefined,
   };
 }
@@ -597,6 +599,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
       resaleBasis: "cost_plus",
       bundleAssignmentId: bundleId,
       notes: row.description,
+      importSource: row.importSource,
     }, index);
   });
 

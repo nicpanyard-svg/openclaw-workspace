@@ -359,6 +359,7 @@ export type MajorProjectComponent = {
   passThrough: boolean;
   bundleAssignmentId?: string;
   notes?: string;
+  importSource?: MajorProjectSimpleRowImportSource;
 };
 
 export type MajorProjectBundle = {
@@ -456,6 +457,7 @@ export type MajorProjectVendorQuoteImport = {
   readError?: string;
   previewItems?: MajorProjectVendorQuoteDraftItem[];
   importedRowIds?: string[];
+  importedComponentIds?: string[];
   importedAt?: string;
 };
 
