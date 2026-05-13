@@ -338,6 +338,9 @@ export type MajorProjectComponent = {
   id: string;
   internalName: string;
   customerFacingLabel?: string;
+  specSheetLabel?: string;
+  specSheetLocation?: string;
+  specSheetAttachment?: MajorProjectSpecAttachment;
   vendor: string;
   manufacturer?: string;
   category: string;

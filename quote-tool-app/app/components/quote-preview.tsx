@@ -1168,6 +1168,9 @@ function createMajorProjectComponentDraft(index: number, bundleId = ""): MajorPr
     id: `major-component-${Date.now()}-${index}`,
     internalName: `Component ${index}`,
     customerFacingLabel: "",
+    specSheetLabel: "",
+    specSheetLocation: "",
+    specSheetAttachment: undefined,
     vendor: "",
     manufacturer: "",
     category: majorProjectLineTypeLabel("hardware"),
@@ -1187,6 +1190,10 @@ function createMajorProjectComponentDraft(index: number, bundleId = ""): MajorPr
     bundleAssignmentId: bundleId,
     notes: "",
   };
+}
+
+function isMajorProjectHardwareComponent(component: MajorProjectComponent) {
+  return component.schedule !== "recurring" && ["hardware", "shipping", "tax"].includes(component.lineType);
 }
 
 function createMajorProjectBundleDraft(index: number): MajorProjectBundle {
@@ -1268,6 +1275,10 @@ function countMajorProjectSpecAttachmentReferences(quote: QuoteRecord, storageKe
   }
 
   for (const option of quote.majorProject?.options ?? []) {
+    for (const component of option.components ?? []) {
+      if (component.specSheetAttachment?.storageKey === storageKey) total += 1;
+    }
+
     for (const row of option.simpleRows ?? []) {
       if (row.specSheetAttachment?.storageKey === storageKey) total += 1;
     }
@@ -1862,6 +1873,10 @@ export default function QuotePreview() {
       return summary;
     }, {} as Record<MajorProjectSimpleBucket, { revenue: number; cost: number }>);
   }, [activeMajorOptionSimpleRows]);
+  const majorProjectUsesDirectComponentPath = majorProjectState.builderMode === "advanced"
+    && activeMajorOptionComponents.length > 0
+    && activeMajorOptionBundles.length === 0
+    && activeMajorOptionQuoteLines.length === 0;
   const majorProjectPreviewCategorySummary = useMemo(() => {
     if (majorProjectMetrics.builderMode === "simple") {
       return {
@@ -1869,6 +1884,15 @@ export default function QuotePreview() {
         hardware: majorProjectMetrics.hardwareRevenue,
         services: majorProjectMetrics.installRevenue + majorProjectMetrics.otherOneTimeRevenue,
       };
+    }
+    if (majorProjectUsesDirectComponentPath) {
+      return activeMajorOptionComponents.reduce((summary, component) => {
+        const revenue = component.customerExtendedPrice;
+        if (component.schedule === "recurring") summary.recurring += revenue;
+        else if (isMajorProjectHardwareComponent(component)) summary.hardware += revenue;
+        else summary.services += revenue;
+        return summary;
+      }, { recurring: 0, hardware: 0, services: 0 });
     }
     return majorProjectMetrics.customerQuoteLines.reduce((summary, line) => {
       const bucket = line.presentationCategory ?? "other";
@@ -1878,7 +1902,7 @@ export default function QuotePreview() {
       else summary.services += revenue;
       return summary;
     }, { recurring: 0, hardware: 0, services: 0 });
-  }, [majorProjectMetrics.customerQuoteLines]);
+  }, [activeMajorOptionComponents, majorProjectMetrics.builderMode, majorProjectMetrics.customerQuoteLines, majorProjectMetrics.hardwareRevenue, majorProjectMetrics.installRevenue, majorProjectMetrics.otherOneTimeRevenue, majorProjectMetrics.recurringRevenue, majorProjectUsesDirectComponentPath]);
   const importedMajorProjectComponents = useMemo(
     () => activeMajorOptionComponents.filter((component) => (component.notes ?? "").startsWith(MAJOR_PROJECT_BOM_IMPORT_SOURCE_PREFIX)),
     [activeMajorOptionComponents],
@@ -1918,7 +1942,7 @@ export default function QuotePreview() {
       : hasBundleStepContent && bundleCoverageCount > 0
         ? "complete"
         : "current";
-  const quoteLinesStepStatus: MajorProjectStepStatus = !hasComponentsStepContent || !hasBundleStepContent || bundleCoverageCount === 0
+  const quoteLinesStepStatus: MajorProjectStepStatus = !majorProjectUsesDirectComponentPath && (!hasComponentsStepContent || !hasBundleStepContent || bundleCoverageCount === 0)
     ? "locked"
     : majorProjectEditorTab === "quote_lines"
       ? "current"
@@ -1932,10 +1956,10 @@ export default function QuotePreview() {
       setMajorProjectEditorTab("components");
       return;
     }
-    if (majorProjectEditorTab === "quote_lines" && (!hasComponentsStepContent || !hasBundleStepContent || bundleCoverageCount === 0)) {
+    if (!majorProjectUsesDirectComponentPath && majorProjectEditorTab === "quote_lines" && (!hasComponentsStepContent || !hasBundleStepContent || bundleCoverageCount === 0)) {
       setMajorProjectEditorTab(hasComponentsStepContent ? "bundles" : "components");
     }
-  }, [bundleCoverageCount, hasBundleStepContent, hasComponentsStepContent, isMajorProject, majorProjectEditorTab]);
+  }, [bundleCoverageCount, hasBundleStepContent, hasComponentsStepContent, isMajorProject, majorProjectEditorTab, majorProjectUsesDirectComponentPath]);
 
   const filteredSectionACatalog = useMemo(() => {
     return sectionACatalog.filter((item) => {
@@ -2780,11 +2804,7 @@ export default function QuotePreview() {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option) return draft;
       const nextIndex = (option.components?.length ?? 0) + 1;
-      const resolvedBundleId = bundleId || option.bundles?.[0]?.id || "";
-      if (!option.bundles?.length) {
-        option.bundles = [createMajorProjectBundleDraft(1)];
-      }
-      option.components = [...(option.components ?? []), createMajorProjectComponentDraft(nextIndex, resolvedBundleId || option.bundles?.[0]?.id || "")];
+      option.components = [...(option.components ?? []), createMajorProjectComponentDraft(nextIndex, bundleId)];
       return draft;
     });
     setMajorProjectEditorTab("components");
@@ -2809,9 +2829,11 @@ export default function QuotePreview() {
   };
 
   const removeMajorProjectComponent = (componentId: string) => {
+    let attachmentToRelease: MajorProjectSpecAttachment | undefined;
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option) return draft;
+      attachmentToRelease = option.components?.find((component) => component.id === componentId)?.specSheetAttachment;
       option.components = (option.components ?? []).filter((component) => component.id !== componentId);
       option.bundles = (option.bundles ?? []).map((bundle) => ({
         ...bundle,
@@ -2826,6 +2848,7 @@ export default function QuotePreview() {
       }));
       return draft;
     });
+    releaseMajorProjectSpecAttachmentIfUnused(attachmentToRelease);
   };
 
   const startMajorProjectComponentBundleDraft = (component: MajorProjectComponent) => {
@@ -4330,12 +4353,12 @@ export default function QuotePreview() {
                               </div>
                               <div className="rounded-[14px] border border-[#dfe7ef] bg-[#f8fbfd] px-4 py-4 text-[13px] text-[#334150]">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
-                                  <div>
-                                    <div className="text-[13px] font-semibold text-[#16202b]">Post-import pricing and bundling</div>
-                                    <div className="mt-1 text-[12px] leading-[1.6] text-[#5f6d7a]">
-                                      The BOM import is raw internal input only. Review those components, develop customer pricing, then package them into bundles before you finalize quote lines.
+                                    <div>
+                                      <div className="text-[13px] font-semibold text-[#16202b]">Post-import pricing and bundling</div>
+                                      <div className="mt-1 text-[12px] leading-[1.6] text-[#5f6d7a]">
+                                        The BOM import feeds the internal component list first. Review those items, set customer-ready pricing, then either send them straight to proposal output or package them into bundles and quote lines.
+                                      </div>
                                     </div>
-                                  </div>
                                   <div className="flex flex-wrap gap-2">
                                     <button type="button" className="pill-button" onClick={() => setMajorProjectEditorTab("components")}>Open Components</button>
                                     <button type="button" className="pill-button" onClick={beginImportedMajorProjectBundling}>Start bundling</button>
@@ -4361,11 +4384,11 @@ export default function QuotePreview() {
                                   <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">Still not surfaced</div>
                                     <div className="mt-2 text-[20px] font-semibold text-[#16202b]">{importedMajorProjectUnquotedCount}</div>
-                                    <div className="mt-1 text-[12px] text-[#435262]">Imported components not yet flowing through customer quote lines.</div>
+                                    <div className="mt-1 text-[12px] text-[#435262]">Imported components not yet flowing through direct output or customer quote lines.</div>
                                   </div>
                                 </div>
                                 <div className="mt-2 text-[12px] leading-[1.6] text-[#5f6d7a]">
-                                  Imported components are raw internal components. Use the steps below to review them, seed starter customer-ready values, and then move them into bundles and quote lines.
+                                  Imported components land in Step 1 first. Review them there, seed starter customer-ready values, and then decide whether they should flow directly to output or move through bundles and quote lines.
                                 </div>
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   <button type="button" className="pill-button" onClick={seedImportedMajorProjectCustomerLabels} disabled={importedMajorProjectNeedsCustomerLabelCount === 0}>Seed blank customer labels</button>
@@ -4381,11 +4404,11 @@ export default function QuotePreview() {
                                   </div>
                                   <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">2. Develop pricing</div>
-                                    <div className="mt-2 text-[12px] text-[#435262]">Set customer labels, starting sell price, and margin logic on each component before packaging them for the proposal.</div>
+                                    <div className="mt-2 text-[12px] text-[#435262]">Set customer labels, starting sell price, margin logic, and supporting specs before you decide how each item should present.</div>
                                   </div>
                                   <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">3. Package and present</div>
-                                    <div className="mt-2 text-[12px] text-[#435262]">Group reviewed components into bundles, then confirm which bundles flow into the customer-facing quote lines.</div>
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">3. Package if needed</div>
+                                    <div className="mt-2 text-[12px] text-[#435262]">Keep reviewed components as direct output items, or group them into bundles and customer quote lines when you want a curated presentation layer.</div>
                                   </div>
                                 </div>
                               </div>
@@ -4413,7 +4436,7 @@ export default function QuotePreview() {
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <div className="text-[14px] font-semibold text-[#16202b]">Choose your workflow</div>
-                            <div className="mt-1 text-[12px] text-[#627181]">Pick the workflow that fits this option. Quick Quote builds quote-ready rows. Mapped Builder organizes components, bundles, and structured quote lines.</div>
+                            <div className="mt-1 text-[12px] text-[#627181]">Pick the workflow that fits this option. Quick Quote builds quote-ready rows. Mapped Builder starts with components, then adds optional bundles and customer quote lines when you need them.</div>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="rounded-full border border-[#d7e0e8] bg-[#f8fbfd] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">
@@ -4704,14 +4727,14 @@ export default function QuotePreview() {
                       count={activeMajorOptionComponents.length}
                       status={componentsStepStatus}
                       summary="Build the priced project scope with the parts, services, labor, cost, and sell price you need."
-                      detail="Bundles and proposal quote lines roll up from these rows."
+                      detail="This is the item/spec setup home. Bundles and proposal quote lines are optional downstream packaging layers."
                       onOpen={() => setMajorProjectEditorTab("components")}
                     >
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
                           <div>
                             <strong className="text-[#16202b]">Components are the foundation for this workflow.</strong>
-                            <div className="mt-1">Set pricing, cost, schedule, and which bundle each component belongs to.</div>
+                            <div className="mt-1">Set pricing, cost, schedule, and supporting specs here first. Leave items unassigned when they should flow straight to output.</div>
                           </div>
                           <button type="button" className="pill-button pill-button-active" onClick={() => addMajorProjectComponent()}>Add component</button>
                         </div>
@@ -4865,6 +4888,23 @@ export default function QuotePreview() {
                               <span>Line item description</span>
                               <textarea rows={2} value={component.notes ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, notes: e.target.value }))} placeholder="Customer-facing description that should travel with this line item" />
                             </label>
+                            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                              <label className="builder-field compact"><span>Supporting spec label</span><input value={component.specSheetLabel ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, specSheetLabel: e.target.value }))} placeholder="Optional customer-facing spec label" /></label>
+                              <label className="builder-field compact"><span>Internal spec location</span><input value={component.specSheetLocation ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, specSheetLocation: e.target.value }))} placeholder="SharePoint / vendor folder / PDF name" /></label>
+                            </div>
+                            <MajorProjectSpecAttachmentField
+                              itemId={component.id}
+                              attachment={component.specSheetAttachment}
+                              specSheetLabel={component.specSheetLabel}
+                              onAttachmentChange={(attachment) => {
+                                const previousAttachment = component.specSheetAttachment;
+                                updateActiveMajorComponent(component.id, (current) => ({ ...current, specSheetAttachment: attachment }));
+                                if (previousAttachment?.storageKey !== attachment?.storageKey) {
+                                  releaseMajorProjectSpecAttachmentIfUnused(previousAttachment);
+                                }
+                              }}
+                              onSpecSheetLabelChange={(value) => updateActiveMajorComponent(component.id, (current) => ({ ...current, specSheetLabel: value }))}
+                            />
                             <div className="mt-3 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                               <div className="text-[14px] font-semibold text-[#16202b]">Pricing controls</div>
                               <div className="mt-1 text-[12px] text-[#6a7682]">Keep commercial basis and pass-through settings available without hiding the line item description.</div>
@@ -4890,13 +4930,13 @@ export default function QuotePreview() {
                       title="Bundles"
                       count={activeMajorOptionBundles.length}
                       status={bundlesStepStatus}
-                      summary="Group related components into the priced packages you want to carry forward."
-                      detail="Each bundle becomes a building block for downstream quote lines."
+                      summary="Optional: group related components into priced packages you want to carry forward."
+                      detail="Use bundles when you want a curated packaging layer before proposal output."
                       onOpen={() => setMajorProjectEditorTab("bundles")}
                     >
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
-                          <div><strong className="text-[#16202b]">Bundles organize how the solution is packaged.</strong><div className="mt-1">Use them to combine the components that should price and appear together downstream.</div></div>
+                          <div><strong className="text-[#16202b]">Bundles organize how the solution is packaged.</strong><div className="mt-1">Use them only when multiple components should price and appear together downstream.</div></div>
                           <button type="button" className="pill-button pill-button-active" onClick={addMajorProjectBundle}>Add bundle</button>
                         </div>
                         <div className="major-project-toolbar">
@@ -4976,13 +5016,13 @@ export default function QuotePreview() {
                       title="Customer quote lines"
                       count={activeMajorOptionQuoteLines.length}
                       status={quoteLinesStepStatus}
-                      summary="Choose which bundles appear in the proposal and where they land."
-                      detail="Sections A, B, and C populate from this workflow surface."
+                      summary="Optional: choose which bundles appear in the proposal and where they land."
+                      detail="Use quote lines when you want a separate presentation layer for Sections A, B, and C."
                       onOpen={() => setMajorProjectEditorTab("quote_lines")}
                     >
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
-                          <div><strong className="text-[#16202b]">Customer quote lines are the presentation layer.</strong><div className="mt-1">Pick which bundles and any explicit component overrides should feed Section A, B, or C downstream.</div></div>
+                          <div><strong className="text-[#16202b]">Customer quote lines are the optional presentation layer.</strong><div className="mt-1">Pick which bundles and any explicit component overrides should feed Section A, B, or C when you need a curated downstream structure.</div></div>
                           <button type="button" className="pill-button pill-button-active" onClick={addMajorProjectQuoteLine}>Add quote line</button>
                         </div>
                         <div className="major-project-toolbar">
@@ -4996,7 +5036,7 @@ export default function QuotePreview() {
                           <div className="major-project-preview-handoff-card"><span>Section C / services</span><strong>{formatCurrency(majorProjectPreviewCategorySummary.services, currencyCode)}</strong></div>
                         </div>
 
-                        {activeMajorOptionQuoteLines.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No customer quote lines yet. Add one so bundles start showing up downstream in the proposal structure.</div> : filteredMajorProjectQuoteLines.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No customer quote lines match that search right now.</div> : filteredMajorProjectQuoteLines.map((line) => {
+                        {activeMajorOptionQuoteLines.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No customer quote lines yet. That is fine if this option should flow directly from components; add quote lines when you want a curated presentation layer.</div> : filteredMajorProjectQuoteLines.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No customer quote lines match that search right now.</div> : filteredMajorProjectQuoteLines.map((line) => {
                           const metrics = majorProjectMetrics.customerQuoteLines.find((entry) => entry.id === line.id);
                           const selectedBundles = new Set(line.bundleIds ?? []);
                           const explicitRevenueIds = new Set(line.includedRevenueComponentIds ?? []);

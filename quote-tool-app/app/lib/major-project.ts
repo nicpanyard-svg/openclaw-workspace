@@ -118,7 +118,7 @@ export type MajorProjectMetrics = {
 
 export type MajorProjectOutputSpecAttachment = {
   attachment: MajorProjectSpecAttachment;
-  sourceType: "simple_row" | "bundle" | "quote_line";
+  sourceType: "simple_row" | "component" | "bundle" | "quote_line";
   sourceId: string;
   sourceLabel: string;
   outputSection: "sectionA" | "sectionB" | "sectionC";
@@ -164,7 +164,8 @@ const outputSpecAttachmentSectionOrder: Record<MajorProjectOutputSpecAttachment[
 const outputSpecAttachmentSourceTypeOrder: Record<MajorProjectOutputSpecAttachment["sourceType"], number> = {
   quote_line: 0,
   bundle: 1,
-  simple_row: 2,
+  component: 2,
+  simple_row: 3,
 };
 
 function compareOutputSpecAttachmentText(left: string, right: string) {
@@ -207,6 +208,9 @@ function createDefaultComponent(): MajorProjectComponent {
     id: "major-component-1",
     internalName: "",
     customerFacingLabel: "",
+    specSheetLabel: "",
+    specSheetLocation: "",
+    specSheetAttachment: undefined,
     vendor: "",
     manufacturer: "",
     category: majorProjectLineTypeLabel("hardware"),
@@ -325,6 +329,9 @@ function normalizeComponent(component: Partial<MajorProjectComponent> | undefine
     ...component,
     id: component?.id ?? `major-component-${index + 1}`,
     internalName: component?.internalName ?? defaults.internalName,
+    specSheetLabel: component?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
+    specSheetLocation: component?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
+    specSheetAttachment: normalizeMajorProjectSpecAttachment(component?.specSheetAttachment),
     lineType,
     category: majorProjectLineTypeLabel(lineType),
     bundleAssignmentId: component?.bundleAssignmentId?.trim() ?? "",
@@ -573,6 +580,9 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
       id: `quick-builder-component-${row.id}`,
       internalName: label,
       customerFacingLabel: row.label?.trim() || label,
+      specSheetLabel: row.specSheetLabel,
+      specSheetLocation: row.specSheetLocation,
+      specSheetAttachment: row.specSheetAttachment,
       vendor: "Quick Builder",
       category: quickBuilderBundleCategoryForRow(row),
       lineType: quickBuilderLineTypeForRow(row),
@@ -748,6 +758,25 @@ function resolveSpecSheetLocation(line: MajorProjectCustomerQuoteLine, bundlesBy
   return inheritedLocations.length ? inheritedLocations.join(" | ") : undefined;
 }
 
+function usesDirectComponentOutput(metrics: Pick<MajorProjectMetrics, "hasThreeLayerModel" | "components" | "bundles" | "customerQuoteLines">) {
+  return metrics.hasThreeLayerModel
+    && metrics.components.length > 0
+    && metrics.bundles.length === 0
+    && metrics.customerQuoteLines.length === 0;
+}
+
+function isDirectHardwareComponent(component: MajorProjectComponent) {
+  return component.schedule !== "recurring" && ["hardware", "shipping", "tax"].includes(component.lineType);
+}
+
+function isDirectServiceComponent(component: MajorProjectComponent) {
+  return component.schedule !== "recurring" && !isDirectHardwareComponent(component);
+}
+
+function directComponentDisplayLabel(component: MajorProjectComponent, index: number) {
+  return component.customerFacingLabel?.trim() || component.internalName?.trim() || `Component ${index + 1}`;
+}
+
 function collectDuplicateIds(items: Array<{ id: string }>) {
   const counts = new Map<string, number>();
   for (const item of items) counts.set(item.id, (counts.get(item.id) ?? 0) + 1);
@@ -839,6 +868,7 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
   const bundles = option.bundles ?? [];
   const quoteLines = presentation.quoteLinesWithMetrics;
   const issues: MajorProjectValidationIssue[] = [];
+  const useDirectComponentPath = components.length > 0 && bundles.length === 0 && quoteLines.length === 0;
 
   const duplicateComponentIds = collectDuplicateIds(components);
   if (duplicateComponentIds.length) {
@@ -878,7 +908,7 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
     });
   }
 
-  if (!bundles.length) {
+  if (!bundles.length && !useDirectComponentPath) {
     issues.push({
       code: "missing_source_bundles",
       severity: "error",
@@ -886,7 +916,7 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
     });
   }
 
-  if (!quoteLines.length) {
+  if (!quoteLines.length && !useDirectComponentPath) {
     issues.push({
       code: "missing_customer_quote_lines",
       severity: "error",
@@ -963,7 +993,7 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
       });
     }
 
-    if (!resolvedBundleIds.length) {
+    if (!resolvedBundleIds.length && !useDirectComponentPath) {
       issues.push({
         code: "component_unmapped_to_bundle",
         severity: "warning",
@@ -1015,7 +1045,7 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
 
   for (const component of components) {
     const quoteLineIds = componentToQuoteLineIds.get(component.id) ?? [];
-    if (!quoteLineIds.length) {
+    if (!quoteLineIds.length && !useDirectComponentPath) {
       issues.push({
         code: "component_unmapped_to_quote_line",
         severity: "warning",
@@ -1047,9 +1077,11 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
     });
   }
 
-  const uncoveredComponentIds = components
-    .filter((component) => !(componentToQuoteLineIds.get(component.id) ?? []).length)
-    .map((component) => component.id);
+  const uncoveredComponentIds = useDirectComponentPath
+    ? []
+    : components
+      .filter((component) => !(componentToQuoteLineIds.get(component.id) ?? []).length)
+      .map((component) => component.id);
 
   const quoteLinesWithoutEconomics = quoteLines
     .filter((quoteLine) => (quoteLine.oneTimeRevenue + quoteLine.recurringRevenue + quoteLine.oneTimeCost + quoteLine.recurringCost) <= 0)
@@ -1362,6 +1394,30 @@ export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): Ma
     return attachments.sort(compareMajorProjectOutputSpecAttachments);
   }
 
+  const useDirectComponentPath = usesDirectComponentOutput(metrics);
+  if (useDirectComponentPath) {
+    for (const [index, component] of metrics.components.entries()) {
+      if (component.customerExtendedPrice <= 0) continue;
+      const outputSection = component.schedule === "recurring"
+        ? "sectionA"
+        : isDirectHardwareComponent(component)
+          ? "sectionB"
+          : "sectionC";
+      const outputLabel = directComponentDisplayLabel(component, index);
+      pushAttachment(createOutputSpecAttachmentEntry({
+        attachment: component.specSheetAttachment,
+        sourceType: "component",
+        sourceId: component.id,
+        sourceLabel: outputLabel,
+        outputSection,
+        outputItemId: component.id,
+        outputItemLabel: outputLabel,
+      }));
+    }
+
+    return attachments.sort(compareMajorProjectOutputSpecAttachments);
+  }
+
   const bundlesById = new Map(metrics.bundles.map((bundle) => [bundle.id, bundle]));
   const recurringQuoteLine = metrics.customerQuoteLines.find((line) => line.presentationCategory === "recurring");
   if (recurringQuoteLine && recurringQuoteLine.recurringRevenue > 0) {
@@ -1450,6 +1506,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   const siteCount = metrics.siteCount;
   const simpleRows = activeOption?.simpleRows ?? [];
   const monthDriverLabel = formatMajorProjectMonthDriver(state.commercial.termMonths);
+  const useDirectComponentPath = usesDirectComponentOutput(metrics);
   const next = JSON.parse(JSON.stringify(safeQuote)) as QuoteRecord;
 
   next.metadata.workflowMode = "major_project";
@@ -1465,7 +1522,11 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   next.sections.sectionA.explanatoryParagraphs = compact([
     state.summary.projectDescription,
     `Contract math is driven by ${monthDriverLabel}; visible recurring pricing stays MRR-first.`,
-    metrics.hasThreeLayerModel ? "Customer-facing quote lines are presentation only; internal components remain the commercial source of truth." : "",
+    metrics.hasThreeLayerModel
+      ? useDirectComponentPath
+        ? "Internal components flow directly to proposal output in this option; bundles and customer quote lines remain optional packaging layers."
+        : "Customer-facing quote lines are presentation only; internal components remain the commercial source of truth."
+      : "",
     metrics.validation.errorCount > 0 ? `Internal validation flagged ${metrics.validation.errorCount} mapping issue${metrics.validation.errorCount === 1 ? "" : "s"}; review the commercial worksheet before sending.` : "",
   ]);
   next.sections.sectionA.mode = state.commercial.serviceMix === "starlink-pool" ? "pool" : "per_kit";
@@ -1493,6 +1554,24 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     includedText: supportIncludedText,
     sourceLabel: "Major Project model",
   };
+
+  const directRecurringRows = useDirectComponentPath
+    ? metrics.components
+      .filter((component) => component.schedule === "recurring" && component.customerExtendedPrice > 0)
+      .map((component, index) => ({
+        id: component.id,
+        rowType: "service" as const,
+        description: directComponentDisplayLabel(component, index),
+        quantity: component.quantity,
+        unitLabel: component.unit || "ea",
+        unitPrice: component.customerUnitPrice,
+        monthlyRate: component.customerUnitPrice,
+        totalMonthlyRate: component.customerExtendedPrice,
+        includedText: component.notes?.trim() ? [component.notes.trim()] : undefined,
+        specSheetLabel: component.specSheetLabel?.trim() || undefined,
+        sourceLabel: "Major Project component",
+      }))
+    : [];
 
   const simpleRecurringRows = !metrics.hasThreeLayerModel
     ? (activeOption?.simpleRows ?? [])
@@ -1527,7 +1606,9 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     sourceLabel: metrics.hasThreeLayerModel ? "Major Project model (customer-facing recurring rollup)" : "Major Project model",
   };
 
-  const recurringRows = metrics.hasThreeLayerModel
+  const recurringRows = useDirectComponentPath
+    ? directRecurringRows
+    : metrics.hasThreeLayerModel
     ? (metrics.recurringRevenue > 0 ? [recurringRow] : [])
     : simpleRecurringRows.length
       ? simpleRecurringRows
@@ -1558,7 +1639,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         totalMonthlyRate: state.commercial.overageRatePerGb,
         sourceLabel: "Major Project model",
       }] : []),
-      ...((recurringRows.length > 0 && !simpleRecurringRows.some((row) => row.rowType === "support")) ? [supportRow] : []),
+      ...((!useDirectComponentPath && recurringRows.length > 0 && !simpleRecurringRows.some((row) => row.rowType === "support")) ? [supportRow] : []),
     ];
     next.sections.sectionA.perKitRows = [];
   } else {
@@ -1575,19 +1656,37 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         totalMonthlyRate: roundCurrency(siteCount * state.commercial.terminalFeePerSite),
         sourceLabel: "Major Project model",
       }] : []),
-      ...((recurringRows.length > 0 && !simpleRecurringRows.some((row) => row.rowType === "support")) ? [supportRow] : []),
+      ...((!useDirectComponentPath && recurringRows.length > 0 && !simpleRecurringRows.some((row) => row.rowType === "support")) ? [supportRow] : []),
     ];
     next.sections.sectionA.poolRows = [];
   }
 
   const hardwareQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory === "hardware" && line.oneTimeRevenue > 0);
-  next.sections.sectionB.enabled = hardwareQuoteLines.length > 0 || (!metrics.hasThreeLayerModel && metrics.hardwareRevenue > 0);
+  const directHardwareComponents = useDirectComponentPath
+    ? metrics.components.filter((component) => isDirectHardwareComponent(component) && component.customerExtendedPrice > 0)
+    : [];
+  next.sections.sectionB.enabled = directHardwareComponents.length > 0 || hardwareQuoteLines.length > 0 || (!metrics.hasThreeLayerModel && metrics.hardwareRevenue > 0);
   next.sections.sectionB.builderLabel = "Major project hardware";
   next.sections.sectionB.title = state.commercial.equipmentLabel;
-  next.sections.sectionB.introText = metrics.hasThreeLayerModel
+  next.sections.sectionB.introText = useDirectComponentPath
+    ? "Hardware lines are flowing directly from the Major Project component list."
+    : metrics.hasThreeLayerModel
     ? "Customer-facing hardware is rolled up from internal bundles and components."
     : "Hardware totals are generated from the major project commercial model.";
-  next.sections.sectionB.lineItems = metrics.hasThreeLayerModel
+  next.sections.sectionB.lineItems = useDirectComponentPath
+    ? directHardwareComponents.map((component, index) => ({
+      id: component.id,
+      sourceType: "custom" as const,
+      itemName: directComponentDisplayLabel(component, index),
+      itemCategory: component.category || majorProjectLineTypeLabel(component.lineType),
+      quantity: component.quantity,
+      unitPrice: component.customerUnitPrice,
+      totalPrice: component.customerExtendedPrice,
+      description: component.notes || activeOption?.description || state.summary.projectDescription,
+      specSheetLabel: component.specSheetLabel?.trim() || undefined,
+      sourceLabel: "Major Project component",
+    }))
+    : metrics.hasThreeLayerModel
     ? hardwareQuoteLines.map((line, index) => ({
       id: line.id,
       sourceType: "custom" as const,
@@ -1624,14 +1723,34 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     }] : []));
 
   const serviceQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory !== "hardware" && line.presentationCategory !== "recurring" && line.oneTimeRevenue > 0);
+  const directServiceComponents = useDirectComponentPath
+    ? metrics.components.filter((component) => isDirectServiceComponent(component) && component.customerExtendedPrice > 0)
+    : [];
   const simpleServiceRows = activeOption?.simpleRows?.filter((row) => row.bucket === "install") ?? [];
-  next.sections.sectionC.enabled = serviceQuoteLines.length > 0 || (!metrics.hasThreeLayerModel && (metrics.installRevenue > 0 || metrics.otherOneTimeRevenue > 0 || metrics.optionalServicesRevenue > 0));
+  next.sections.sectionC.enabled = directServiceComponents.length > 0 || serviceQuoteLines.length > 0 || (!metrics.hasThreeLayerModel && (metrics.installRevenue > 0 || metrics.otherOneTimeRevenue > 0 || metrics.optionalServicesRevenue > 0));
   next.sections.sectionC.builderLabel = "Major project services";
   next.sections.sectionC.title = "Major project field services";
-  next.sections.sectionC.introText = metrics.hasThreeLayerModel
+  next.sections.sectionC.introText = useDirectComponentPath
+    ? "Service and installation lines are flowing directly from the Major Project component list."
+    : metrics.hasThreeLayerModel
     ? "Customer-facing services are rolled up from internal bundles and components."
     : "Services and allowances are generated from the major project commercial model.";
-  next.sections.sectionC.lineItems = metrics.hasThreeLayerModel
+  next.sections.sectionC.lineItems = useDirectComponentPath
+    ? directServiceComponents.map((component, index) => ({
+      id: component.id,
+      sourceType: "custom" as const,
+      description: directComponentDisplayLabel(component, index),
+      quantity: component.quantity,
+      unitPrice: component.customerUnitPrice,
+      totalPrice: component.customerExtendedPrice,
+      unitLabel: component.unit || "ea",
+      notes: component.notes || "Generated directly from the Major Project component list",
+      specSheetLabel: component.specSheetLabel?.trim() || undefined,
+      serviceCategory: component.lineType === "installation" ? "installation" as const : "custom" as const,
+      pricingStage: "budgetary" as const,
+      sourceLabel: "Major Project component",
+    }))
+    : metrics.hasThreeLayerModel
     ? serviceQuoteLines.map((line) => ({
       id: line.id,
       sourceType: "custom" as const,
@@ -1689,7 +1808,11 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   next.commercial.meta.optionLabel = activeOption?.label ?? "Option 1";
   next.commercial.meta.comparisonGroup = state.summary.projectName || "Major Project";
   next.commercial.meta.notes = compact([
-    metrics.hasThreeLayerModel ? "Internal components are economics; customer bundle labels are presentation only." : "",
+    metrics.hasThreeLayerModel
+      ? useDirectComponentPath
+        ? "Internal components flow directly to proposal output; bundles and customer quote lines are optional."
+        : "Internal components are economics; customer bundle labels are presentation only."
+      : "",
   ]).join(" ");
 
   if (metrics.hasThreeLayerModel) {
