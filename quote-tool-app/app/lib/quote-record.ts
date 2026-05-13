@@ -400,6 +400,14 @@ export type MajorProjectVendorSummary = {
 export type MajorProjectSimpleBucket = "mrr" | "hardware" | "install" | "other_vendor" | "support_recurring" | "other_recurring";
 export type MajorProjectBuilderMode = "simple" | "advanced";
 
+export type MajorProjectSimpleRowImportSource = {
+  type: "vendor_quote";
+  importId: string;
+  fileName: string;
+  vendorName?: string;
+  rowNumber?: number;
+};
+
 export type MajorProjectSimpleRow = {
   id: string;
   label: string;
@@ -414,6 +422,38 @@ export type MajorProjectSimpleRow = {
   ourUnitCost: number;
   ourExtendedCost: number;
   bucket: MajorProjectSimpleBucket;
+  importSource?: MajorProjectSimpleRowImportSource;
+};
+
+export type MajorProjectVendorQuoteDraftItem = {
+  id: string;
+  label: string;
+  description?: string;
+  quantity: number;
+  unit?: string;
+  unitPrice: number;
+  extendedPrice: number;
+  bucket: MajorProjectSimpleBucket;
+  rowNumber?: number;
+  vendor?: string;
+};
+
+export type MajorProjectVendorQuoteSource = "drop" | "picker";
+
+export type MajorProjectVendorQuoteImport = {
+  id: string;
+  fileName: string;
+  sizeBytes: number;
+  mimeType?: string;
+  capturedAt: string;
+  source: MajorProjectVendorQuoteSource;
+  status: "reading" | "loaded" | "error";
+  vendorName?: string;
+  quoteLabel?: string;
+  readError?: string;
+  previewItems?: MajorProjectVendorQuoteDraftItem[];
+  importedRowIds?: string[];
+  importedAt?: string;
 };
 
 export type MajorProjectOption = {
@@ -429,6 +469,7 @@ export type MajorProjectOption = {
   supportRecurringPerSite: number;
   otherRecurringPerSite: number;
   simpleRows?: MajorProjectSimpleRow[];
+  vendorQuotes?: MajorProjectVendorQuoteImport[];
   components?: MajorProjectComponent[];
   bundles?: MajorProjectBundle[];
   customerQuoteLines?: MajorProjectCustomerQuoteLine[];

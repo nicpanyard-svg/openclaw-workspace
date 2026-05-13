@@ -6,7 +6,10 @@ import type {
   MajorProjectOption,
   MajorProjectSpecAttachment,
   MajorProjectSimpleBucket,
+  MajorProjectSimpleRowImportSource,
   MajorProjectSimpleRow,
+  MajorProjectVendorQuoteDraftItem,
+  MajorProjectVendorQuoteImport,
   QuoteRecord,
 } from "@/app/lib/quote-record";
 import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spec-attachments";
@@ -277,6 +280,10 @@ function roundCurrency(value: number) {
   return Number(value.toFixed(2));
 }
 
+function normalizeText(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
 function resolveMajorProjectTermMonths(termMonths: number) {
   if (!Number.isFinite(termMonths) || termMonths <= 0) return 0;
   return Math.round(termMonths);
@@ -418,11 +425,62 @@ function normalizeSimpleRow(row: Partial<MajorProjectSimpleRow> | undefined, ind
     ourUnitCost,
     ourExtendedCost: roundCurrency(ourExtendedCost),
     bucket: (row?.bucket ?? defaults.bucket) as MajorProjectSimpleBucket,
+    importSource: normalizeSimpleRowImportSource(row?.importSource),
+  };
+}
+
+function normalizeSimpleRowImportSource(source: Partial<MajorProjectSimpleRowImportSource> | undefined): MajorProjectSimpleRowImportSource | undefined {
+  if (source?.type !== "vendor_quote") return undefined;
+
+  return {
+    type: "vendor_quote",
+    importId: normalizeText(source.importId),
+    fileName: normalizeText(source.fileName),
+    vendorName: normalizeText(source.vendorName) || undefined,
+    rowNumber: Number.isFinite(Number(source.rowNumber)) ? Math.max(Number(source.rowNumber), 1) : undefined,
+  };
+}
+
+function normalizeVendorQuoteDraftItem(item: Partial<MajorProjectVendorQuoteDraftItem> | undefined, index: number): MajorProjectVendorQuoteDraftItem {
+  const quantity = Math.max(Number(item?.quantity ?? 1) || 1, 0);
+  const unitPrice = Number(item?.unitPrice ?? 0) || 0;
+  const extendedPrice = item?.extendedPrice ?? roundCurrency(quantity * unitPrice);
+
+  return {
+    id: normalizeText(item?.id) || `vendor-quote-item-${index + 1}`,
+    label: normalizeText(item?.label),
+    description: normalizeText(item?.description) || undefined,
+    quantity,
+    unit: normalizeText(item?.unit) || undefined,
+    unitPrice: roundCurrency(unitPrice),
+    extendedPrice: roundCurrency(Number(extendedPrice) || 0),
+    bucket: (item?.bucket ?? "hardware") as MajorProjectSimpleBucket,
+    rowNumber: Number.isFinite(Number(item?.rowNumber)) ? Math.max(Number(item?.rowNumber), 1) : undefined,
+    vendor: normalizeText(item?.vendor) || undefined,
+  };
+}
+
+function normalizeVendorQuoteImport(entry: Partial<MajorProjectVendorQuoteImport> | undefined, index: number): MajorProjectVendorQuoteImport {
+  return {
+    id: normalizeText(entry?.id) || `vendor-quote-${index + 1}`,
+    fileName: normalizeText(entry?.fileName),
+    sizeBytes: Math.max(Number(entry?.sizeBytes ?? 0) || 0, 0),
+    mimeType: normalizeText(entry?.mimeType) || undefined,
+    capturedAt: normalizeText(entry?.capturedAt),
+    source: entry?.source === "picker" ? "picker" : "drop",
+    status: entry?.status === "error" ? "error" : entry?.status === "loaded" ? "loaded" : "reading",
+    vendorName: normalizeText(entry?.vendorName) || undefined,
+    quoteLabel: normalizeText(entry?.quoteLabel) || undefined,
+    readError: normalizeText(entry?.readError) || undefined,
+    previewItems: (entry?.previewItems ?? []).map((item, itemIndex) => normalizeVendorQuoteDraftItem(item, itemIndex)),
+    importedRowIds: Array.from(new Set((entry?.importedRowIds ?? []).map((value) => normalizeText(value)).filter(Boolean))),
+    importedAt: normalizeText(entry?.importedAt) || undefined,
   };
 }
 
 function normalizeOption(option: Partial<MajorProjectOption> | undefined, index: number): MajorProjectOption {
   const simpleRows = (option?.simpleRows ?? []).map((row, rowIndex) => normalizeSimpleRow(row, rowIndex));
+  const vendorQuotes = (option?.vendorQuotes ?? []).map((entry, entryIndex) => normalizeVendorQuoteImport(entry, entryIndex));
   const components = (option?.components ?? []).map((component, componentIndex) => normalizeComponent(component, componentIndex));
   const bundles = (option?.bundles ?? []).map((bundle, bundleIndex) => normalizeBundle(bundle, bundleIndex));
   const customerQuoteLines = (option?.customerQuoteLines ?? []).map((line, lineIndex) => normalizeCustomerQuoteLine(line, lineIndex));
@@ -440,6 +498,7 @@ function normalizeOption(option: Partial<MajorProjectOption> | undefined, index:
     supportRecurringPerSite: Number(option?.supportRecurringPerSite ?? 0) || 0,
     otherRecurringPerSite: Number(option?.otherRecurringPerSite ?? 0) || 0,
     simpleRows,
+    vendorQuotes,
     components,
     bundles,
     customerQuoteLines,

@@ -64,6 +64,8 @@ import {
   type MajorProjectSpecAttachment,
   type MajorProjectSimpleBucket,
   type MajorProjectSimpleRow,
+  type MajorProjectVendorQuoteImport,
+  type MajorProjectVendorQuoteSource,
   type AddressBlock,
   type EquipmentPricingRow,
   type PerKitPricingRow,
@@ -115,10 +117,19 @@ type MajorProjectBomCaptureError = {
   message: string;
   source: "drop" | "picker";
 };
+type MajorProjectVendorQuoteCaptureError = {
+  fileName: string;
+  sizeBytes: number;
+  extension: string;
+  mimeType?: string;
+  message: string;
+  source: MajorProjectVendorQuoteSource;
+};
 type MajorProjectComponentBundleDraft = {
   sourceComponentId: string;
   selectedComponentIds: string[];
 };
+type MajorProjectVendorQuoteColumnKey = "label" | "description" | "quantity" | "unit" | "vendor" | "unitPrice" | "extendedPrice";
 
 const EXECUTIVE_SUMMARY_BLOCK_LABELS: Record<QuoteStructuredTextBlock["type"], string> = {
   heading: "Heading",
@@ -149,6 +160,21 @@ const MAJOR_PROJECT_BOM_ALLOWED_MIME_TYPES = new Set([
 const MAJOR_PROJECT_BOM_MAX_SHEET_ROWS = 250;
 const MAJOR_PROJECT_BOM_PREVIEW_ROW_COUNT = 6;
 const MAJOR_PROJECT_BOM_IMPORT_SOURCE_PREFIX = "BOM import source:";
+const MAJOR_PROJECT_VENDOR_QUOTE_ALLOWED_EXTENSIONS = [".xlsx", ".xls", ".csv", ".pdf"] as const;
+const MAJOR_PROJECT_VENDOR_QUOTE_ALLOWED_MIME_TYPES = new Set([
+  ...MAJOR_PROJECT_BOM_ALLOWED_MIME_TYPES,
+  "application/pdf",
+]);
+const MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT = 8;
+const MAJOR_PROJECT_VENDOR_QUOTE_COLUMN_MATCHERS: Record<MajorProjectVendorQuoteColumnKey, string[]> = {
+  label: ["item", "item name", "product", "component", "equipment", "service", "line item", "part", "product name"],
+  description: ["description", "details", "scope", "notes"],
+  quantity: ["qty", "quantity", "units", "count"],
+  unit: ["unit", "uom", "measure"],
+  vendor: ["vendor", "supplier", "distributor"],
+  unitPrice: ["unit price", "unit cost", "price each", "each price", "ea price", "cost ea", "price ea", "monthly", "mrc", "mrr"],
+  extendedPrice: ["extended", "ext price", "line total", "total", "amount", "extended price", "monthly total"],
+};
 
 const MAJOR_PROJECT_BOM_REVIEW_FIELDS: Array<{ key: MajorProjectBomColumnKey; label: string }> = [
   { key: "name", label: "Name" },
@@ -172,6 +198,10 @@ function formatMajorProjectBomFileType(fileName: string, mimeType?: string) {
   return "Unknown";
 }
 
+function formatMajorProjectVendorQuoteFileType(fileName: string, mimeType?: string) {
+  return formatMajorProjectBomFileType(fileName, mimeType);
+}
+
 function validateMajorProjectBomFile(file: File) {
   const extension = getFileExtension(file.name);
   const mimeType = file.type.trim().toLowerCase();
@@ -182,6 +212,21 @@ function validateMajorProjectBomFile(file: File) {
 
   if (!hasAllowedExtension && !hasAllowedMimeType) {
     return "Unsupported workbook type. Use an .xlsx, .xls, or .csv file for BOM review.";
+  }
+
+  return null;
+}
+
+function validateMajorProjectVendorQuoteFile(file: File) {
+  const extension = getFileExtension(file.name);
+  const mimeType = file.type.trim().toLowerCase();
+  const hasAllowedExtension = MAJOR_PROJECT_VENDOR_QUOTE_ALLOWED_EXTENSIONS.includes(
+    extension as (typeof MAJOR_PROJECT_VENDOR_QUOTE_ALLOWED_EXTENSIONS)[number],
+  );
+  const hasAllowedMimeType = mimeType ? MAJOR_PROJECT_VENDOR_QUOTE_ALLOWED_MIME_TYPES.has(mimeType) : false;
+
+  if (!hasAllowedExtension && !hasAllowedMimeType) {
+    return "Unsupported vendor quote type. Use an .xlsx, .xls, .csv, or .pdf file.";
   }
 
   return null;
@@ -239,6 +284,19 @@ function getMajorProjectBomStatusLabel(status: NonNullable<QuoteRecord["majorPro
   }
 }
 
+function getMajorProjectVendorQuoteStatusLabel(status: MajorProjectVendorQuoteImport["status"]) {
+  switch (status) {
+    case "reading":
+      return "Reading quote";
+    case "loaded":
+      return "Ready to seed rows";
+    case "error":
+      return "Quote read failed";
+    default:
+      return status;
+  }
+}
+
 function formatCurrency(value: number, currencyCode = "USD") {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -270,6 +328,15 @@ function parseMajorProjectBomCurrency(value: string | undefined) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function normalizeMajorProjectVendorQuoteHeader(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normalizeSearchValue(value: string) {
   return value.trim().toLowerCase();
 }
@@ -281,6 +348,196 @@ function getMajorProjectBomCell(row: MajorProjectBomImportSheet["rows"][number],
 
 function createMajorProjectBomImportSourceTag(sheetName: string, rowNumber: number) {
   return `BOM import source: ${sheetName} row ${rowNumber}`;
+}
+
+function resolveMajorProjectVendorQuoteHeaderRow(sheet: MajorProjectBomImportSheet) {
+  let bestIndex = -1;
+  let bestScore = 0;
+  const scanRows = sheet.rows.slice(0, Math.min(sheet.rows.length, 12));
+
+  for (const row of scanRows) {
+    let score = 0;
+    for (const cell of row.cells) {
+      const normalizedCell = normalizeMajorProjectVendorQuoteHeader(cell);
+      if (!normalizedCell) continue;
+      for (const candidates of Object.values(MAJOR_PROJECT_VENDOR_QUOTE_COLUMN_MATCHERS)) {
+        if (candidates.some((candidate) => normalizedCell.includes(candidate))) {
+          score += 1;
+          break;
+        }
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = sheet.rows.findIndex((candidate) => candidate.rowNumber === row.rowNumber);
+    }
+  }
+
+  return bestScore >= 2 ? bestIndex : -1;
+}
+
+function resolveMajorProjectVendorQuoteColumnMap(headerCells: string[]) {
+  const normalizedHeaders = headerCells.map((cell) => normalizeMajorProjectVendorQuoteHeader(cell));
+  const columnMap: Partial<Record<MajorProjectVendorQuoteColumnKey, number>> = {};
+
+  normalizedHeaders.forEach((normalizedCell, index) => {
+    if (!normalizedCell) return;
+
+    for (const [columnKey, candidates] of Object.entries(MAJOR_PROJECT_VENDOR_QUOTE_COLUMN_MATCHERS) as Array<[MajorProjectVendorQuoteColumnKey, string[]]>) {
+      if (columnMap[columnKey] !== undefined) continue;
+      if (candidates.some((candidate) => normalizedCell.includes(candidate))) {
+        columnMap[columnKey] = index;
+        break;
+      }
+    }
+  });
+
+  if (columnMap.label === undefined && columnMap.description !== undefined) {
+    columnMap.label = columnMap.description;
+  }
+
+  return columnMap;
+}
+
+function shouldSkipMajorProjectVendorQuoteRow(label: string, description: string, priceText: string, extendedText: string) {
+  const combined = [label, description, priceText, extendedText].join(" ").trim();
+  if (!combined) return true;
+  return /^(subtotal|total|grand total|monthly total|project total)/i.test(combined);
+}
+
+function inferMajorProjectVendorQuoteBucket(...values: Array<string | undefined>) {
+  const combined = values.filter(Boolean).join(" ").toLowerCase();
+  if (/(support|monitor|maintenance|managed service|help desk)/i.test(combined)) return "support_recurring" as const;
+  if (/(monthly|mrc|mrr|subscription|recurring|license|service)/i.test(combined)) return "other_vendor" as const;
+  if (/(install|labor|deployment|commissioning|survey|travel)/i.test(combined)) return "install" as const;
+  return "hardware" as const;
+}
+
+function buildMajorProjectVendorQuoteItems(sheet: MajorProjectBomImportSheet, fileName: string) {
+  const headerRowIndex = resolveMajorProjectVendorQuoteHeaderRow(sheet);
+  const headerCells = headerRowIndex >= 0 ? sheet.rows[headerRowIndex]?.cells ?? [] : [];
+  const columnMap = resolveMajorProjectVendorQuoteColumnMap(headerCells);
+  const startIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 0;
+  const items: NonNullable<MajorProjectVendorQuoteImport["previewItems"]> = [];
+
+  for (const row of sheet.rows.slice(startIndex)) {
+    const label = getMajorProjectBomCell(row, columnMap.label);
+    const description = getMajorProjectBomCell(row, columnMap.description);
+    const quantityText = getMajorProjectBomCell(row, columnMap.quantity);
+    const unit = getMajorProjectBomCell(row, columnMap.unit) || "ea";
+    const vendor = getMajorProjectBomCell(row, columnMap.vendor);
+    const unitPriceText = getMajorProjectBomCell(row, columnMap.unitPrice);
+    const extendedPriceText = getMajorProjectBomCell(row, columnMap.extendedPrice);
+
+    if (shouldSkipMajorProjectVendorQuoteRow(label, description, unitPriceText, extendedPriceText)) {
+      continue;
+    }
+
+    const quantityValue = parseMajorProjectBomCurrency(quantityText) ?? parseNumber(quantityText);
+    const quantity = quantityValue > 0 ? quantityValue : 1;
+    const unitPriceValue = parseMajorProjectBomCurrency(unitPriceText);
+    const extendedPriceValue = parseMajorProjectBomCurrency(extendedPriceText);
+    const resolvedUnitPrice = unitPriceValue ?? (extendedPriceValue !== null ? Number((extendedPriceValue / quantity).toFixed(2)) : 0);
+    const resolvedExtendedPrice = extendedPriceValue ?? Number((quantity * resolvedUnitPrice).toFixed(2));
+    const resolvedLabel = label || description || stripFileExtension(fileName);
+
+    if (!resolvedLabel.trim()) {
+      continue;
+    }
+
+    items.push({
+      id: `vendor-quote-item-${row.rowNumber}`,
+      label: resolvedLabel,
+      description: description && description !== resolvedLabel ? description : undefined,
+      quantity,
+      unit,
+      unitPrice: resolvedUnitPrice,
+      extendedPrice: resolvedExtendedPrice,
+      bucket: inferMajorProjectVendorQuoteBucket(resolvedLabel, description, vendor),
+      rowNumber: row.rowNumber,
+      vendor: vendor || undefined,
+    });
+  }
+
+  return items;
+}
+
+function selectBestMajorProjectVendorQuoteSheet(sheets: MajorProjectBomImportSheet[]) {
+  if (!sheets.length) return null;
+
+  const rankedSheets = sheets
+    .map((sheet) => ({
+      sheet,
+      headerRowIndex: resolveMajorProjectVendorQuoteHeaderRow(sheet),
+    }))
+    .map((entry) => ({
+      ...entry,
+      itemCount: buildMajorProjectVendorQuoteItems(entry.sheet, entry.sheet.name).length,
+    }))
+    .sort((left, right) => right.itemCount - left.itemCount || left.sheet.name.localeCompare(right.sheet.name));
+
+  return rankedSheets[0]?.sheet ?? sheets[0];
+}
+
+function createPdfMajorProjectVendorQuotePreview(file: File): NonNullable<MajorProjectVendorQuoteImport["previewItems"]> {
+  return [{
+    id: `vendor-quote-item-${Date.now()}`,
+    label: stripFileExtension(file.name),
+    description: "Vendor quote PDF attached for manual pricing review. Convert this placeholder into priced rows after review.",
+    quantity: 1,
+    unit: "ea",
+    unitPrice: 0,
+    extendedPrice: 0,
+    bucket: "hardware",
+  }];
+}
+
+async function readMajorProjectVendorQuote(file: File, source: MajorProjectVendorQuoteSource): Promise<MajorProjectVendorQuoteImport> {
+  const extension = getFileExtension(file.name);
+  const isPdf = extension === ".pdf" || file.type.trim().toLowerCase() === "application/pdf";
+  const id = `major-vendor-quote-${Date.now()}-${Math.round(Math.random() * 1000)}`;
+
+  if (isPdf) {
+    return {
+      id,
+      fileName: file.name,
+      sizeBytes: file.size,
+      mimeType: file.type || undefined,
+      capturedAt: new Date().toISOString(),
+      source,
+      status: "loaded",
+      quoteLabel: stripFileExtension(file.name),
+      vendorName: undefined,
+      previewItems: createPdfMajorProjectVendorQuotePreview(file),
+    };
+  }
+
+  const { sheets } = await readMajorProjectBomWorkbook(file);
+  const selectedSheet = selectBestMajorProjectVendorQuoteSheet(sheets);
+  if (!selectedSheet) {
+    throw new Error("Vendor quote workbook parsed but no usable sheets were found.");
+  }
+
+  const previewItems = buildMajorProjectVendorQuoteItems(selectedSheet, file.name);
+  if (!previewItems.length) {
+    throw new Error("No usable quote rows were found. Use a sheet with item labels and pricing columns.");
+  }
+
+  const detectedVendor = previewItems.find((item) => item.vendor?.trim())?.vendor?.trim();
+
+  return {
+    id,
+    fileName: file.name,
+    sizeBytes: file.size,
+    mimeType: file.type || undefined,
+    capturedAt: new Date().toISOString(),
+    source,
+    status: "loaded",
+    quoteLabel: stripFileExtension(file.name),
+    vendorName: detectedVendor || undefined,
+    previewItems,
+  };
 }
 
 function createDraftMajorProjectComponentFromBomRow(params: {
@@ -1291,6 +1548,8 @@ export default function QuotePreview() {
   const [majorProjectComponentBundleDraft, setMajorProjectComponentBundleDraft] = useState<MajorProjectComponentBundleDraft | null>(null);
   const [isMajorProjectBomDragging, setIsMajorProjectBomDragging] = useState(false);
   const [majorProjectBomCaptureError, setMajorProjectBomCaptureError] = useState<MajorProjectBomCaptureError | null>(null);
+  const [isMajorProjectVendorQuoteDragging, setIsMajorProjectVendorQuoteDragging] = useState(false);
+  const [majorProjectVendorQuoteCaptureError, setMajorProjectVendorQuoteCaptureError] = useState<MajorProjectVendorQuoteCaptureError | null>(null);
   const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1446,6 +1705,7 @@ export default function QuotePreview() {
 
   const contentPresence = useMemo(() => getQuoteContentPresence(quote), [quote]);
   const activeMajorOptionSimpleRows = useMemo(() => activeMajorOption?.simpleRows ?? [], [activeMajorOption]);
+  const activeMajorOptionVendorQuotes = useMemo(() => activeMajorOption?.vendorQuotes ?? [], [activeMajorOption]);
   const activeMajorOptionComponents = useMemo(() => activeMajorOption?.components ?? [], [activeMajorOption]);
   const activeMajorOptionBundles = useMemo(() => activeMajorOption?.bundles ?? [], [activeMajorOption]);
   const activeMajorOptionQuoteLines = useMemo(() => activeMajorOption?.customerQuoteLines ?? [], [activeMajorOption]);
@@ -1644,6 +1904,7 @@ export default function QuotePreview() {
     [importedMajorProjectComponentIds, majorProjectMetrics.validation.uncoveredComponentIds],
   );
   const majorProjectBomInputId = "major-project-bom-import";
+  const majorProjectVendorQuoteInputId = "major-project-vendor-quote-import";
   const hasComponentsStepContent = activeMajorOptionComponents.length > 0;
   const hasBundleStepContent = activeMajorOptionBundles.length > 0;
   const hasQuoteLineStepContent = activeMajorOptionQuoteLines.length > 0;
@@ -2321,6 +2582,151 @@ export default function QuotePreview() {
       option.simpleRows = moveToPositionInList(option.simpleRows, index, targetPosition);
       return draft;
     });
+  };
+
+  const updateActiveMajorVendorQuote = (quoteId: string, updater: (entry: MajorProjectVendorQuoteImport) => MajorProjectVendorQuoteImport) => {
+    updateMajorProjectQuote((draft) => {
+      let updated = false;
+      for (const option of draft.majorProject?.options ?? []) {
+        if (!(option.vendorQuotes ?? []).some((entry) => entry.id === quoteId)) continue;
+        option.vendorQuotes = (option.vendorQuotes ?? []).map((entry) => entry.id === quoteId ? updater(entry) : entry);
+        updated = true;
+      }
+      if (!updated) return draft;
+      return draft;
+    });
+  };
+
+  const removeActiveMajorVendorQuote = (quoteId: string) => {
+    updateMajorProjectQuote((draft) => {
+      for (const option of draft.majorProject?.options ?? []) {
+        if (!(option.vendorQuotes ?? []).some((entry) => entry.id === quoteId)) continue;
+        option.vendorQuotes = (option.vendorQuotes ?? []).filter((entry) => entry.id !== quoteId);
+      }
+      return draft;
+    });
+  };
+
+  const importMajorProjectVendorQuoteRows = (quoteId: string) => {
+    let importedCount = 0;
+
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => (entry.vendorQuotes ?? []).some((vendorQuote) => vendorQuote.id === quoteId));
+      const vendorQuote = option?.vendorQuotes?.find((entry) => entry.id === quoteId);
+      if (!option || !vendorQuote?.previewItems?.length) return draft;
+
+      const nextIndex = (option.simpleRows?.length ?? 0) + 1;
+      const vendorName = vendorQuote.vendorName?.trim() || undefined;
+      const quoteLabel = vendorQuote.quoteLabel?.trim() || stripFileExtension(vendorQuote.fileName);
+      const nextRows = vendorQuote.previewItems.map((item, itemIndex) => {
+        const quantity = Math.max(item.quantity, 0);
+        const customerUnitPrice = Math.max(item.unitPrice, 0);
+        const customerExtendedPrice = Number(((quantity || 1) * customerUnitPrice).toFixed(2));
+        const sourceText = [
+          `Vendor quote source: ${vendorName ? `${vendorName} - ` : ""}${quoteLabel}`,
+          item.rowNumber ? `source row ${item.rowNumber}` : null,
+        ].filter(Boolean).join(" | ");
+
+        return {
+          ...createMajorProjectSimpleRowDraft(nextIndex + itemIndex),
+          label: item.label || `Vendor quote item ${nextIndex + itemIndex}`,
+          description: [item.description, sourceText, "Draft pricing seeded from the vendor quote. Review customer sell before release approval."].filter(Boolean).join("\n"),
+          quantity: quantity || 1,
+          unit: item.unit || "ea",
+          customerUnitPrice,
+          customerExtendedPrice,
+          ourUnitCost: customerUnitPrice,
+          ourExtendedCost: customerExtendedPrice,
+          bucket: item.bucket,
+          importSource: {
+            type: "vendor_quote" as const,
+            importId: vendorQuote.id,
+            fileName: vendorQuote.fileName,
+            vendorName: vendorName || item.vendor,
+            rowNumber: item.rowNumber,
+          },
+        };
+      });
+
+      importedCount = nextRows.length;
+      option.simpleRows = [...(option.simpleRows ?? []), ...nextRows];
+      option.vendorQuotes = (option.vendorQuotes ?? []).map((entry) => entry.id === quoteId
+        ? {
+            ...entry,
+            importedRowIds: [
+              ...(entry.importedRowIds ?? []),
+              ...nextRows.map((row) => row.id),
+            ],
+            importedAt: new Date().toISOString(),
+          }
+        : entry);
+      return draft;
+    });
+
+    if (importedCount > 0) {
+      setWorkflowNotice(`Added ${importedCount} draft line item${importedCount === 1 ? "" : "s"} from the vendor quote.`);
+    }
+  };
+
+  const captureMajorProjectVendorQuotes = async (files: FileList | File[] | null | undefined, source: MajorProjectVendorQuoteSource) => {
+    if (!files?.length) return;
+
+    setMajorProjectVendorQuoteCaptureError(null);
+
+    for (const file of Array.from(files)) {
+      const validationError = validateMajorProjectVendorQuoteFile(file);
+      if (validationError) {
+        setMajorProjectVendorQuoteCaptureError({
+          fileName: file.name,
+          sizeBytes: file.size,
+          extension: getFileExtension(file.name),
+          mimeType: file.type || undefined,
+          message: validationError,
+          source,
+        });
+        continue;
+      }
+
+      const entryId = `major-vendor-quote-${Date.now()}-${Math.round(Math.random() * 1000)}`;
+
+      updateMajorProjectQuote((draft) => {
+        const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+        if (!option) return draft;
+        option.vendorQuotes = [
+          ...(option.vendorQuotes ?? []),
+          {
+            id: entryId,
+            fileName: file.name,
+            sizeBytes: file.size,
+            mimeType: file.type || undefined,
+            capturedAt: new Date().toISOString(),
+            source,
+            status: "reading",
+            quoteLabel: stripFileExtension(file.name),
+            previewItems: [],
+          },
+        ];
+        return draft;
+      });
+
+      try {
+        const loadedEntry = await readMajorProjectVendorQuote(file, source);
+        updateActiveMajorVendorQuote(entryId, (current) => ({
+          ...current,
+          ...loadedEntry,
+          id: entryId,
+          capturedAt: current.capturedAt,
+          source: current.source,
+        }));
+      } catch (caughtError) {
+        updateActiveMajorVendorQuote(entryId, (current) => ({
+          ...current,
+          status: "error",
+          readError: caughtError instanceof Error ? caughtError.message : "Unable to read the vendor quote.",
+          previewItems: [],
+        }));
+      }
+    }
   };
 
   const addMajorProjectOption = () => {
@@ -4053,6 +4459,148 @@ export default function QuotePreview() {
                           <button type="button" className="pill-button pill-button-active" onClick={addMajorProjectSimpleRow}>Add row</button>
                         </div>
 
+                        <div className="rounded-[18px] border border-[#dce4ec] bg-[#f8fbfd] p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div className="text-[14px] font-semibold text-[#16202b]">Vendor quote intake</div>
+                              <div className="mt-1 text-[12px] text-[#60707f]">
+                                Drop one or more vendor quote files here to seed draft line items. Spreadsheet quotes become preview rows. PDF quotes create a traceable placeholder row so the file can still drive the review workflow.
+                              </div>
+                            </div>
+                            <div className="rounded-full border border-[#d7e0e8] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">
+                              {activeMajorOptionVendorQuotes.length} quote{activeMajorOptionVendorQuotes.length === 1 ? "" : "s"}
+                            </div>
+                          </div>
+                          <label
+                            htmlFor={majorProjectVendorQuoteInputId}
+                            className={`mt-3 block w-full rounded-[18px] border border-dashed bg-white px-4 py-4 text-left transition ${
+                              isMajorProjectVendorQuoteDragging
+                                ? "border-[#2f6fed] bg-[#edf4ff]"
+                                : majorProjectVendorQuoteCaptureError
+                                  ? "border-[#d35a5a] bg-[#fff4f4]"
+                                  : "border-[#cfd7e0]"
+                            }`}
+                            onDragOver={(event) => {
+                              event.preventDefault();
+                              setIsMajorProjectVendorQuoteDragging(true);
+                            }}
+                            onDragLeave={() => setIsMajorProjectVendorQuoteDragging(false)}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              setIsMajorProjectVendorQuoteDragging(false);
+                              captureMajorProjectVendorQuotes(event.dataTransfer.files, "drop");
+                            }}
+                          >
+                            <input
+                              id={majorProjectVendorQuoteInputId}
+                              type="file"
+                              multiple
+                              accept=".xlsx,.xls,.csv,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/pdf"
+                              className="hidden"
+                              onChange={(event) => {
+                                captureMajorProjectVendorQuotes(event.target.files, "picker");
+                                event.target.value = "";
+                              }}
+                            />
+                            <span className="block text-[14px] font-semibold text-[#17212c]">Drag and drop vendor quote files here</span>
+                            <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose multiple `.xlsx`, `.xls`, `.csv`, or `.pdf` files. Imported draft rows seed both sell and cost from the quote so markup can be reviewed in one place.</span>
+                            {majorProjectVendorQuoteCaptureError ? (
+                              <span className="mt-3 block rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">
+                                <strong className="block text-[13px] text-[#8f2424]">File rejected</strong>
+                                <span className="mt-1 block">{majorProjectVendorQuoteCaptureError.message}</span>
+                                <span className="mt-2 block text-[11px] text-[#9b4b4b]">
+                                  {majorProjectVendorQuoteCaptureError.fileName} • {formatAttachmentSize(majorProjectVendorQuoteCaptureError.sizeBytes)} • {formatMajorProjectVendorQuoteFileType(majorProjectVendorQuoteCaptureError.fileName, majorProjectVendorQuoteCaptureError.mimeType)}
+                                </span>
+                              </span>
+                            ) : null}
+                          </label>
+
+                          {activeMajorOptionVendorQuotes.length ? (
+                            <div className="mt-4 space-y-3">
+                              {activeMajorOptionVendorQuotes.map((vendorQuote) => (
+                                <div key={vendorQuote.id} className="rounded-[18px] border border-[#dfe6ed] bg-white p-4">
+                                  <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                      <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">{getMajorProjectVendorQuoteStatusLabel(vendorQuote.status)}</div>
+                                      <div className="mt-1 text-[16px] font-semibold text-[#16202b]">{vendorQuote.fileName}</div>
+                                      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[#60707f]">
+                                        <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{formatAttachmentSize(vendorQuote.sizeBytes)}</span>
+                                        <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{formatMajorProjectVendorQuoteFileType(vendorQuote.fileName, vendorQuote.mimeType)}</span>
+                                        <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{vendorQuote.previewItems?.length ?? 0} preview item{(vendorQuote.previewItems?.length ?? 0) === 1 ? "" : "s"}</span>
+                                        {vendorQuote.importedRowIds?.length ? <span className="rounded-full border border-[#dbe7df] bg-[#f5fbf6] px-3 py-1 text-[#215a36]">{vendorQuote.importedRowIds.length} draft row{vendorQuote.importedRowIds.length === 1 ? "" : "s"} created</span> : null}
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        className="pill-button pill-button-active"
+                                        disabled={vendorQuote.status !== "loaded" || !(vendorQuote.previewItems?.length)}
+                                        onClick={() => importMajorProjectVendorQuoteRows(vendorQuote.id)}
+                                      >
+                                        Add draft rows
+                                      </button>
+                                      <button type="button" className="danger-button" onClick={() => removeActiveMajorVendorQuote(vendorQuote.id)}>Remove</button>
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1.4fr]">
+                                    <label className="builder-field compact">
+                                      <span>Vendor / source label</span>
+                                      <input
+                                        value={vendorQuote.vendorName ?? ""}
+                                        onChange={(event) => updateActiveMajorVendorQuote(vendorQuote.id, (current) => ({ ...current, vendorName: event.target.value }))}
+                                        placeholder="Enter vendor name"
+                                      />
+                                    </label>
+                                    <label className="builder-field compact">
+                                      <span>Quote reference</span>
+                                      <input
+                                        value={vendorQuote.quoteLabel ?? ""}
+                                        onChange={(event) => updateActiveMajorVendorQuote(vendorQuote.id, (current) => ({ ...current, quoteLabel: event.target.value }))}
+                                        placeholder="Internal quote label or file reference"
+                                      />
+                                    </label>
+                                  </div>
+
+                                  {vendorQuote.readError ? (
+                                    <div className="mt-3 rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">{vendorQuote.readError}</div>
+                                  ) : null}
+
+                                  {vendorQuote.previewItems?.length ? (
+                                    <div className="mt-3 rounded-[16px] border border-[#e5ebf1] bg-[#fbfdff] p-3">
+                                      <div className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#60707f]">Draft row preview</div>
+                                      {vendorQuote.previewItems.length > MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT ? (
+                                        <div className="mt-1 text-[12px] text-[#60707f]">Showing the first {MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT} parsed rows. Import will create all {vendorQuote.previewItems.length} draft rows.</div>
+                                      ) : null}
+                                      <div className="mt-2 space-y-2">
+                                        {vendorQuote.previewItems.slice(0, MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT).map((item) => (
+                                          <div key={item.id} className="rounded-[14px] border border-[#e6edf3] bg-white px-3 py-3 text-[12px] text-[#42515f]">
+                                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                              <strong className="text-[13px] text-[#16202b]">{item.label}</strong>
+                                              <div className="flex flex-wrap gap-2">
+                                                <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">{majorProjectBucketLabel(item.bucket)}</span>
+                                                <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">{item.quantity} {item.unit || "ea"}</span>
+                                                {item.rowNumber ? <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">Source row {item.rowNumber}</span> : null}
+                                              </div>
+                                            </div>
+                                            {item.description ? <div className="mt-2 text-[#5f6c78]">{item.description}</div> : null}
+                                            <div className="mt-2 flex flex-wrap gap-4 text-[#5f6c78]">
+                                              <span>Draft sell {formatCurrency(item.unitPrice, currencyCode)}</span>
+                                              <span>Draft cost {formatCurrency(item.unitPrice, currencyCode)}</span>
+                                              <span>Ext. {formatCurrency(item.extendedPrice, currencyCode)}</span>
+                                              {item.vendor ? <span>Vendor {item.vendor}</span> : null}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+
                         {activeMajorOptionSimpleRows.length > 0 ? (
                           <details className="rounded-[18px] border border-[#e1e7ed] bg-[#fbfcfe] p-4">
                             <summary className="cursor-pointer list-none text-[14px] font-semibold text-[#16202b]">Show bucket totals</summary>
@@ -4093,6 +4641,8 @@ export default function QuotePreview() {
                                       <div className="major-project-chip-row mt-2">
                                         <span className="major-project-chip">{majorProjectBucketLabel(row.bucket)}</span>
                                         <span className="major-project-chip">{row.quantity} {row.unit || "ea"}</span>
+                                        {row.importSource ? <span className="major-project-chip">Vendor quote: {row.importSource.vendorName || row.importSource.fileName}</span> : null}
+                                        {row.importSource?.rowNumber ? <span className="major-project-chip">Source row {row.importSource.rowNumber}</span> : null}
                                       </div>
                                     </div>
                                     <RowActions
