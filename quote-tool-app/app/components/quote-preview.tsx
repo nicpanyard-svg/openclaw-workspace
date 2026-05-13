@@ -490,7 +490,18 @@ function createPdfMajorProjectVendorQuotePreview(file: File): NonNullable<MajorP
     unitPrice: 0,
     extendedPrice: 0,
     bucket: "hardware",
+    rowKind: "item",
   }];
+}
+
+function buildVendorQuoteMetadataSummary(item: NonNullable<MajorProjectVendorQuoteImport["previewItems"]>[number]) {
+  return [
+    item.itemCode ? `Item code: ${item.itemCode}` : "",
+    item.manufacturer ? `Manufacturer: ${item.manufacturer}` : "",
+    item.warranty ? `Warranty: ${item.warranty}` : "",
+    item.origin ? `Origin: ${item.origin}` : "",
+    item.quoteReference ? `Quote ref: ${item.quoteReference}` : "",
+  ].filter(Boolean);
 }
 
 async function readMajorProjectVendorQuote(file: File, source: MajorProjectVendorQuoteSource): Promise<MajorProjectVendorQuoteImport> {
@@ -499,6 +510,25 @@ async function readMajorProjectVendorQuote(file: File, source: MajorProjectVendo
   const id = `major-vendor-quote-${Date.now()}-${Math.round(Math.random() * 1000)}`;
 
   if (isPdf) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch("/api/vendor-quote-pdf-parse", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Vendor quote PDF upload succeeded, but RapidQuote could not parse the PDF rows.");
+    }
+
+    const parsed = await response.json() as {
+      vendorName?: string;
+      quoteReference?: string;
+      previewItems?: NonNullable<MajorProjectVendorQuoteImport["previewItems"]>;
+    };
+
+    const previewItems = parsed.previewItems?.length ? parsed.previewItems : createPdfMajorProjectVendorQuotePreview(file);
+
     return {
       id,
       fileName: file.name,
@@ -507,9 +537,9 @@ async function readMajorProjectVendorQuote(file: File, source: MajorProjectVendo
       capturedAt: new Date().toISOString(),
       source,
       status: "loaded",
-      quoteLabel: stripFileExtension(file.name),
-      vendorName: undefined,
-      previewItems: createPdfMajorProjectVendorQuotePreview(file),
+      quoteLabel: parsed.quoteReference?.trim() || stripFileExtension(file.name),
+      vendorName: parsed.vendorName?.trim() || undefined,
+      previewItems,
     };
   }
 
@@ -2677,11 +2707,12 @@ export default function QuotePreview() {
         const customerUnitPrice = Math.max(item.unitPrice, 0);
         const customerExtendedPrice = Number(((quantity || 1) * customerUnitPrice).toFixed(2));
         const sourceText = createMajorProjectVendorQuoteSourceText(vendorName, quoteLabel, item.rowNumber);
+        const metadataSummary = buildVendorQuoteMetadataSummary(item);
 
         return {
           ...createMajorProjectSimpleRowDraft(nextIndex + itemIndex),
-          label: item.label || `Vendor quote item ${nextIndex + itemIndex}`,
-          description: [item.description, sourceText, "Draft pricing seeded from the vendor quote. Review customer sell before release approval."].filter(Boolean).join("\n"),
+          label: item.rowKind === "charge" ? `Charge: ${item.label || `Vendor quote item ${nextIndex + itemIndex}`}` : item.label || `Vendor quote item ${nextIndex + itemIndex}`,
+          description: [item.description, ...metadataSummary, sourceText, "Draft pricing seeded from the vendor quote. Review customer sell before release approval."].filter(Boolean).join("\n"),
           quantity: quantity || 1,
           unit: item.unit || "ea",
           customerUnitPrice,
@@ -2737,12 +2768,14 @@ export default function QuotePreview() {
         const lineType = majorProjectVendorQuoteLineType(item.bucket);
         const sourceText = createMajorProjectVendorQuoteSourceText(vendorName, quoteLabel, item.rowNumber);
         const draftComponent = createMajorProjectComponentDraft(nextIndex + itemIndex);
+        const metadataSummary = buildVendorQuoteMetadataSummary(item);
 
         return {
           ...draftComponent,
-          internalName: item.label || `Vendor quote component ${nextIndex + itemIndex}`,
+          internalName: item.rowKind === "charge" ? `Charge - ${item.label || `Vendor quote component ${nextIndex + itemIndex}`}` : item.label || `Vendor quote component ${nextIndex + itemIndex}`,
           customerFacingLabel: item.label || draftComponent.customerFacingLabel,
           vendor: vendorName || item.vendor || draftComponent.vendor,
+          manufacturer: item.manufacturer || draftComponent.manufacturer,
           category: majorProjectLineTypeLabel(lineType),
           lineType,
           quantity,
@@ -2756,6 +2789,7 @@ export default function QuotePreview() {
           resaleBasis: "cost_plus" as const,
           notes: [
             item.description,
+            ...metadataSummary,
             sourceText,
             "Imported from a vendor quote into the mapped builder. Review customer sell, bundle placement, and proposal presentation before release approval.",
           ].filter(Boolean).join("\n"),
@@ -2980,12 +3014,14 @@ export default function QuotePreview() {
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <strong className="text-[13px] text-[#16202b]">{item.label}</strong>
                           <div className="flex flex-wrap gap-2">
+                            {item.rowKind === "charge" ? <span className="rounded-full border border-[#f2ddba] bg-[#fff9ef] px-2 py-1 text-[#7a4b00]">Charge row</span> : null}
                             <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">{majorProjectBucketLabel(item.bucket)}</span>
                             <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">{item.quantity} {item.unit || "ea"}</span>
                             {item.rowNumber ? <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">Source row {item.rowNumber}</span> : null}
                           </div>
                         </div>
                         {item.description ? <div className="mt-2 text-[#5f6c78]">{item.description}</div> : null}
+                        {buildVendorQuoteMetadataSummary(item).length ? <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[#60707f]">{buildVendorQuoteMetadataSummary(item).map((detail) => <span key={`${item.id}-${detail}`} className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">{detail}</span>)}</div> : null}
                         <div className="mt-2 flex flex-wrap gap-4 text-[#5f6c78]">
                           <span>Draft sell {formatCurrency(item.unitPrice, currencyCode)}</span>
                           <span>Draft cost {formatCurrency(item.unitPrice, currencyCode)}</span>

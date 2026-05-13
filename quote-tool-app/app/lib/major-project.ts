@@ -465,6 +465,12 @@ function normalizeVendorQuoteDraftItem(item: Partial<MajorProjectVendorQuoteDraf
     bucket: (item?.bucket ?? "hardware") as MajorProjectSimpleBucket,
     rowNumber: Number.isFinite(Number(item?.rowNumber)) ? Math.max(Number(item?.rowNumber), 1) : undefined,
     vendor: normalizeText(item?.vendor) || undefined,
+    itemCode: normalizeText(item?.itemCode) || undefined,
+    manufacturer: normalizeText(item?.manufacturer) || undefined,
+    warranty: normalizeText(item?.warranty) || undefined,
+    origin: normalizeText(item?.origin) || undefined,
+    quoteReference: normalizeText(item?.quoteReference) || undefined,
+    rowKind: item?.rowKind === "charge" ? "charge" : "item",
   };
 }
 

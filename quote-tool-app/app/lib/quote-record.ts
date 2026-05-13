@@ -440,6 +440,12 @@ export type MajorProjectVendorQuoteDraftItem = {
   bucket: MajorProjectSimpleBucket;
   rowNumber?: number;
   vendor?: string;
+  itemCode?: string;
+  manufacturer?: string;
+  warranty?: string;
+  origin?: string;
+  quoteReference?: string;
+  rowKind?: "item" | "charge";
 };
 
 export type MajorProjectVendorQuoteSource = "drop" | "picker";
