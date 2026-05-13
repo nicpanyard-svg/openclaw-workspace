@@ -1633,7 +1633,7 @@ function buildNotesSheet(workbook: Workbook, model: ApprovalWorkbookModel, rollu
 
   sheet.mergeCells(currentRow, 1, currentRow, 5);
   const traceIntroCell = sheet.getCell(currentRow, 1);
-  traceIntroCell.value = "Use this section to trace the approval workbook's core pricing, cost, profit, and margin numbers back to the Line Item Detail rollups before release approval.";
+  traceIntroCell.value = "Use this section to trace the approval workbook's core pricing, cost, profit, and margin numbers back to the Line Item Detail rollups before release approval. Review driver cells first, then confirm formula logic, approval use, and commentary.";
   traceIntroCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
   traceIntroCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
   traceIntroCell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
@@ -1641,12 +1641,22 @@ function buildNotesSheet(workbook: Workbook, model: ApprovalWorkbookModel, rollu
   sheet.getRow(currentRow).height = 28;
   currentRow += 1;
 
+  sheet.mergeCells(currentRow, 1, currentRow, 5);
+  const traceGuideCell = sheet.getCell(currentRow, 1);
+  traceGuideCell.value = "Reviewer instruction: columns B-C identify pricing drivers and formula mechanics; columns D-E explain how the value supports approval decisions and what should be challenged before release.";
+  traceGuideCell.font = { name: "Arial", italic: true, size: 9, color: { argb: BRAND.slate } };
+  traceGuideCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.greenPale } };
+  traceGuideCell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  applyOuterBorder(sheet, currentRow, currentRow, 1, 5);
+  sheet.getRow(currentRow).height = 24;
+  currentRow += 1;
+
   applyTableHeader(sheet, currentRow, [
-    "Key metric / field",
-    "Driver cells",
+    "Approval metric / field",
+    "Driver cells / inputs",
     "Formula logic",
-    "Where value is used",
-    "Review notes",
+    "Approval use",
+    "Review notes / challenge points",
   ]);
   currentRow += 1;
 
