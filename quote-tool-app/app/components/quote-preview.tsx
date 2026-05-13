@@ -146,6 +146,7 @@ const MAJOR_PROJECT_BOM_ALLOWED_MIME_TYPES = new Set([
 ]);
 const MAJOR_PROJECT_BOM_MAX_SHEET_ROWS = 250;
 const MAJOR_PROJECT_BOM_PREVIEW_ROW_COUNT = 6;
+const MAJOR_PROJECT_BOM_IMPORT_SOURCE_PREFIX = "BOM import source:";
 
 const MAJOR_PROJECT_BOM_REVIEW_FIELDS: Array<{ key: MajorProjectBomColumnKey; label: string }> = [
   { key: "name", label: "Name" },
@@ -1612,6 +1613,30 @@ export default function QuotePreview() {
       return summary;
     }, { recurring: 0, hardware: 0, services: 0 });
   }, [majorProjectMetrics.customerQuoteLines]);
+  const importedMajorProjectComponents = useMemo(
+    () => activeMajorOptionComponents.filter((component) => (component.notes ?? "").startsWith(MAJOR_PROJECT_BOM_IMPORT_SOURCE_PREFIX)),
+    [activeMajorOptionComponents],
+  );
+  const importedMajorProjectComponentIds = useMemo(
+    () => new Set(importedMajorProjectComponents.map((component) => component.id)),
+    [importedMajorProjectComponents],
+  );
+  const importedMajorProjectNeedsCustomerLabelCount = useMemo(
+    () => importedMajorProjectComponents.filter((component) => !(component.customerFacingLabel ?? "").trim()).length,
+    [importedMajorProjectComponents],
+  );
+  const importedMajorProjectNeedsCustomerPricingCount = useMemo(
+    () => importedMajorProjectComponents.filter((component) => component.customerUnitPrice <= 0).length,
+    [importedMajorProjectComponents],
+  );
+  const importedMajorProjectUnbundledCount = useMemo(
+    () => importedMajorProjectComponents.filter((component) => !(component.bundleAssignmentId ?? "").trim()).length,
+    [importedMajorProjectComponents],
+  );
+  const importedMajorProjectUnquotedCount = useMemo(
+    () => majorProjectMetrics.validation.uncoveredComponentIds.filter((componentId) => importedMajorProjectComponentIds.has(componentId)).length,
+    [importedMajorProjectComponentIds, majorProjectMetrics.validation.uncoveredComponentIds],
+  );
   const majorProjectBomInputId = "major-project-bom-import";
   const hasComponentsStepContent = activeMajorOptionComponents.length > 0;
   const hasBundleStepContent = activeMajorOptionBundles.length > 0;
@@ -1900,6 +1925,81 @@ export default function QuotePreview() {
         ? `Imported ${importedCount} draft component${importedCount === 1 ? "" : "s"} from ${selectedSheet.name}. Review them in Components before bundling.`
         : `No obvious component rows were found in ${selectedSheet.name}.`,
     );
+  };
+
+  const seedImportedMajorProjectCustomerLabels = () => {
+    const importedWithoutLabels = importedMajorProjectComponents.filter((component) => !(component.customerFacingLabel ?? "").trim());
+    if (!importedWithoutLabels.length) {
+      setWorkflowNotice("Imported components already have customer labels. Review pricing or bundling next.");
+      return;
+    }
+
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.components) return draft;
+      option.components = option.components.map((component) => {
+        if (
+          !(component.notes ?? "").startsWith(MAJOR_PROJECT_BOM_IMPORT_SOURCE_PREFIX)
+          || (component.customerFacingLabel ?? "").trim()
+        ) {
+          return component;
+        }
+        return {
+          ...component,
+          customerFacingLabel: component.internalName,
+        };
+      });
+      return draft;
+    });
+
+    setWorkflowNotice(`Seeded ${importedWithoutLabels.length} imported component${importedWithoutLabels.length === 1 ? "" : "s"} with customer-facing labels from their internal names.`);
+  };
+
+  const seedImportedMajorProjectPricingFromCost = () => {
+    const importedWithoutPricing = importedMajorProjectComponents.filter((component) => component.customerUnitPrice <= 0 && component.vendorUnitCost > 0);
+    if (!importedWithoutPricing.length) {
+      setWorkflowNotice("Imported components already have starter pricing, or there is no vendor cost available to seed from.");
+      return;
+    }
+
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.components) return draft;
+      option.components = option.components.map((component) => {
+        if (
+          !(component.notes ?? "").startsWith(MAJOR_PROJECT_BOM_IMPORT_SOURCE_PREFIX)
+          || component.customerUnitPrice > 0
+          || component.vendorUnitCost <= 0
+        ) {
+          return component;
+        }
+        return {
+          ...component,
+          customerUnitPrice: component.vendorUnitCost,
+          customerExtendedPrice: Number((component.quantity * component.vendorUnitCost).toFixed(2)),
+        };
+      });
+      return draft;
+    });
+
+    setWorkflowNotice(`Seeded starter pricing from vendor cost for ${importedWithoutPricing.length} imported component${importedWithoutPricing.length === 1 ? "" : "s"}. Review margin before bundling.`);
+  };
+
+  const beginImportedMajorProjectBundling = () => {
+    if (!importedMajorProjectComponents.length) {
+      setWorkflowNotice("Import BOM components first, then start grouping them into bundles.");
+      return;
+    }
+
+    const firstUnbundledImportedComponent = importedMajorProjectComponents.find((component) => !(component.bundleAssignmentId ?? "").trim());
+    if (!firstUnbundledImportedComponent) {
+      setMajorProjectEditorTab("bundles");
+      setWorkflowNotice("Imported components are already assigned to bundles. Review package labels and descriptions next.");
+      return;
+    }
+
+    startMajorProjectComponentBundleDraft(firstUnbundledImportedComponent);
+    setWorkflowNotice(`Start with ${firstUnbundledImportedComponent.internalName || "the selected component"} and choose the other raw BOM items that belong in the same customer bundle.`);
   };
 
   const syncExecutiveSummaryStructure = (draft: QuoteRecord) => {
@@ -3817,22 +3917,63 @@ export default function QuotePreview() {
                                 {formatAttachmentUpdatedAt(majorProjectState.bomImport.importedAt) ? ` • ${formatAttachmentUpdatedAt(majorProjectState.bomImport.importedAt)}` : ""}
                               </div>
                               <div className="rounded-[14px] border border-[#dfe7ef] bg-[#f8fbfd] px-4 py-4 text-[13px] text-[#334150]">
-                                <div className="text-[13px] font-semibold text-[#16202b]">What to do next</div>
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div>
+                                    <div className="text-[13px] font-semibold text-[#16202b]">Post-import pricing and bundling</div>
+                                    <div className="mt-1 text-[12px] leading-[1.6] text-[#5f6d7a]">
+                                      The BOM import is raw internal input only. Review those components, develop customer pricing, then package them into bundles before you finalize quote lines.
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <button type="button" className="pill-button" onClick={() => setMajorProjectEditorTab("components")}>Open Components</button>
+                                    <button type="button" className="pill-button" onClick={beginImportedMajorProjectBundling}>Start bundling</button>
+                                    <button type="button" className="pill-button" onClick={() => setMajorProjectEditorTab("quote_lines")}>Open Quote Lines</button>
+                                  </div>
+                                </div>
+                                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                  <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">Imported raw components</div>
+                                    <div className="mt-2 text-[20px] font-semibold text-[#16202b]">{importedMajorProjectComponents.length}</div>
+                                    <div className="mt-1 text-[12px] text-[#435262]">Operations input currently staged in the internal component list.</div>
+                                  </div>
+                                  <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">Need customer labels</div>
+                                    <div className="mt-2 text-[20px] font-semibold text-[#16202b]">{importedMajorProjectNeedsCustomerLabelCount}</div>
+                                    <div className="mt-1 text-[12px] text-[#435262]">Blank customer-facing labels still need sales cleanup.</div>
+                                  </div>
+                                  <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">Need starter pricing</div>
+                                    <div className="mt-2 text-[20px] font-semibold text-[#16202b]">{importedMajorProjectNeedsCustomerPricingCount}</div>
+                                    <div className="mt-1 text-[12px] text-[#435262]">Imported components without a customer sell price yet.</div>
+                                  </div>
+                                  <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">Still not surfaced</div>
+                                    <div className="mt-2 text-[20px] font-semibold text-[#16202b]">{importedMajorProjectUnquotedCount}</div>
+                                    <div className="mt-1 text-[12px] text-[#435262]">Imported components not yet flowing through customer quote lines.</div>
+                                  </div>
+                                </div>
                                 <div className="mt-2 text-[12px] leading-[1.6] text-[#5f6d7a]">
-                                  The BOM import gives you raw internal components. Next, review the imported components, develop customer pricing, then group them into bundles before you finalize customer-facing quote lines.
+                                  Imported components are raw internal components. Use the steps below to review them, seed starter customer-ready values, and then move them into bundles and quote lines.
+                                </div>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <button type="button" className="pill-button" onClick={seedImportedMajorProjectCustomerLabels} disabled={importedMajorProjectNeedsCustomerLabelCount === 0}>Seed blank customer labels</button>
+                                  <button type="button" className="pill-button" onClick={seedImportedMajorProjectPricingFromCost} disabled={importedMajorProjectNeedsCustomerPricingCount === 0}>Seed blank pricing from cost</button>
+                                  <div className="rounded-full border border-[#d7e0e8] bg-white px-3 py-2 text-[12px] font-medium text-[#435262]">
+                                    {importedMajorProjectUnbundledCount} unbundled component{importedMajorProjectUnbundledCount === 1 ? "" : "s"} still need packaging
+                                  </div>
                                 </div>
                                 <div className="mt-3 grid gap-3 md:grid-cols-3">
                                   <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">1. Review components</div>
-                                    <div className="mt-2 text-[12px] text-[#435262]">Clean up names, quantities, vendors, manufacturers, and costs from the imported rows.</div>
+                                    <div className="mt-2 text-[12px] text-[#435262]">Clean up raw names, quantities, vendors, manufacturers, and cost basis on the imported rows before they become customer-ready.</div>
                                   </div>
                                   <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">2. Develop pricing</div>
-                                    <div className="mt-2 text-[12px] text-[#435262]">Set customer pricing on the imported components before turning them into customer-ready bundles.</div>
+                                    <div className="mt-2 text-[12px] text-[#435262]">Set customer labels, starting sell price, and margin logic on each component before packaging them for the proposal.</div>
                                   </div>
                                   <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">3. Build bundles</div>
-                                    <div className="mt-2 text-[12px] text-[#435262]">Group raw internal components into bundled customer-facing packages and then shape the final quote lines.</div>
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">3. Package and present</div>
+                                    <div className="mt-2 text-[12px] text-[#435262]">Group reviewed components into bundles, then confirm which bundles flow into the customer-facing quote lines.</div>
                                   </div>
                                 </div>
                               </div>
