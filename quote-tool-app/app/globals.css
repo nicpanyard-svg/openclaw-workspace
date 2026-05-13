@@ -2305,6 +2305,35 @@ body {
   color: #61707d;
 }
 
+.proposal-line-item-media {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.proposal-line-item-image-wrap {
+  flex: 0 0 84px;
+  width: 84px;
+  height: 84px;
+  border: 1px solid #dde4eb;
+  border-radius: 12px;
+  background: #fbfcfe;
+  overflow: hidden;
+}
+
+.proposal-line-item-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  background: white;
+}
+
+.proposal-line-item-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .proposal-copy-card p + p {
   margin-top: 8px;
 }

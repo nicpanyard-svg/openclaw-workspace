@@ -84,6 +84,7 @@ export type EquipmentPricingRow = {
   id: string;
   sourceType: "standard" | "custom";
   itemName: string;
+  imageUrl?: string;
   itemCategory?: string;
   terminalType?: string;
   partNumber?: string;
@@ -430,6 +431,17 @@ export type MajorProjectBomImportSheet = {
   rows: MajorProjectBomImportSheetRow[];
 };
 
+export type MajorProjectBomColumnKey =
+  | "name"
+  | "description"
+  | "quantity"
+  | "vendor"
+  | "manufacturer"
+  | "unitCost"
+  | "totalCost";
+
+export type MajorProjectBomColumnMap = Partial<Record<MajorProjectBomColumnKey, number | null>>;
+
 export type MajorProjectBomImportState = {
   fileName: string;
   sizeBytes: number;
@@ -441,6 +453,7 @@ export type MajorProjectBomImportState = {
   sheetNames?: string[];
   sheets?: MajorProjectBomImportSheet[];
   selectedSheetName?: string;
+  reviewedColumnMapBySheet?: Partial<Record<string, MajorProjectBomColumnMap>>;
   readError?: string;
   importedComponentCount?: number;
   importedAt?: string;

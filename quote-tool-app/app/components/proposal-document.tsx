@@ -555,6 +555,13 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
               {quote.sections.sectionB.lineItems.map((row) => (
                 <tr key={row.id} className="keep-together">
                   <td>
+                    <div className="proposal-line-item-media">
+                      {row.imageUrl ? (
+                        <div className="proposal-line-item-image-wrap">
+                          <img src={row.imageUrl} alt={row.itemName} className="proposal-line-item-image" />
+                        </div>
+                      ) : null}
+                      <div className="proposal-line-item-copy">
                     <div className="proposal-cell-title">{row.itemName}</div>
                     {([row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).length > 0) ? (
                       <div className="proposal-cell-subtitle">
@@ -563,6 +570,8 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
                     ) : null}
                     {row.description && <div className="proposal-cell-note">{row.description}</div>}
                     {supportingSpecLabel(row.specSheetLabel) ? <div className="proposal-cell-note">{supportingSpecLabel(row.specSheetLabel)}</div> : null}
+                      </div>
+                    </div>
                   </td>
                   <td>{row.quantity}</td>
                   <td>{formatCurrency(row.unitPrice, currencyCode)}</td>

@@ -4,6 +4,7 @@ export type CatalogItem = {
   id: string;
   kind: CatalogItemKind;
   label: string;
+  imageUrl?: string;
   category: string;
   source: string;
   defaultUnitPrice: number;
