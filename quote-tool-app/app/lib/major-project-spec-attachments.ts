@@ -26,13 +26,19 @@ export function isMajorProjectSpecAttachmentPdf(fileName: string, mimeType: stri
   return normalizedMimeType.includes("pdf") || normalizedFileName.endsWith(".pdf");
 }
 
+export function isMajorProjectSpecAttachmentImage(fileName: string, mimeType: string) {
+  const normalizedFileName = normalizeFileName(fileName);
+  const normalizedMimeType = normalizeMimeType(mimeType);
+  return normalizedMimeType.startsWith("image/") || [".png", ".jpg", ".jpeg", ".gif", ".webp"].some((extension) => normalizedFileName.endsWith(extension));
+}
+
 export function validateMajorProjectSpecAttachmentFile(file: Pick<File, "name" | "size" | "type">) {
-  if (!isMajorProjectSpecAttachmentPdf(file.name, file.type)) {
-    throw new Error("Only PDF spec sheet attachments are supported.");
+  if (!isMajorProjectSpecAttachmentPdf(file.name, file.type) && !isMajorProjectSpecAttachmentImage(file.name, file.type)) {
+    throw new Error("Only PDF or image attachments are supported.");
   }
 
   if (file.size > MAJOR_PROJECT_SPEC_ATTACHMENT_MAX_BYTES) {
-    throw new Error(`Spec sheet PDFs must be ${Math.round(MAJOR_PROJECT_SPEC_ATTACHMENT_MAX_BYTES / (1024 * 1024))} MB or smaller.`);
+    throw new Error(`Attachments must be ${Math.round(MAJOR_PROJECT_SPEC_ATTACHMENT_MAX_BYTES / (1024 * 1024))} MB or smaller.`);
   }
 }
 

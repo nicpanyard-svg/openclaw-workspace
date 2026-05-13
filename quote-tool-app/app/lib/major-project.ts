@@ -1003,6 +1003,7 @@ export function createDefaultMajorProjectState() {
       paymentTerms: "Net 30",
       billingStart: "",
       assumptions: "",
+      systemDrawings: [],
     },
     bomImport: undefined,
     commercial: {
@@ -1062,6 +1063,9 @@ export function ensureMajorProjectState(quote: QuoteRecord): QuoteRecord {
       summary: {
         ...defaults.summary,
         ...quote.majorProject?.summary,
+        systemDrawings: (quote.majorProject?.summary?.systemDrawings ?? [])
+          .map((attachment) => normalizeMajorProjectSpecAttachment(attachment))
+          .filter((attachment): attachment is NonNullable<ReturnType<typeof normalizeMajorProjectSpecAttachment>> => Boolean(attachment)),
       },
       bomImport: quote.majorProject?.bomImport
         ? {
@@ -1353,21 +1357,23 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   const metrics = buildMajorProjectMetrics(safeQuote);
   const siteCount = metrics.siteCount;
   const simpleRows = activeOption?.simpleRows ?? [];
+  const monthDriverLabel = formatMajorProjectMonthDriver(state.commercial.termMonths);
   const next = JSON.parse(JSON.stringify(safeQuote)) as QuoteRecord;
 
   next.metadata.workflowMode = "major_project";
   next.metadata.documentSubtitle = next.metadata.documentSubtitle || "Major Project Commercial Proposal";
   const hasRecurringSectionContent = metrics.recurringRevenue > 0 || state.commercial.terminalFeePerSite > 0 || state.commercial.overageRatePerGb > 0;
   next.sections.sectionA.enabled = hasRecurringSectionContent;
-  next.sections.sectionA.builderLabel = "Major project recurring structure";
+  next.sections.sectionA.builderLabel = "Major project MRR structure";
   next.sections.sectionA.title = state.summary.projectName
-    ? `${state.summary.projectName} recurring commercial structure`
-    : "Major project recurring commercial structure";
+    ? `${state.summary.projectName} MRR commercial structure`
+    : "Major project MRR commercial structure";
   next.sections.sectionA.termMonths = state.commercial.termMonths;
-  next.sections.sectionA.introText = `Commercial structure based on ${siteCount} site${siteCount === 1 ? "" : "s"} over a ${state.commercial.termMonths}-month term.`;
+  next.sections.sectionA.introText = `MRR structure based on ${siteCount} site${siteCount === 1 ? "" : "s"} with a ${monthDriverLabel}.`;
   next.sections.sectionA.explanatoryParagraphs = compact([
     state.summary.projectDescription,
     state.summary.assumptions,
+    `Contract math is driven by ${monthDriverLabel}; visible recurring pricing stays MRR-first.`,
     metrics.hasThreeLayerModel ? "Customer-facing quote lines are presentation only; internal components remain the commercial source of truth." : "",
     metrics.validation.errorCount > 0 ? `Internal validation flagged ${metrics.validation.errorCount} mapping issue${metrics.validation.errorCount === 1 ? "" : "s"}; review the commercial worksheet before sending.` : "",
   ]);
@@ -1380,7 +1386,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     ?? state.summary.projectName?.trim()
     ?? "Major Project";
 
-  const recurringDescription = `${recurringDisplayLabel} — ${activeOption?.label ?? "Option 1"}`;
+  const recurringDescription = `MRR - ${recurringDisplayLabel}${activeOption?.label ? ` (${activeOption.label})` : ""}`;
   const recurringSpecSheetLabel = metrics.customerQuoteLines.find((line) => line.presentationCategory === "recurring")?.resolvedSpecSheetLabel;
   const supportIncludedText = compact([
     `${siteCount} site${siteCount === 1 ? "" : "s"} under commercial management`,
@@ -1640,4 +1646,10 @@ function compact(values: Array<string | undefined | null>) {
 
 function compactItems<T>(values: Array<T | null>) {
   return values.filter((value): value is T => Boolean(value));
+}
+
+function formatMajorProjectMonthDriver(termMonths: number) {
+  const safeMonths = Number.isFinite(termMonths) && termMonths > 0 ? Math.round(termMonths) : 0;
+  if (safeMonths <= 0) return "month-driven contract";
+  return `${safeMonths}-month contract`;
 }

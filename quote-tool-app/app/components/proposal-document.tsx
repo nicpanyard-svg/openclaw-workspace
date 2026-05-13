@@ -11,7 +11,7 @@ import {
 } from "@/app/lib/proposal-commercial-summary";
 import { getMajorProjectSpecAttachmentFile, isMajorProjectSpecAttachmentPdf } from "@/app/lib/major-project-spec-attachments";
 import { resolveMajorProjectOutputSpecAttachments, type MajorProjectOutputSpecAttachment } from "@/app/lib/major-project";
-import type { QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
+import type { MajorProjectSpecAttachment, QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
 type ProposalDocumentProps = {
   quote: QuoteRecord;
@@ -21,6 +21,12 @@ type ProposalDocumentProps = {
 };
 
 type ResolvedSpecSheetPreview = MajorProjectOutputSpecAttachment & {
+  objectUrl: string | null;
+  loadError: string | null;
+};
+
+type ResolvedSystemDrawingPreview = {
+  attachment: MajorProjectSpecAttachment;
   objectUrl: string | null;
   loadError: string | null;
 };
@@ -97,6 +103,7 @@ function getSpecOutputSectionLabel(outputSection: MajorProjectOutputSpecAttachme
 }
 
 export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProps) {
+  const [systemDrawingPreviews, setSystemDrawingPreviews] = useState<ResolvedSystemDrawingPreview[]>([]);
   const [specSheetPreviews, setSpecSheetPreviews] = useState<ResolvedSpecSheetPreview[]>([]);
   const currencyCode = quote.metadata.currencyCode || "USD";
   const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
@@ -132,12 +139,65 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
   );
   const contentPresence = getQuoteContentPresence(quote);
   const commercialSummaryItems = buildProposalCommercialSummary(quote);
+  const systemDrawingAttachments = quote.majorProject?.summary?.systemDrawings ?? [];
   const resolvedSpecSheetAttachments = useMemo(() => resolveMajorProjectOutputSpecAttachments(quote), [quote]);
   const pricingSnapshotItems = commercialSummaryItems.map((item) => ({
     ...item,
     value: formatCurrency(item.value, currencyCode),
     tone: item.tone ?? "default",
   }));
+
+  useEffect(() => {
+    let isCancelled = false;
+    const objectUrls: string[] = [];
+
+    async function loadSystemDrawingPreviews() {
+      if (!systemDrawingAttachments.length) {
+        setSystemDrawingPreviews([]);
+        return;
+      }
+
+      const nextPreviews = await Promise.all(
+        systemDrawingAttachments.map(async (attachment) => {
+          const isImageDrawing = isImageAttachment(attachment.fileName, attachment.mimeType);
+
+          try {
+            const fileBlob = await getMajorProjectSpecAttachmentFile(attachment.storageKey);
+
+            if (!fileBlob) {
+              return { attachment, objectUrl: null, loadError: "Drawing file is missing from local storage." } satisfies ResolvedSystemDrawingPreview;
+            }
+
+            if (!isImageDrawing) {
+              return { attachment, objectUrl: null, loadError: "HTML preview is only available for image drawings in this slice." } satisfies ResolvedSystemDrawingPreview;
+            }
+
+            const objectUrl = URL.createObjectURL(fileBlob);
+            if (isCancelled) {
+              URL.revokeObjectURL(objectUrl);
+              return { attachment, objectUrl: null, loadError: "Drawing preview unavailable." } satisfies ResolvedSystemDrawingPreview;
+            }
+
+            objectUrls.push(objectUrl);
+            return { attachment, objectUrl, loadError: null } satisfies ResolvedSystemDrawingPreview;
+          } catch {
+            return { attachment, objectUrl: null, loadError: "Drawing preview unavailable." } satisfies ResolvedSystemDrawingPreview;
+          }
+        }),
+      );
+
+      if (!isCancelled) {
+        setSystemDrawingPreviews(nextPreviews);
+      }
+    }
+
+    void loadSystemDrawingPreviews();
+
+    return () => {
+      isCancelled = true;
+      objectUrls.forEach((objectUrl) => URL.revokeObjectURL(objectUrl));
+    };
+  }, [systemDrawingAttachments]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -220,6 +280,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
   const recurringServicesPageLabel = quote.sections.sectionA.enabled ? `Page ${printPageNumber++}` : null;
   const equipmentPageLabel = quote.sections.sectionB.enabled ? `Page ${printPageNumber++}` : null;
   const fieldServicesPageLabel = quote.sections.sectionC.enabled ? `Page ${printPageNumber++}` : null;
+  const systemDrawingPageLabels = systemDrawingPreviews.map(() => `Page ${printPageNumber++}`);
   const specSheetPageLabels = specSheetPreviews.map(() => `Page ${printPageNumber++}`);
   const termsPageLabel = `Page ${printPageNumber++}`;
   const closingPageLabel = `Page ${printPageNumber++}`;
@@ -645,6 +706,55 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
           </table>
         </section>
       )}
+
+      {systemDrawingPreviews.map((drawing, index) => {
+        const fallbackMessage = !drawing.objectUrl
+          ? (drawing.loadError ?? "Drawing preview unavailable.")
+          : null;
+
+        return (
+          <section
+            key={drawing.attachment.storageKey}
+            className="proposal-page proposal-spec-sheet-page"
+            data-page-label={systemDrawingPageLabels[index] ?? "Page"}
+          >
+            <div className="proposal-header">
+              <span>System drawings</span>
+              <span>Proposal #{quote.metadata.proposalNumber}</span>
+            </div>
+
+            <div className="proposal-section-heading keep-with-next">
+              <div className="section-heading-badge">Drawing</div>
+              <div className="proposal-overline">Technical documentation</div>
+              <h2 className="proposal-section-title">System Drawing</h2>
+              <p className="proposal-intro">
+                This drawing is included as part of the proposal package and appears before supporting spec sheets.
+              </p>
+            </div>
+
+            <div className="proposal-copy proposal-copy-card proposal-spec-sheet-meta print-keep-block">
+              <p><strong>Drawing file</strong> {drawing.attachment.fileName}</p>
+            </div>
+
+            <div className="proposal-spec-sheet-frame">
+              {drawing.objectUrl ? (
+                <img
+                  src={drawing.objectUrl}
+                  alt={drawing.attachment.fileName}
+                  className="proposal-spec-sheet-image"
+                />
+              ) : null}
+
+              {fallbackMessage ? (
+                <div className="proposal-spec-sheet-empty">
+                  <strong>{fallbackMessage}</strong>
+                  <span>{drawing.attachment.fileName}</span>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        );
+      })}
 
       {specSheetPreviews.map((specSheet, index) => {
         const sectionLabel = getSpecOutputSectionLabel(specSheet.outputSection);

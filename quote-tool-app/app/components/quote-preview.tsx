@@ -970,6 +970,10 @@ function formatAttachmentUpdatedAt(value: string) {
 function countMajorProjectSpecAttachmentReferences(quote: QuoteRecord, storageKey: string) {
   let total = 0;
 
+  for (const attachment of quote.majorProject?.summary?.systemDrawings ?? []) {
+    if (attachment.storageKey === storageKey) total += 1;
+  }
+
   for (const option of quote.majorProject?.options ?? []) {
     for (const row of option.simpleRows ?? []) {
       if (row.specSheetAttachment?.storageKey === storageKey) total += 1;
@@ -1074,6 +1078,101 @@ function MajorProjectSpecAttachmentField({
           </span>
         ) : null}
       </label>
+      {error ? <div className="mt-2 text-[12px] text-[#b42318]">{error}</div> : null}
+    </div>
+  );
+}
+
+function MajorProjectSystemDrawingsField({
+  attachments,
+  onChange,
+}: {
+  attachments: MajorProjectSpecAttachment[];
+  onChange: (attachments: MajorProjectSpecAttachment[]) => void;
+}) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  const inputId = "major-project-system-drawings";
+
+  const handleFiles = async (fileList: FileList | File[] | null | undefined) => {
+    const files = Array.from(fileList ?? []).filter(Boolean);
+    if (!files.length) return;
+
+    setError("");
+    setIsSaving(true);
+
+    try {
+      const nextAttachments: MajorProjectSpecAttachment[] = [];
+      for (const file of files) {
+        const nextAttachment = await persistMajorProjectSpecAttachmentFile(
+          file,
+          createMajorProjectSpecAttachmentStorageKey(`system-drawing-${file.name}`),
+        );
+        nextAttachments.push(nextAttachment);
+      }
+      onChange([...attachments, ...nextAttachments]);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to save the drawing attachment.");
+    } finally {
+      setIsSaving(false);
+      setIsDragging(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-[18px] border border-[#d8e0e8] bg-[#f8fbfd] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-[14px] font-semibold text-[#16202b]">System drawings</div>
+          <div className="mt-1 text-[12px] text-[#60707f]">Attach proposal-level drawing images here. They will render before spec sheets in proposal output.</div>
+        </div>
+      </div>
+      <label
+        htmlFor={inputId}
+        className={`mt-3 block cursor-pointer rounded-[18px] border border-dashed bg-white px-4 py-4 text-left transition ${isDragging ? "border-[#2f6fed] bg-[#edf4ff]" : "border-[#cfd7e0]"}`}
+        onDragOver={(event) => {
+          event.preventDefault();
+          if (!isSaving) setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setIsDragging(false);
+          if (isSaving) return;
+          void handleFiles(event.dataTransfer.files);
+        }}
+      >
+        <input
+          id={inputId}
+          type="file"
+          accept=".png,.jpg,.jpeg,.gif,.webp,image/*"
+          multiple
+          className="hidden"
+          onChange={(event) => {
+            void handleFiles(event.target.files);
+            event.target.value = "";
+          }}
+        />
+        <span className="block text-[14px] font-semibold text-[#17212c]">{isSaving ? "Saving drawings..." : "Drag and drop drawing images here"}</span>
+        <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose image files up to {formatAttachmentSize(MAJOR_PROJECT_SPEC_ATTACHMENT_MAX_BYTES)} each.</span>
+      </label>
+      {attachments.length ? (
+        <div className="mt-3 space-y-2">
+          {attachments.map((attachment) => (
+            <div key={attachment.storageKey} className="rounded-[14px] border border-[#e4ebf2] bg-white px-3 py-3 text-[12px] text-[#334150]">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <strong className="block text-[13px] text-[#16202b]">{attachment.fileName}</strong>
+                  <span className="mt-1 block">{formatAttachmentSize(attachment.sizeBytes)}{attachment.mimeType ? ` • ${attachment.mimeType}` : ""}</span>
+                  {formatAttachmentUpdatedAt(attachment.updatedAt) ? <span className="mt-1 block">Saved {formatAttachmentUpdatedAt(attachment.updatedAt)}</span> : null}
+                </div>
+                <button type="button" className="rounded-full border border-[#d5dde6] bg-white px-3 py-1 text-[12px] font-semibold text-[#334150]" onClick={() => onChange(attachments.filter((entry) => entry.storageKey !== attachment.storageKey))}>Remove</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {error ? <div className="mt-2 text-[12px] text-[#b42318]">{error}</div> : null}
     </div>
   );
@@ -3355,6 +3454,15 @@ export default function QuotePreview() {
                       <label className="builder-field"><span>Option description</span><input value={activeMajorOption?.description ?? ""} onChange={(e) => updateActiveMajorOption("description", e.target.value)} /></label>
                     </div>
                     <label className="builder-field"><span>Project description</span><textarea rows={3} value={majorProjectState.summary.projectDescription} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.projectDescription = e.target.value; return draft; })} /></label>
+                    <MajorProjectSystemDrawingsField
+                      attachments={majorProjectState.summary.systemDrawings ?? []}
+                      onChange={(attachments) => updateMajorProjectQuote((draft) => {
+                        if (draft.majorProject) {
+                          draft.majorProject.summary.systemDrawings = attachments;
+                        }
+                        return draft;
+                      })}
+                    />
                     <div className="rounded-[18px] border border-[#d8e0e8] bg-[#f8fbfd] p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>

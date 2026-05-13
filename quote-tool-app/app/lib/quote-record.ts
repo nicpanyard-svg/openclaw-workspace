@@ -418,6 +418,7 @@ export type MajorProjectSummary = {
   paymentTerms: string;
   billingStart: string;
   assumptions: string;
+  systemDrawings?: MajorProjectSpecAttachment[];
 };
 
 export type MajorProjectBomImportSheetRow = {
