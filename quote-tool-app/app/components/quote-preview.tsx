@@ -9,7 +9,7 @@ import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
-import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { resolvePreferredQuote } from "@/app/lib/active-proposal";
 import {
   PROPOSAL_STORAGE_FALLBACK_KEY,
@@ -3524,12 +3524,16 @@ export default function QuotePreview() {
     updatedProposal.stageLabel = statusToStageLabel(nextQuote.metadata.status);
     updatedProposal.owner = owner;
     updatedProposal.createdBy = activeProposal?.createdBy ?? currentStore.currentUser;
+    const previousStatus = activeProposal?.status ?? nextQuote.metadata.status;
+    const statusChanged = previousStatus !== nextQuote.metadata.status;
     updatedProposal.activity = [
       ...(activeProposal?.activity ?? []),
       {
-        id: `activity_updated_${Date.now()}`,
-        type: "updated",
-        message: "Proposal saved from builder",
+        id: `activity_${statusChanged ? "status" : "updated"}_${Date.now()}`,
+        type: statusChanged ? "status_changed" : "updated",
+        message: statusChanged
+          ? `Proposal moved from ${statusToStageLabel(previousStatus)} to ${statusToStageLabel(nextQuote.metadata.status)}`
+          : "Proposal saved from builder",
         at: now,
         by: { id: currentStore.currentUser.id, name: currentStore.currentUser.name },
       },
@@ -3618,7 +3622,7 @@ export default function QuotePreview() {
               <div className="builder-stat-card"><div className="builder-stat-label">Recurring monthly</div><div className="builder-stat-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section A</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">One-time equipment</div><div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section B</div></div>
               <div className="builder-stat-card"><div className="builder-stat-label">Optional services</div><div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div><div className="builder-stat-note">Inspection and install totals</div></div>
-              <div className="builder-stat-card"><div className="builder-stat-label">Quote status</div><div className="builder-stat-value">{quote.metadata.status === "in_review" ? "Review" : quote.metadata.status === "sent" ? "Sent" : "Draft"}</div><div className="builder-stat-note">Proposal workflow</div></div>
+                <div className="builder-stat-card"><div className="builder-stat-label">Quote status</div><div className="builder-stat-value">{statusToStageLabel(quote.metadata.status)}</div><div className="builder-stat-note">Proposal workflow</div></div>
             </div>
           </div>
 
@@ -3983,7 +3987,7 @@ export default function QuotePreview() {
                 </div>
                 <label className="builder-field"><span>Proposal date</span><input value={quote.metadata.proposalDate} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalDate = e.target.value; draft.documentation.proposalDateLabel = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Proposal title</span><input value={quote.metadata.documentTitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentTitle = e.target.value; draft.documentation.proposalTitle = e.target.value; return draft; })} /></label>
-                <label className="builder-field"><span>Status</span><select value={quote.metadata.status} onChange={(e) => updateQuote((draft) => { draft.metadata.status = e.target.value as QuoteRecord["metadata"]["status"]; draft.internal.quoteStatus = e.target.value as QuoteRecord["metadata"]["status"]; return draft; })}>{[{ value: "draft", label: "Draft" }, { value: "in_review", label: "In Review" }, { value: "sent", label: "Sent" }].map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
+                <label className="builder-field"><span>Status</span><select value={quote.metadata.status} onChange={(e) => updateQuote((draft) => { draft.metadata.status = e.target.value as QuoteRecord["metadata"]["status"]; draft.internal.quoteStatus = e.target.value as QuoteRecord["metadata"]["status"]; return draft; })}>{QUOTE_STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
               </div>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">

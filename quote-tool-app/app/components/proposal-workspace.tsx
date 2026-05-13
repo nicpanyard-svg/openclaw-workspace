@@ -9,7 +9,7 @@ import { useAuth } from "@/app/components/auth-shell";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import { deleteProposalFromBrowserState } from "@/app/lib/proposal-delete";
 import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
-import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, buildProposalSummary, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, isOpenQuoteStatus, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
@@ -56,8 +56,12 @@ function statusTone(status: SavedProposalRecord["status"]) {
   switch (status) {
     case "in_review":
       return "workspace-badge workspace-badge-warn";
+    case "approved":
+      return "workspace-badge workspace-badge-success";
     case "sent":
       return "workspace-badge workspace-badge-info";
+    case "booked":
+      return "workspace-badge workspace-badge-muted";
     default:
       return "workspace-badge";
   }
@@ -67,8 +71,12 @@ function statusAccentClass(status: SavedProposalRecord["status"]) {
   switch (status) {
     case "in_review":
       return "proposal-state-accent proposal-state-accent-warn";
+    case "approved":
+      return "proposal-state-accent proposal-state-accent-success";
     case "sent":
       return "proposal-state-accent proposal-state-accent-info";
+    case "booked":
+      return "proposal-state-accent proposal-state-accent-muted";
     default:
       return "proposal-state-accent";
   }
@@ -79,16 +87,20 @@ function getNextStepLabel(proposal: SavedProposalRecord) {
     case "draft":
       return "Finish pricing and move it into review";
     case "in_review":
-      return "Resolve review notes and prep customer send";
+      return "Resolve review notes and approve it for release";
+    case "approved":
+      return "Send the approved quote to the customer or hand it off to Salesforce";
     case "sent":
       return "Follow up with the customer or manage the opportunity in Salesforce";
+    case "booked":
+      return "Hand the booked quote off to execution and CRM follow-through";
     default:
       return "Keep proposal moving";
   }
 }
 
 function getPriorityBucket(proposal: SavedProposalRecord) {
-  if (proposal.status === "in_review") return "next";
+  if (proposal.status === "in_review" || proposal.status === "approved") return "next";
   return "watch";
 }
 
@@ -192,9 +204,9 @@ export function ProposalWorkspace() {
       const ownerMatch = ownerFilter === "all" ? true : proposal.owner.id === store.currentUser.id;
       const statusMatch = statusFilter === "all"
         ? true
-        : statusFilter === "active"
-          ? ["draft", "in_review", "sent"].includes(proposal.status)
-          : proposal.status === statusFilter;
+          : statusFilter === "active"
+            ? isOpenQuoteStatus(proposal.status)
+            : proposal.status === statusFilter;
 
       const searchMatch = !normalizedSearch
         ? true
@@ -224,7 +236,7 @@ export function ProposalWorkspace() {
     return {
       total: store.proposals.length,
       mine: store.proposals.filter((proposal) => proposal.owner.id === store.currentUser.id).length,
-      active: store.proposals.filter((proposal) => ["draft", "in_review", "sent"].includes(proposal.status)).length,
+      active: store.proposals.filter((proposal) => isOpenQuoteStatus(proposal.status)).length,
       sent: store.proposals.filter((proposal) => proposal.status === "sent").length,
     };
   }, [store]);
@@ -243,10 +255,10 @@ export function ProposalWorkspace() {
       teamCount: store.users.length,
       activeOwners: new Set(
         store.proposals
-          .filter((proposal) => ["draft", "in_review", "sent"].includes(proposal.status))
+          .filter((proposal) => isOpenQuoteStatus(proposal.status))
           .map((proposal) => proposal.owner.id),
       ).size,
-      nextUp: store.proposals.filter((proposal) => proposal.status === "in_review").length,
+      nextUp: store.proposals.filter((proposal) => proposal.status === "in_review" || proposal.status === "approved").length,
       sent: store.proposals.filter((proposal) => proposal.status === "sent").length,
     };
   }, [store]);
@@ -257,13 +269,13 @@ export function ProposalWorkspace() {
   }, [activeProposalId, proposals, store]);
 
   const currentOwner = store?.currentUser;
-  const myOpenCount = store ? store.proposals.filter((proposal) => proposal.owner.id === store.currentUser.id && ["draft", "in_review", "sent"].includes(proposal.status)).length : 0;
+  const myOpenCount = store ? store.proposals.filter((proposal) => proposal.owner.id === store.currentUser.id && isOpenQuoteStatus(proposal.status)).length : 0;
   const searchHasResults = proposals.length > 0;
   const activeFilterCount = [ownerFilter !== "mine", statusFilter !== "all", searchQuery.trim().length > 0].filter(Boolean).length;
   const visibleTotalMonthly = proposals.reduce((sum, entry) => sum + entry.summary.totalMonthly, 0);
   const visibleEquipmentTotal = proposals.reduce((sum, entry) => sum + entry.summary.equipmentTotal, 0);
   const openQuoteRollups = useMemo(() => {
-    const openProposals = proposals.filter(({ proposal }) => ["draft", "in_review", "sent"].includes(proposal.status));
+    const openProposals = proposals.filter(({ proposal }) => isOpenQuoteStatus(proposal.status));
     const rollups = {
       standardProducts: 0,
       accessories: 0,
@@ -460,9 +472,7 @@ export function ProposalWorkspace() {
                   <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                     <option value="all">All statuses</option>
                     <option value="active">Active</option>
-                    <option value="draft">Draft</option>
-                    <option value="in_review">In Review</option>
-                    <option value="sent">Sent</option>
+                    {QUOTE_STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
                   </select>
                 </label>
               </div>
@@ -482,8 +492,8 @@ export function ProposalWorkspace() {
 
           <div className="workspace-section-stack">
             <DashboardGroup
-              title="In review"
-              subtitle=""
+              title="Approval queue"
+              subtitle="Quotes that still need internal review or are already approved and ready for customer release."
               emptyLabel=""
               proposals={groupedProposals.next}
               activeProposalId={activeProposal?.id ?? null}
@@ -494,8 +504,8 @@ export function ProposalWorkspace() {
             />
             <DashboardGroup
               title="Keep moving"
-              subtitle="Draft proposals to finish and sent proposals to follow up on. If the deal moves past proposal work, take it to Salesforce."
-              emptyLabel="No draft or sent proposals match the current filters."
+              subtitle="Draft proposals still being built, sent proposals in follow-up, and booked quotes waiting on downstream handoff."
+              emptyLabel="No draft, sent, or booked proposals match the current filters."
               proposals={groupedProposals.watch}
               activeProposalId={activeProposal?.id ?? null}
               setActiveProposal={setActiveProposal}

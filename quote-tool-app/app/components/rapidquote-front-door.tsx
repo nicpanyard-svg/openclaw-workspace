@@ -18,6 +18,7 @@ import {
   createProposalFromQuote,
   deserializeProposalStore,
   getDefaultProposalStore,
+  isOpenQuoteStatus,
   mockUsers,
   serializeProposalStore,
 } from "@/app/lib/proposal-store";
@@ -102,7 +103,7 @@ export function RapidQuoteFrontDoor() {
     setCustomerProfiles(nextProfiles);
     setActiveWorkspaceItemCount(
       nextStore.proposals.filter((proposal) =>
-        ["draft", "in_review", "sent"].includes(proposal.status),
+        isOpenQuoteStatus(proposal.status),
       ).length,
     );
     setIsHydrated(true);

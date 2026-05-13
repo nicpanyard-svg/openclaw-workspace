@@ -88,6 +88,20 @@ export const mockUsers: ProposalOwner[] = [
   },
 ];
 
+export const QUOTE_STATUS_OPTIONS: Array<{ value: QuoteStatus; label: string }> = [
+  { value: "draft", label: "Draft" },
+  { value: "in_review", label: "In Review" },
+  { value: "approved", label: "Approved" },
+  { value: "sent", label: "Sent" },
+  { value: "booked", label: "Booked" },
+];
+
+export const OPEN_QUOTE_STATUSES: QuoteStatus[] = ["draft", "in_review", "approved", "sent"];
+
+export function isOpenQuoteStatus(status: QuoteStatus) {
+  return OPEN_QUOTE_STATUSES.includes(status);
+}
+
 export function computeQuoteTotals(quote: QuoteRecord) {
   const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
   const totalMonthly = Number(sectionARows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2));
@@ -260,8 +274,12 @@ export function statusToStageLabel(status: QuoteStatus) {
       return "Draft";
     case "in_review":
       return "In Review";
+    case "approved":
+      return "Approved";
     case "sent":
       return "Sent";
+    case "booked":
+      return "Booked";
     default:
       return "Draft";
   }
