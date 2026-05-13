@@ -3852,19 +3852,6 @@ export default function QuotePreview() {
                       ) : null}
                     </div>
 
-                    <details className="rounded-[14px] border border-[#efe3e5] bg-[#fffafa] p-3">
-                      <summary className="cursor-pointer list-none text-[13px] font-semibold text-[#16202b]">Advanced setup</summary>
-                      <div className="mt-3 space-y-4">
-                        <label className="builder-field"><span>Commercial assumptions</span><textarea rows={3} value={majorProjectState.summary.assumptions} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.assumptions = e.target.value; return draft; })} /></label>
-                        <div className="text-[12px] leading-[1.5] text-[#6a7683]">Internal approval context for pricing notes, payment exceptions, or rollout assumptions that should not lead the main quote setup.</div>
-
-                        <div className="grid gap-3 md:grid-cols-3">
-                          <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={majorProjectState.commercial.includeHardware} onChange={(e) => updateMajorCommercialField("includeHardware", e.target.checked)} /> Include hardware</label>
-                          <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={majorProjectState.commercial.includeInstallation} onChange={(e) => updateMajorCommercialField("includeInstallation", e.target.checked)} /> Include installation</label>
-                          <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-[#fbfcfe] px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={majorProjectState.commercial.includeOptionalServices} onChange={(e) => updateMajorCommercialField("includeOptionalServices", e.target.checked)} /> Include optional services</label>
-                        </div>
-                      </div>
-                    </details>
                   </div>
 
                   <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">

@@ -384,7 +384,6 @@ function buildWorkbookModel(quote: QuoteRecord): ApprovalWorkbookModel {
     });
 
   const assumptionEntries = compact([
-    quote.majorProject?.summary?.assumptions,
     quote.commercial.meta.notes,
     quote.majorProject?.summary?.paymentTerms ? `Payment terms: ${quote.majorProject.summary.paymentTerms}` : "",
     quote.majorProject?.summary?.billingStart ? `Billing start: ${quote.majorProject.summary.billingStart}` : "",

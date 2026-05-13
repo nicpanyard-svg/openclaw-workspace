@@ -1272,7 +1272,7 @@ export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): Ma
       }
     }
 
-    if (state.commercial.includeHardware && metrics.hardwareRevenue > 0) {
+    if (metrics.hardwareRevenue > 0) {
       for (const row of simpleRows.filter((candidate) => candidate.bucket === "hardware")) {
         pushAttachment(createOutputSpecAttachmentEntry({
           attachment: row.specSheetAttachment,
@@ -1405,7 +1405,6 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   next.sections.sectionA.introText = `MRR structure based on ${siteCount} site${siteCount === 1 ? "" : "s"} with a ${monthDriverLabel}.`;
   next.sections.sectionA.explanatoryParagraphs = compact([
     state.summary.projectDescription,
-    state.summary.assumptions,
     `Contract math is driven by ${monthDriverLabel}; visible recurring pricing stays MRR-first.`,
     metrics.hasThreeLayerModel ? "Customer-facing quote lines are presentation only; internal components remain the commercial source of truth." : "",
     metrics.validation.errorCount > 0 ? `Internal validation flagged ${metrics.validation.errorCount} mapping issue${metrics.validation.errorCount === 1 ? "" : "s"}; review the commercial worksheet before sending.` : "",
@@ -1523,7 +1522,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   }
 
   const hardwareQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory === "hardware" && line.oneTimeRevenue > 0);
-  next.sections.sectionB.enabled = hardwareQuoteLines.length > 0 || (!metrics.hasThreeLayerModel && state.commercial.includeHardware && metrics.hardwareRevenue > 0);
+  next.sections.sectionB.enabled = hardwareQuoteLines.length > 0 || (!metrics.hasThreeLayerModel && metrics.hardwareRevenue > 0);
   next.sections.sectionB.builderLabel = "Major project hardware";
   next.sections.sectionB.title = state.commercial.equipmentLabel;
   next.sections.sectionB.introText = metrics.hasThreeLayerModel
@@ -1631,7 +1630,6 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   next.commercial.meta.optionLabel = activeOption?.label ?? "Option 1";
   next.commercial.meta.comparisonGroup = state.summary.projectName || "Major Project";
   next.commercial.meta.notes = compact([
-    state.summary.assumptions,
     metrics.hasThreeLayerModel ? "Internal components are economics; customer bundle labels are presentation only." : "",
   ]).join(" ");
 
