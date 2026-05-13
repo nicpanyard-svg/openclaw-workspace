@@ -77,16 +77,23 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
   const handleViewPdf = async () => {
     if (!quote) return;
 
+    const previewWindow = window.open("", "_blank", "noopener,noreferrer");
+
+    if (!previewWindow) {
+      window.alert("Unable to open the PDF preview tab right now. Please allow a new tab for this site and try again.");
+      return;
+    }
+
+    previewWindow.document.title = "Generating PDF preview...";
+    previewWindow.document.body.innerHTML = "<p style=\"font-family: Arial, sans-serif; padding: 24px; color: #334150;\">Generating PDF preview...</p>";
+
     try {
       const blob = await generatePdfBlob();
       const objectUrl = URL.createObjectURL(blob);
-      const opened = window.open(objectUrl, "_blank", "noopener,noreferrer");
+      previewWindow.location.href = objectUrl;
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-
-      if (!opened) {
-        window.alert("Unable to open the PDF preview tab right now. Allow popups/new tabs for this site and try again.");
-      }
     } catch {
+      previewWindow.close();
       window.alert("Unable to generate the PDF preview right now. Please review the HTML preview and try again.");
     }
   };
