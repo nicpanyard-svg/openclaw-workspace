@@ -61,9 +61,15 @@ export function buildCommercialMetrics(quote: QuoteRecord) {
 
   const recurringGrossProfit = Number((recurringRevenue - recurringCost).toFixed(2));
   const oneTimeGrossProfit = Number((oneTimeRevenue - oneTimeCost).toFixed(2));
-  const totalRevenue = Number((recurringRevenue + oneTimeRevenue).toFixed(2));
-  const totalCost = Number((recurringCost + oneTimeCost).toFixed(2));
-  const totalGrossProfit = Number((totalRevenue - totalCost).toFixed(2));
+  const totalRevenue = useMajorProjectRevenue
+    ? Number(majorProjectMetrics.totalContractRevenue.toFixed(2))
+    : Number((recurringRevenue + oneTimeRevenue).toFixed(2));
+  const totalCost = useMajorProjectRevenue
+    ? Number(majorProjectMetrics.totalContractCost.toFixed(2))
+    : Number((recurringCost + oneTimeCost).toFixed(2));
+  const totalGrossProfit = useMajorProjectRevenue
+    ? Number(majorProjectMetrics.totalContractGrossProfit.toFixed(2))
+    : Number((totalRevenue - totalCost).toFixed(2));
 
   const safeMargin = (profit: number, revenue: number) => (revenue > 0 ? Number(((profit / revenue) * 100).toFixed(2)) : 0);
 

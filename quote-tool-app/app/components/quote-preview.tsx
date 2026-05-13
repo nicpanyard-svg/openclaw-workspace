@@ -323,6 +323,35 @@ function majorProjectMarginPercent(revenue: number, cost: number) {
   return ((revenue - cost) / revenue) * 100;
 }
 
+function majorProjectContractMonths(termMonths: number) {
+  if (!Number.isFinite(termMonths) || termMonths <= 0) return 0;
+  return Math.round(termMonths);
+}
+
+function majorProjectContractValue(monthlyValue: number, termMonths: number) {
+  return Number((monthlyValue * majorProjectContractMonths(termMonths)).toFixed(2));
+}
+
+function buildMajorProjectContractRollup(params: {
+  oneTimeRevenue: number;
+  recurringRevenue: number;
+  oneTimeCost: number;
+  recurringCost: number;
+  termMonths: number;
+}) {
+  const recurringContractRevenue = majorProjectContractValue(params.recurringRevenue, params.termMonths);
+  const recurringContractCost = majorProjectContractValue(params.recurringCost, params.termMonths);
+  const totalContractRevenue = Number((params.oneTimeRevenue + recurringContractRevenue).toFixed(2));
+  const totalContractCost = Number((params.oneTimeCost + recurringContractCost).toFixed(2));
+
+  return {
+    recurringContractRevenue,
+    recurringContractCost,
+    totalContractRevenue,
+    totalContractCost,
+  };
+}
+
 function createMajorProjectBundleInternalName(sourceComponent: MajorProjectComponent | undefined, fallback: string) {
   const trimmed = sourceComponent?.internalName?.trim();
   return trimmed || fallback;
@@ -1388,6 +1417,7 @@ export default function QuotePreview() {
 
   const commercialMetrics = useMemo(() => buildCommercialMetrics(quote), [quote]);
   const majorProjectMetrics = useMemo(() => buildMajorProjectMetrics(quote), [quote]);
+  const majorProjectTermMonths = useMemo(() => majorProjectContractMonths(majorProjectMetrics.termMonths), [majorProjectMetrics.termMonths]);
   const majorProjectHasBlockingErrors = isMajorProject && majorProjectMetrics.validation.errorCount > 0;
   const majorProjectBlockingIssues = useMemo(
     () => majorProjectMetrics.validation.issues.filter((issue) => issue.severity === "error"),
@@ -3546,7 +3576,7 @@ export default function QuotePreview() {
                       <label className="builder-field compact"><span>Project name</span><input value={majorProjectState.summary.projectName} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.projectName = e.target.value; return draft; })} /></label>
                       <label className="builder-field compact"><span>Active option</span><select value={majorProjectState.activeOptionId} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.activeOptionId = e.target.value; return draft; })}>{majorProjectState.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
                       <label className="builder-field compact"><span>Sites</span><input type="number" value={activeMajorOption?.siteCount ?? 0} onChange={(e) => updateActiveMajorOption("siteCount", Math.max(parseNumber(e.target.value), 0))} /></label>
-                      <label className="builder-field compact"><span>Term (months)</span><input type="number" value={majorProjectState.commercial.termMonths} onChange={(e) => updateMajorCommercialField("termMonths", parseNumber(e.target.value))} /></label>
+                      <label className="builder-field compact"><span>Term (months)</span><input type="number" min="1" value={majorProjectState.commercial.termMonths} onChange={(e) => updateMajorCommercialField("termMonths", Math.max(parseNumber(e.target.value), 1))} /></label>
                       <label className="builder-field compact"><span>Payment terms</span><input value={majorProjectState.summary.paymentTerms} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.paymentTerms = e.target.value; return draft; })} /></label>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
@@ -4142,7 +4172,25 @@ export default function QuotePreview() {
                                   ))}
                                 </div>
                               </div>
-                              <div className="mt-3 grid gap-3 md:grid-cols-4 text-[12px] text-[#5f6c78]"><div className="rounded-[14px] bg-white px-3 py-2">Revenue {formatCurrency((bundleMetrics?.oneTimeRevenue ?? 0) + (bundleMetrics?.recurringRevenue ?? 0), currencyCode)}</div><div className="rounded-[14px] bg-white px-3 py-2">Cost {formatCurrency((bundleMetrics?.oneTimeCost ?? 0) + (bundleMetrics?.recurringCost ?? 0), currencyCode)}</div><div className="rounded-[14px] bg-white px-3 py-2">One-time {formatCurrency(bundleMetrics?.oneTimeRevenue ?? 0, currencyCode)}</div><div className="rounded-[14px] bg-white px-3 py-2">Recurring {formatCurrency(bundleMetrics?.recurringRevenue ?? 0, currencyCode)}</div></div>
+                              <div className="mt-3 grid gap-3 md:grid-cols-4 text-[12px] text-[#5f6c78]">
+                                {(() => {
+                                  const rollup = buildMajorProjectContractRollup({
+                                    oneTimeRevenue: bundleMetrics?.oneTimeRevenue ?? 0,
+                                    recurringRevenue: bundleMetrics?.recurringRevenue ?? 0,
+                                    oneTimeCost: bundleMetrics?.oneTimeCost ?? 0,
+                                    recurringCost: bundleMetrics?.recurringCost ?? 0,
+                                    termMonths: majorProjectTermMonths,
+                                  });
+                                  return (
+                                    <>
+                                      <div className="rounded-[14px] bg-white px-3 py-2">Recurring MRR {formatCurrency(bundleMetrics?.recurringRevenue ?? 0, currencyCode)}</div>
+                                      <div className="rounded-[14px] bg-white px-3 py-2">One-time revenue {formatCurrency(bundleMetrics?.oneTimeRevenue ?? 0, currencyCode)}</div>
+                                      <div className="rounded-[14px] bg-white px-3 py-2">Contract value ({majorProjectTermMonths} mo) {formatCurrency(rollup.totalContractRevenue, currencyCode)}</div>
+                                      <div className="rounded-[14px] bg-white px-3 py-2">Contract cost ({majorProjectTermMonths} mo) {formatCurrency(rollup.totalContractCost, currencyCode)}</div>
+                                    </>
+                                  );
+                                })()}
+                              </div>
                             </div>
                           );
                         })}
@@ -4169,7 +4217,7 @@ export default function QuotePreview() {
                           <div className="major-project-toolbar-stat"><strong>{activeMajorOptionQuoteLines.length}</strong><span>total</span></div>
                         </div>
                         <div className="major-project-preview-handoff">
-                          <div className="major-project-preview-handoff-card"><span>Section A / recurring</span><strong>{formatCurrency(majorProjectPreviewCategorySummary.recurring, currencyCode)}</strong></div>
+                          <div className="major-project-preview-handoff-card"><span>Section A / MRR</span><strong>{formatCurrency(majorProjectPreviewCategorySummary.recurring, currencyCode)}</strong></div>
                           <div className="major-project-preview-handoff-card"><span>Section B / hardware</span><strong>{formatCurrency(majorProjectPreviewCategorySummary.hardware, currencyCode)}</strong></div>
                           <div className="major-project-preview-handoff-card"><span>Section C / services</span><strong>{formatCurrency(majorProjectPreviewCategorySummary.services, currencyCode)}</strong></div>
                         </div>
@@ -4189,7 +4237,7 @@ export default function QuotePreview() {
                                 <label className="builder-field compact"><span>Quote line label</span><input value={line.label} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, label: e.target.value }))} /></label>
                                 <label className="builder-field compact"><span>Presentation category</span><select value={line.presentationCategory ?? "other"} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, presentationCategory: e.target.value as MajorProjectCustomerQuoteLine["presentationCategory"] }))}><option value="recurring">Section A / recurring</option><option value="hardware">Section B / hardware</option><option value="services">Section C / services</option><option value="other">Section C / other</option></select></label>
                                 <label className="builder-field compact"><span>Schedule</span><select value={line.schedule ?? "mixed"} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, schedule: e.target.value as MajorProjectCustomerQuoteLine["schedule"] }))}><option value="mixed">Mixed</option><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
-                                <div className="rounded-[16px] border border-[#e2e7ec] bg-white px-4 py-3 text-[13px] text-[#5e6975]"><div className="font-semibold text-[#16202b]">Downstream total</div><div className="mt-1">{formatCurrency((metrics?.oneTimeRevenue ?? 0) + (metrics?.recurringRevenue ?? 0), currencyCode)}</div></div>
+                                <div className="rounded-[16px] border border-[#e2e7ec] bg-white px-4 py-3 text-[13px] text-[#5e6975]"><div className="font-semibold text-[#16202b]">{line.presentationCategory === "recurring" ? "Downstream MRR" : "Downstream total"}</div><div className="mt-1">{formatCurrency((metrics?.oneTimeRevenue ?? 0) + (metrics?.recurringRevenue ?? 0), currencyCode)}</div></div>
                               </div>
                               <label className="builder-field compact mt-3"><span>Description / proposal note</span><textarea rows={2} value={line.description ?? ""} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, description: e.target.value }))} /></label>
                               <div className="mt-3 grid gap-3 lg:grid-cols-2">
@@ -4241,7 +4289,25 @@ export default function QuotePreview() {
                                   </div>
                                 </div>
                               </details>
-                              <div className="mt-3 grid gap-3 md:grid-cols-4 text-[12px] text-[#5f6c78]"><div className="rounded-[14px] bg-white px-3 py-2">Recurring revenue {formatCurrency(metrics?.recurringRevenue ?? 0, currencyCode)}</div><div className="rounded-[14px] bg-white px-3 py-2">One-time revenue {formatCurrency(metrics?.oneTimeRevenue ?? 0, currencyCode)}</div><div className="rounded-[14px] bg-white px-3 py-2">Recurring cost {formatCurrency(metrics?.recurringCost ?? 0, currencyCode)}</div><div className="rounded-[14px] bg-white px-3 py-2">One-time cost {formatCurrency(metrics?.oneTimeCost ?? 0, currencyCode)}</div></div>
+                              <div className="mt-3 grid gap-3 md:grid-cols-4 text-[12px] text-[#5f6c78]">
+                                {(() => {
+                                  const rollup = buildMajorProjectContractRollup({
+                                    oneTimeRevenue: metrics?.oneTimeRevenue ?? 0,
+                                    recurringRevenue: metrics?.recurringRevenue ?? 0,
+                                    oneTimeCost: metrics?.oneTimeCost ?? 0,
+                                    recurringCost: metrics?.recurringCost ?? 0,
+                                    termMonths: majorProjectTermMonths,
+                                  });
+                                  return (
+                                    <>
+                                      <div className="rounded-[14px] bg-white px-3 py-2">Recurring MRR {formatCurrency(metrics?.recurringRevenue ?? 0, currencyCode)}</div>
+                                      <div className="rounded-[14px] bg-white px-3 py-2">One-time revenue {formatCurrency(metrics?.oneTimeRevenue ?? 0, currencyCode)}</div>
+                                      <div className="rounded-[14px] bg-white px-3 py-2">Contract value ({majorProjectTermMonths} mo) {formatCurrency(rollup.totalContractRevenue, currencyCode)}</div>
+                                      <div className="rounded-[14px] bg-white px-3 py-2">Contract cost ({majorProjectTermMonths} mo) {formatCurrency(rollup.totalContractCost, currencyCode)}</div>
+                                    </>
+                                  );
+                                })()}
+                              </div>
                             </div>
                           );
                         })}
@@ -4257,17 +4323,19 @@ export default function QuotePreview() {
                         <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Project rollup</div>
                         <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Live totals</div>
                       </div>
-                      <div className="text-[12px] text-[#5d6976]">A clean commercial summary of the active Major Project option.</div>
+                      <div className="text-[12px] text-[#5d6976]">Visible recurring output stays MRR-only; internal totals below use the active month driver for contract-value math.</div>
                     </div>
                     <div className="mt-4 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
                       <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Major Project rollup</div>
                       <div className="mt-3 space-y-2">
                         <div className="flex items-center justify-between gap-3"><span>Sites in active option</span><strong>{majorProjectMetrics.siteCount}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Recurring revenue</span><strong>{formatCurrency(majorProjectMetrics.recurringRevenue, currencyCode)}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>Recurring month driver</span><strong>{majorProjectTermMonths} months</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>Recurring MRR</span><strong>{formatCurrency(majorProjectMetrics.recurringRevenue, currencyCode)}</strong></div>
                         <div className="flex items-center justify-between gap-3"><span>One-time revenue</span><strong>{formatCurrency(majorProjectMetrics.oneTimeRevenue, currencyCode)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Total revenue</span><strong>{formatCurrency(majorProjectMetrics.totalRevenue, currencyCode)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Total cost</span><strong>{formatCurrency(majorProjectMetrics.totalCost, currencyCode)}</strong></div>
-                        <div className="flex items-center justify-between gap-3 text-[#b00000]"><span>Gross margin</span><strong>{formatPercent(majorProjectMetrics.totalGrossMarginPercent)}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>Recurring contract value</span><strong>{formatCurrency(majorProjectMetrics.recurringContractRevenue, currencyCode)}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>Total contract value</span><strong>{formatCurrency(majorProjectMetrics.totalContractRevenue, currencyCode)}</strong></div>
+                        <div className="flex items-center justify-between gap-3"><span>Total contract cost</span><strong>{formatCurrency(majorProjectMetrics.totalContractCost, currencyCode)}</strong></div>
+                        <div className="flex items-center justify-between gap-3 text-[#b00000]"><span>Contract gross margin</span><strong>{formatPercent(majorProjectMetrics.totalContractGrossMarginPercent)}</strong></div>
                       </div>
                     </div>
                   </div>

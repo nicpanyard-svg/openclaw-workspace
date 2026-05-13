@@ -73,6 +73,7 @@ export type MajorProjectCustomerQuoteLineMetrics = MajorProjectCustomerQuoteLine
 };
 
 export type MajorProjectMetrics = {
+  termMonths: number;
   siteCount: number;
   components: MajorProjectComponent[];
   simpleRows: MajorProjectSimpleRow[];
@@ -91,13 +92,21 @@ export type MajorProjectMetrics = {
   usingSimpleBuilder: boolean;
   hasThreeLayerModel: boolean;
   recurringRevenue: number;
+  recurringContractRevenue: number;
   hardwareRevenue: number;
   installRevenue: number;
   otherOneTimeRevenue: number;
   optionalServicesRevenue: number;
   oneTimeRevenue: number;
   recurringCost: number;
+  recurringContractCost: number;
   oneTimeCost: number;
+  recurringContractGrossProfit: number;
+  recurringContractGrossMarginPercent: number;
+  totalContractRevenue: number;
+  totalContractCost: number;
+  totalContractGrossProfit: number;
+  totalContractGrossMarginPercent: number;
   totalRevenue: number;
   totalCost: number;
   totalGrossProfit: number;
@@ -266,6 +275,15 @@ function uniqueIds(ids: Array<string | undefined | null>) {
 
 function roundCurrency(value: number) {
   return Number(value.toFixed(2));
+}
+
+function resolveMajorProjectTermMonths(termMonths: number) {
+  if (!Number.isFinite(termMonths) || termMonths <= 0) return 0;
+  return Math.round(termMonths);
+}
+
+function contractValueFromMrr(monthlyValue: number, termMonths: number) {
+  return roundCurrency(monthlyValue * termMonths);
 }
 
 function sumSimpleRows(
@@ -1115,6 +1133,7 @@ export function buildMajorProjectMetrics(quote: QuoteRecord): MajorProjectMetric
     unpresentedBundleIds: [],
     quoteLinesWithoutEconomics: [],
   };
+  const termMonths = resolveMajorProjectTermMonths(state.commercial.termMonths);
   const siteCount = Math.max(activeOption?.siteCount ?? state.commercial.siteCount, 0);
   const recurringRevenue = hasThreeLayerModel
     ? roundCurrency(sumComponents(components, "recurring", "revenue"))
@@ -1152,11 +1171,17 @@ export function buildMajorProjectMetrics(quote: QuoteRecord): MajorProjectMetric
   const optionalServicesRevenue = hasThreeLayerModel
     ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "optional_service"))
     : 0;
-  const totalRevenue = roundCurrency(recurringRevenue + oneTimeRevenue);
-  const totalCost = roundCurrency(recurringCost + oneTimeCost);
-  const totalGrossProfit = roundCurrency(totalRevenue - totalCost);
+  const recurringContractRevenue = contractValueFromMrr(recurringRevenue, termMonths);
+  const recurringContractCost = contractValueFromMrr(recurringCost, termMonths);
+  const recurringContractGrossProfit = roundCurrency(recurringContractRevenue - recurringContractCost);
+  const recurringContractGrossMarginPercent = recurringContractRevenue > 0 ? (recurringContractGrossProfit / recurringContractRevenue) * 100 : 0;
+  const totalContractRevenue = roundCurrency(recurringContractRevenue + oneTimeRevenue);
+  const totalContractCost = roundCurrency(recurringContractCost + oneTimeCost);
+  const totalContractGrossProfit = roundCurrency(totalContractRevenue - totalContractCost);
+  const totalContractGrossMarginPercent = totalContractRevenue > 0 ? (totalContractGrossProfit / totalContractRevenue) * 100 : 0;
 
   return {
+    termMonths,
     siteCount,
     components,
     simpleRows,
@@ -1168,17 +1193,25 @@ export function buildMajorProjectMetrics(quote: QuoteRecord): MajorProjectMetric
     usingSimpleBuilder: hasSimpleRowModel || (!usingAdvancedBuilder && components.length === 0),
     hasThreeLayerModel,
     recurringRevenue: roundCurrency(recurringRevenue),
+    recurringContractRevenue,
     hardwareRevenue: roundCurrency(hardwareRevenue),
     installRevenue: roundCurrency(installRevenue),
     otherOneTimeRevenue: roundCurrency(otherOneTimeRevenue),
     optionalServicesRevenue: roundCurrency(optionalServicesRevenue),
     oneTimeRevenue: roundCurrency(oneTimeRevenue),
     recurringCost: roundCurrency(recurringCost),
+    recurringContractCost,
     oneTimeCost: roundCurrency(oneTimeCost),
-    totalRevenue,
-    totalCost,
-    totalGrossProfit,
-    totalGrossMarginPercent: totalRevenue > 0 ? (totalGrossProfit / totalRevenue) * 100 : 0,
+    recurringContractGrossProfit,
+    recurringContractGrossMarginPercent,
+    totalContractRevenue,
+    totalContractCost,
+    totalContractGrossProfit,
+    totalContractGrossMarginPercent,
+    totalRevenue: totalContractRevenue,
+    totalCost: totalContractCost,
+    totalGrossProfit: totalContractGrossProfit,
+    totalGrossMarginPercent: totalContractGrossMarginPercent,
   };
 }
 

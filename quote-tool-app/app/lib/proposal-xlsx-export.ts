@@ -32,6 +32,8 @@ type ApprovalWorkbookModel = {
   optionLabel: string;
   statusLabel: string;
   workflowLabel: string;
+  usesMajorProjectContractMath: boolean;
+  majorProjectTermMonths: number;
   recurringRevenue: number;
   recurringCost: number;
   recurringGrossProfit: number;
@@ -360,6 +362,8 @@ function buildWorkbookModel(quote: QuoteRecord): ApprovalWorkbookModel {
       optionLabel: "",
       statusLabel: "",
       workflowLabel: "",
+      usesMajorProjectContractMath: false,
+      majorProjectTermMonths: 0,
       recurringRevenue: commercial.recurringRevenue,
       recurringCost: commercial.recurringCost,
       recurringGrossProfit: commercial.recurringGrossProfit,
@@ -422,6 +426,8 @@ function buildWorkbookModel(quote: QuoteRecord): ApprovalWorkbookModel {
     optionLabel: quote.commercial.meta.optionLabel || "Option 1",
     statusLabel: quote.metadata.status.replaceAll("_", " "),
     workflowLabel,
+    usesMajorProjectContractMath: quote.metadata.workflowMode === "major_project" && Boolean(quote.majorProject?.enabled),
+    majorProjectTermMonths: majorProjectMetrics.termMonths,
     recurringRevenue: commercial.recurringRevenue,
     recurringCost: commercial.recurringCost,
     recurringGrossProfit: commercial.recurringGrossProfit,
@@ -826,12 +832,12 @@ function buildExecutiveSummarySheet(
     result: model.oneTimeRevenue,
     numFmt: '"$"#,##0.00',
   }, BRAND.slate);
-  applyMetricCard(sheet, 6, 6, 7, "Total Gross Profit", {
+  applyMetricCard(sheet, 6, 6, 7, model.usesMajorProjectContractMath ? "Contract Gross Profit" : "Total Gross Profit", {
     formula: rollups.total.grossProfit,
     result: model.totalGrossProfit,
     numFmt: '"$"#,##0.00',
   }, BRAND.greenDark);
-  applyMetricCard(sheet, 6, 8, 9, "Gross Margin", {
+  applyMetricCard(sheet, 6, 8, 9, model.usesMajorProjectContractMath ? "Contract Margin" : "Gross Margin", {
     formula: rollups.total.grossMargin,
     result: model.totalGrossMarginPercent / 100,
     numFmt: "0.0%",
@@ -870,6 +876,7 @@ function buildExecutiveSummarySheet(
   checkpointCell.value = [
     `Total margin: ${formatPercent(model.totalGrossMarginPercent)}`,
     "Recurring values on this workbook are monthly recurring revenue (MRR) unless noted otherwise.",
+    ...(model.usesMajorProjectContractMath && model.majorProjectTermMonths > 0 ? [`Major Project contract math uses MRR x ${model.majorProjectTermMonths} months for internal value and margin review.`] : []),
     "Approval packet includes financials, routing, and support notes.",
     "Review Assumptions & Notes -> Calculation Traceability before approval signoff.",
     "Use detail and notes tabs before customer-facing release.",
@@ -916,7 +923,9 @@ function buildExecutiveSummarySheet(
       { formula: rollups.total.cost, result: model.totalCost },
       { formula: rollups.total.grossProfit, result: model.totalGrossProfit },
       { formula: rollups.total.grossMargin, result: model.totalGrossMarginPercent / 100 },
-      "Overall customer commitment",
+      model.usesMajorProjectContractMath && model.majorProjectTermMonths > 0
+        ? `Overall customer commitment on ${model.majorProjectTermMonths}-month contract math`
+        : "Overall customer commitment",
       "Use as the primary executive checkpoint, then review Calculation Traceability.",
     ],
   ] as const;
@@ -1083,9 +1092,9 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
 
   applyMetricCard(sheet, 4, 1, 2, "Recurring MRR", formatMoney(model.recurringRevenue), BRAND.green);
   applyMetricCard(sheet, 4, 3, 4, "One-time / NRR", formatMoney(model.oneTimeRevenue), BRAND.slate);
-  applyMetricCard(sheet, 4, 5, 6, "Total Revenue", formatMoney(model.totalRevenue), BRAND.greenDark);
-  applyMetricCard(sheet, 4, 7, 8, "Total Cost", formatMoney(model.totalCost), BRAND.gold);
-  applyMetricCard(sheet, 4, 9, 13, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.green);
+  applyMetricCard(sheet, 4, 5, 6, model.usesMajorProjectContractMath ? "Total Contract Value" : "Total Revenue", formatMoney(model.totalRevenue), BRAND.greenDark);
+  applyMetricCard(sheet, 4, 7, 8, model.usesMajorProjectContractMath ? "Total Contract Cost" : "Total Cost", formatMoney(model.totalCost), BRAND.gold);
+  applyMetricCard(sheet, 4, 9, 13, model.usesMajorProjectContractMath ? "Contract Margin" : "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.green);
 
   styleLabelValueRow(sheet, 6, 9, 10, "Recurring Sell Basis", "Manual");
   unlockCell(sheet.getCell("J6"));

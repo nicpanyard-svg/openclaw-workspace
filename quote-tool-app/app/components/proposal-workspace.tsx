@@ -558,6 +558,8 @@ function DashboardGroup({
           {proposals.map(({ proposal, summary, nextStep }) => {
             const isActive = proposal.id === activeProposalId;
             const hasOptionalServices = summary.optionalServicesTotal > 0;
+            const isMajorProjectProposal = proposal.quote.metadata.workflowMode === "major_project" && Boolean(proposal.quote.majorProject?.enabled);
+            const majorProjectTermMonths = proposal.quote.majorProject?.commercial.termMonths ?? 0;
 
             return (
               <article key={proposal.id} className={`proposal-list-card proposal-list-card-visual ${isActive ? "proposal-list-card-active" : ""}`}>
@@ -608,9 +610,9 @@ function DashboardGroup({
                     <em>{hasOptionalServices ? "Upsell value included" : "No optional services added"}</em>
                   </div>
                   <div className="proposal-commercial-card proposal-commercial-card-optional">
-                    <span>Gross margin</span>
+                    <span>{isMajorProjectProposal ? "Contract margin" : "Gross margin"}</span>
                     <strong>{summary.totalGrossMarginPercent.toFixed(1)}%</strong>
-                    <em>{formatCurrency(summary.totalGrossProfit)} internal GP</em>
+                    <em>{formatCurrency(summary.totalGrossProfit)} {isMajorProjectProposal && majorProjectTermMonths > 0 ? `${majorProjectTermMonths}-month GP` : "internal GP"}</em>
                   </div>
                 </div>
 
@@ -678,6 +680,8 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
   };
   const summary = buildProposalSummary(proposal);
   const commercial = buildCommercialMetrics(proposal.quote);
+  const isMajorProjectProposal = proposal.quote.metadata.workflowMode === "major_project" && Boolean(proposal.quote.majorProject?.enabled);
+  const majorProjectTermMonths = proposal.quote.majorProject?.commercial.termMonths ?? 0;
   const latestActivity = proposal.activity[proposal.activity.length - 1] ?? null;
   const lastTouched = proposal.quote.metadata.lastTouchedAt ? formatDateTime(proposal.quote.metadata.lastTouchedAt) : formatDateTime(proposal.updatedAt);
 
@@ -754,8 +758,8 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
               <div className="detail-card"><span>Equipment</span><strong>{formatCurrency(summary.equipmentTotal)}</strong><em>Section B</em></div>
               <div className="detail-card"><span>Optional services</span><strong>{formatCurrency(summary.optionalServicesTotal)}</strong><em>Section C</em></div>
               <div className="detail-card"><span>Prepared by</span><strong>{proposal.quote.inet.contactName}</strong><em>{proposal.quote.inet.contactEmail}</em></div>
-              <div className="detail-card"><span>Gross profit</span><strong>{formatCurrency(commercial.totalGrossProfit)}</strong><em>Internal only</em></div>
-              <div className="detail-card"><span>Gross margin</span><strong>{commercial.totalGrossMarginPercent.toFixed(1)}%</strong><em>Revenue vs cost</em></div>
+              <div className="detail-card"><span>{isMajorProjectProposal ? "Contract gross profit" : "Gross profit"}</span><strong>{formatCurrency(commercial.totalGrossProfit)}</strong><em>{isMajorProjectProposal && majorProjectTermMonths > 0 ? `${majorProjectTermMonths}-month contract basis` : "Internal only"}</em></div>
+              <div className="detail-card"><span>{isMajorProjectProposal ? "Contract gross margin" : "Gross margin"}</span><strong>{commercial.totalGrossMarginPercent.toFixed(1)}%</strong><em>{isMajorProjectProposal ? "MRR x months plus one-time value" : "Revenue vs cost"}</em></div>
               <div className="detail-card"><span>Recurring margin</span><strong>{commercial.recurringGrossMarginPercent.toFixed(1)}%</strong><em>Monthly GP {formatCurrency(commercial.recurringGrossProfit)}</em></div>
               <div className="detail-card"><span>Option label</span><strong>{proposal.quote.commercial.meta.optionLabel}</strong><em>{proposal.quote.commercial.meta.comparisonGroup || "Internal comparison"}</em></div>
             </div>
