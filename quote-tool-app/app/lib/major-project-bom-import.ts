@@ -24,6 +24,14 @@ function normalizeMajorProjectBomHeader(value: string) {
 }
 
 export function resolveMajorProjectBomHeaderRow(sheet: MajorProjectBomImportSheet) {
+  const rowFourIndex = sheet.rows.findIndex((row) => row.rowNumber === 4);
+  if (rowFourIndex >= 0) {
+    const rowFourMap = resolveMajorProjectBomColumnMap(sheet.rows[rowFourIndex]?.cells ?? []);
+    if (Object.keys(rowFourMap).length >= 2) {
+      return rowFourIndex;
+    }
+  }
+
   let bestIndex = -1;
   let bestScore = 0;
   const scanRows = sheet.rows.slice(0, Math.min(sheet.rows.length, 12));
@@ -51,10 +59,22 @@ export function resolveMajorProjectBomHeaderRow(sheet: MajorProjectBomImportShee
 }
 
 export function resolveMajorProjectBomColumnMap(headerCells: string[]) {
+  const normalizedHeaders = headerCells.map((cell) => normalizeMajorProjectBomHeader(cell));
   const columnMap: Partial<Record<MajorProjectBomColumnKey, number>> = {};
 
-  headerCells.forEach((cell, index) => {
-    const normalizedCell = normalizeMajorProjectBomHeader(cell);
+  const exactHeaderAliases: Partial<Record<MajorProjectBomColumnKey, string[]>> = {
+    vendor: ["vendor part"],
+    manufacturer: ["manufacturer part"],
+  };
+
+  (Object.entries(exactHeaderAliases) as Array<[MajorProjectBomColumnKey, string[]]>).forEach(([columnKey, aliases]) => {
+    const index = normalizedHeaders.findIndex((header) => aliases.some((alias) => header.includes(alias)));
+    if (index >= 0) {
+      columnMap[columnKey] = index;
+    }
+  });
+
+  normalizedHeaders.forEach((normalizedCell, index) => {
     if (!normalizedCell) return;
 
     for (const [columnKey, candidates] of Object.entries(MAJOR_PROJECT_BOM_COLUMN_MATCHERS) as Array<[MajorProjectBomColumnKey, string[]]>) {
@@ -67,6 +87,18 @@ export function resolveMajorProjectBomColumnMap(headerCells: string[]) {
   });
 
   return columnMap;
+}
+
+export function isMajorProjectBomSectionRow(row: MajorProjectBomImportSheet["rows"][number]) {
+  const populatedCells = row.cells.map((cell) => cell.trim()).filter(Boolean);
+  if (populatedCells.length !== 1) return false;
+  const [onlyCell] = populatedCells;
+  return !/^(subtotal|total|grand total|per site total)/i.test(onlyCell);
+}
+
+export function isMajorProjectBomSummaryRow(row: MajorProjectBomImportSheet["rows"][number]) {
+  const combined = row.cells.join(" ").trim();
+  return /^(subtotal|total|grand total|per site total)/i.test(combined);
 }
 
 export function resolveMajorProjectBomImportColumnMap(

@@ -27,6 +27,8 @@ import {
 } from "@/app/lib/executive-summary";
 import { TERMS_PACKAGES, buildTermsFromPackage } from "@/app/lib/terms-packages";
 import {
+  isMajorProjectBomSectionRow,
+  isMajorProjectBomSummaryRow,
   resolveMajorProjectBomColumnMap,
   resolveMajorProjectBomHeaderRow,
   resolveMajorProjectBomImportColumnMap,
@@ -288,6 +290,10 @@ function createDraftMajorProjectComponentFromBomRow(params: {
   importIndex: number;
 }): MajorProjectComponent | null {
   const { row, sheetName, columnMap, importIndex } = params;
+  if (isMajorProjectBomSectionRow(row) || isMajorProjectBomSummaryRow(row)) {
+    return null;
+  }
+
   const name = getMajorProjectBomCell(row, columnMap.name);
   const description = getMajorProjectBomCell(row, columnMap.description);
   const vendor = getMajorProjectBomCell(row, columnMap.vendor);
