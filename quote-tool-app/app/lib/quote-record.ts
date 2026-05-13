@@ -6,12 +6,22 @@ export type SectionAMode = "pool" | "per_kit";
 export type QuoteType = "purchase" | "lease";
 export type QuoteWorkflowMode = "quick_quote" | "major_project";
 
+export type QuoteStructuredTextBlockType = "heading" | "paragraph" | "bullet_list" | "numbered_list";
+
+export type QuoteStructuredTextBlock = {
+  id: string;
+  type: QuoteStructuredTextBlockType;
+  text?: string;
+  items?: string[];
+};
+
 export type QuoteTextBlock = {
   enabled: boolean;
   heading?: string;
   customerContext?: string;
   body?: string;
   paragraphs: string[];
+  blocks?: QuoteStructuredTextBlock[];
 };
 
 export type QuoteCustomFieldVisibility = "customer" | "internal";

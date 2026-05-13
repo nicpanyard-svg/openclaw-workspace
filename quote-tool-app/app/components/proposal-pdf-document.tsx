@@ -359,6 +359,23 @@ const styles = StyleSheet.create({
     color: "#485564",
     marginTop: 4,
   },
+  summaryBlockSpacing: {
+    marginTop: 8,
+  },
+  summaryHeadingText: {
+    fontSize: 10.5,
+    lineHeight: 1.3,
+    fontWeight: 700,
+    color: "#16202b",
+  },
+  summaryList: {
+    marginTop: 2,
+  },
+  summaryNumberMarker: {
+    width: 16,
+    fontSize: 9,
+    color: "#495665",
+  },
   cellNote: {
     marginTop: 6,
     fontSize: 9,
@@ -951,12 +968,43 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
           </View>
         </View>
 
-        {model.executiveSummaryEnabled && model.executiveSummaryParagraphs.length > 0 ? (
+        {model.executiveSummaryEnabled && model.executiveSummaryBlocks.length > 0 ? (
           <View style={styles.paragraphCard}>
             <Text style={styles.miniHeading}>{model.executiveSummaryHeading}</Text>
-            {model.executiveSummaryParagraphs.map((paragraph, index) => (
-              <Text key={index} style={styles.paragraph}>{paragraph.replace(/\r\n/g, "\n")}</Text>
-            ))}
+            {model.executiveSummaryBlocks.map((block, index) => {
+              const blockSpacingStyle = index === 0 ? undefined : styles.summaryBlockSpacing;
+
+              if (block.type === "heading") {
+                return (
+                  <View key={block.id} style={blockSpacingStyle}>
+                    <Text style={styles.summaryHeadingText}>{block.text}</Text>
+                  </View>
+                );
+              }
+
+              if (block.type === "paragraph") {
+                return (
+                  <View key={block.id} style={blockSpacingStyle}>
+                    <Text style={styles.paragraph}>{(block.text ?? "").replace(/\r\n/g, "\n")}</Text>
+                  </View>
+                );
+              }
+
+              return (
+                <View key={block.id} style={blockSpacingStyle}>
+                  <View style={styles.summaryList}>
+                    {(block.items ?? []).map((item, itemIndex) => (
+                      <View key={`${block.id}-${itemIndex}`} style={styles.bulletRow}>
+                        <Text style={block.type === "numbered_list" ? styles.summaryNumberMarker : styles.bulletGlyph}>
+                          {block.type === "numbered_list" ? `${itemIndex + 1}.` : "\u2022"}
+                        </Text>
+                        <Text style={styles.bulletText}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            })}
           </View>
         ) : null}
 

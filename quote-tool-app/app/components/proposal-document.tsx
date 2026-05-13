@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
 import {
   buildProposalCommercialSummary,
   getEquipmentTotal,
@@ -120,14 +121,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
   const equipmentTotal = getEquipmentTotal(quote);
   const sectionCTotal = getOptionalServicesTotal(quote);
   const leaseMonthly = getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
-  const executiveSummaryBlocks = [quote.executiveSummary.customerContext, quote.executiveSummary.body]
-    .map((value) => value?.trim())
-    .filter((value): value is string => Boolean(value?.length));
-  const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => (paragraph ?? "").trim().length > 0);
-  const executiveSummaryParagraphs = (executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary)
-    .flatMap((block) => block.replace(/\r\n/g, "\n").split(/\n\s*\n/))
-    .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph.length > 0);
+  const executiveSummaryRenderBlocks = buildExecutiveSummaryRenderBlocks(quote.executiveSummary);
   const sectionAHeading = buildSectionHeadingContent("Services", "Recurring services", quote.sections.sectionA.title);
   const sectionBHeading = buildSectionHeadingContent("Equipment", "Equipment and accessories", quote.sections.sectionB.title);
   const sectionCHeading = buildSectionHeadingContent("Services", "Field services", quote.sections.sectionC.title);
@@ -478,12 +472,31 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
           </div>
         </div>
 
-        {quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent && executiveSummaryParagraphs.length > 0 && (
+        {quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent && executiveSummaryRenderBlocks.length > 0 && (
           <div className="proposal-copy proposal-copy-card proposal-executive-summary-card">
             <div className="proposal-mini-heading">{quote.executiveSummary.heading?.trim() || "Executive Summary"}</div>
-            {executiveSummaryParagraphs.map((paragraph, index) => (
-              <p key={index} style={{ whiteSpace: "pre-line" }}>{paragraph}</p>
-            ))}
+            <div className="space-y-3">
+              {executiveSummaryRenderBlocks.map((block) => {
+                if (block.type === "heading") {
+                  return (
+                    <div key={block.id} className="pt-1 text-[15px] font-semibold text-[#16202b]">
+                      {block.text}
+                    </div>
+                  );
+                }
+
+                if (block.type === "paragraph") {
+                  return <p key={block.id} style={{ whiteSpace: "pre-line" }}>{block.text}</p>;
+                }
+
+                const ListTag = block.type === "numbered_list" ? "ol" : "ul";
+                return (
+                  <ListTag key={block.id} className="space-y-2 pl-5 text-[15px] leading-[1.65] text-[#485564] marker:text-[#485564]">
+                    {(block.items ?? []).map((item, index) => <li key={`${block.id}-${index}`}>{item}</li>)}
+                  </ListTag>
+                );
+              })}
+            </div>
           </div>
         )}
 

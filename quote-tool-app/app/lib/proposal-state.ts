@@ -1,5 +1,6 @@
 import { createDefaultIntegrationState } from "@/app/lib/crm";
 import { createDefaultCommercialState } from "@/app/lib/commercial-model";
+import { normalizeExecutiveSummaryBlocks, serializeExecutiveSummaryBlocks } from "@/app/lib/executive-summary";
 import { createDefaultMajorProjectState } from "@/app/lib/major-project";
 import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spec-attachments";
 import { createDefaultQuoteServiceAgreementState, normalizeQuoteServiceAgreementState } from "@/app/lib/service-agreement";
@@ -77,6 +78,15 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
     const executiveSummaryParagraphs = normalizeLines(parsed.executiveSummary?.paragraphs);
     const executiveSummaryCustomerContext = normalizeText(parsed.executiveSummary?.customerContext) || executiveSummaryParagraphs[0] || "";
     const executiveSummaryBody = normalizeText(parsed.executiveSummary?.body) || executiveSummaryParagraphs.slice(1).join("\n\n") || "";
+    const normalizedExecutiveSummaryBlocks = normalizeExecutiveSummaryBlocks({
+      enabled: parsed.executiveSummary?.enabled ?? false,
+      heading: parsed.executiveSummary?.heading ?? "Executive Summary",
+      customerContext: executiveSummaryCustomerContext,
+      body: executiveSummaryBody,
+      paragraphs: executiveSummaryParagraphs,
+      blocks: parsed.executiveSummary?.blocks,
+    });
+    const serializedExecutiveSummary = serializeExecutiveSummaryBlocks(normalizedExecutiveSummaryBlocks);
 
     const customerName = normalizeText(parsed.customer?.name);
     const customerContactName = normalizeText(parsed.customer?.contactName);
@@ -172,10 +182,11 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
         enabled: parsed.executiveSummary?.enabled ?? false,
         heading: parsed.executiveSummary?.heading ?? "Executive Summary",
         customerContext: executiveSummaryCustomerContext,
-        body: executiveSummaryBody,
+        body: serializedExecutiveSummary.body,
         paragraphs: executiveSummaryParagraphs.length
           ? executiveSummaryParagraphs
-          : [executiveSummaryCustomerContext, executiveSummaryBody].filter((entry) => entry.trim().length > 0),
+          : [executiveSummaryCustomerContext, ...serializedExecutiveSummary.paragraphs].filter((entry) => entry.trim().length > 0),
+        blocks: serializedExecutiveSummary.blocks,
       },
       customFields: normalizeCustomFields(parsed.customFields),
     });

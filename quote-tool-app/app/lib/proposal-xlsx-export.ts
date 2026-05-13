@@ -1,4 +1,5 @@
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
+import { buildExecutiveSummaryWorkbookText } from "@/app/lib/executive-summary";
 import type { MajorProjectCustomerQuoteLineMetrics } from "@/app/lib/major-project";
 import { buildMajorProjectMetrics, majorProjectLineTypeLabel } from "@/app/lib/major-project";
 import type {
@@ -343,8 +344,7 @@ function buildWorkbookModel(quote: QuoteRecord): ApprovalWorkbookModel {
   const projectName = quote.majorProject?.summary?.projectName?.trim() || quote.metadata.documentTitle || quote.customer.name;
   const projectDescription = compactMultiline([
     quote.majorProject?.summary?.projectDescription,
-    quote.executiveSummary.customerContext,
-    quote.executiveSummary.body,
+    buildExecutiveSummaryWorkbookText(quote.executiveSummary),
   ]).join("\n\n");
 
   const lines = quote.metadata.workflowMode === "major_project" && quote.majorProject?.enabled

@@ -1,3 +1,4 @@
+import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
 import {
   buildProposalCommercialSummary,
   getEquipmentTotal,
@@ -10,6 +11,7 @@ import type {
   PerKitPricingRow,
   PoolPricingRow,
   QuoteRecord,
+  QuoteStructuredTextBlock,
   ServicePricingRow,
 } from "@/app/lib/quote-record";
 
@@ -44,7 +46,7 @@ export type ProposalPdfViewModel = {
   shippingSameAsBillTo: boolean;
   executiveSummaryEnabled: boolean;
   executiveSummaryHeading: string;
-  executiveSummaryParagraphs: string[];
+  executiveSummaryBlocks: QuoteStructuredTextBlock[];
   sectionAEnabled: boolean;
   sectionATitle: string;
   sectionAIntro: string;
@@ -95,9 +97,7 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
   const serviceTotal = getOptionalServicesTotal(quote);
   const leaseMonthly = getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
 
-  const executiveSummaryBlocks = [quote.executiveSummary.customerContext, quote.executiveSummary.body]
-    .map((value) => value?.trim())
-    .filter((value): value is string => Boolean(value?.length));
+  const executiveSummaryBlocks = buildExecutiveSummaryRenderBlocks(quote.executiveSummary);
   const customerVisibleCustomFields = (quote.customFields ?? []).filter(
     (field) => field.visibility === "customer" && (field.label ?? "").trim().length > 0 && (field.value ?? "").trim().length > 0,
   );
@@ -110,12 +110,6 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     tone: item.tone ?? "default",
   }));
   const oneTimeTotal = equipmentTotal + (contentPresence.hasSectionCContent ? serviceTotal : 0);
-  const fallbackExecutiveSummary = quote.executiveSummary.paragraphs.filter((paragraph) => (paragraph ?? "").trim().length > 0);
-  const executiveSummaryParagraphs = (executiveSummaryBlocks.length ? executiveSummaryBlocks : fallbackExecutiveSummary)
-    .flatMap((block) => block.replace(/\r\n/g, "\n").split(/\n\s*\n/))
-    .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph.length > 0);
-
   const billToLines = cleanLines([
     quote.billTo.companyName ?? "",
     quote.billTo.attention ?? "",
@@ -152,9 +146,9 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     billToLines,
     shipToLines,
     shippingSameAsBillTo: quote.shippingSameAsBillTo,
-    executiveSummaryEnabled: quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent,
+    executiveSummaryEnabled: quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent && executiveSummaryBlocks.length > 0,
     executiveSummaryHeading: quote.executiveSummary.heading?.trim() || "Executive Summary",
-    executiveSummaryParagraphs,
+    executiveSummaryBlocks,
     sectionAEnabled: quote.sections.sectionA.enabled && contentPresence.hasSectionAContent,
     sectionATitle: quote.sections.sectionA.title,
     sectionAIntro:

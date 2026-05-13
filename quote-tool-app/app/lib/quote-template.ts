@@ -65,6 +65,7 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
   quote.executiveSummary.customerContext = "";
   quote.executiveSummary.body = "";
   quote.executiveSummary.paragraphs = [];
+  quote.executiveSummary.blocks = [];
 
   quote.sections.sectionA.enabled = true;
   quote.sections.sectionA.poolRows = [];

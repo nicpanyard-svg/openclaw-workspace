@@ -1,4 +1,5 @@
 import type { EquipmentPricingRow, PerKitPricingRow, PoolPricingRow, QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
+import { hasExecutiveSummaryStructuredContent } from "@/app/lib/executive-summary";
 
 export type CommercialSummaryItemTone = "default" | "accent";
 
@@ -32,8 +33,7 @@ export function hasServiceRows(rows: ServicePricingRow[]) {
 }
 
 export function hasExecutiveSummaryContent(quote: QuoteRecord) {
-  return [quote.executiveSummary.customerContext, quote.executiveSummary.body, ...(quote.executiveSummary.paragraphs ?? [])]
-    .some((entry) => (entry ?? "").trim().length > 0);
+  return hasExecutiveSummaryStructuredContent(quote.executiveSummary);
 }
 
 export function hasCustomerVisibleCustomFieldData(quote: QuoteRecord) {

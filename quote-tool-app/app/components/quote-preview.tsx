@@ -19,6 +19,12 @@ import {
 } from "@/app/lib/proposal-state";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
+import {
+  buildExecutiveSummaryRenderBlocks,
+  createExecutiveSummaryBlock,
+  normalizeExecutiveSummaryBlocks,
+  serializeExecutiveSummaryBlocks,
+} from "@/app/lib/executive-summary";
 import { TERMS_PACKAGES, buildTermsFromPackage } from "@/app/lib/terms-packages";
 import {
   resolveMajorProjectBomColumnMap,
@@ -62,6 +68,7 @@ import {
   type PoolPricingRow,
   type QuoteCustomField,
   type QuoteRecord,
+  type QuoteStructuredTextBlock,
   type QuoteType,
   type ServiceAgreementCategoryKey,
   type ServiceAgreementRateBasis,
@@ -109,6 +116,13 @@ type MajorProjectBomCaptureError = {
 type MajorProjectComponentBundleDraft = {
   sourceComponentId: string;
   selectedComponentIds: string[];
+};
+
+const EXECUTIVE_SUMMARY_BLOCK_LABELS: Record<QuoteStructuredTextBlock["type"], string> = {
+  heading: "Heading",
+  paragraph: "Paragraph",
+  bullet_list: "Bullets",
+  numbered_list: "Numbered list",
 };
 
 const emptyEquipmentDraft: EquipmentDraft = {
@@ -485,28 +499,6 @@ function compactList(items: Array<string | undefined | null>) {
   return items.map((item) => item?.trim()).filter((item): item is string => Boolean(item));
 }
 
-function normalizeMultilineText(value: string) {
-  return value.replace(/\r\n/g, "\n");
-}
-
-function buildExecutiveSummaryParagraphs(customerContext?: string, body?: string) {
-  return compactList([
-    customerContext,
-    ...normalizeMultilineText(body ?? "")
-      .split(/\n\s*\n/)
-      .map((paragraph) => paragraph.trim()),
-  ]);
-}
-
-function insertTextAtSelection(
-  value: string,
-  selectionStart: number,
-  selectionEnd: number,
-  textToInsert: string,
-) {
-  return `${value.slice(0, selectionStart)}${textToInsert}${value.slice(selectionEnd)}`;
-}
-
 function countSectionAUnits(rows: Array<PoolPricingRow | PerKitPricingRow>) {
   return rows.reduce((sum, row) => {
     if (row.rowType === "support") return sum;
@@ -560,9 +552,16 @@ function buildExecutiveSummaryDraft(quote: QuoteRecord) {
   ];
 
   const body = compactList(bodyParts).join(" ");
-  const paragraphs = compactList([customerContext, body]);
+  const blocks: QuoteStructuredTextBlock[] = [
+    {
+      id: "generated-summary-body",
+      type: "paragraph",
+      text: body,
+    },
+  ];
+  const serialized = serializeExecutiveSummaryBlocks(blocks);
 
-  return { heading, customerContext, body, paragraphs };
+  return { heading, customerContext, body: serialized.body, paragraphs: compactList([customerContext, ...serialized.paragraphs]), blocks: serialized.blocks };
 }
 
 function cloneQuote(source: QuoteRecord): QuoteRecord {
@@ -1418,6 +1417,8 @@ export default function QuotePreview() {
   const commercialMetrics = useMemo(() => buildCommercialMetrics(quote), [quote]);
   const majorProjectMetrics = useMemo(() => buildMajorProjectMetrics(quote), [quote]);
   const majorProjectTermMonths = useMemo(() => majorProjectContractMonths(majorProjectMetrics.termMonths), [majorProjectMetrics.termMonths]);
+  const executiveSummaryEditorBlocks = useMemo(() => normalizeExecutiveSummaryBlocks(quote.executiveSummary), [quote.executiveSummary]);
+  const executiveSummaryRenderBlocks = useMemo(() => buildExecutiveSummaryRenderBlocks(quote.executiveSummary), [quote.executiveSummary]);
   const majorProjectHasBlockingErrors = isMajorProject && majorProjectMetrics.validation.errorCount > 0;
   const majorProjectBlockingIssues = useMemo(
     () => majorProjectMetrics.validation.issues.filter((issue) => issue.severity === "error"),
@@ -1901,11 +1902,99 @@ export default function QuotePreview() {
     );
   };
 
-  const syncExecutiveSummaryParagraphs = (draft: QuoteRecord) => {
-    draft.executiveSummary.paragraphs = buildExecutiveSummaryParagraphs(
-      draft.executiveSummary.customerContext,
-      draft.executiveSummary.body,
-    );
+  const syncExecutiveSummaryStructure = (draft: QuoteRecord) => {
+    const normalizedBlocks = normalizeExecutiveSummaryBlocks(draft.executiveSummary);
+    const serialized = serializeExecutiveSummaryBlocks(normalizedBlocks);
+    draft.executiveSummary.body = serialized.body;
+    draft.executiveSummary.paragraphs = compactList([draft.executiveSummary.customerContext, ...serialized.paragraphs]);
+    draft.executiveSummary.blocks = normalizedBlocks;
+  };
+
+  const updateExecutiveSummaryBlocks = (updater: (blocks: QuoteStructuredTextBlock[]) => QuoteStructuredTextBlock[]) => {
+    updateQuote((draft) => {
+      draft.executiveSummary.blocks = updater(normalizeExecutiveSummaryBlocks(draft.executiveSummary));
+      syncExecutiveSummaryStructure(draft);
+      return draft;
+    });
+  };
+
+  const addExecutiveSummaryBlock = (type: QuoteStructuredTextBlock["type"]) => {
+    updateExecutiveSummaryBlocks((blocks) => [...blocks, createExecutiveSummaryBlock(type, blocks.length)]);
+  };
+
+  const updateExecutiveSummaryBlock = (blockId: string, updater: (block: QuoteStructuredTextBlock) => QuoteStructuredTextBlock) => {
+    updateExecutiveSummaryBlocks((blocks) => blocks.map((block) => block.id === blockId ? updater(block) : block));
+  };
+
+  const changeExecutiveSummaryBlockType = (
+    blockId: string,
+    nextType: QuoteStructuredTextBlock["type"],
+  ) => {
+    updateExecutiveSummaryBlock(blockId, (block) => {
+      if (block.type === nextType) return block;
+
+      if (nextType === "heading" || nextType === "paragraph") {
+        const nextText = block.type === "heading" || block.type === "paragraph"
+          ? block.text ?? ""
+          : (block.items ?? []).join("\n");
+        return {
+          id: block.id,
+          type: nextType,
+          text: nextText,
+        };
+      }
+
+      const nextItems = block.type === "bullet_list" || block.type === "numbered_list"
+        ? (block.items?.length ? block.items : [""])
+        : (block.text ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
+
+      return {
+        id: block.id,
+        type: nextType,
+        items: nextItems.length ? nextItems : [""],
+      };
+    });
+  };
+
+  const updateExecutiveSummaryListItem = (blockId: string, itemIndex: number, value: string) => {
+    updateExecutiveSummaryBlock(blockId, (block) => ({
+      ...block,
+      items: (block.items ?? []).map((item, index) => index === itemIndex ? value : item),
+    }));
+  };
+
+  const addExecutiveSummaryListItem = (blockId: string) => {
+    updateExecutiveSummaryBlock(blockId, (block) => ({
+      ...block,
+      items: [...(block.items ?? []), ""],
+    }));
+  };
+
+  const removeExecutiveSummaryListItem = (blockId: string, itemIndex: number) => {
+    updateExecutiveSummaryBlock(blockId, (block) => {
+      const nextItems = (block.items ?? []).filter((_, index) => index !== itemIndex);
+      return {
+        ...block,
+        items: nextItems.length ? nextItems : [""],
+      };
+    });
+  };
+
+  const moveExecutiveSummaryBlock = (blockId: string, direction: -1 | 1) => {
+    updateExecutiveSummaryBlocks((blocks) => {
+      const currentIndex = blocks.findIndex((block) => block.id === blockId);
+      const nextIndex = currentIndex + direction;
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= blocks.length) return blocks;
+
+      const nextBlocks = [...blocks];
+      const [target] = nextBlocks.splice(currentIndex, 1);
+      nextBlocks.splice(nextIndex, 0, target);
+      return nextBlocks;
+    });
+  };
+
+  const removeExecutiveSummaryBlock = (blockId: string) => {
+    updateExecutiveSummaryBlocks((blocks) => blocks.filter((block) => block.id !== blockId));
   };
 
   const generateExecutiveSummary = () => {
@@ -1916,6 +2005,7 @@ export default function QuotePreview() {
       draft.executiveSummary.customerContext = generated.customerContext;
       draft.executiveSummary.body = generated.body;
       draft.executiveSummary.paragraphs = generated.paragraphs;
+      draft.executiveSummary.blocks = generated.blocks;
       return draft;
     });
   };
@@ -4427,63 +4517,78 @@ export default function QuotePreview() {
                 <label className="builder-field"><span>Summary heading</span><input value={quote.executiveSummary.heading ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.heading = e.target.value; return draft; })} /></label>
               </div>
               <div className="mt-4 grid gap-4">
-                <label className="builder-field"><span>Customer context</span><textarea rows={3} value={quote.executiveSummary.customerContext ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.customerContext = e.target.value; syncExecutiveSummaryParagraphs(draft); return draft; })} /></label>
+                <label className="builder-field"><span>Customer context</span><textarea rows={3} value={quote.executiveSummary.customerContext ?? ""} onChange={(e) => updateQuote((draft) => { draft.executiveSummary.customerContext = e.target.value; syncExecutiveSummaryStructure(draft); return draft; })} /></label>
                 <div className="builder-field">
-                  <span>Summary body</span>
-                  <div className="mb-2 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="pill-button"
-                      onClick={() => {
-                        const nextValue = `${normalizeMultilineText(quote.executiveSummary.body ?? "")}\n• `;
-                        updateQuote((draft) => {
-                          draft.executiveSummary.body = nextValue.trimStart();
-                          syncExecutiveSummaryParagraphs(draft);
-                          return draft;
-                        });
-                      }}
-                    >
-                      Add bullet
-                    </button>
-                    <button
-                      type="button"
-                      className="pill-button"
-                      onClick={() => {
-                        const existingBody = normalizeMultilineText(quote.executiveSummary.body ?? "");
-                        const numberedCount = existingBody.split("\n").filter((line) => /^\s*\d+[.)]\s+/.test(line)).length;
-                        const nextValue = `${existingBody}\n${numberedCount + 1}. `;
-                        updateQuote((draft) => {
-                          draft.executiveSummary.body = nextValue.trimStart();
-                          syncExecutiveSummaryParagraphs(draft);
-                          return draft;
-                        });
-                      }}
-                    >
-                      Add numbered item
-                    </button>
-                    <button
-                      type="button"
-                      className="pill-button"
-                      onClick={() => {
-                        const nextValue = `${normalizeMultilineText(quote.executiveSummary.body ?? "")}\n\nSection Heading\n`;
-                        updateQuote((draft) => {
-                          draft.executiveSummary.body = nextValue.trimStart();
-                          syncExecutiveSummaryParagraphs(draft);
-                          return draft;
-                        });
-                      }}
-                    >
-                      Add section heading
-                    </button>
+                  <span>Structured summary blocks</span>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <button type="button" className="pill-button pill-button-active" onClick={() => addExecutiveSummaryBlock("paragraph")}>Add paragraph</button>
+                    <button type="button" className="pill-button" onClick={() => addExecutiveSummaryBlock("heading")}>Add heading</button>
+                    <button type="button" className="pill-button" onClick={() => addExecutiveSummaryBlock("bullet_list")}>Add bullets</button>
+                    <button type="button" className="pill-button" onClick={() => addExecutiveSummaryBlock("numbered_list")}>Add numbered list</button>
                   </div>
-                  <textarea
-                    rows={14}
-                    className="min-h-[320px] resize-y"
-                    value={quote.executiveSummary.body ?? ""}
-                    onChange={(e) => updateQuote((draft) => { draft.executiveSummary.body = e.target.value; syncExecutiveSummaryParagraphs(draft); return draft; })}
-                  />
+                  <div className="space-y-3">
+                    {executiveSummaryEditorBlocks.length ? executiveSummaryEditorBlocks.map((block, index) => (
+                      <div key={block.id} className="rounded-[18px] border border-[#dde3e8] bg-white p-4">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="text-[13px] font-semibold text-[#16202b]">{EXECUTIVE_SUMMARY_BLOCK_LABELS[block.type]}</div>
+                            <div className="text-[12px] text-[#6b7683]">Block {index + 1} of {executiveSummaryEditorBlocks.length}</div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button type="button" className="pill-button" onClick={() => moveExecutiveSummaryBlock(block.id, -1)} disabled={index === 0}>Move up</button>
+                            <button type="button" className="pill-button" onClick={() => moveExecutiveSummaryBlock(block.id, 1)} disabled={index === executiveSummaryEditorBlocks.length - 1}>Move down</button>
+                            <button type="button" className="danger-button" onClick={() => removeExecutiveSummaryBlock(block.id)}>Remove</button>
+                          </div>
+                        </div>
+                        <div className="grid gap-3">
+                          <label className="builder-field compact">
+                            <span>Block type</span>
+                            <select value={block.type} onChange={(e) => changeExecutiveSummaryBlockType(block.id, e.target.value as QuoteStructuredTextBlock["type"])}>
+                              <option value="paragraph">Paragraph</option>
+                              <option value="heading">Heading</option>
+                              <option value="bullet_list">Bullets</option>
+                              <option value="numbered_list">Numbered list</option>
+                            </select>
+                          </label>
+                          {block.type === "heading" || block.type === "paragraph" ? (
+                            <label className="builder-field compact">
+                              <span>{block.type === "heading" ? "Heading text" : "Paragraph text"}</span>
+                              <textarea
+                                rows={block.type === "heading" ? 2 : 5}
+                                value={block.text ?? ""}
+                                onChange={(e) => updateExecutiveSummaryBlock(block.id, (current) => ({ ...current, text: e.target.value }))}
+                              />
+                            </label>
+                          ) : (
+                            <div className="space-y-3">
+                              {(block.items ?? []).map((item, itemIndex) => (
+                                <div key={`${block.id}-${itemIndex}`} className="rounded-[16px] border border-[#e1e6ec] bg-[#fbfcfe] p-3">
+                                  <div className="mb-2 flex items-center justify-between gap-3 text-[12px] font-semibold text-[#56616d]">
+                                    <span>{block.type === "numbered_list" ? `Item ${itemIndex + 1}` : `Bullet ${itemIndex + 1}`}</span>
+                                    <button type="button" className="text-[#b00000]" onClick={() => removeExecutiveSummaryListItem(block.id, itemIndex)}>Remove item</button>
+                                  </div>
+                                  <textarea
+                                    rows={2}
+                                    value={item}
+                                    onChange={(e) => updateExecutiveSummaryListItem(block.id, itemIndex, e.target.value)}
+                                  />
+                                </div>
+                              ))}
+                              <button type="button" className="pill-button" onClick={() => addExecutiveSummaryListItem(block.id)}>
+                                {block.type === "numbered_list" ? "Add numbered item" : "Add bullet item"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-5 text-[13px] leading-[1.5] text-[#5e6974]">
+                        Start with a paragraph or heading, then add bullet or numbered blocks as needed. The same structure will carry into the proposal HTML, PDF, and workbook summary text.
+                      </div>
+                    )}
+                  </div>
                   <div className="mt-2 text-[12px] text-[#6b7683]">
-                    Keep one blank line between sections. Bullets, numbered items, and headings will now carry through to the approval workbook more cleanly.
+                    Headings, paragraphs, bullets, and numbered lists now persist as structured content so the proposal intro reads more like a managed document instead of a raw text blob.
                   </div>
                 </div>
               </div>
@@ -4698,7 +4803,7 @@ export default function QuotePreview() {
                 <div className="summary-block"><div className="summary-label">Customer</div><div className="summary-value">{quote.customer.name}</div><div className="summary-subvalue">{quote.customer.contactName} • {quote.metadata.proposalNumber} • {quote.metadata.proposalDate}</div></div>
                 <div className="summary-block"><div className="summary-label">Proposal info</div><div className="summary-value">{quote.metadata.documentTitle}</div><div className="summary-subvalue">Prepared by {quote.inet.contactName} • {quote.inet.contactPhone}</div></div>
                 <div className="summary-block"><div className="summary-label">Bill To / Ship To</div><div className="summary-value">{quote.billTo.companyName || quote.customer.name}</div><div className="summary-subvalue">{quote.shippingSameAsBillTo ? "Ship To matches Bill To" : `${quote.shipTo.companyName || "Custom Ship To"} configured separately`}</div></div>
-                <div className="summary-block"><div className="summary-label">Executive Summary</div><div className="summary-value">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent ? (quote.executiveSummary.heading?.trim() || "Executive Summary") : "Hidden"}</div><div className="summary-subvalue">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent ? `${compactList([quote.executiveSummary.customerContext, quote.executiveSummary.body]).length} editable text block(s) ready for output` : "Not included in proposal output"}</div></div>
+                <div className="summary-block"><div className="summary-label">Executive Summary</div><div className="summary-value">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent ? (quote.executiveSummary.heading?.trim() || "Executive Summary") : "Hidden"}</div><div className="summary-subvalue">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent ? `${executiveSummaryRenderBlocks.length} structured block(s) ready for output` : "Not included in proposal output"}</div></div>
                 <div className="summary-block"><div className="summary-label">Workflow</div><div className="summary-value">{isMajorProject ? "Major Project" : "Quick Quote"}</div><div className="summary-subvalue">{isMajorProject ? "Commercial model is driving downstream proposal sections" : "Builder rows are driving proposal sections directly"}</div></div>
                 <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : hasActiveDataAgreement ? `Estimated monthly blended total over ${selectedLeaseTerm} months` : "Lease pricing blocked until active data agreement is confirmed"}</div></div>
                 <div className="summary-block"><div className="summary-label">Current pricing</div><div className="summary-value">Current proposal data</div><div className="summary-subvalue">Recommended defaults plus any edits you made in this proposal</div></div>
