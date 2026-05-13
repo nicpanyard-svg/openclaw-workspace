@@ -243,6 +243,14 @@ export type QuoteApprovalDetails = {
   approvalNote?: string;
 };
 
+export type QuoteWarrantyDetails = {
+  enabled: boolean;
+  heading: string;
+  manufacturerReference: string;
+  coverageNote: string;
+  claimNote?: string;
+};
+
 export type QuoteTermsPackageKey =
   | "starlink_only"
   | "integration_only"
@@ -507,6 +515,7 @@ export type QuoteRecord = {
   serviceAgreement: QuoteServiceAgreementState;
   documentation: QuoteDocumentationDetails;
   approval: QuoteApprovalDetails;
+  warranty: QuoteWarrantyDetails;
   terms: QuoteTermsSection;
   customer: QuoteParty;
   inet: QuoteParty;

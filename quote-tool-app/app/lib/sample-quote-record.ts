@@ -2,6 +2,7 @@ import { createDefaultIntegrationState } from "@/app/lib/crm";
 import { createDefaultCommercialState } from "@/app/lib/commercial-model";
 import { createDefaultMajorProjectState } from "@/app/lib/major-project";
 import { createDefaultQuoteServiceAgreementState } from "@/app/lib/service-agreement";
+import { createDefaultQuoteWarrantyDetails } from "@/app/lib/quote-warranty";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 
 export const sampleQuoteRecord: QuoteRecord = {
@@ -123,6 +124,12 @@ export const sampleQuoteRecord: QuoteRecord = {
     customerNameLabel: "Customer Name",
     dateLabel: "Date",
     approvalNote: "Customer Name:",
+  },
+  warranty: {
+    ...createDefaultQuoteWarrantyDetails(),
+    manufacturerReference: "Quoted Starlink, router, and accessory hardware follows the applicable manufacturer warranty in effect at the time of shipment.",
+    coverageNote: "Manufacturer warranty coverage, exclusions, and any registration requirements should be confirmed against the specific hardware included on this quote before release.",
+    claimNote: "iNet can help coordinate warranty claims, but onsite labor, expedited freight, accidental damage, and non-manufacturer-covered items remain outside manufacturer warranty unless specifically stated in writing.",
   },
   terms: {
     selectedPackageKey: "starlink_only",

@@ -3000,6 +3000,81 @@ export default function QuotePreview() {
             </div>
           </div>
 
+          <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#fbfcfe] px-4 py-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Warranty handling</div>
+                <div className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">Quote-level warranty reference</div>
+                <div className="mt-2 text-[13px] text-[#60707f]">
+                  Capture the manufacturer warranty reference and any quote-specific handling notes that should flow into the proposal. This keeps warranty language flexible by quote instead of assuming one standard block.
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]">
+                <input
+                  type="checkbox"
+                  checked={quote.warranty.enabled}
+                  onChange={(e) => updateQuote((draft) => {
+                    draft.warranty.enabled = e.target.checked;
+                    return draft;
+                  })}
+                />
+                Include in proposal
+              </label>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="builder-field compact md:col-span-2">
+                <span>Section heading</span>
+                <input
+                  value={quote.warranty.heading}
+                  onChange={(e) => updateQuote((draft) => {
+                    draft.warranty.heading = e.target.value;
+                    return draft;
+                  })}
+                />
+              </label>
+              <label className="builder-field compact md:col-span-2">
+                <span>Manufacturer / source reference</span>
+                <input
+                  value={quote.warranty.manufacturerReference}
+                  onChange={(e) => updateQuote((draft) => {
+                    draft.warranty.manufacturerReference = e.target.value;
+                    return draft;
+                  })}
+                  placeholder="Quoted hardware follows the applicable manufacturer warranty coverage"
+                />
+              </label>
+              <label className="builder-field compact md:col-span-2">
+                <span>Coverage note</span>
+                <textarea
+                  rows={3}
+                  value={quote.warranty.coverageNote}
+                  onChange={(e) => updateQuote((draft) => {
+                    draft.warranty.coverageNote = e.target.value;
+                    return draft;
+                  })}
+                  placeholder="Note any quote-specific coverage limits, registration requirements, or manufacturer exceptions"
+                />
+              </label>
+              <label className="builder-field compact md:col-span-2">
+                <span>Claim / handling note</span>
+                <textarea
+                  rows={3}
+                  value={quote.warranty.claimNote ?? ""}
+                  onChange={(e) => updateQuote((draft) => {
+                    draft.warranty.claimNote = e.target.value;
+                    return draft;
+                  })}
+                  placeholder="Explain how warranty claims, labor, shipping, or exclusions should be handled for this quote"
+                />
+              </label>
+            </div>
+            <div className="mt-3 rounded-[14px] border border-[#e3e8ee] bg-white px-3 py-3 text-[13px] text-[#435160]">
+              {quote.warranty.enabled
+                ? `Proposal output will include ${quote.warranty.heading.toLowerCase()} with the manufacturer reference and any quote-specific coverage notes entered here.`
+                : "Warranty guidance is saved on the quote but hidden from the customer-facing proposal until you enable it."}
+            </div>
+          </div>
+
           {(workflowNotice || majorProjectHasBlockingErrors) && (
             <div className={`mt-4 rounded-[18px] border px-4 py-3 text-[13px] ${majorProjectHasBlockingErrors ? "border-[#e7b7b7] bg-[#fff4f4] text-[#8d1f1f]" : "border-[#d8e0e8] bg-[#f7fafc] text-[#435160]"}`}>
               <div>

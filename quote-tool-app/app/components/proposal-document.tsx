@@ -89,6 +89,13 @@ function cleanLines(lines: Array<string | null | undefined>) {
   return lines.map((line) => (line ?? "").trim()).filter(Boolean);
 }
 
+function splitParagraphs(values: Array<string | null | undefined>) {
+  return values
+    .flatMap((value) => (value ?? "").replace(/\r\n/g, "\n").split(/\n\s*\n/))
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
 function getSpecOutputSectionLabel(outputSection: MajorProjectOutputSpecAttachment["outputSection"]) {
   switch (outputSection) {
     case "sectionA":
@@ -148,6 +155,11 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
     value: formatCurrency(item.value, currencyCode),
     tone: item.tone ?? "default",
   }));
+  const warrantyParagraphs = splitParagraphs([quote.warranty.coverageNote, quote.warranty.claimNote]);
+  const hasWarrantyContent = quote.warranty.enabled && (
+    quote.warranty.manufacturerReference.trim().length > 0 ||
+    warrantyParagraphs.length > 0
+  );
 
   useEffect(() => {
     let isCancelled = false;
@@ -885,6 +897,21 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
             ))}
           </ul>
         </div>
+
+        {hasWarrantyContent ? (
+          <>
+            <div className="proposal-overline">Warranty reference</div>
+            <h2 className="proposal-section-title">{quote.warranty.heading}</h2>
+            <div className="proposal-copy proposal-copy-card section-copy-block print-keep-block">
+              {quote.warranty.manufacturerReference.trim().length > 0 ? (
+                <p><strong>Manufacturer / source reference</strong> {quote.warranty.manufacturerReference}</p>
+              ) : null}
+              {warrantyParagraphs.map((paragraph, index) => (
+                <p key={`${paragraph}-${index}`}>{paragraph}</p>
+              ))}
+            </div>
+          </>
+        ) : null}
       </section>
 
       <section className="proposal-page proposal-closing-page proposal-page-with-band" data-page-label={closingPageLabel}>

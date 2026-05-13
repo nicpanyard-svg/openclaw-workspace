@@ -2,6 +2,7 @@ import type { QuoteRecord } from "@/app/lib/quote-record";
 import { createDefaultCommercialState } from "@/app/lib/commercial-model";
 import { createDefaultMajorProjectState } from "@/app/lib/major-project";
 import { createDefaultQuoteServiceAgreementState } from "@/app/lib/service-agreement";
+import { createDefaultQuoteWarrantyDetails } from "@/app/lib/quote-warranty";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 function deepClone<T>(value: T): T {
@@ -34,6 +35,7 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
   quote.commercial = createDefaultCommercialState();
   quote.majorProject = createDefaultMajorProjectState();
   quote.serviceAgreement = createDefaultQuoteServiceAgreementState();
+  quote.warranty = createDefaultQuoteWarrantyDetails();
 
   quote.documentation.proposalTitle = quote.metadata.documentTitle;
   quote.documentation.proposalDateLabel = proposalDate;
