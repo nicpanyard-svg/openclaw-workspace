@@ -1139,7 +1139,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   applyOuterBorder(sheet, 9, 9, 11, 14);
 
   sheet.mergeCells("A10:H10");
-  sheet.getCell("A10").value = "Edit Qty, Cost / Unit, or Manual Sell / Unit below. To derive sell price from cost, switch the matching Recurring or One-time Sell Basis to Markup and update that section's Markup % driver.";
+  sheet.getCell("A10").value = "Edit Qty, Our Cost, or Manual Sell / Unit below. Cost / Unit is derived from Our Cost and Qty. To derive sell price from cost, switch the matching Recurring or One-time Sell Basis to Markup and update that section's Markup % driver.";
   sheet.getCell("A10").font = { name: "Arial", size: 9, color: { argb: BRAND.text } };
   sheet.getCell("A10").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
   sheet.getCell("A10").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
@@ -1167,7 +1167,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
     "Qty",
     "Unit",
     "Sell / Unit",
-    "Cost / Unit",
+    "Cost / Unit (Derived)",
     "Customer Pricing",
     "Our Cost",
     "Gross Profit",
@@ -1225,7 +1225,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
         null,
         costPerUnit,
         null,
-        null,
+        line.ourCost,
         null,
         null,
         line.notes,
@@ -1238,11 +1238,11 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
         cell.value = value;
       });
 
-      [8, 14].forEach((col) => {
+      [10, 14].forEach((col) => {
         sheet.getCell(currentRow, col).numFmt = '"$"#,##0.00';
         sheet.getCell(currentRow, col).alignment = { vertical: "top", horizontal: "right" };
       });
-      [5, 8, 14].forEach((col) => {
+      [5, 10, 14].forEach((col) => {
         const cell = sheet.getCell(currentRow, col);
         unlockCell(cell);
         emphasizeEditableCell(cell);
@@ -1255,18 +1255,18 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
         "Enter a numeric quantity greater than or equal to 0.",
       );
       applyNonNegativeNumberValidation(
-        sheet.getCell(currentRow, 8),
-        "Cost / Unit",
-        "Enter a numeric cost per unit greater than or equal to 0.",
-        "Invalid cost per unit",
-        "Enter a numeric cost per unit greater than or equal to 0.",
-      );
-      applyNonNegativeNumberValidation(
         sheet.getCell(currentRow, 14),
         "Manual Sell / Unit",
         "Enter a numeric manual sell price per unit greater than or equal to 0.",
         "Invalid manual sell price",
         "Enter a numeric manual sell price per unit greater than or equal to 0.",
+      );
+      applyNonNegativeNumberValidation(
+        sheet.getCell(currentRow, 10),
+        "Our Cost",
+        "Enter a numeric total cost greater than or equal to 0.",
+        "Invalid our cost",
+        "Enter a numeric total cost greater than or equal to 0.",
       );
       styleFormulaMoneyCell(
         sheet.getCell(currentRow, 7),
@@ -1275,17 +1275,17 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
       );
       emphasizeFormulaCell(sheet.getCell(currentRow, 7));
       styleFormulaMoneyCell(
+        sheet.getCell(currentRow, 8),
+        `IF(OR(${excelCellRef(5, currentRow)}="",${excelCellRef(5, currentRow)}=0,${excelCellRef(10, currentRow)}=""),${excelCellRef(10, currentRow)},${excelCellRef(10, currentRow)}/${excelCellRef(5, currentRow)})`,
+        costPerUnit,
+      );
+      emphasizeFormulaCell(sheet.getCell(currentRow, 8));
+      styleFormulaMoneyCell(
         sheet.getCell(currentRow, 9),
         `IF(OR(${excelCellRef(5, currentRow)}="",${excelCellRef(7, currentRow)}=""),0,${excelCellRef(5, currentRow)}*${excelCellRef(7, currentRow)})`,
         line.customerPricing,
       );
       emphasizeFormulaCell(sheet.getCell(currentRow, 9));
-      styleFormulaMoneyCell(
-        sheet.getCell(currentRow, 10),
-        `IF(OR(${excelCellRef(5, currentRow)}="",${excelCellRef(8, currentRow)}=""),0,${excelCellRef(5, currentRow)}*${excelCellRef(8, currentRow)})`,
-        line.ourCost,
-      );
-      emphasizeFormulaCell(sheet.getCell(currentRow, 10));
       styleFormulaMoneyCell(
         sheet.getCell(currentRow, 11),
         `${excelCellRef(9, currentRow)}-${excelCellRef(10, currentRow)}`,
