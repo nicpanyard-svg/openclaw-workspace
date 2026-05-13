@@ -221,7 +221,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
               return {
                 ...entry,
                 objectUrl: null,
-                loadError: "Attachment file is missing from local storage.",
+                loadError: `Missing local attachment file: ${entry.attachment.fileName}.`,
               } satisfies ResolvedSpecSheetPreview;
             }
 
@@ -255,7 +255,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
             return {
               ...entry,
               objectUrl: null,
-              loadError: "Attachment preview unavailable.",
+              loadError: `Unable to load attachment preview for ${entry.attachment.fileName}.`,
             } satisfies ResolvedSpecSheetPreview;
           }
         }),
@@ -284,6 +284,8 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
   const specSheetPageLabels = specSheetPreviews.map(() => `Page ${printPageNumber++}`);
   const termsPageLabel = `Page ${printPageNumber++}`;
   const closingPageLabel = `Page ${printPageNumber++}`;
+  const loadedSpecSheetCount = specSheetPreviews.filter((entry) => Boolean(entry.objectUrl)).length;
+  const failedSpecSheetPreviews = specSheetPreviews.filter((entry) => !entry.objectUrl);
 
   return (
     <main className="proposal-shell">
@@ -785,6 +787,25 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
             </div>
 
             <div className="proposal-copy proposal-copy-card proposal-spec-sheet-meta print-keep-block">
+              {index === 0 ? (
+                <div className="proposal-attachment-status-card">
+                  <p><strong>Attachment status</strong> {loadedSpecSheetCount} of {specSheetPreviews.length} supporting spec attachment{specSheetPreviews.length === 1 ? "" : "s"} loaded into proposal output.</p>
+                  {failedSpecSheetPreviews.length ? (
+                    <>
+                      <p><strong>Missing or failed attachments</strong></p>
+                      <ul className="proposal-bullets compact">
+                        {failedSpecSheetPreviews.map((entry) => (
+                          <li key={`failed-${entry.attachment.storageKey}`}>
+                            {entry.attachment.fileName} - {entry.outputItemLabel} - {entry.sourceLabel} - {entry.loadError ?? "Attachment preview unavailable."}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p>All referenced supporting spec attachments resolved successfully.</p>
+                  )}
+                </div>
+              ) : null}
               <p><strong>Proposal section</strong> {sectionLabel}</p>
               <p><strong>Output item</strong> {specSheet.outputItemLabel}</p>
               <p><strong>Attachment source</strong> {specSheet.sourceLabel}</p>
