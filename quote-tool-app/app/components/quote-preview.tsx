@@ -1289,6 +1289,10 @@ export default function QuotePreview() {
   const commercialMetrics = useMemo(() => buildCommercialMetrics(quote), [quote]);
   const majorProjectMetrics = useMemo(() => buildMajorProjectMetrics(quote), [quote]);
   const majorProjectHasBlockingErrors = isMajorProject && majorProjectMetrics.validation.errorCount > 0;
+  const majorProjectBlockingIssues = useMemo(
+    () => majorProjectMetrics.validation.issues.filter((issue) => issue.severity === "error"),
+    [majorProjectMetrics.validation.issues],
+  );
 
   const equipmentCategories = useMemo(() => ["All", ...Array.from(new Set(equipmentCatalog.map((item) => item.category))).sort()], []);
 
@@ -2874,7 +2878,19 @@ export default function QuotePreview() {
 
           {(workflowNotice || majorProjectHasBlockingErrors) && (
             <div className={`mt-4 rounded-[18px] border px-4 py-3 text-[13px] ${majorProjectHasBlockingErrors ? "border-[#e7b7b7] bg-[#fff4f4] text-[#8d1f1f]" : "border-[#d8e0e8] bg-[#f7fafc] text-[#435160]"}`}>
-              {workflowNotice ?? `Major Project preview is blocked until ${majorProjectMetrics.validation.errorCount} validation error${majorProjectMetrics.validation.errorCount === 1 ? " is" : "s are"} fixed.`}
+              <div>
+                {workflowNotice ?? `Major Project preview is blocked until ${majorProjectMetrics.validation.errorCount} validation error${majorProjectMetrics.validation.errorCount === 1 ? " is" : "s are"} fixed.`}
+              </div>
+              {majorProjectHasBlockingErrors && majorProjectBlockingIssues.length > 0 ? (
+                <div className="mt-3 rounded-[14px] border border-[#efc1c1] bg-white/70 px-3 py-3 text-[#7f1d1d]">
+                  <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8f2424]">Blocking validation issues</div>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {majorProjectBlockingIssues.map((issue, index) => (
+                      <li key={`${issue.code}-${index}`}>{issue.message}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           )}
         </section>
