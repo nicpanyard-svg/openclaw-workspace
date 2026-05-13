@@ -79,6 +79,14 @@ type ApprovalWorkbookRollupRefs = {
   };
 };
 
+type CalculationTraceabilityRow = {
+  metric: string;
+  driverCells: string;
+  formulaLogic: string;
+  whereUsed: string;
+  reviewNotes: string;
+};
+
 const BRAND = {
   greenDark: "FF8C1212",
   green: "FFAE0910",
@@ -1475,7 +1483,96 @@ function buildSectionRows(title: string, entries: string[]) {
   return rows;
 }
 
-function buildNotesSheet(workbook: Workbook, model: ApprovalWorkbookModel) {
+function buildCalculationTraceabilityRows(rollups: ApprovalWorkbookRollupRefs): CalculationTraceabilityRow[] {
+  return [
+    {
+      metric: "Recurring Revenue",
+      driverCells: rollups.recurring.revenue,
+      formulaLogic: "Recurring customer-price subtotal from the Line Item Detail recurring section.",
+      whereUsed: "Executive Summary revenue card and Financial Snapshot recurring row.",
+      reviewNotes: "Validate monthly recurring sell values and any service-price overrides.",
+    },
+    {
+      metric: "Recurring Cost",
+      driverCells: rollups.recurring.cost,
+      formulaLogic: "Recurring cost subtotal from service, support, and allocated recurring cost rows.",
+      whereUsed: "Financial Snapshot recurring cost row and recurring margin support.",
+      reviewNotes: "Confirm recurring labor/support allocations and any sourced service costs.",
+    },
+    {
+      metric: "Recurring Gross Profit",
+      driverCells: `${rollups.recurring.revenue}, ${rollups.recurring.cost}`,
+      formulaLogic: `${rollups.recurring.revenue} - ${rollups.recurring.cost}`,
+      whereUsed: "Financial Snapshot recurring gross-profit row and recurring margin calculation.",
+      reviewNotes: "Use to explain recurring margin strength before leadership approval.",
+    },
+    {
+      metric: "Recurring Gross Margin",
+      driverCells: `${rollups.recurring.grossProfit}, ${rollups.recurring.revenue}`,
+      formulaLogic: `IFERROR(${rollups.recurring.grossProfit}/${rollups.recurring.revenue}, 0)`,
+      whereUsed: "Recurring margin support and executive review narrative.",
+      reviewNotes: "Watch for low-margin support bundles or underpriced recurring services.",
+    },
+    {
+      metric: "One-time Revenue",
+      driverCells: rollups.oneTime.revenue,
+      formulaLogic: "One-time customer-price subtotal from hardware, install, and services rows.",
+      whereUsed: "Executive Summary revenue card support and Financial Snapshot one-time row.",
+      reviewNotes: "Confirm hardware sell pricing, implementation sell, and exceptions.",
+    },
+    {
+      metric: "One-time Cost",
+      driverCells: rollups.oneTime.cost,
+      formulaLogic: "One-time cost subtotal from hardware, deployment labor, and sourced services.",
+      whereUsed: "Financial Snapshot one-time cost row and one-time margin support.",
+      reviewNotes: "Review deployment recovery, freight, vendor cost basis, and project labor.",
+    },
+    {
+      metric: "One-time Gross Profit",
+      driverCells: `${rollups.oneTime.revenue}, ${rollups.oneTime.cost}`,
+      formulaLogic: `${rollups.oneTime.revenue} - ${rollups.oneTime.cost}`,
+      whereUsed: "Financial Snapshot one-time gross-profit row and one-time margin calculation.",
+      reviewNotes: "Use when leadership asks where install and hardware profit is coming from.",
+    },
+    {
+      metric: "One-time Gross Margin",
+      driverCells: `${rollups.oneTime.grossProfit}, ${rollups.oneTime.revenue}`,
+      formulaLogic: `IFERROR(${rollups.oneTime.grossProfit}/${rollups.oneTime.revenue}, 0)`,
+      whereUsed: "One-time margin support and deployment recovery review.",
+      reviewNotes: "Flag low-margin implementation or pass-through hardware structures.",
+    },
+    {
+      metric: "Total Deal Revenue",
+      driverCells: `${rollups.recurring.revenue}, ${rollups.oneTime.revenue}`,
+      formulaLogic: `${rollups.recurring.revenue} + ${rollups.oneTime.revenue}`,
+      whereUsed: "Executive Summary total-deal context and Financial Snapshot total row.",
+      reviewNotes: "Treat as the headline sell number for management review.",
+    },
+    {
+      metric: "Total Deal Cost",
+      driverCells: `${rollups.recurring.cost}, ${rollups.oneTime.cost}`,
+      formulaLogic: `${rollups.recurring.cost} + ${rollups.oneTime.cost}`,
+      whereUsed: "Financial Snapshot total cost row and overall profitability support.",
+      reviewNotes: "Confirm all sourced hardware, labor, and service costs are represented.",
+    },
+    {
+      metric: "Total Gross Profit",
+      driverCells: `${rollups.total.revenue}, ${rollups.total.cost}`,
+      formulaLogic: `${rollups.total.revenue} - ${rollups.total.cost}`,
+      whereUsed: "Executive Summary total gross-profit card and Financial Snapshot total row.",
+      reviewNotes: "Use as the primary executive profit checkpoint before release approval.",
+    },
+    {
+      metric: "Total Gross Margin",
+      driverCells: `${rollups.total.grossProfit}, ${rollups.total.revenue}`,
+      formulaLogic: `IFERROR(${rollups.total.grossProfit}/${rollups.total.revenue}, 0)`,
+      whereUsed: "Executive Summary gross-margin card, management checkpoints, and release review.",
+      reviewNotes: "This is the top-line management margin check for approval readiness.",
+    },
+  ];
+}
+
+function buildNotesSheet(workbook: Workbook, model: ApprovalWorkbookModel, rollups: ApprovalWorkbookRollupRefs) {
   const sheet = workbook.addWorksheet("Assumptions & Notes", {
     properties: { defaultRowHeight: 18 },
     views: [{ state: "frozen", ySplit: 5 }],
@@ -1491,11 +1588,14 @@ function buildNotesSheet(workbook: Workbook, model: ApprovalWorkbookModel) {
   };
 
   sheet.columns = [
-    { width: 4 },
-    { width: 102 },
+    { width: 22 },
+    { width: 22 },
+    { width: 32 },
+    { width: 28 },
+    { width: 32 },
   ];
 
-  sheet.mergeCells("A1:B1");
+  sheet.mergeCells("A1:E1");
   const titleCell = sheet.getCell("A1");
   titleCell.value = "iNet Assumptions, Notes, and Review Support";
   titleCell.font = { name: "Arial", bold: true, size: 18, color: { argb: BRAND.white } };
@@ -1503,46 +1603,87 @@ function buildNotesSheet(workbook: Workbook, model: ApprovalWorkbookModel) {
   titleCell.alignment = { vertical: "middle", horizontal: "center" };
   sheet.getRow(1).height = 26;
 
-  sheet.mergeCells("A2:B2");
+  sheet.mergeCells("A2:E2");
   const introCell = sheet.getCell("A2");
   introCell.value = "Narrative backup for pricing assumptions, vendor sourcing, service dependencies, and internal-only approval context.";
   introCell.font = { name: "Arial", size: 10, color: { argb: BRAND.slate } };
   introCell.alignment = { vertical: "middle", horizontal: "left" };
 
-  sheet.mergeCells("A3:B3");
+  sheet.mergeCells("A3:E3");
   sheet.getCell("A3").value = "Use this tab to document why the deal is priced this way and what leadership should know before release.";
   sheet.getCell("A3").font = { name: "Arial", bold: true, size: 9, color: { argb: BRAND.text } };
   sheet.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
   sheet.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.gold } };
-  applyOuterBorder(sheet, 3, 3, 1, 2, BRAND.gold);
+  applyOuterBorder(sheet, 3, 3, 1, 5, BRAND.gold);
 
-  applySectionBand(sheet, 4, 1, 2, "Review Guide");
-  sheet.mergeCells("A5:B6");
+  applySectionBand(sheet, 4, 1, 5, "Review Guide");
+  sheet.mergeCells("A5:E6");
   const guideCell = sheet.getCell("A5");
   guideCell.value = "Use commercial assumptions for pricing context, vendor notes for sourcing support, service references for SLA dependencies, and internal notes for approval-only context.";
   guideCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
   guideCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
   guideCell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
-  applyOuterBorder(sheet, 5, 6, 1, 2);
+  applyOuterBorder(sheet, 5, 6, 1, 5);
 
   let currentRow = 8;
+  applySectionBand(sheet, currentRow, 1, 5, "Calculation Traceability");
+  currentRow += 1;
+
+  sheet.mergeCells(currentRow, 1, currentRow, 5);
+  const traceIntroCell = sheet.getCell(currentRow, 1);
+  traceIntroCell.value = "Use this section to trace the approval workbook's core pricing, cost, profit, and margin numbers back to the Line Item Detail rollups before release approval.";
+  traceIntroCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
+  traceIntroCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
+  traceIntroCell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+  applyOuterBorder(sheet, currentRow, currentRow, 1, 5);
+  sheet.getRow(currentRow).height = 28;
+  currentRow += 1;
+
+  applyTableHeader(sheet, currentRow, [
+    "Key metric / field",
+    "Driver cells",
+    "Formula logic",
+    "Where value is used",
+    "Review notes",
+  ]);
+  currentRow += 1;
+
+  buildCalculationTraceabilityRows(rollups).forEach((entry, index) => {
+    const fill = index % 2 === 0 ? BRAND.white : BRAND.greenPale;
+    const values = [
+      entry.metric,
+      entry.driverCells,
+      entry.formulaLogic,
+      entry.whereUsed,
+      entry.reviewNotes,
+    ];
+    values.forEach((value, columnIndex) => {
+      const cell = sheet.getCell(currentRow, columnIndex + 1);
+      applyBodyCellStyle(cell, fill);
+      cell.value = value;
+    });
+    sheet.getRow(currentRow).height = 38;
+    currentRow += 1;
+  });
+
+  currentRow += 1;
   [
     buildSectionRows("Commercial assumptions", model.assumptions),
     buildSectionRows("Vendor notes", model.vendorNotes),
     buildSectionRows("SLA / service references", model.serviceReferences),
     buildSectionRows("Internal notes", model.internalNotes),
   ].forEach((sectionRows) => {
-    applySectionBand(sheet, currentRow, 1, 2, sectionRows[0][0], BRAND.green);
+    applySectionBand(sheet, currentRow, 1, 5, sectionRows[0][0], BRAND.green);
     currentRow += 1;
 
     sectionRows.slice(1).forEach((entry, index) => {
-      sheet.mergeCells(currentRow, 1, currentRow, 2);
+      sheet.mergeCells(currentRow, 1, currentRow, 5);
       const cell = sheet.getCell(currentRow, 1);
       cell.value = entry[0];
       cell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: index % 2 === 0 ? BRAND.white : BRAND.greenPale } };
       cell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
-      applyOuterBorder(sheet, currentRow, currentRow, 1, 2);
+      applyOuterBorder(sheet, currentRow, currentRow, 1, 5);
       sheet.getRow(currentRow).height = 28;
       currentRow += 1;
     });
@@ -1569,7 +1710,7 @@ export async function buildProposalApprovalWorkbook(quote: QuoteRecord) {
   const detailSheetResult = buildLineItemDetailSheet(workbook, model);
   const detailSheet = detailSheetResult.sheet;
   const summarySheet = buildExecutiveSummarySheet(exceljs, workbook, model, detailSheetResult.rollups);
-  const notesSheet = buildNotesSheet(workbook, model);
+  const notesSheet = buildNotesSheet(workbook, model, detailSheetResult.rollups);
 
   const summaryLogoEmbedded = await addWorkbookImageByWidth(
     workbook,
