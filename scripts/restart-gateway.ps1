@@ -20,7 +20,7 @@ if ($remaining) {
 }
 
 Write-Host "Starting fresh gateway..."
-Start-Process -NoNewWindow powershell -ArgumentList "-Command", "openclaw gateway start"
+Start-Process -WindowStyle Hidden cmd.exe -ArgumentList "/c", "openclaw gateway start"
 Start-Sleep -Seconds 3
 
 $new = Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -like "*openclaw*gateway*" }
