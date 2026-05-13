@@ -870,6 +870,7 @@ function buildExecutiveSummarySheet(
   checkpointCell.value = [
     `Total margin: ${formatPercent(model.totalGrossMarginPercent)}`,
     "Approval packet includes financials, routing, and support notes.",
+    "Review Assumptions & Notes -> Calculation Traceability before approval signoff.",
     "Use detail and notes tabs before customer-facing release.",
   ].join("\n");
   checkpointCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
@@ -897,7 +898,7 @@ function buildExecutiveSummarySheet(
       { formula: rollups.recurring.grossProfit, result: model.recurringGrossProfit },
       { formula: rollups.recurring.grossMargin, result: model.recurringGrossMarginPercent / 100 },
       "Monthly / recurring program value",
-      "Review durability of services margin.",
+      "Review durability of services margin and confirm traceability notes.",
     ],
     [
       "One-time",
@@ -906,7 +907,7 @@ function buildExecutiveSummarySheet(
       { formula: rollups.oneTime.grossProfit, result: model.oneTimeGrossProfit },
       { formula: rollups.oneTime.grossMargin, result: model.oneTimeGrossMarginPercent / 100 },
       "Hardware, install, and services",
-      "Confirm deployment recovery and exceptions.",
+      "Confirm deployment recovery, exceptions, and traceability support.",
     ],
     [
       "Total Deal",
@@ -915,7 +916,7 @@ function buildExecutiveSummarySheet(
       { formula: rollups.total.grossProfit, result: model.totalGrossProfit },
       { formula: rollups.total.grossMargin, result: model.totalGrossMarginPercent / 100 },
       "Overall customer commitment",
-      "Use as the primary executive checkpoint.",
+      "Use as the primary executive checkpoint, then review Calculation Traceability.",
     ],
   ] as const;
 
@@ -1002,8 +1003,9 @@ function buildExecutiveSummarySheet(
   sheet.mergeCells("B36:I38");
   const noteCell = sheet.getCell("B36");
   noteCell.value = [
-    "Use the Line Item Detail tab for pricing support and the Assumptions & Notes tab for vendor, SLA, and internal review narrative.",
+    "Use the Line Item Detail tab for pricing support and the Assumptions & Notes tab for vendor, SLA, internal review narrative, and Calculation Traceability.",
     "Keep signatures, comments, and management decisions on this summary page so the workbook reads like a complete approval packet.",
+    "Approvers should review the Calculation Traceability block before final release approval.",
     "This workbook remains internal-only and should be reviewed before any customer-facing release.",
   ].join("\n");
   noteCell.font = { name: "Arial", size: 10, color: { argb: BRAND.text } };
