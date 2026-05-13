@@ -816,7 +816,7 @@ function buildExecutiveSummarySheet(
   applyOuterBorder(sheet, 5, 5, 6, 9, BRAND.gold);
   sheet.getRow(5).height = 20;
 
-  applyMetricCard(sheet, 6, 2, 3, "Recurring Revenue", {
+  applyMetricCard(sheet, 6, 2, 3, "Recurring MRR", {
     formula: rollups.recurring.revenue,
     result: model.recurringRevenue,
     numFmt: '"$"#,##0.00',
@@ -869,6 +869,7 @@ function buildExecutiveSummarySheet(
   const checkpointCell = sheet.getCell("G16");
   checkpointCell.value = [
     `Total margin: ${formatPercent(model.totalGrossMarginPercent)}`,
+    "Recurring values on this workbook are monthly recurring revenue (MRR) unless noted otherwise.",
     "Approval packet includes financials, routing, and support notes.",
     "Review Assumptions & Notes -> Calculation Traceability before approval signoff.",
     "Use detail and notes tabs before customer-facing release.",
@@ -892,21 +893,21 @@ function buildExecutiveSummarySheet(
 
   const metricRows = [
     [
-      "Recurring",
+      "Recurring (MRR)",
       { formula: rollups.recurring.revenue, result: model.recurringRevenue },
       { formula: rollups.recurring.cost, result: model.recurringCost },
       { formula: rollups.recurring.grossProfit, result: model.recurringGrossProfit },
       { formula: rollups.recurring.grossMargin, result: model.recurringGrossMarginPercent / 100 },
-      "Monthly / recurring program value",
+      "Monthly recurring revenue and supporting recurring cost base",
       "Review durability of services margin and confirm traceability notes.",
     ],
     [
-      "One-time",
+      "One-time / NRR",
       { formula: rollups.oneTime.revenue, result: model.oneTimeRevenue },
       { formula: rollups.oneTime.cost, result: model.oneTimeCost },
       { formula: rollups.oneTime.grossProfit, result: model.oneTimeGrossProfit },
       { formula: rollups.oneTime.grossMargin, result: model.oneTimeGrossMarginPercent / 100 },
-      "Hardware, install, and services",
+      "Non-recurring hardware, install, and project services value",
       "Confirm deployment recovery, exceptions, and traceability support.",
     ],
     [
@@ -1080,8 +1081,8 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   sheet.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.gold } };
   applyOuterBorder(sheet, 3, 3, 1, 14, BRAND.gold);
 
-  applyMetricCard(sheet, 4, 1, 2, "Recurring", formatMoney(model.recurringRevenue), BRAND.green);
-  applyMetricCard(sheet, 4, 3, 4, "One-time", formatMoney(model.oneTimeRevenue), BRAND.slate);
+  applyMetricCard(sheet, 4, 1, 2, "Recurring MRR", formatMoney(model.recurringRevenue), BRAND.green);
+  applyMetricCard(sheet, 4, 3, 4, "One-time / NRR", formatMoney(model.oneTimeRevenue), BRAND.slate);
   applyMetricCard(sheet, 4, 5, 6, "Total Revenue", formatMoney(model.totalRevenue), BRAND.greenDark);
   applyMetricCard(sheet, 4, 7, 8, "Total Cost", formatMoney(model.totalCost), BRAND.gold);
   applyMetricCard(sheet, 4, 9, 13, "Gross Margin", formatPercent(model.totalGrossMarginPercent), BRAND.green);
@@ -1149,7 +1150,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   applyOuterBorder(sheet, 9, 9, 11, 14);
 
   sheet.mergeCells("A10:H10");
-  sheet.getCell("A10").value = "Edit Qty, Our Cost, or Manual Sell / Unit below. Cost / Unit is derived from Our Cost and Qty. To derive sell price from cost, switch the matching Recurring or One-time Sell Basis to Markup and update that section's Markup % driver.";
+  sheet.getCell("A10").value = "Edit Qty, Our Cost, or Manual Sell / Unit below. Recurring rows represent monthly recurring revenue (MRR); one-time rows represent non-recurring/project value. Cost / Unit is derived from Our Cost and Qty. To derive sell price from cost, switch the matching Recurring or One-time Sell Basis to Markup and update that section's Markup % driver.";
   sheet.getCell("A10").font = { name: "Arial", size: 9, color: { argb: BRAND.text } };
   sheet.getCell("A10").alignment = { vertical: "middle", horizontal: "left", wrapText: true };
   sheet.getCell("A10").fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.slateSoft } };
@@ -1192,7 +1193,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   const oneTimeTotals = buildLineTotals(oneTimeLines);
 
   let currentRow = 11;
-  applySectionBand(sheet, currentRow, 1, 14, "Recurring Line Items");
+  applySectionBand(sheet, currentRow, 1, 14, "Recurring Line Items (MRR)");
   currentRow += 1;
   applyTableHeader(sheet, currentRow, headers);
   currentRow += 1;
@@ -1324,7 +1325,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
 
   sheet.mergeCells(currentRow, 1, currentRow, 8);
   const recurringSubtotalLabel = sheet.getCell(currentRow, 1);
-  recurringSubtotalLabel.value = "Recurring Subtotal";
+  recurringSubtotalLabel.value = "Recurring Subtotal (MRR)";
   recurringSubtotalLabel.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.text } };
   recurringSubtotalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
   recurringSubtotalLabel.alignment = { vertical: "middle", horizontal: "left" };
@@ -1354,7 +1355,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
   [13, 14].forEach((col) => applyBodyCellStyle(sheet.getCell(currentRow, col), BRAND.cream));
   currentRow += 2;
 
-  applySectionBand(sheet, currentRow, 1, 14, "One-time Line Items");
+  applySectionBand(sheet, currentRow, 1, 14, "One-time Line Items (NRR)");
   currentRow += 1;
   applyTableHeader(sheet, currentRow, headers);
   currentRow += 1;
@@ -1362,7 +1363,7 @@ function buildLineItemDetailSheet(workbook: Workbook, model: ApprovalWorkbookMod
 
   sheet.mergeCells(currentRow, 1, currentRow, 8);
   const oneTimeSubtotalLabel = sheet.getCell(currentRow, 1);
-  oneTimeSubtotalLabel.value = "One-time Subtotal";
+  oneTimeSubtotalLabel.value = "One-time Subtotal (NRR)";
   oneTimeSubtotalLabel.font = { name: "Arial", bold: true, size: 10, color: { argb: BRAND.text } };
   oneTimeSubtotalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND.cream } };
   oneTimeSubtotalLabel.alignment = { vertical: "middle", horizontal: "left" };
