@@ -4199,7 +4199,7 @@ export default function QuotePreview() {
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <div className="text-[14px] font-semibold text-[#16202b]">BOM workbook import</div>
-                          <div className="mt-1 text-[12px] text-[#60707f]">Capture one workbook tab, review the obvious rows, and import draft components into the existing Major Project component list.</div>
+                          <div className="mt-1 text-[12px] text-[#60707f]">Capture a workbook tab, review the extracted rows, and import draft components into the Major Project item list.</div>
                         </div>
                         {majorProjectState.bomImport ? <button type="button" className="rounded-full border border-[#d5dde6] bg-white px-3 py-1 text-[12px] font-semibold text-[#334150]" onClick={clearMajorProjectBomImport}>Remove workbook</button> : null}
                       </div>
@@ -4237,7 +4237,7 @@ export default function QuotePreview() {
                           }}
                         />
                         <span className="block text-[14px] font-semibold text-[#17212c]">Drag and drop a BOM workbook here</span>
-                        <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose an `.xlsx`, `.xls`, or `.csv` file for the future import review flow.</span>
+                        <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose an `.xlsx`, `.xls`, or `.csv` workbook.</span>
                         {majorProjectBomCaptureError ? (
                           <span className="mt-3 block rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">
                             <strong className="block text-[13px] text-[#8f2424]">File rejected</strong>
@@ -4270,7 +4270,7 @@ export default function QuotePreview() {
                           </span>
                         ) : (
                           <span className="mt-3 block rounded-[14px] border border-[#e4ebf2] bg-[#fdfefe] px-3 py-3 text-[12px] text-[#5f6d7a]">
-                            Next slice after this one: tighten column heuristics, support larger sheets, and optionally stage downstream bundle generation.
+                            Supported now: capture one workbook tab, confirm the mapped columns, and import the reviewed rows as draft components.
                           </span>
                         )}
                       </label>
@@ -4286,15 +4286,15 @@ export default function QuotePreview() {
                             </select>
                           </label>
                           <div className="mt-2 text-[12px]">
-                            Using a conservative header match and only obvious non-empty rows. Stored {selectedMajorProjectBomSheet.rows.length} previewable row{selectedMajorProjectBomSheet.rows.length === 1 ? "" : "s"}
-                            {selectedMajorProjectBomSheet.rowCount > selectedMajorProjectBomSheet.rows.length ? ` out of ${selectedMajorProjectBomSheet.rowCount} non-empty rows.` : "."}
+                            Showing {selectedMajorProjectBomSheet.rows.length} preview row{selectedMajorProjectBomSheet.rows.length === 1 ? "" : "s"} from the selected tab using conservative header detection.
+                            {selectedMajorProjectBomSheet.rowCount > selectedMajorProjectBomSheet.rows.length ? ` ${selectedMajorProjectBomSheet.rowCount} non-empty rows were captured in total.` : ""}
                           </div>
                           <div className="mt-3 rounded-[12px] border border-[#e4ebf2] bg-[#fbfdff] px-3 py-3 text-[12px] text-[#334150]">
                             <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#60707f]">Column mapping</strong>
                             <div className="mt-2 text-[12px] text-[#60707f]">
                               {selectedMajorProjectBomHeaderRowIndex >= 0
-                                ? `Detected header row ${selectedMajorProjectBomSheet.rows[selectedMajorProjectBomHeaderRowIndex]?.rowNumber ?? selectedMajorProjectBomHeaderRowIndex + 1}. Choose any columns you want to keep for the next import slice.`
-                                : "No obvious header row detected. Choose from the preview columns below if this sheet is still usable."}
+                                ? `Detected header row ${selectedMajorProjectBomSheet.rows[selectedMajorProjectBomHeaderRowIndex]?.rowNumber ?? selectedMajorProjectBomHeaderRowIndex + 1}. Adjust the field mapping below before importing draft components.`
+                                : "No obvious header row was detected. You can still map the preview columns manually if this tab looks usable."}
                             </div>
                             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                               {MAJOR_PROJECT_BOM_REVIEW_FIELDS.map((field) => (
