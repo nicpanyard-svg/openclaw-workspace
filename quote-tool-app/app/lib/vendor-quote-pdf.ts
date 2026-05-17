@@ -1,3 +1,5 @@
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import type { MajorProjectVendorQuoteDraftItem } from "@/app/lib/quote-record";
 
 type VendorQuotePdfToken = {
@@ -14,15 +16,11 @@ type VendorQuotePdfLine = {
 };
 
 type VendorQuotePdfColumnKey =
-  | "itemNumber"
-  | "itemCode"
   | "description"
-  | "manufacturer"
-  | "warranty"
-  | "origin"
   | "quantity"
-  | "unit"
   | "unitPrice"
+  | "vat"
+  | "discount"
   | "total";
 
 type ParsedVendorQuotePdf = {
@@ -30,6 +28,15 @@ type ParsedVendorQuotePdf = {
   quoteReference?: string;
   previewItems: MajorProjectVendorQuoteDraftItem[];
 };
+
+let cachedPdfWorkerSrc: string | undefined;
+
+const TABLE_STOP_PATTERN = /^(discounted:|untaxed amount:|taxes:|total amount|quote total:|subtotal\b|sales tax\b|total\b|payment term:|delivery term:|delivery time:|validity:|notes:|note to customer\b|lead time\b|expiry\b|accepted date\b|accepted by\b|confirmed by|customer'?s acknowledgement|signature:|name:|title:|page \d+ of \d+|by accepting this quote|wesco may assess|token\s*=)\b/i;
+const METADATA_ONLY_PATTERN = /^(hs code:|weight:|volume:)\b/i;
+const ITEM_CODE_PATTERN = /^item code:\s*(.+)$/i;
+const WARRANTY_PATTERN = /^warranty:\s*(.+)$/i;
+const MANUFACTURER_PATTERN = /^manufacturer:\s*(.+)$/i;
+const ORIGIN_PATTERN = /^origin:\s*(.+)$/i;
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
@@ -61,7 +68,7 @@ function inferBucket(...values: Array<string | undefined>) {
 }
 
 function isChargeRow(label: string, description: string) {
-  return /(shipping|handling|freight|delivery|fee|charge|surcharge|tax)/i.test(`${label} ${description}`.trim());
+  return /(shipping|handling|freight|delivery|fee|charge|surcharge|tax|bank transfer|banking|courier)/i.test(`${label} ${description}`.trim());
 }
 
 function detectVendorName(lines: VendorQuotePdfLine[]) {
@@ -72,6 +79,40 @@ function detectVendorName(lines: VendorQuotePdfLine[]) {
     }
   }
 
+  for (let index = 0; index < Math.min(lines.length, 12); index += 1) {
+    const line = lines[index];
+    const recipientSplit = line.text.split(/\bTO:/i);
+    if (recipientSplit.length < 2) continue;
+    const prefix = normalizeWhitespace(recipientSplit[0] ?? "");
+    if (!prefix || prefix.length < 6) continue;
+    const nextLine = lines[index + 1]?.text.trim();
+    if (nextLine && /^(co|company)[.,\s]/i.test(nextLine)) {
+      return `${prefix} ${nextLine}`.trim();
+    }
+    return prefix;
+  }
+
+  const companyLineIndex = lines.findIndex((line) => (
+    /(INC|LTD|LLC|CORP|COMPANY|TECHNOLOGIES|INTEGRATORS)/i.test(line.text)
+    && !/^(customer name|bill to|delivery to|project name|salesman|quotation|estimate|ship to|shipping info|estimate details)$/i.test(line.text)
+    && !/:/.test(line.text)
+    && line.text.trim().length >= 4
+  ));
+  if (companyLineIndex >= 0) {
+    const companyLine = lines[companyLineIndex];
+    const previousLine = lines[companyLineIndex - 1];
+    if (
+      companyLine
+      && /^(co|company)[.,\s]/i.test(companyLine.text)
+      && previousLine
+      && /^[A-Za-z0-9&(),.'\/ -]{6,}$/.test(previousLine.text)
+      && !/:/.test(previousLine.text)
+    ) {
+      return `${previousLine.text} ${companyLine.text}`.trim();
+    }
+    return companyLine.text.trim();
+  }
+
   return undefined;
 }
 
@@ -79,10 +120,14 @@ function detectQuoteReference(lines: VendorQuotePdfLine[]) {
   const patterns = [
     /\b(Quotation-[A-Z0-9-]+)\b/i,
     /\b(Quote(?:\s*(?:No|#|Number|Ref(?:erence)?)\s*[:#-]?\s*[A-Z0-9-]+))\b/i,
+    /\b(Estimate(?:\s*(?:No|#|Number|Ref(?:erence)?)\s*[:#-]?\s*[A-Z0-9-]+))\b/i,
+    /\bEstimate\s*no\.\s*:\s*([A-Z0-9-]+)\b/i,
+    /#\s*([A-Z]{1,8}\d{4,}[A-Z0-9-]*)\b/i,
     /\b([A-Z]{2,6}-\d{4}-\d{3,6})\b/,
+    /\b([A-Z]{2,6}\/\d{4}\/\d{3,6})\b/,
   ];
 
-  for (const line of lines.slice(0, 40)) {
+  for (const line of lines.slice(0, 60)) {
     for (const pattern of patterns) {
       const match = line.text.match(pattern);
       if (match?.[1]?.trim()) {
@@ -115,22 +160,12 @@ function detectHeaderColumns(lines: VendorQuotePdfLine[]) {
         columns.quantity = token.x;
       } else if (!columns.unitPrice && (phrase.startsWith("unitprice") || normalized === "price" || normalized === "rate")) {
         columns.unitPrice = token.x;
+      } else if (!columns.vat && normalized === "vat") {
+        columns.vat = token.x;
+      } else if (!columns.discount && /disc/.test(normalized)) {
+        columns.discount = token.x;
       } else if (!columns.total && /(total|amount|extended|extamount|lineamount)/.test(normalized)) {
         columns.total = token.x;
-      } else if (!columns.unit && /^uom$/.test(normalized)) {
-        columns.unit = token.x;
-      } else if (!columns.unit && normalized === "unit" && nextNormalized !== "price") {
-        columns.unit = token.x;
-      } else if (!columns.itemCode && /(code|sku|part|itemcode)/.test(normalized)) {
-        columns.itemCode = token.x;
-      } else if (!columns.manufacturer && /(manufacturer|mfg|brand)/.test(normalized)) {
-        columns.manufacturer = token.x;
-      } else if (!columns.warranty && /warranty/.test(normalized)) {
-        columns.warranty = token.x;
-      } else if (!columns.origin && /(origin|country)/.test(normalized)) {
-        columns.origin = token.x;
-      } else if (!columns.itemNumber && (/^(no|#)$/.test(normalized) || normalized === "item" || normalized === "line")) {
-        columns.itemNumber = token.x;
       }
     }
 
@@ -141,7 +176,7 @@ function detectHeaderColumns(lines: VendorQuotePdfLine[]) {
       columns.total,
     ].filter((value) => typeof value === "number").length;
 
-    if (score > bestScore && typeof columns.description === "number" && typeof columns.total === "number") {
+    if (score > bestScore && typeof columns.description === "number" && typeof columns.quantity === "number" && typeof columns.unitPrice === "number" && typeof columns.total === "number") {
       bestIndex = index;
       bestScore = score;
       bestColumns = columns;
@@ -154,146 +189,133 @@ function detectHeaderColumns(lines: VendorQuotePdfLine[]) {
   };
 }
 
-function assignTokensToColumns(
+function getLinePageGroups(lines: VendorQuotePdfLine[]) {
+  const pageMap = new Map<number, VendorQuotePdfLine[]>();
+  for (const line of lines) {
+    const existing = pageMap.get(line.pageNumber);
+    if (existing) {
+      existing.push(line);
+    } else {
+      pageMap.set(line.pageNumber, [line]);
+    }
+  }
+  return Array.from(pageMap.entries())
+    .sort((left, right) => left[0] - right[0])
+    .map(([, pageLines]) => pageLines);
+}
+
+function getTokensInRange(tokens: VendorQuotePdfToken[], minX: number, maxX = Number.POSITIVE_INFINITY) {
+  return tokens.filter((token) => token.x >= minX && token.x < maxX);
+}
+
+function getJoinedText(tokens: VendorQuotePdfToken[]) {
+  return normalizeWhitespace(tokens.map((token) => token.text).join(" "));
+}
+
+function getColumnBands(columns: Partial<Record<VendorQuotePdfColumnKey, number>>) {
+  const ordered = Object.entries(columns)
+    .flatMap(([key, x]) => (typeof x === "number"
+      ? [{ key: key as VendorQuotePdfColumnKey, x }]
+      : []))
+    .sort((left, right) => left.x - right.x);
+
+  const bands = new Map<VendorQuotePdfColumnKey, { start: number; end: number }>();
+  for (let index = 0; index < ordered.length; index += 1) {
+    const current = ordered[index];
+    const previous = ordered[index - 1];
+    const next = ordered[index + 1];
+    const start = previous ? (previous.x + current.x) / 2 : current.x - 8;
+    const end = next ? (current.x + next.x) / 2 : Number.POSITIVE_INFINITY;
+    bands.set(current.key, { start, end });
+  }
+  return bands;
+}
+
+function getFirstParsedValue(tokens: VendorQuotePdfToken[], parser: (value: string) => number | null) {
+  for (const token of tokens) {
+    const parsed = parser(token.text);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function getLastParsedValue(tokens: VendorQuotePdfToken[], parser: (value: string) => number | null) {
+  for (let index = tokens.length - 1; index >= 0; index -= 1) {
+    const parsed = parser(tokens[index].text);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function isLikelySectionHeading(text: string) {
+  return /^[A-Z0-9/&(),.' -]{4,}$/.test(text)
+    && text === text.toUpperCase()
+    && !/\$\s*\d/.test(text);
+}
+
+function isIgnorableStandaloneLine(text: string) {
+  if (!text) return true;
+  if (TABLE_STOP_PATTERN.test(text)) return true;
+  if (METADATA_ONLY_PATTERN.test(text)) return true;
+  if (/^[()（）\sA-Z]*(pcs|usd)[()（）\sA-Z]*(pcs|usd)?[()（）\sA-Z]*$/i.test(text)) return true;
+  if (/^(description|quantity uom|unit price|vat|disc\.\(%\)|total)$/i.test(text)) return true;
+  if (/^(customer name:|your reference:|your contact:|project name:|bill to:|delivery to:|salesman:|currency:|document number|document date|page|quotation)$/i.test(text)) return true;
+  if (/^(daviteq technologies inc|globiots technologies inc)$/i.test(text)) return true;
+  if (/^(office:|registered address:|tax id:|phone:|website:|email:|all banks charge)/i.test(text)) return true;
+  return isLikelySectionHeading(text);
+}
+
+function buildItemFromStructuredLine(
   line: VendorQuotePdfLine,
   columns: Partial<Record<VendorQuotePdfColumnKey, number>>,
-) {
-  const sortedColumns = Object.entries(columns)
-    .filter((entry): entry is [VendorQuotePdfColumnKey, number] => typeof entry[1] === "number")
-    .sort((left, right) => left[1] - right[1]);
-
-  const values: Partial<Record<VendorQuotePdfColumnKey, string[]>> = {};
-  for (const [key] of sortedColumns) {
-    values[key] = [];
-  }
-
-  if (!sortedColumns.length) return values;
-
-  for (const token of line.tokens) {
-    let targetIndex = 0;
-    for (let index = 0; index < sortedColumns.length; index += 1) {
-      if (token.x >= sortedColumns[index][1] - 4) {
-        targetIndex = index;
-      } else {
-        break;
-      }
-    }
-
-    const [key] = sortedColumns[targetIndex];
-    values[key]?.push(token.text);
-  }
-
-  return values;
-}
-
-function maybeAppendMetadataLine(previousItem: MajorProjectVendorQuoteDraftItem | undefined, line: VendorQuotePdfLine) {
-  if (!previousItem) return false;
-  const text = normalizeWhitespace(line.text);
-  if (!text) return false;
-  if (parseCurrency(text) !== null) return false;
-
-  let appended = false;
-
-  const manufacturerMatch = text.match(/manufacturer\s*[:\-]\s*(.+)$/i);
-  if (!previousItem.manufacturer && manufacturerMatch?.[1]?.trim()) {
-    previousItem.manufacturer = manufacturerMatch[1].trim();
-    appended = true;
-  }
-
-  const warrantyMatch = text.match(/warranty\s*[:\-]\s*(.+)$/i);
-  if (!previousItem.warranty && warrantyMatch?.[1]?.trim()) {
-    previousItem.warranty = warrantyMatch[1].trim();
-    appended = true;
-  }
-
-  const originMatch = text.match(/origin\s*[:\-]\s*(.+)$/i);
-  if (!previousItem.origin && originMatch?.[1]?.trim()) {
-    previousItem.origin = originMatch[1].trim();
-    appended = true;
-  }
-
-  if (!appended && text.length < 160) {
-    previousItem.description = [previousItem.description, text].filter(Boolean).join(" ");
-    appended = true;
-  }
-
-  return appended;
-}
-
-function buildItemFromColumnValues(
-  line: VendorQuotePdfLine,
-  columnValues: Partial<Record<VendorQuotePdfColumnKey, string[]>>,
   quoteReference: string | undefined,
   vendorName: string | undefined,
-) {
-  const description = normalizeWhitespace((columnValues.description ?? []).join(" "));
-  const itemCode = normalizeWhitespace((columnValues.itemCode ?? []).join(" ")) || undefined;
-  const manufacturer = normalizeWhitespace((columnValues.manufacturer ?? []).join(" ")) || undefined;
-  const warranty = normalizeWhitespace((columnValues.warranty ?? []).join(" ")) || undefined;
-  const origin = normalizeWhitespace((columnValues.origin ?? []).join(" ")) || undefined;
-  const quantityText = normalizeWhitespace((columnValues.quantity ?? []).join(" "));
-  const unitText = normalizeWhitespace((columnValues.unit ?? []).join(" "));
-  const unitPriceText = normalizeWhitespace((columnValues.unitPrice ?? []).join(" "));
-  const totalText = normalizeWhitespace((columnValues.total ?? []).join(" "));
-  const quantity = parseQuantity(quantityText) ?? 1;
-  const unitPrice = parseCurrency(unitPriceText);
-  const extendedPrice = parseCurrency(totalText);
-
-  const resolvedUnitPrice = unitPrice ?? (extendedPrice !== null && quantity > 0 ? Number((extendedPrice / quantity).toFixed(2)) : 0);
-  const resolvedExtendedPrice = extendedPrice ?? Number((quantity * resolvedUnitPrice).toFixed(2));
-  const label = description || itemCode || normalizeWhitespace(line.text);
-
-  if (!label || (resolvedExtendedPrice <= 0 && resolvedUnitPrice <= 0)) {
+): MajorProjectVendorQuoteDraftItem | null {
+  const descriptionX = columns.description;
+  const quantityX = columns.quantity;
+  const unitPriceX = columns.unitPrice;
+  const totalX = columns.total;
+  if (
+    typeof descriptionX !== "number"
+    || typeof quantityX !== "number"
+    || typeof unitPriceX !== "number"
+    || typeof totalX !== "number"
+  ) {
     return null;
   }
 
-  return {
-    id: `vendor-quote-item-${line.pageNumber}-${line.lineNumber}`,
-    label,
-    description: undefined,
-    quantity,
-    unit: unitText || "ea",
-    unitPrice: resolvedUnitPrice,
-    extendedPrice: resolvedExtendedPrice,
-    bucket: inferBucket(label, manufacturer, warranty, origin),
-    rowNumber: line.lineNumber,
-    vendor: vendorName,
-    itemCode,
-    manufacturer,
-    warranty,
-    origin,
-    quoteReference,
-    rowKind: isChargeRow(label, description) ? "charge" : "item",
-  } satisfies MajorProjectVendorQuoteDraftItem;
-}
-
-function buildItemFromRegexLine(
-  line: VendorQuotePdfLine,
-  quoteReference: string | undefined,
-  vendorName: string | undefined,
-) {
-  const text = normalizeWhitespace(line.text);
-  if (!text || /^(subtotal|total|grand total|project total|monthly total)\b/i.test(text)) {
+  const bands = getColumnBands(columns);
+  const descriptionBand = bands.get("description");
+  const quantityBand = bands.get("quantity");
+  const unitPriceBand = bands.get("unitPrice");
+  const totalBand = bands.get("total");
+  if (!descriptionBand || !quantityBand || !unitPriceBand || !totalBand) {
     return null;
   }
 
-  const amountMatches = Array.from(text.matchAll(/(?:\$|USD)?\s*\(?-?\d[\d,]*\.?\d{0,2}\)?/gi));
-  if (amountMatches.length < 2) return null;
+  const totalTokens = getTokensInRange(line.tokens, totalBand.start, totalBand.end);
+  const unitPriceTokens = getTokensInRange(line.tokens, unitPriceBand.start, unitPriceBand.end);
+  const quantityAndUnitTokens = getTokensInRange(line.tokens, quantityBand.start, quantityBand.end);
+  const descriptionTokens = getTokensInRange(line.tokens, descriptionBand.start, descriptionBand.end);
+  const itemNumberToken = line.tokens.find((token) => token.x < descriptionBand.start && /^\d+[.]?$/.test(token.text.trim()));
+  const leadingIdentifierTokens = line.tokens.filter((token) => (
+    token.x < descriptionBand.start
+    && !/^\d+[.]?$/.test(token.text.trim())
+  ));
+  const leadingIdentifier = getJoinedText(leadingIdentifierTokens);
 
-  const totalMatch = amountMatches[amountMatches.length - 1];
-  const unitMatch = amountMatches[amountMatches.length - 2];
-  const total = parseCurrency(totalMatch[0]);
-  const unitPrice = parseCurrency(unitMatch[0]);
-  if (total === null || unitPrice === null) return null;
+  const label = getJoinedText(descriptionTokens) || leadingIdentifier;
+  const quantity = getFirstParsedValue(quantityAndUnitTokens, parseQuantity);
+  const unitPrice = getFirstParsedValue(unitPriceTokens, parseCurrency);
+  const extendedPrice = getLastParsedValue(totalTokens, parseCurrency);
 
-  const prefix = text.slice(0, unitMatch.index).trim();
-  const prefixMatch = prefix.match(/^(?:\d+\s+)?(?:([A-Z0-9./_-]{3,})\s+)?(.*?)(?:\s+(\d+(?:\.\d+)?))?(?:\s+([A-Za-z]{1,8}))?$/);
-  const itemCode = normalizeWhitespace(prefixMatch?.[1] ?? "") || undefined;
-  const description = normalizeWhitespace(prefixMatch?.[2] ?? prefix);
-  const quantity = parseQuantity(prefixMatch?.[3] ?? "") ?? 1;
-  const unit = normalizeWhitespace(prefixMatch?.[4] ?? "") || "ea";
-  const label = description || itemCode || text;
-  if (!label) return null;
+  if ((!itemNumberToken && !leadingIdentifier) || !label || quantity === null || unitPrice === null || extendedPrice === null) {
+    return null;
+  }
+
+  const quantityTokenIndex = quantityAndUnitTokens.findIndex((token) => parseQuantity(token.text) !== null);
+  const unitTokens = quantityTokenIndex >= 0 ? quantityAndUnitTokens.slice(quantityTokenIndex + 1) : [];
+  const unit = getJoinedText(unitTokens) || "ea";
 
   return {
     id: `vendor-quote-item-${line.pageNumber}-${line.lineNumber}`,
@@ -302,19 +324,157 @@ function buildItemFromRegexLine(
     quantity,
     unit,
     unitPrice,
-    extendedPrice: total,
+    extendedPrice,
+    unitCost: unitPrice,
+    extendedCost: extendedPrice,
     bucket: inferBucket(label),
     rowNumber: line.lineNumber,
     vendor: vendorName,
-    itemCode,
     quoteReference,
-    rowKind: isChargeRow(label, description) ? "charge" : "item",
+    rowKind: isChargeRow(label, "") ? "charge" : "item",
   } satisfies MajorProjectVendorQuoteDraftItem;
+}
+
+function appendContinuationLine(previousItem: MajorProjectVendorQuoteDraftItem | undefined, line: VendorQuotePdfLine) {
+  if (!previousItem) return false;
+
+  const text = normalizeWhitespace(line.text);
+  if (!text || isIgnorableStandaloneLine(text)) return true;
+  if (/^(express|cost)$/i.test(text)) return true;
+  if (/^\d+(?:\.\d+)?$/.test(text)) return true;
+  if (/(office:|registered address:|tax id:|phone:|website:|email:|discounted:|untaxed amount:|taxes:|total amount)/i.test(text)) {
+    return true;
+  }
+
+  const itemCodeMatch = text.match(ITEM_CODE_PATTERN);
+  if (itemCodeMatch?.[1]?.trim()) {
+    previousItem.itemCode = itemCodeMatch[1].trim();
+    return true;
+  }
+
+  const warrantyMatch = text.match(WARRANTY_PATTERN);
+  if (warrantyMatch?.[1]?.trim()) {
+    previousItem.warranty = warrantyMatch[1].trim();
+    return true;
+  }
+
+  const manufacturerMatch = text.match(MANUFACTURER_PATTERN);
+  if (manufacturerMatch?.[1]?.trim()) {
+    previousItem.manufacturer = manufacturerMatch[1].trim();
+    return true;
+  }
+
+  const originMatch = text.match(ORIGIN_PATTERN);
+  if (originMatch?.[1]?.trim()) {
+    previousItem.origin = originMatch[1].trim();
+    return true;
+  }
+
+  if (TABLE_STOP_PATTERN.test(text)) return true;
+
+  previousItem.description = [previousItem.description, text].filter(Boolean).join(" ");
+  return true;
+}
+
+function parseStructuredItemsFromPage(
+  pageLines: VendorQuotePdfLine[],
+  quoteReference: string | undefined,
+  vendorName: string | undefined,
+) {
+  const { headerIndex, columns } = detectHeaderColumns(pageLines);
+  if (headerIndex < 0) return [];
+
+  const items: MajorProjectVendorQuoteDraftItem[] = [];
+  let currentItem: MajorProjectVendorQuoteDraftItem | undefined;
+  let pendingDescriptionLines: string[] = [];
+
+  for (let index = headerIndex + 1; index < pageLines.length; index += 1) {
+    const line = pageLines[index];
+    const text = normalizeWhitespace(line.text);
+    if (!text) continue;
+    if (TABLE_STOP_PATTERN.test(text)) break;
+
+    const nextItem = buildItemFromStructuredLine(line, columns, quoteReference, vendorName);
+    if (nextItem) {
+      const hydratedItem: MajorProjectVendorQuoteDraftItem = pendingDescriptionLines.length
+        ? {
+            ...nextItem,
+            description: [pendingDescriptionLines.join(" "), nextItem.description].filter(Boolean).join(" ") || undefined,
+          }
+        : nextItem;
+      if (pendingDescriptionLines.length) {
+        pendingDescriptionLines = [];
+      }
+      items.push(hydratedItem);
+      currentItem = hydratedItem;
+      continue;
+    }
+
+    if (currentItem) {
+      appendContinuationLine(currentItem, line);
+    } else if (!isIgnorableStandaloneLine(text)) {
+      pendingDescriptionLines.push(text);
+    }
+  }
+
+  return items;
+}
+
+function inferVendorNameFromItems(items: MajorProjectVendorQuoteDraftItem[]) {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const key = item.manufacturer?.trim();
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0]?.[0];
+}
+
+function sanitizeVendorName(
+  detectedVendorName: string | undefined,
+  inferredVendorName: string | undefined,
+) {
+  const normalized = detectedVendorName
+    ?.replace(/\b\S+@\S+\b.*$/i, "")
+    ?.replace(/\bhttps?:\/\/\S+\b.*$/i, "")
+    ?.replace(/\s{2,}/g, " ")
+    ?.trim();
+  if (!normalized) return inferredVendorName;
+  if (/daviteq technologies inc.+globiots technologies inc/i.test(normalized)) {
+    return inferredVendorName ?? "DAVITEQ TECHNOLOGIES INC";
+  }
+  return normalized;
+}
+
+function sanitizeQuoteReference(value: string | undefined) {
+  if (!value) return undefined;
+  const normalized = normalizeWhitespace(value);
+  const explicitReference = normalized.match(/^(?:quote|estimate)\s*(?:no|number|ref(?:erence)?|#)?\s*[:#-]?\s*(.+)$/i)?.[1]?.trim();
+  return explicitReference || normalized;
+}
+
+function sanitizeItemDescription(value: string | undefined) {
+  if (!value) return undefined;
+  const normalized = normalizeWhitespace(value)
+    .replace(/\bQuote Total:.*$/i, "")
+    .replace(/\bPage \d+ of \d+.*$/i, "")
+    .replace(/\bBY ACCEPTING THIS QUOTE\b.*$/i, "")
+    .replace(/\bWesco may assess\b.*$/i, "")
+    .trim();
+  return normalized || undefined;
 }
 
 async function extractPdfLines(bytes: Uint8Array) {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const document = await pdfjs.getDocument({ data: bytes }).promise;
+  if (!cachedPdfWorkerSrc) {
+    const workerPath = path.join(process.cwd(), "node_modules", "pdfjs-dist", "legacy", "build", "pdf.worker.mjs");
+    cachedPdfWorkerSrc = pathToFileURL(workerPath).href;
+  }
+  pdfjs.GlobalWorkerOptions.workerSrc = cachedPdfWorkerSrc;
+  const documentInit = { data: bytes, disableWorker: true } as Parameters<typeof pdfjs.getDocument>[0];
+  const document = await pdfjs.getDocument(documentInit).promise;
   const lines: VendorQuotePdfLine[] = [];
 
   for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
@@ -352,7 +512,7 @@ async function extractPdfLines(bytes: Uint8Array) {
 
     pageLines
       .sort((left, right) => right.y - left.y)
-      .forEach((line, index) => {
+      .forEach((line) => {
         const tokens = line.tokens.sort((left, right) => left.x - right.x);
         const text = normalizeWhitespace(tokens.map((token) => token.text).join(" "));
         if (!text) return;
@@ -371,30 +531,23 @@ async function extractPdfLines(bytes: Uint8Array) {
 
 export async function parseVendorQuotePdf(bytes: Uint8Array): Promise<ParsedVendorQuotePdf> {
   const lines = await extractPdfLines(bytes);
-  const vendorName = detectVendorName(lines);
-  const quoteReference = detectQuoteReference(lines);
-  const { headerIndex, columns } = detectHeaderColumns(lines);
-  const previewItems: MajorProjectVendorQuoteDraftItem[] = [];
+  const quoteReference = sanitizeQuoteReference(detectQuoteReference(lines));
+  const pageGroups = getLinePageGroups(lines);
+  const previewItems = pageGroups.flatMap((pageLines) => parseStructuredItemsFromPage(pageLines, quoteReference, undefined));
+  const vendorName = sanitizeVendorName(detectVendorName(lines), inferVendorNameFromItems(previewItems));
 
-  for (let index = Math.max(headerIndex + 1, 0); index < lines.length; index += 1) {
-    const line = lines[index];
-    if (/^(subtotal|total|grand total|project total|monthly total)\b/i.test(line.text)) {
-      continue;
-    }
-
-    const fromColumns = headerIndex >= 0 ? buildItemFromColumnValues(line, assignTokensToColumns(line, columns), quoteReference, vendorName) : null;
-    const nextItem = fromColumns ?? buildItemFromRegexLine(line, quoteReference, vendorName);
-    if (nextItem) {
-      previewItems.push(nextItem);
-      continue;
-    }
-
-    maybeAppendMetadataLine(previewItems.at(-1), line);
-  }
+  const normalizedPreviewItems = previewItems.map((item) => ({
+    ...item,
+    description: sanitizeItemDescription(item.description),
+    vendor: item.vendor ?? vendorName,
+    quoteReference: item.quoteReference ?? quoteReference,
+    bucket: inferBucket(item.label, item.description, item.manufacturer, item.warranty, item.origin),
+    rowKind: item.rowKind ?? (isChargeRow(item.label, item.description ?? "") ? "charge" : "item"),
+  }));
 
   return {
     vendorName,
     quoteReference,
-    previewItems,
+    previewItems: normalizedPreviewItems,
   };
 }

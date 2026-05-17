@@ -181,8 +181,8 @@ const MAJOR_PROJECT_VENDOR_QUOTE_COLUMN_MATCHERS: Record<MajorProjectVendorQuote
   quantity: ["qty", "quantity", "units", "count"],
   unit: ["unit", "uom", "measure"],
   vendor: ["vendor", "supplier", "distributor"],
-  unitPrice: ["customer pricing", "customer price", "sell price", "sale price", "customer unit price", "unit sell", "price each", "each price", "price ea", "unit price", "monthly", "mrc", "mrr"],
-  extendedPrice: ["customer total", "sell total", "line total", "extended price", "extended sell", "monthly total", "monthly amount", "customer amount", "amount"],
+  unitPrice: ["customer pricing", "customer price", "sell price", "sale price", "customer unit price", "unit sell", "price each", "each price", "price ea", "unit price", "discounted price", "discount price", "disc price", "disc. price", "net price", "monthly", "mrc", "mrr", "list price"],
+  extendedPrice: ["customer total", "sell total", "line total", "extended price", "extended sell", "discounted total", "discount total", "disc total", "monthly total", "monthly amount", "customer amount", "amount"],
   unitCost: ["our cost", "unit cost", "vendor cost", "cost each", "cost ea", "ea cost"],
   extendedCost: ["total cost", "extended cost", "vendor total", "our total", "cost total"],
 };
@@ -408,21 +408,42 @@ function resolveMajorProjectVendorQuoteHeaderRow(sheet: MajorProjectBomImportShe
   return bestScore >= 2 ? bestIndex : -1;
 }
 
+function scoreMajorProjectVendorQuoteHeaderMatch(normalizedCell: string, candidates: string[]) {
+  let bestScore = -1;
+
+  candidates.forEach((candidate, index) => {
+    if (!normalizedCell.includes(candidate)) return;
+    const exactMatch = normalizedCell === candidate;
+    const score = (exactMatch ? 1000 : 500) - index;
+    if (score > bestScore) {
+      bestScore = score;
+    }
+  });
+
+  return bestScore;
+}
+
 function resolveMajorProjectVendorQuoteColumnMap(headerCells: string[]) {
   const normalizedHeaders = headerCells.map((cell) => normalizeMajorProjectVendorQuoteHeader(cell));
   const columnMap: Partial<Record<MajorProjectVendorQuoteColumnKey, number>> = {};
 
-  normalizedHeaders.forEach((normalizedCell, index) => {
-    if (!normalizedCell) return;
+  for (const [columnKey, candidates] of Object.entries(MAJOR_PROJECT_VENDOR_QUOTE_COLUMN_MATCHERS) as Array<[MajorProjectVendorQuoteColumnKey, string[]]>) {
+    let bestIndex = -1;
+    let bestScore = -1;
 
-    for (const [columnKey, candidates] of Object.entries(MAJOR_PROJECT_VENDOR_QUOTE_COLUMN_MATCHERS) as Array<[MajorProjectVendorQuoteColumnKey, string[]]>) {
-      if (columnMap[columnKey] !== undefined) continue;
-      if (candidates.some((candidate) => normalizedCell.includes(candidate))) {
-        columnMap[columnKey] = index;
-        break;
+    normalizedHeaders.forEach((normalizedCell, index) => {
+      if (!normalizedCell) return;
+      const score = scoreMajorProjectVendorQuoteHeaderMatch(normalizedCell, candidates);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
       }
+    });
+
+    if (bestIndex >= 0) {
+      columnMap[columnKey] = bestIndex;
     }
-  });
+  }
 
   if (columnMap.label === undefined && columnMap.description !== undefined) {
     columnMap.label = columnMap.description;
