@@ -1,5 +1,6 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { extractVendorQuoteItemsWithAi } from "@/app/lib/ai-document-extraction";
 import type { MajorProjectVendorQuoteDraftItem } from "@/app/lib/quote-record";
 
 type VendorQuotePdfToken = {
@@ -665,13 +666,26 @@ export async function parseVendorQuotePdf(bytes: Uint8Array): Promise<ParsedVend
   const quoteReference = sanitizeQuoteReference(detectQuoteReference(lines));
   const pageGroups = getLinePageGroups(lines);
   const previewItems = pageGroups.flatMap((pageLines) => parseStructuredItemsFromPage(pageLines, quoteReference, undefined));
-  const vendorName = sanitizeVendorName(detectVendorName(lines), inferVendorNameFromItems(previewItems));
+  const deterministicVendorName = sanitizeVendorName(detectVendorName(lines), inferVendorNameFromItems(previewItems));
+  const aiFallback = !previewItems.length
+    ? await extractVendorQuoteItemsWithAi({
+        fileName: quoteReference || "vendor-quote.pdf",
+        vendorNameHint: deterministicVendorName,
+        quoteReferenceHint: quoteReference,
+        lines: lines.map((line) => `Line ${line.lineNumber}: ${line.text}`),
+      }).catch(() => null)
+    : null;
+  const resolvedPreviewItems = previewItems.length ? previewItems : (aiFallback?.previewItems ?? []);
+  const vendorName = sanitizeVendorName(
+    deterministicVendorName || aiFallback?.vendorName,
+    inferVendorNameFromItems(resolvedPreviewItems) || aiFallback?.vendorName,
+  );
 
-  const normalizedPreviewItems = previewItems.map((item) => ({
+  const normalizedPreviewItems = resolvedPreviewItems.map((item) => ({
     ...item,
     description: sanitizeItemDescription(item.description),
     vendor: item.vendor ?? vendorName,
-    quoteReference: item.quoteReference ?? quoteReference,
+    quoteReference: item.quoteReference ?? aiFallback?.quoteReference ?? quoteReference,
     bucket: inferBucket(item.label, item.description, item.manufacturer, item.warranty, item.origin),
     rowKind: item.rowKind ?? (isChargeRow(item.label, item.description ?? "") ? "charge" : "item"),
   }));

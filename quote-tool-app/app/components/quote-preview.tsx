@@ -4,7 +4,6 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import * as XLSX from "xlsx";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
@@ -264,38 +263,27 @@ function validateMajorProjectVendorQuoteFile(file: File) {
 }
 
 async function readMajorProjectBomWorkbook(file: File) {
-  const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(new Uint8Array(buffer), {
-    type: "array",
-    dense: false,
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await fetch("/api/major-project-bom-parse", {
+    method: "POST",
+    body: formData,
   });
-  const sheetNames = workbook.SheetNames.map((sheetName) => sheetName.trim()).filter(Boolean);
 
-  if (!sheetNames.length) {
-    throw new Error("Workbook parsed but no sheets were found.");
+  if (!response.ok) {
+    throw new Error("Workbook upload succeeded, but RapidQuote could not parse the workbook rows.");
   }
 
-  const sheets: MajorProjectBomImportSheet[] = sheetNames.map((sheetName) => {
-    const worksheet = workbook.Sheets[sheetName];
-    const rawRows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(worksheet, {
-      header: 1,
-      raw: false,
-      defval: "",
-      blankrows: false,
-    });
-    const normalizedRows = rawRows
-      .map((row, index) => ({
-        rowNumber: index + 1,
-        cells: (Array.isArray(row) ? row : []).map((value) => String(value ?? "").trim()),
-      }))
-      .filter((row) => row.cells.some((cell) => cell.trim().length > 0));
+  const parsed = await response.json() as {
+    sheetNames?: string[];
+    sheets?: MajorProjectBomImportSheet[];
+  };
+  const sheetNames = parsed.sheetNames?.map((sheetName) => sheetName.trim()).filter(Boolean) ?? [];
+  const sheets = parsed.sheets ?? [];
 
-    return {
-      name: sheetName,
-      rowCount: normalizedRows.length,
-      rows: normalizedRows.slice(0, MAJOR_PROJECT_BOM_MAX_SHEET_ROWS),
-    };
-  });
+  if (!sheetNames.length || !sheets.length) {
+    throw new Error("Workbook parsed but no sheets were found.");
+  }
 
   return { sheetNames, sheets };
 }
