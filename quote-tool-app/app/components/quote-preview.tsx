@@ -4582,7 +4582,7 @@ export default function QuotePreview() {
                       </div>
                       <label
                         htmlFor={majorProjectBomInputId}
-                        className={`mt-3 w-full rounded-[18px] border border-dashed bg-white px-4 py-4 text-left transition ${
+                        className={`mt-3 block w-full cursor-pointer rounded-[18px] border border-dashed bg-white px-4 py-4 text-left transition ${
                           isMajorProjectBomDragging
                             ? "border-[#2f6fed] bg-[#edf4ff]"
                             : majorProjectBomCaptureError
