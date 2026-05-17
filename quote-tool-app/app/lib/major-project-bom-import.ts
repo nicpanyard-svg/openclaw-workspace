@@ -10,7 +10,7 @@ const MAJOR_PROJECT_BOM_COLUMN_MATCHERS: Record<MajorProjectBomColumnKey, string
   quantity: ["qty", "quantity", "q'ty", "qyt", "count"],
   vendor: ["vendor name", "vendor", "supplier", "distributor", "vendor part"],
   manufacturer: ["manufacturer", "mfg", "make", "provider", "brand"],
-  unitCost: ["unit cost", "cost ea", "ea cost", "each cost", "unit price", "price each", "cost per", "unit amount"],
+  unitCost: ["unit cost", "cost ea", "ea cost", "each cost", "unit price", "price each", "cost per", "unit amount", "disc price", "disc. price", "discount price", "discounted price", "net price", "sell price", "customer price"],
   totalCost: ["extended cost", "ext cost", "line total", "total cost", "amount", "extended price", "ext price"],
 };
 

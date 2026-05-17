@@ -1685,6 +1685,7 @@ export default function QuotePreview() {
   const [majorProjectComponentBundleDraft, setMajorProjectComponentBundleDraft] = useState<MajorProjectComponentBundleDraft | null>(null);
   const [isMajorProjectBomDragging, setIsMajorProjectBomDragging] = useState(false);
   const [majorProjectBomCaptureError, setMajorProjectBomCaptureError] = useState<MajorProjectBomCaptureError | null>(null);
+  const [showMajorProjectBomColumnMapping, setShowMajorProjectBomColumnMapping] = useState(false);
   const [isMajorProjectVendorQuoteDragging, setIsMajorProjectVendorQuoteDragging] = useState(false);
   const [majorProjectVendorQuoteCaptureError, setMajorProjectVendorQuoteCaptureError] = useState<MajorProjectVendorQuoteCaptureError | null>(null);
   const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
@@ -1883,6 +1884,16 @@ export default function QuotePreview() {
       ...reviewedMap,
     };
   }, [majorProjectState.bomImport?.reviewedColumnMapBySheet, selectedMajorProjectBomHeaderCells, selectedMajorProjectBomSheet]);
+  const selectedMajorProjectBomDetectedFieldLabels = useMemo(
+    () => MAJOR_PROJECT_BOM_REVIEW_FIELDS
+      .filter((field) => {
+        const value = selectedMajorProjectBomReviewedColumnMap[field.key];
+        return value !== undefined && value !== null;
+      })
+      .map((field) => field.label),
+    [selectedMajorProjectBomReviewedColumnMap],
+  );
+  const shouldForceMajorProjectBomColumnMapping = selectedMajorProjectBomHeaderRowIndex === -1 || selectedMajorProjectBomDetectedFieldLabels.length === 0;
   const previewMajorProjectBomRows = useMemo(
     () => selectedMajorProjectBomSheet?.rows.slice(0, MAJOR_PROJECT_BOM_PREVIEW_ROW_COUNT) ?? [],
     [selectedMajorProjectBomSheet],
@@ -1951,6 +1962,11 @@ export default function QuotePreview() {
       };
     });
   }, [activeMajorOptionComponents]);
+  useEffect(() => {
+    if (shouldForceMajorProjectBomColumnMapping) {
+      setShowMajorProjectBomColumnMapping(true);
+    }
+  }, [shouldForceMajorProjectBomColumnMapping, selectedMajorProjectBomSheet?.name]);
   const majorProjectVendorMarginCards = useMemo(() => majorProjectMetrics.vendorSummary.map((vendor) => {
     const revenue = vendor.oneTimeRevenue + vendor.recurringRevenue;
     const cost = vendor.oneTimeCost + vendor.recurringCost;
@@ -2175,6 +2191,7 @@ export default function QuotePreview() {
 
     const capturedAt = new Date().toISOString();
     setMajorProjectBomCaptureError(null);
+    setShowMajorProjectBomColumnMapping(false);
     updateMajorProjectQuote((draft) => {
       if (!draft.majorProject) return draft;
       draft.majorProject.bomImport = {
@@ -2246,6 +2263,7 @@ export default function QuotePreview() {
 
   const clearMajorProjectBomImport = () => {
     setMajorProjectBomCaptureError(null);
+    setShowMajorProjectBomColumnMapping(false);
     updateMajorProjectQuote((draft) => {
       if (!draft.majorProject) return draft;
       draft.majorProject.bomImport = undefined;
@@ -4783,9 +4801,25 @@ export default function QuotePreview() {
                             <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#60707f]">Column mapping</strong>
                             <div className="mt-2 text-[12px] text-[#60707f]">
                               {selectedMajorProjectBomHeaderRowIndex >= 0
-                                ? `Detected header row ${selectedMajorProjectBomSheet.rows[selectedMajorProjectBomHeaderRowIndex]?.rowNumber ?? selectedMajorProjectBomHeaderRowIndex + 1}. Adjust the field mapping below before importing draft components.`
+                                ? `Detected header row ${selectedMajorProjectBomSheet.rows[selectedMajorProjectBomHeaderRowIndex]?.rowNumber ?? selectedMajorProjectBomHeaderRowIndex + 1}. RapidQuote can import the visible line items directly${selectedMajorProjectBomDetectedFieldLabels.length ? ` using ${selectedMajorProjectBomDetectedFieldLabels.join(", ")}` : ""}. Adjust mapping only if you need to override it.`
                                 : "No obvious header row was detected. You can still map the preview columns manually if this tab looks usable."}
                             </div>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button type="button" className="pill-button pill-button-active" onClick={importDraftMajorProjectBomComponents}>
+                              Import draft components
+                            </button>
+                            {!shouldForceMajorProjectBomColumnMapping ? (
+                              <button
+                                type="button"
+                                className="pill-button"
+                                onClick={() => setShowMajorProjectBomColumnMapping((current) => !current)}
+                              >
+                                {showMajorProjectBomColumnMapping ? "Hide mapping" : "Adjust mapping"}
+                              </button>
+                            ) : null}
+                          </div>
+                          {(showMajorProjectBomColumnMapping || shouldForceMajorProjectBomColumnMapping) ? (
                             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                               {MAJOR_PROJECT_BOM_REVIEW_FIELDS.map((field) => (
                                 <label key={field.key} className="builder-field compact">
@@ -4806,12 +4840,7 @@ export default function QuotePreview() {
                                 </label>
                               ))}
                             </div>
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <button type="button" className="pill-button pill-button-active" onClick={importDraftMajorProjectBomComponents}>
-                              Import draft components
-                            </button>
-                          </div>
+                          ) : null}
                           {majorProjectState.bomImport?.importedAt ? (
                             <div className="mt-2 space-y-3">
                               <div className="text-[12px] text-[#60707f]">
