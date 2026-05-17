@@ -453,6 +453,8 @@ function normalizeVendorQuoteDraftItem(item: Partial<MajorProjectVendorQuoteDraf
   const quantity = Math.max(Number(item?.quantity ?? 1) || 1, 0);
   const unitPrice = Number(item?.unitPrice ?? 0) || 0;
   const extendedPrice = item?.extendedPrice ?? roundCurrency(quantity * unitPrice);
+  const unitCost = Number.isFinite(Number(item?.unitCost)) ? Number(item?.unitCost) : undefined;
+  const extendedCost = item?.extendedCost ?? (unitCost !== undefined ? roundCurrency(quantity * unitCost) : undefined);
 
   return {
     id: normalizeText(item?.id) || `vendor-quote-item-${index + 1}`,
@@ -462,6 +464,8 @@ function normalizeVendorQuoteDraftItem(item: Partial<MajorProjectVendorQuoteDraf
     unit: normalizeText(item?.unit) || undefined,
     unitPrice: roundCurrency(unitPrice),
     extendedPrice: roundCurrency(Number(extendedPrice) || 0),
+    unitCost: unitCost !== undefined ? roundCurrency(unitCost) : undefined,
+    extendedCost: extendedCost !== undefined ? roundCurrency(Number(extendedCost) || 0) : undefined,
     bucket: (item?.bucket ?? "hardware") as MajorProjectSimpleBucket,
     rowNumber: Number.isFinite(Number(item?.rowNumber)) ? Math.max(Number(item?.rowNumber), 1) : undefined,
     vendor: normalizeText(item?.vendor) || undefined,

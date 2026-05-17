@@ -129,7 +129,16 @@ type MajorProjectComponentBundleDraft = {
   sourceComponentId: string;
   selectedComponentIds: string[];
 };
-type MajorProjectVendorQuoteColumnKey = "label" | "description" | "quantity" | "unit" | "vendor" | "unitPrice" | "extendedPrice";
+type MajorProjectVendorQuoteColumnKey =
+  | "label"
+  | "description"
+  | "quantity"
+  | "unit"
+  | "vendor"
+  | "unitPrice"
+  | "extendedPrice"
+  | "unitCost"
+  | "extendedCost";
 
 const EXECUTIVE_SUMMARY_BLOCK_LABELS: Record<QuoteStructuredTextBlock["type"], string> = {
   heading: "Heading",
@@ -172,8 +181,10 @@ const MAJOR_PROJECT_VENDOR_QUOTE_COLUMN_MATCHERS: Record<MajorProjectVendorQuote
   quantity: ["qty", "quantity", "units", "count"],
   unit: ["unit", "uom", "measure"],
   vendor: ["vendor", "supplier", "distributor"],
-  unitPrice: ["unit price", "unit cost", "price each", "each price", "ea price", "cost ea", "price ea", "monthly", "mrc", "mrr"],
-  extendedPrice: ["extended", "ext price", "line total", "total", "amount", "extended price", "monthly total"],
+  unitPrice: ["customer pricing", "customer price", "sell price", "sale price", "customer unit price", "unit sell", "price each", "each price", "price ea", "unit price", "monthly", "mrc", "mrr"],
+  extendedPrice: ["customer total", "sell total", "line total", "extended price", "extended sell", "monthly total", "monthly amount", "customer amount", "amount"],
+  unitCost: ["our cost", "unit cost", "vendor cost", "cost each", "cost ea", "ea cost"],
+  extendedCost: ["total cost", "extended cost", "vendor total", "our total", "cost total"],
 };
 
 const MAJOR_PROJECT_BOM_REVIEW_FIELDS: Array<{ key: MajorProjectBomColumnKey; label: string }> = [
@@ -429,8 +440,10 @@ function buildMajorProjectVendorQuoteItems(sheet: MajorProjectBomImportSheet, fi
     const vendor = getMajorProjectBomCell(row, columnMap.vendor);
     const unitPriceText = getMajorProjectBomCell(row, columnMap.unitPrice);
     const extendedPriceText = getMajorProjectBomCell(row, columnMap.extendedPrice);
+    const unitCostText = getMajorProjectBomCell(row, columnMap.unitCost);
+    const extendedCostText = getMajorProjectBomCell(row, columnMap.extendedCost);
 
-    if (shouldSkipMajorProjectVendorQuoteRow(label, description, unitPriceText, extendedPriceText)) {
+    if (shouldSkipMajorProjectVendorQuoteRow(label, description, [unitPriceText, extendedPriceText, unitCostText, extendedCostText].filter(Boolean).join(" "), extendedPriceText)) {
       continue;
     }
 
@@ -438,8 +451,17 @@ function buildMajorProjectVendorQuoteItems(sheet: MajorProjectBomImportSheet, fi
     const quantity = quantityValue > 0 ? quantityValue : 1;
     const unitPriceValue = parseMajorProjectBomCurrency(unitPriceText);
     const extendedPriceValue = parseMajorProjectBomCurrency(extendedPriceText);
-    const resolvedUnitPrice = unitPriceValue ?? (extendedPriceValue !== null ? Number((extendedPriceValue / quantity).toFixed(2)) : 0);
+    const unitCostValue = parseMajorProjectBomCurrency(unitCostText);
+    const extendedCostValue = parseMajorProjectBomCurrency(extendedCostText);
+    const resolvedUnitPrice = unitPriceValue
+      ?? (extendedPriceValue !== null ? Number((extendedPriceValue / quantity).toFixed(2)) : null)
+      ?? unitCostValue
+      ?? (extendedCostValue !== null ? Number((extendedCostValue / quantity).toFixed(2)) : 0);
     const resolvedExtendedPrice = extendedPriceValue ?? Number((quantity * resolvedUnitPrice).toFixed(2));
+    const resolvedUnitCost = unitCostValue
+      ?? (extendedCostValue !== null ? Number((extendedCostValue / quantity).toFixed(2)) : null)
+      ?? resolvedUnitPrice;
+    const resolvedExtendedCost = extendedCostValue ?? Number((quantity * resolvedUnitCost).toFixed(2));
     const resolvedLabel = label || description || stripFileExtension(fileName);
 
     if (!resolvedLabel.trim()) {
@@ -454,6 +476,8 @@ function buildMajorProjectVendorQuoteItems(sheet: MajorProjectBomImportSheet, fi
       unit,
       unitPrice: resolvedUnitPrice,
       extendedPrice: resolvedExtendedPrice,
+      unitCost: resolvedUnitCost,
+      extendedCost: resolvedExtendedCost,
       bucket: inferMajorProjectVendorQuoteBucket(resolvedLabel, description, vendor),
       rowNumber: row.rowNumber,
       vendor: vendor || undefined,
@@ -2693,11 +2717,22 @@ export default function QuotePreview() {
 
   const importMajorProjectVendorQuoteRows = (quoteId: string) => {
     let importedCount = 0;
+    let switchedToQuickQuote = false;
+    let blockedByMappedBuilderContent = false;
 
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => (entry.vendorQuotes ?? []).some((vendorQuote) => vendorQuote.id === quoteId));
       const vendorQuote = option?.vendorQuotes?.find((entry) => entry.id === quoteId);
-      if (!option || !vendorQuote?.previewItems?.length) return draft;
+      if (!draft.majorProject || !option || !vendorQuote?.previewItems?.length) return draft;
+
+      const hasMappedBuilderContent = (option.components?.length ?? 0) > 0
+        || (option.bundles?.length ?? 0) > 0
+        || (option.customerQuoteLines?.length ?? 0) > 0;
+
+      if (draft.majorProject.builderMode === "advanced" && hasMappedBuilderContent) {
+        blockedByMappedBuilderContent = true;
+        return draft;
+      }
 
       const nextIndex = (option.simpleRows?.length ?? 0) + 1;
       const vendorName = vendorQuote.vendorName?.trim() || undefined;
@@ -2706,6 +2741,8 @@ export default function QuotePreview() {
         const quantity = Math.max(item.quantity, 0);
         const customerUnitPrice = Math.max(item.unitPrice, 0);
         const customerExtendedPrice = Number(((quantity || 1) * customerUnitPrice).toFixed(2));
+        const ourUnitCost = Math.max(item.unitCost ?? customerUnitPrice, 0);
+        const ourExtendedCost = Number((item.extendedCost ?? ((quantity || 1) * ourUnitCost)).toFixed(2));
         const sourceText = createMajorProjectVendorQuoteSourceText(vendorName, quoteLabel, item.rowNumber);
         const metadataSummary = buildVendorQuoteMetadataSummary(item);
 
@@ -2717,8 +2754,8 @@ export default function QuotePreview() {
           unit: item.unit || "ea",
           customerUnitPrice,
           customerExtendedPrice,
-          ourUnitCost: customerUnitPrice,
-          ourExtendedCost: customerExtendedPrice,
+          ourUnitCost,
+          ourExtendedCost,
           bucket: item.bucket,
           importSource: {
             type: "vendor_quote" as const,
@@ -2742,11 +2779,24 @@ export default function QuotePreview() {
             importedAt: new Date().toISOString(),
           }
         : entry);
+      if (draft.majorProject.builderMode === "advanced") {
+        draft.majorProject.builderMode = "simple";
+        switchedToQuickQuote = true;
+      }
       return draft;
     });
 
+    if (blockedByMappedBuilderContent) {
+      setWorkflowNotice("This option already has mapped builder content. Use Add components here, or switch the option back to Quick Quote before importing draft rows.");
+      return;
+    }
+
     if (importedCount > 0) {
-      setWorkflowNotice(`Added ${importedCount} draft line item${importedCount === 1 ? "" : "s"} from the vendor quote.`);
+      setWorkflowNotice(
+        switchedToQuickQuote
+          ? `Added ${importedCount} draft line item${importedCount === 1 ? "" : "s"} from the vendor quote and switched this option to Quick Quote so the imported rows affect pricing immediately.`
+          : `Added ${importedCount} draft line item${importedCount === 1 ? "" : "s"} from the vendor quote.`,
+      );
     }
   };
 
@@ -2765,6 +2815,8 @@ export default function QuotePreview() {
         const quantity = Math.max(item.quantity, 0) || 1;
         const customerUnitPrice = Math.max(item.unitPrice, 0);
         const customerExtendedPrice = Number(((quantity || 1) * customerUnitPrice).toFixed(2));
+        const vendorUnitCost = Math.max(item.unitCost ?? customerUnitPrice, 0);
+        const vendorExtendedCost = Number((item.extendedCost ?? ((quantity || 1) * vendorUnitCost)).toFixed(2));
         const lineType = majorProjectVendorQuoteLineType(item.bucket);
         const sourceText = createMajorProjectVendorQuoteSourceText(vendorName, quoteLabel, item.rowNumber);
         const draftComponent = createMajorProjectComponentDraft(nextIndex + itemIndex);
@@ -2782,8 +2834,8 @@ export default function QuotePreview() {
           unit: item.unit || "ea",
           customerUnitPrice,
           customerExtendedPrice,
-          vendorUnitCost: customerUnitPrice,
-          vendorExtendedCost: customerExtendedPrice,
+          vendorUnitCost,
+          vendorExtendedCost,
           schedule: majorProjectVendorQuoteSchedule(item.bucket),
           costBasis: "vendor_quote" as const,
           resaleBasis: "cost_plus" as const,
@@ -2874,6 +2926,11 @@ export default function QuotePreview() {
           capturedAt: current.capturedAt,
           source: current.source,
         }));
+        setWorkflowNotice(
+          majorProjectState.builderMode === "advanced"
+            ? `Loaded ${file.name}. Choose Add components to keep working in Mapped Builder, or Add draft rows to switch this option to Quick Quote.`
+            : `Loaded ${file.name}. Review the preview, then choose Add draft rows to apply it to the quote.`,
+        );
       } catch (caughtError) {
         updateActiveMajorVendorQuote(entryId, (current) => ({
           ...current,
@@ -2965,7 +3022,7 @@ export default function QuotePreview() {
                     disabled={vendorQuote.status !== "loaded" || !(vendorQuote.previewItems?.length)}
                     onClick={() => importMajorProjectVendorQuoteRows(vendorQuote.id)}
                   >
-                    Add draft rows
+                    Add draft rows (Quick Quote)
                   </button>
                   <button
                     type="button"
@@ -2979,10 +3036,10 @@ export default function QuotePreview() {
                 </div>
               </div>
 
-              <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1.4fr]">
-                <label className="builder-field compact">
-                  <span>Vendor / source label</span>
-                  <input
+                <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1.4fr]">
+                  <label className="builder-field compact">
+                    <span>Vendor / source label</span>
+                    <input
                     value={vendorQuote.vendorName ?? ""}
                     onChange={(event) => updateActiveMajorVendorQuote(vendorQuote.id, (current) => ({ ...current, vendorName: event.target.value }))}
                     placeholder="Enter vendor name"
@@ -2995,12 +3052,18 @@ export default function QuotePreview() {
                     onChange={(event) => updateActiveMajorVendorQuote(vendorQuote.id, (current) => ({ ...current, quoteLabel: event.target.value }))}
                     placeholder="Internal quote label or file reference"
                   />
-                </label>
-              </div>
+                  </label>
+                </div>
 
-              {vendorQuote.readError ? (
-                <div className="mt-3 rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">{vendorQuote.readError}</div>
-              ) : null}
+                {vendorQuote.status === "loaded" && !(vendorQuote.importedRowIds?.length) && !(vendorQuote.importedComponentIds?.length) ? (
+                  <div className="mt-3 rounded-[14px] border border-[#dce5fb] bg-[#f5f8ff] px-3 py-3 text-[12px] text-[#28446c]">
+                    This file is staged only. Choose <strong>Add draft rows (Quick Quote)</strong> to switch this option into Quick Quote pricing, or <strong>Add components</strong> to keep working in Mapped Builder.
+                  </div>
+                ) : null}
+
+                {vendorQuote.readError ? (
+                  <div className="mt-3 rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">{vendorQuote.readError}</div>
+                ) : null}
 
               {vendorQuote.previewItems?.length ? (
                 <div className="mt-3 rounded-[16px] border border-[#e5ebf1] bg-[#fbfdff] p-3">
@@ -4877,6 +4940,12 @@ export default function QuotePreview() {
                                       />
                                     </label>
                                   </div>
+
+                                  {vendorQuote.status === "loaded" && !(vendorQuote.importedRowIds?.length) ? (
+                                    <div className="mt-3 rounded-[14px] border border-[#dce5fb] bg-[#f5f8ff] px-3 py-3 text-[12px] text-[#28446c]">
+                                      This file is staged only. Choose <strong>Add draft rows</strong> to apply the parsed rows to the live quote.
+                                    </div>
+                                  ) : null}
 
                                   {vendorQuote.readError ? (
                                     <div className="mt-3 rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">{vendorQuote.readError}</div>

@@ -454,6 +454,8 @@ export type MajorProjectVendorQuoteDraftItem = {
   unit?: string;
   unitPrice: number;
   extendedPrice: number;
+  unitCost?: number;
+  extendedCost?: number;
   bucket: MajorProjectSimpleBucket;
   rowNumber?: number;
   vendor?: string;
