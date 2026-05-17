@@ -44,7 +44,13 @@ export async function parseMajorProjectBomWorkbookBytes(params: {
     type: "array",
     dense: false,
   });
-  const sheetNames = workbook.SheetNames.map((sheetName) => sheetName.trim()).filter(Boolean);
+  const sheetEntries = workbook.SheetNames
+    .map((rawSheetName) => ({
+      rawSheetName,
+      displayName: rawSheetName.trim(),
+    }))
+    .filter((entry) => entry.displayName);
+  const sheetNames = sheetEntries.map((entry) => entry.displayName);
 
   if (!sheetNames.length) {
     throw new Error("Workbook parsed but no sheets were found.");
@@ -53,21 +59,21 @@ export async function parseMajorProjectBomWorkbookBytes(params: {
   const aiExtractedSheetNames: string[] = [];
   const sheets: MajorProjectBomImportSheet[] = [];
 
-  for (const sheetName of sheetNames) {
-    const worksheet = workbook.Sheets[sheetName];
+  for (const sheetEntry of sheetEntries) {
+    const worksheet = workbook.Sheets[sheetEntry.rawSheetName];
     const normalizedRows = normalizeSheetRows(worksheet);
     let rows = normalizedRows.slice(0, MAJOR_PROJECT_BOM_MAX_SHEET_ROWS);
 
-    if (shouldAttemptAiFallback({ name: sheetName, rowCount: normalizedRows.length, rows })) {
+    if (shouldAttemptAiFallback({ name: sheetEntry.displayName, rowCount: normalizedRows.length, rows })) {
       try {
         const aiRows = await extractBomRowsWithAi({
           fileName: params.fileName ?? "workbook",
-          sheetName,
+          sheetName: sheetEntry.displayName,
           rows,
         });
         if (aiRows?.length) {
           rows = aiRows;
-          aiExtractedSheetNames.push(sheetName);
+          aiExtractedSheetNames.push(sheetEntry.displayName);
         }
       } catch {
         // Preserve deterministic rows if AI fallback fails.
@@ -75,7 +81,7 @@ export async function parseMajorProjectBomWorkbookBytes(params: {
     }
 
     sheets.push({
-      name: sheetName,
+      name: sheetEntry.displayName,
       rowCount: rows.length,
       rows,
     });
