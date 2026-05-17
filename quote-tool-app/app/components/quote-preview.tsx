@@ -681,10 +681,12 @@ function createDraftMajorProjectComponentFromBomRow(params: {
   return {
     ...draft,
     internalName: resolvedName,
-    customerFacingLabel: description && description !== resolvedName ? description : "",
+    customerFacingLabel: description && description !== resolvedName ? description : resolvedName,
     vendor,
     manufacturer,
     quantity,
+    customerUnitPrice: vendorUnitCost,
+    customerExtendedPrice: vendorExtendedCost,
     vendorUnitCost,
     vendorExtendedCost,
     notes: noteParts.join("\n"),
@@ -1894,10 +1896,11 @@ export default function QuotePreview() {
     [selectedMajorProjectBomReviewedColumnMap],
   );
   const shouldForceMajorProjectBomColumnMapping = selectedMajorProjectBomHeaderRowIndex === -1 || selectedMajorProjectBomDetectedFieldLabels.length === 0;
-  const previewMajorProjectBomRows = useMemo(
-    () => selectedMajorProjectBomSheet?.rows.slice(0, MAJOR_PROJECT_BOM_PREVIEW_ROW_COUNT) ?? [],
-    [selectedMajorProjectBomSheet],
-  );
+  const previewMajorProjectBomRows = useMemo(() => {
+    if (!selectedMajorProjectBomSheet) return [];
+    const startIndex = selectedMajorProjectBomHeaderRowIndex >= 0 ? selectedMajorProjectBomHeaderRowIndex : 0;
+    return selectedMajorProjectBomSheet.rows.slice(startIndex, startIndex + MAJOR_PROJECT_BOM_PREVIEW_ROW_COUNT);
+  }, [selectedMajorProjectBomHeaderRowIndex, selectedMajorProjectBomSheet]);
   const componentOptions = useMemo(() => activeMajorOptionComponents.map((component) => ({
     id: component.id,
     label: component.internalName || component.customerFacingLabel || component.id,
@@ -4789,10 +4792,10 @@ export default function QuotePreview() {
                             </select>
                           </label>
                           <div className="mt-2 text-[12px]">
-                            Showing {selectedMajorProjectBomSheet.rows.length} preview row{selectedMajorProjectBomSheet.rows.length === 1 ? "" : "s"} from the selected tab using conservative header detection.
+                            Showing {previewMajorProjectBomRows.length} preview row{previewMajorProjectBomRows.length === 1 ? "" : "s"} from the detected item table in the selected tab.
                             {selectedMajorProjectBomSheet.rowCount > selectedMajorProjectBomSheet.rows.length ? ` ${selectedMajorProjectBomSheet.rowCount} non-empty rows were captured in total.` : ""}
                           </div>
-                          {selectedMajorProjectBomSheet.rows.length === 0 ? (
+                          {previewMajorProjectBomRows.length === 0 ? (
                             <div className="mt-3 rounded-[12px] border border-[#f2d3b5] bg-[#fff8ef] px-3 py-3 text-[12px] text-[#8a4b16]">
                               No extracted workbook rows are available for this tab. If this workbook was captured before the latest BOM import update, remove it and upload it again in this same quote.
                             </div>
