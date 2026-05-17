@@ -213,6 +213,26 @@ function formatMajorProjectVendorQuoteFileType(fileName: string, mimeType?: stri
   return formatMajorProjectBomFileType(fileName, mimeType);
 }
 
+function NormalizedHardwarePreviewCard({
+  imageUrl,
+  altText,
+}: {
+  imageUrl?: string;
+  altText: string;
+}) {
+  return (
+    <div className="rounded-[18px] border border-[#dce3ea] bg-[#f8fbfd] p-3">
+      {imageUrl ? (
+        <img src={imageUrl} alt={altText} className="h-[132px] w-full rounded-[12px] bg-white object-contain" />
+      ) : (
+        <div className="flex h-[132px] items-center justify-center rounded-[12px] border border-dashed border-[#d8e1e8] bg-white px-3 text-center text-[12px] text-[#7a8794]">
+          Add an image URL to show a normalized hardware preview.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function validateMajorProjectBomFile(file: File) {
   const extension = getFileExtension(file.name);
   const mimeType = file.type.trim().toLowerCase();
@@ -1252,6 +1272,7 @@ function createMajorProjectComponentDraft(index: number, bundleId = ""): MajorPr
     id: `major-component-${Date.now()}-${index}`,
     internalName: `Component ${index}`,
     customerFacingLabel: "",
+    imageUrl: undefined,
     specSheetLabel: "",
     specSheetLocation: "",
     specSheetAttachment: undefined,
@@ -5040,6 +5061,22 @@ export default function QuotePreview() {
                                       onRemove={() => removeMajorProjectSimpleRow(row.id)}
                                     />
                                   </div>
+                                  {row.bucket === "hardware" ? (
+                                    <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
+                                      <NormalizedHardwarePreviewCard
+                                        imageUrl={row.imageUrl}
+                                        altText={row.label || row.description || `Major Project row ${index + 1}`}
+                                      />
+                                      <label className="builder-field compact">
+                                        <span>Image URL</span>
+                                        <input
+                                          value={row.imageUrl ?? ""}
+                                          onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, imageUrl: e.target.value.trim() || undefined }))}
+                                          placeholder="https://..."
+                                        />
+                                      </label>
+                                    </div>
+                                  ) : null}
                                   <div className="grid gap-3 lg:grid-cols-[1.3fr_1.1fr_.7fr_1fr_1fr_1fr]">
                                     <label className="builder-field compact"><span>Label / name</span><input value={row.label} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, label: e.target.value }))} /></label>
                                     <label className="builder-field compact"><span>Bucket</span><select value={row.bucket} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, bucket: e.target.value as MajorProjectSimpleBucket }))}>{majorProjectBucketOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
@@ -5248,6 +5285,22 @@ export default function QuotePreview() {
                               <label className="builder-field compact"><span>Customer unit price</span><input type="number" step="0.01" value={component.customerUnitPrice} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(e.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /></label>
                               <label className="builder-field compact"><span>Vendor unit cost</span><input type="number" step="0.01" value={component.vendorUnitCost} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const vendorUnitCost = Math.max(parseNumber(e.target.value), 0); return { ...current, vendorUnitCost, vendorExtendedCost: Number((current.quantity * vendorUnitCost).toFixed(2)) }; })} /></label>
                             </div>
+                            {component.lineType === "hardware" ? (
+                              <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
+                                <NormalizedHardwarePreviewCard
+                                  imageUrl={component.imageUrl}
+                                  altText={component.customerFacingLabel || component.internalName || "Major Project component"}
+                                />
+                                <label className="builder-field compact">
+                                  <span>Image URL</span>
+                                  <input
+                                    value={component.imageUrl ?? ""}
+                                    onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, imageUrl: e.target.value.trim() || undefined }))}
+                                    placeholder="https://..."
+                                  />
+                                </label>
+                              </div>
+                            ) : null}
                             <label className="builder-field compact mt-3">
                               <span>Line item description</span>
                               <textarea rows={2} value={component.notes ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, notes: e.target.value }))} placeholder="Customer-facing description that should travel with this line item" />

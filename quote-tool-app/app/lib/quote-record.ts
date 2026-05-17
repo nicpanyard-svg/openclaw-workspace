@@ -355,6 +355,7 @@ export type MajorProjectComponent = {
   id: string;
   internalName: string;
   customerFacingLabel?: string;
+  imageUrl?: string;
   specSheetLabel?: string;
   specSheetLocation?: string;
   specSheetAttachment?: MajorProjectSpecAttachment;
@@ -432,6 +433,7 @@ export type MajorProjectSimpleRowImportSource = {
 export type MajorProjectSimpleRow = {
   id: string;
   label: string;
+  imageUrl?: string;
   description?: string;
   specSheetLabel?: string;
   specSheetLocation?: string;
