@@ -29,7 +29,17 @@ type ParsedVendorQuotePdf = {
   previewItems: MajorProjectVendorQuoteDraftItem[];
 };
 
+type MinimalDOMMatrixInitObject = {
+  a?: number;
+  b?: number;
+  c?: number;
+  d?: number;
+  e?: number;
+  f?: number;
+};
+
 let cachedPdfWorkerSrc: string | undefined;
+let pdfJsGeometryReady = false;
 
 const TABLE_STOP_PATTERN = /^(discounted:|untaxed amount:|taxes:|total amount|quote total:|subtotal\b|sales tax\b|total\b|payment term:|delivery term:|delivery time:|validity:|notes:|note to customer\b|lead time\b|expiry\b|accepted date\b|accepted by\b|confirmed by|customer'?s acknowledgement|signature:|name:|title:|page \d+ of \d+|by accepting this quote|wesco may assess|token\s*=)\b/i;
 const METADATA_ONLY_PATTERN = /^(hs code:|weight:|volume:)\b/i;
@@ -466,7 +476,128 @@ function sanitizeItemDescription(value: string | undefined) {
   return normalized || undefined;
 }
 
+class MinimalDOMMatrix {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  e: number;
+  f: number;
+  is2D: boolean;
+
+  constructor(init?: ArrayLike<number> | MinimalDOMMatrixInitObject) {
+    const objectInit: MinimalDOMMatrixInitObject | undefined = init && !Array.isArray(init) && !ArrayBuffer.isView(init)
+      ? init as MinimalDOMMatrixInitObject
+      : undefined;
+    const values = Array.isArray(init) || ArrayBuffer.isView(init)
+      ? Array.from(init as ArrayLike<number>)
+      : null;
+
+    this.a = values?.[0] ?? objectInit?.a ?? 1;
+    this.b = values?.[1] ?? objectInit?.b ?? 0;
+    this.c = values?.[2] ?? objectInit?.c ?? 0;
+    this.d = values?.[3] ?? objectInit?.d ?? 1;
+    this.e = values?.[4] ?? objectInit?.e ?? 0;
+    this.f = values?.[5] ?? objectInit?.f ?? 0;
+    this.is2D = true;
+  }
+
+  multiplySelf(other: MinimalDOMMatrix | ArrayLike<number>) {
+    const matrix = other instanceof MinimalDOMMatrix ? other : new MinimalDOMMatrix(other);
+    const nextA = this.a * matrix.a + this.c * matrix.b;
+    const nextB = this.b * matrix.a + this.d * matrix.b;
+    const nextC = this.a * matrix.c + this.c * matrix.d;
+    const nextD = this.b * matrix.c + this.d * matrix.d;
+    const nextE = this.a * matrix.e + this.c * matrix.f + this.e;
+    const nextF = this.b * matrix.e + this.d * matrix.f + this.f;
+    this.a = nextA;
+    this.b = nextB;
+    this.c = nextC;
+    this.d = nextD;
+    this.e = nextE;
+    this.f = nextF;
+    return this;
+  }
+
+  preMultiplySelf(other: MinimalDOMMatrix | ArrayLike<number>) {
+    const matrix = other instanceof MinimalDOMMatrix ? other : new MinimalDOMMatrix(other);
+    const nextA = matrix.a * this.a + matrix.c * this.b;
+    const nextB = matrix.b * this.a + matrix.d * this.b;
+    const nextC = matrix.a * this.c + matrix.c * this.d;
+    const nextD = matrix.b * this.c + matrix.d * this.d;
+    const nextE = matrix.a * this.e + matrix.c * this.f + matrix.e;
+    const nextF = matrix.b * this.e + matrix.d * this.f + matrix.f;
+    this.a = nextA;
+    this.b = nextB;
+    this.c = nextC;
+    this.d = nextD;
+    this.e = nextE;
+    this.f = nextF;
+    return this;
+  }
+
+  translate(tx = 0, ty = 0) {
+    return this.translateSelf(tx, ty);
+  }
+
+  translateSelf(tx = 0, ty = 0) {
+    this.e += tx;
+    this.f += ty;
+    return this;
+  }
+
+  scale(scaleX = 1, scaleY = scaleX) {
+    return this.scaleSelf(scaleX, scaleY);
+  }
+
+  scaleSelf(scaleX = 1, scaleY = scaleX) {
+    this.a *= scaleX;
+    this.b *= scaleX;
+    this.c *= scaleY;
+    this.d *= scaleY;
+    return this;
+  }
+
+  invertSelf() {
+    const determinant = this.a * this.d - this.b * this.c;
+    if (!determinant) {
+      this.a = Number.NaN;
+      this.b = Number.NaN;
+      this.c = Number.NaN;
+      this.d = Number.NaN;
+      this.e = Number.NaN;
+      this.f = Number.NaN;
+      return this;
+    }
+
+    const nextA = this.d / determinant;
+    const nextB = -this.b / determinant;
+    const nextC = -this.c / determinant;
+    const nextD = this.a / determinant;
+    const nextE = (this.c * this.f - this.d * this.e) / determinant;
+    const nextF = (this.b * this.e - this.a * this.f) / determinant;
+    this.a = nextA;
+    this.b = nextB;
+    this.c = nextC;
+    this.d = nextD;
+    this.e = nextE;
+    this.f = nextF;
+    return this;
+  }
+}
+
+async function ensurePdfJsGeometryGlobals() {
+  if (pdfJsGeometryReady) return;
+
+  if (!globalThis.DOMMatrix) {
+    globalThis.DOMMatrix = MinimalDOMMatrix as unknown as typeof DOMMatrix;
+  }
+
+  pdfJsGeometryReady = true;
+}
+
 async function extractPdfLines(bytes: Uint8Array) {
+  await ensurePdfJsGeometryGlobals();
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   if (!cachedPdfWorkerSrc) {
     const workerPath = path.join(process.cwd(), "node_modules", "pdfjs-dist", "legacy", "build", "pdf.worker.mjs");
