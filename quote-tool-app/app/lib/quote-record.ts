@@ -52,6 +52,21 @@ export type QuoteParty = {
 export type QuoteRevision = {
   version: string;
   changeDetails: string;
+  recordedAt?: string;
+  revisionId?: string;
+};
+
+export type QuoteGovernanceState = {
+  schemaVersion: number;
+  quoteFamilyId: string;
+  revisionId: string;
+  revisionNumber: number;
+  revisionLabel: string;
+  sourceMode: "standalone_first" | "crm_attached";
+  sourceOfTruth: "rapidquote";
+  accountKey?: string;
+  opportunityKey?: string;
+  basedOnRevisionId?: string;
 };
 
 export type QuoteSectionState = {
@@ -196,6 +211,8 @@ export type QuoteMetadata = {
   ownerName?: string;
   accountId?: string;
   accountName?: string;
+  opportunityId?: string;
+  opportunityName?: string;
   lastTouchedAt?: string;
 };
 
@@ -572,6 +589,7 @@ export type MajorProjectState = {
 
 export type QuoteRecord = {
   metadata: QuoteMetadata;
+  governance?: QuoteGovernanceState;
   commercial: QuoteCommercialState;
   majorProject: MajorProjectState;
   serviceAgreement: QuoteServiceAgreementState;

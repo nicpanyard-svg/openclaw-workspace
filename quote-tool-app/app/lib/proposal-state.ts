@@ -1,5 +1,6 @@
 import { createDefaultIntegrationState } from "@/app/lib/crm";
 import { createDefaultCommercialState } from "@/app/lib/commercial-model";
+import { normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { normalizeExecutiveSummaryBlocks, serializeExecutiveSummaryBlocks } from "@/app/lib/executive-summary";
 import { createDefaultMajorProjectState } from "@/app/lib/major-project";
 import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spec-attachments";
@@ -122,7 +123,18 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
       metadata: {
         ...parsed.metadata,
         workflowMode: parsed.metadata?.workflowMode ?? "quick_quote",
+        opportunityId: normalizeText(parsed.metadata?.opportunityId) || undefined,
+        opportunityName: normalizeText(parsed.metadata?.opportunityName) || undefined,
       },
+      governance: normalizeQuoteGovernanceState({
+        metadata: {
+          ...parsed.metadata,
+          opportunityId: normalizeText(parsed.metadata?.opportunityId) || undefined,
+          opportunityName: normalizeText(parsed.metadata?.opportunityName) || undefined,
+        },
+        internal: parsed.internal,
+        governance: parsed.governance,
+      }),
       commercial: {
         ...createDefaultCommercialState(),
         ...parsed.commercial,

@@ -17,6 +17,7 @@ export type QuoteCrmReferences = {
   account?: CrmExternalReference;
   contact?: CrmExternalReference;
   deal?: CrmExternalReference;
+  opportunity?: CrmExternalReference;
   quote?: CrmExternalReference;
   lineItems?: CrmExternalReference[];
 };
@@ -94,6 +95,43 @@ export const defaultCrmFieldMappings: CrmFieldMapping[] = [
     direction: "push",
   },
   {
+    provider: "salesforce",
+    internalField: "metadata.opportunityName",
+    externalField: "Opportunity.Name",
+    direction: "bidirectional",
+    notes: "Standalone RapidQuote can carry an opportunity label before Salesforce becomes attached.",
+  },
+  {
+    provider: "salesforce",
+    internalField: "metadata.status",
+    externalField: "SBQQ__Quote__c.Status__c",
+    direction: "push",
+  },
+  {
+    provider: "salesforce",
+    internalField: "metadata.revisionVersion",
+    externalField: "SBQQ__Quote__c.Version__c",
+    direction: "push",
+  },
+  {
+    provider: "salesforce",
+    internalField: "sections.sectionA.computed.monthlyRecurringTotal",
+    externalField: "SBQQ__Quote__c.Monthly_Recurring__c",
+    direction: "push",
+  },
+  {
+    provider: "salesforce",
+    internalField: "sections.sectionB.computed.equipmentTotal",
+    externalField: "SBQQ__Quote__c.Equipment_Total__c",
+    direction: "push",
+  },
+  {
+    provider: "salesforce",
+    internalField: "sections.sectionC.computed.serviceTotal",
+    externalField: "SBQQ__Quote__c.Services_Total__c",
+    direction: "push",
+  },
+  {
     provider: "hubspot",
     internalField: "customer.name",
     externalField: "company.name",
@@ -109,6 +147,24 @@ export const defaultCrmFieldMappings: CrmFieldMapping[] = [
     provider: "hubspot",
     internalField: "metadata.proposalNumber",
     externalField: "quote.hs_title",
+    direction: "push",
+  },
+  {
+    provider: "hubspot",
+    internalField: "metadata.opportunityName",
+    externalField: "deal.dealname",
+    direction: "bidirectional",
+  },
+  {
+    provider: "hubspot",
+    internalField: "metadata.status",
+    externalField: "quote.hs_status",
+    direction: "push",
+  },
+  {
+    provider: "hubspot",
+    internalField: "metadata.revisionVersion",
+    externalField: "quote.hs_revision_version",
     direction: "push",
   },
 ];

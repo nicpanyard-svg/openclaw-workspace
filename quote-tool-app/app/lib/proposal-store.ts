@@ -1,6 +1,7 @@
 import { deserializeQuoteRecord } from "@/app/lib/proposal-state";
 import type { QuoteRecord, QuoteStatus } from "@/app/lib/quote-record";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
+import { createCopiedQuoteGovernanceState, normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { generateQuoteNumber } from "@/app/lib/quote-template";
 
 export const PROPOSAL_STORE_KEY = "rapidquote:proposal-store";
@@ -155,6 +156,14 @@ export function createProposalFromQuote(params: {
     recordVersion: 1,
     quote: {
       ...params.quote,
+      governance: normalizeQuoteGovernanceState({
+        metadata: params.quote.metadata,
+        internal: {
+          ...params.quote.internal,
+          quoteId: id,
+        },
+        governance: params.quote.governance,
+      }),
       internal: {
         ...params.quote.internal,
         quoteId: id,
@@ -204,6 +213,11 @@ export function createProposalCopy(params: {
   const sourceQuote = JSON.parse(JSON.stringify(params.proposal.quote)) as QuoteRecord;
   const sourceTitle = params.proposal.quote.metadata.documentTitle?.trim() || params.proposal.quote.customer.name?.trim() || "Proposal";
   const id = `proposal_${Date.now()}`;
+  const proposalDate = new Date().toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
   const proposalNumber = generateQuoteNumber(new Date());
 
   return {
@@ -211,9 +225,16 @@ export function createProposalCopy(params: {
     recordVersion: 1,
     quote: {
       ...sourceQuote,
+      governance: createCopiedQuoteGovernanceState({
+        newQuoteId: id,
+        accountKey: sourceQuote.metadata.accountId || sourceQuote.metadata.accountName || undefined,
+        opportunityKey: sourceQuote.metadata.opportunityId || sourceQuote.metadata.opportunityName || undefined,
+      }),
       metadata: {
         ...sourceQuote.metadata,
         proposalNumber,
+        proposalDate,
+        revisionVersion: "1.0",
         documentTitle: `${sourceTitle} Copy`,
         status: "draft",
         ownerUserId: owner.id,
@@ -223,7 +244,7 @@ export function createProposalCopy(params: {
       documentation: {
         ...sourceQuote.documentation,
         proposalTitle: `${sourceTitle} Copy`,
-        proposalDateLabel: sourceQuote.metadata.proposalDate,
+        proposalDateLabel: proposalDate,
         proposalNumberLabel: proposalNumber,
       },
       internal: {
@@ -246,6 +267,14 @@ export function createProposalCopy(params: {
         quoteReferences: {},
         lastSyncSummary: "Copy created from the source proposal. Reconnect CRM references before syncing.",
       },
+      revisionHistory: [
+        {
+          version: "1.0",
+          changeDetails: `New standalone quote copied from ${params.proposal.quote.metadata.proposalNumber || sourceTitle}.`,
+          recordedAt: now,
+          revisionId: `${id}:r1`,
+        },
+      ],
     },
     owner,
     createdBy: currentUser,

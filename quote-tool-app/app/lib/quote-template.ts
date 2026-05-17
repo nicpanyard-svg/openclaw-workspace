@@ -1,5 +1,6 @@
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { createDefaultCommercialState } from "@/app/lib/commercial-model";
+import { createQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { createDefaultMajorProjectState } from "@/app/lib/major-project";
 import { createDefaultQuoteServiceAgreementState } from "@/app/lib/service-agreement";
 import { createDefaultQuoteWarrantyDetails } from "@/app/lib/quote-warranty";
@@ -82,14 +83,20 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
 
   quote.customFields = [];
 
+  quote.governance = createQuoteGovernanceState({
+    quoteId: `quote_${stamp}`,
+  });
+
   quote.revisionHistory = [
     {
-      version: "1.0",
+      version: quote.governance.revisionLabel,
       changeDetails: "Clean draft started from template.",
+      recordedAt: now.toISOString(),
+      revisionId: quote.governance.revisionId,
     },
   ];
 
-  quote.internal.quoteId = `quote_${stamp}`;
+  quote.internal.quoteId = quote.governance.quoteFamilyId;
   quote.internal.quoteStatus = "draft";
   quote.internal.internalNotes = "";
   quote.internal.crmSyncReady = false;
