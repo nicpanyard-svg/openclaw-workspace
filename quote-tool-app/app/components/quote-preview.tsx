@@ -2713,6 +2713,28 @@ export default function QuotePreview() {
     });
   };
 
+  const moveMajorProjectComponent = (componentId: string, direction: -1 | 1) => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.components) return draft;
+      const index = option.components.findIndex((component) => component.id === componentId);
+      if (index === -1) return draft;
+      option.components = moveInList(option.components, index, direction);
+      return draft;
+    });
+  };
+
+  const moveMajorProjectComponentToPosition = (componentId: string, targetPosition: number) => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.components) return draft;
+      const index = option.components.findIndex((component) => component.id === componentId);
+      if (index === -1) return draft;
+      option.components = moveToPositionInList(option.components, index, targetPosition);
+      return draft;
+    });
+  };
+
   const updateActiveMajorVendorQuote = (quoteId: string, updater: (entry: MajorProjectVendorQuoteImport) => MajorProjectVendorQuoteImport) => {
     updateMajorProjectQuote((draft) => {
       let updated = false;
@@ -3424,6 +3446,28 @@ export default function QuotePreview() {
     releaseMajorProjectSpecAttachmentIfUnused(attachmentToRelease);
   };
 
+  const moveMajorProjectBundle = (bundleId: string, direction: -1 | 1) => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.bundles) return draft;
+      const index = option.bundles.findIndex((bundle) => bundle.id === bundleId);
+      if (index === -1) return draft;
+      option.bundles = moveInList(option.bundles, index, direction);
+      return draft;
+    });
+  };
+
+  const moveMajorProjectBundleToPosition = (bundleId: string, targetPosition: number) => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.bundles) return draft;
+      const index = option.bundles.findIndex((bundle) => bundle.id === bundleId);
+      if (index === -1) return draft;
+      option.bundles = moveToPositionInList(option.bundles, index, targetPosition);
+      return draft;
+    });
+  };
+
   const updateActiveMajorQuoteLine = (quoteLineId: string, updater: (line: MajorProjectCustomerQuoteLine) => MajorProjectCustomerQuoteLine) => {
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
@@ -3503,6 +3547,28 @@ export default function QuotePreview() {
       return draft;
     });
     releaseMajorProjectSpecAttachmentIfUnused(attachmentToRelease);
+  };
+
+  const moveMajorProjectQuoteLine = (quoteLineId: string, direction: -1 | 1) => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.customerQuoteLines) return draft;
+      const index = option.customerQuoteLines.findIndex((line) => line.id === quoteLineId);
+      if (index === -1) return draft;
+      option.customerQuoteLines = moveInList(option.customerQuoteLines, index, direction);
+      return draft;
+    });
+  };
+
+  const moveMajorProjectQuoteLineToPosition = (quoteLineId: string, targetPosition: number) => {
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.customerQuoteLines) return draft;
+      const index = option.customerQuoteLines.findIndex((line) => line.id === quoteLineId);
+      if (index === -1) return draft;
+      option.customerQuoteLines = moveToPositionInList(option.customerQuoteLines, index, targetPosition);
+      return draft;
+    });
   };
 
   const updateActiveSectionARow = (rowId: string, field: string, value: string) => {
@@ -5209,23 +5275,32 @@ export default function QuotePreview() {
                                   {isBundleSource ? <span className="major-project-chip">Bundle anchor</span> : null}
                                 </div>
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                {majorProjectComponentBundleDraft ? (
-                                  <label className="inline-flex items-center gap-2 rounded-full border border-[#d7dde4] bg-white px-3 py-2 text-[12px] font-semibold text-[#24303b]">
-                                    <input
-                                      type="checkbox"
-                                      checked={isSelectedForBundle}
-                                      onChange={() => toggleMajorProjectComponentBundleSelection(component.id)}
-                                      disabled={isBundleSource}
-                                    />
-                                    {isBundleSource ? "Starting item" : "Include in bundle"}
-                                  </label>
-                                ) : (
-                                  <button type="button" className="pill-button" onClick={() => startMajorProjectComponentBundleDraft(component)}>Bundle with this</button>
-                                )}
-                                <button type="button" className="pill-button" onClick={() => duplicateMajorProjectComponent(component.id)}>Duplicate</button>
-                                <button type="button" className="pill-button" onClick={() => addMajorProjectComponent(component.bundleAssignmentId ?? "")}>Add similar</button>
-                                <button type="button" className="danger-button" onClick={() => removeMajorProjectComponent(component.id)}>Remove</button>
+                              <div className="flex max-w-full flex-col items-stretch gap-2">
+                                <div className="flex flex-wrap justify-end gap-2">
+                                  {majorProjectComponentBundleDraft ? (
+                                    <label className="inline-flex items-center gap-2 rounded-full border border-[#d7dde4] bg-white px-3 py-2 text-[12px] font-semibold text-[#24303b]">
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelectedForBundle}
+                                        onChange={() => toggleMajorProjectComponentBundleSelection(component.id)}
+                                        disabled={isBundleSource}
+                                      />
+                                      {isBundleSource ? "Starting item" : "Include in bundle"}
+                                    </label>
+                                  ) : (
+                                    <button type="button" className="pill-button" onClick={() => startMajorProjectComponentBundleDraft(component)}>Bundle with this</button>
+                                  )}
+                                  <button type="button" className="pill-button" onClick={() => addMajorProjectComponent(component.bundleAssignmentId ?? "")}>Add similar</button>
+                                </div>
+                                <RowActions
+                                  rowNumber={index + 1}
+                                  totalRows={activeMajorOptionComponents.length}
+                                  onMoveUp={() => moveMajorProjectComponent(component.id, -1)}
+                                  onMoveDown={() => moveMajorProjectComponent(component.id, 1)}
+                                  onMoveTo={(targetPosition) => moveMajorProjectComponentToPosition(component.id, targetPosition)}
+                                  onDuplicate={() => duplicateMajorProjectComponent(component.id)}
+                                  onRemove={() => removeMajorProjectComponent(component.id)}
+                                />
                               </div>
                             </div>
                             <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
@@ -5363,13 +5438,27 @@ export default function QuotePreview() {
                         </div>
 
                         {activeMajorOptionBundles.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No bundles yet. Add one so related components can move forward as a packaged solution.</div> : filteredMajorProjectBundles.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No bundles match that search right now.</div> : filteredMajorProjectBundles.map((bundle) => {
+                          const index = activeMajorOptionBundles.findIndex((entry) => entry.id === bundle.id);
                           const bundleMetrics = majorProjectMetrics.bundles.find((entry) => entry.id === bundle.id);
                           const selectedIds = new Set(bundle.componentIds ?? []);
                           return (
                             <div key={bundle.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
                               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Bundle</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{bundle.internalName}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{bundle.schedule ?? "mixed"}</span><span className="major-project-chip">{bundle.customerFacingLabel || "No customer label"}</span><span className="major-project-chip">{bundleMetrics?.resolvedComponentIds.length ?? 0} mapped</span></div>{bundle.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{bundle.description}</div> : null}</div>
-                                <div className="flex flex-wrap gap-2"><button type="button" className="pill-button" onClick={() => duplicateMajorProjectBundle(bundle.id)}>Duplicate</button><button type="button" className="pill-button" onClick={() => addMajorProjectComponent(bundle.id)}>Add component into bundle</button><button type="button" className="danger-button" onClick={() => removeMajorProjectBundle(bundle.id)}>Remove</button></div>
+                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Bundle {index + 1}</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{bundle.internalName}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{bundle.schedule ?? "mixed"}</span><span className="major-project-chip">{bundle.customerFacingLabel || "No customer label"}</span><span className="major-project-chip">{bundleMetrics?.resolvedComponentIds.length ?? 0} mapped</span></div>{bundle.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{bundle.description}</div> : null}</div>
+                                <div className="flex max-w-full flex-col items-stretch gap-2">
+                                  <div className="flex flex-wrap justify-end gap-2">
+                                    <button type="button" className="pill-button" onClick={() => addMajorProjectComponent(bundle.id)}>Add component into bundle</button>
+                                  </div>
+                                  <RowActions
+                                    rowNumber={index + 1}
+                                    totalRows={activeMajorOptionBundles.length}
+                                    onMoveUp={() => moveMajorProjectBundle(bundle.id, -1)}
+                                    onMoveDown={() => moveMajorProjectBundle(bundle.id, 1)}
+                                    onMoveTo={(targetPosition) => moveMajorProjectBundleToPosition(bundle.id, targetPosition)}
+                                    onDuplicate={() => duplicateMajorProjectBundle(bundle.id)}
+                                    onRemove={() => removeMajorProjectBundle(bundle.id)}
+                                  />
+                                </div>
                               </div>
                               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
                                 <label className="builder-field compact"><span>Bundle name</span><input value={bundle.internalName} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
@@ -5454,6 +5543,7 @@ export default function QuotePreview() {
                         </div>
 
                         {activeMajorOptionQuoteLines.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No customer quote lines yet. That is fine if this option should flow directly from components; add quote lines when you want a curated presentation layer.</div> : filteredMajorProjectQuoteLines.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No customer quote lines match that search right now.</div> : filteredMajorProjectQuoteLines.map((line) => {
+                          const index = activeMajorOptionQuoteLines.findIndex((entry) => entry.id === line.id);
                           const metrics = majorProjectMetrics.customerQuoteLines.find((entry) => entry.id === line.id);
                           const selectedBundles = new Set(line.bundleIds ?? []);
                           const explicitRevenueIds = new Set(line.includedRevenueComponentIds ?? []);
@@ -5461,8 +5551,16 @@ export default function QuotePreview() {
                           return (
                             <div key={line.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
                               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Customer quote line</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{line.label}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{line.presentationCategory ?? "other"}</span><span className="major-project-chip">{line.schedule ?? "mixed"}</span><span className="major-project-chip">{metrics?.resolvedBundleIds.length ?? 0} bundle feeds</span></div>{line.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{line.description}</div> : null}</div>
-                                <div className="flex flex-wrap gap-2"><button type="button" className="pill-button" onClick={() => duplicateMajorProjectQuoteLine(line.id)}>Duplicate</button><button type="button" className="danger-button" onClick={() => removeMajorProjectQuoteLine(line.id)}>Remove</button></div>
+                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Customer quote line {index + 1}</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{line.label}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{line.presentationCategory ?? "other"}</span><span className="major-project-chip">{line.schedule ?? "mixed"}</span><span className="major-project-chip">{metrics?.resolvedBundleIds.length ?? 0} bundle feeds</span></div>{line.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{line.description}</div> : null}</div>
+                                <RowActions
+                                  rowNumber={index + 1}
+                                  totalRows={activeMajorOptionQuoteLines.length}
+                                  onMoveUp={() => moveMajorProjectQuoteLine(line.id, -1)}
+                                  onMoveDown={() => moveMajorProjectQuoteLine(line.id, 1)}
+                                  onMoveTo={(targetPosition) => moveMajorProjectQuoteLineToPosition(line.id, targetPosition)}
+                                  onDuplicate={() => duplicateMajorProjectQuoteLine(line.id)}
+                                  onRemove={() => removeMajorProjectQuoteLine(line.id)}
+                                />
                               </div>
                               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
                                 <label className="builder-field compact"><span>Quote line label</span><input value={line.label} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, label: e.target.value }))} /></label>
