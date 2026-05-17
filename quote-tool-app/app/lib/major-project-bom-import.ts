@@ -62,10 +62,11 @@ export function resolveMajorProjectBomColumnMap(headerCells: string[]) {
   const normalizedHeaders = headerCells.map((cell) => normalizeMajorProjectBomHeader(cell));
   const columnMap: Partial<Record<MajorProjectBomColumnKey, number>> = {};
 
-  const scoreHeaderMatch = (normalizedCell: string, candidates: string[]) => {
+  const scoreHeaderMatch = (columnKey: MajorProjectBomColumnKey, normalizedCell: string, candidates: string[]) => {
     let bestScore = -1;
     candidates.forEach((candidate, index) => {
       if (!normalizedCell.includes(candidate)) return;
+      if (columnKey === "manufacturer" && normalizedCell.includes("description")) return;
       const exactMatch = normalizedCell === candidate;
       const score = (exactMatch ? 1000 : 500) - index;
       if (score > bestScore) {
@@ -81,7 +82,7 @@ export function resolveMajorProjectBomColumnMap(headerCells: string[]) {
 
     normalizedHeaders.forEach((normalizedCell, index) => {
       if (!normalizedCell) return;
-      const score = scoreHeaderMatch(normalizedCell, candidates);
+      const score = scoreHeaderMatch(columnKey, normalizedCell, candidates);
       if (score > bestScore) {
         bestScore = score;
         bestIndex = index;
