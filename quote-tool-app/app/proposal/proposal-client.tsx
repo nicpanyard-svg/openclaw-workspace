@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate } from "@/app/components/auth-shell";
 import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
-import { buildProposalPrintPath } from "@/app/lib/proposal-navigation";
+import { buildProposalPdfPreviewPath, buildProposalPrintPath } from "@/app/lib/proposal-navigation";
 import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
 import { buildProposalApprovalWorkbook } from "@/app/lib/proposal-xlsx-export";
 
@@ -74,28 +74,25 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
     return assembleFinalProposalPdf(basePdfBlob, quote);
   };
 
+  const openRouteInNewTab = (path: string) => {
+    const opened = window.open(path, "_blank");
+
+    if (opened) {
+      try {
+        opened.opener = null;
+      } catch {
+        // Ignore cross-browser noopener assignment issues once the tab is already open.
+      }
+      return true;
+    }
+
+    window.location.assign(path);
+    return false;
+  };
+
   const handleViewPdf = async () => {
     if (!quote) return;
-
-    const previewWindow = window.open("", "_blank", "noopener,noreferrer");
-
-    if (!previewWindow) {
-      window.alert("Unable to open the PDF preview tab right now. Please allow a new tab for this site and try again.");
-      return;
-    }
-
-    previewWindow.document.title = "Generating PDF preview...";
-    previewWindow.document.body.innerHTML = "<p style=\"font-family: Arial, sans-serif; padding: 24px; color: #334150;\">Generating PDF preview...</p>";
-
-    try {
-      const blob = await generatePdfBlob();
-      const objectUrl = URL.createObjectURL(blob);
-      previewWindow.location.href = objectUrl;
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-    } catch {
-      previewWindow.close();
-      window.alert("Unable to generate the PDF preview right now. Please review the HTML preview and try again.");
-    }
+    window.location.assign(buildProposalPdfPreviewPath(activeProposalId));
   };
 
   const handlePrintPdf = async () => {
@@ -136,18 +133,7 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
         // Fall through to print view backup.
       }
 
-      const opened = window.open(buildProposalPrintPath(activeProposalId), "_blank");
-
-      if (!opened) {
-        window.alert("Unable to download the PDF or open the print tab right now. If your browser blocked the new tab, allow popups/new tabs for this site and try again.");
-        return;
-      }
-
-      try {
-        opened.opener = null;
-      } catch {
-        // Ignore cross-browser noopener assignment issues once the tab is already open.
-      }
+      openRouteInNewTab(buildProposalPrintPath(activeProposalId));
     }
   };
 

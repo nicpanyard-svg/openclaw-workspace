@@ -10,6 +10,7 @@ type ProposalPrintPageProps = {
     token?: string;
     autoprint?: string;
     pdf?: string;
+    pdfPreview?: string;
     proposalId?: string;
   }>;
 };
@@ -28,5 +29,11 @@ export default async function ProposalPrintPage({ searchParams }: ProposalPrintP
     );
   }
 
-  return <ProposalPrintClient autoPrintOnly={false} requestedProposalId={params?.proposalId ?? cachedQuote?.proposalId ?? null} />;
+  return (
+    <ProposalPrintClient
+      autoPrintOnly={false}
+      pdfPreviewOnly={params?.pdfPreview === "1"}
+      requestedProposalId={params?.proposalId ?? cachedQuote?.proposalId ?? null}
+    />
+  );
 }
