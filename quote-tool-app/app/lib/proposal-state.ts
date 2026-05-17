@@ -31,6 +31,140 @@ function normalizeCustomFields(fields: QuoteRecord["customFields"] | null | unde
   }));
 }
 
+function normalizeMajorProjectBomImportState(
+  bomImport: QuoteRecord["majorProject"]["bomImport"] | null | undefined,
+): QuoteRecord["majorProject"]["bomImport"] {
+  if (!bomImport) {
+    return createDefaultMajorProjectState().bomImport;
+  }
+
+  const normalizedSheets = Array.isArray(bomImport.sheets)
+    ? bomImport.sheets
+        .map((sheet) => {
+          const name = normalizeText(sheet?.name);
+          if (!name) return null;
+
+          const rows = Array.isArray(sheet?.rows)
+            ? sheet.rows
+                .map((row) => {
+                  const rowNumber = typeof row?.rowNumber === "number" && Number.isFinite(row.rowNumber)
+                    ? Math.max(1, Math.trunc(row.rowNumber))
+                    : 0;
+                  const cells = Array.isArray(row?.cells) ? row.cells.map((cell) => normalizeText(cell)) : [];
+                  if (!rowNumber && !cells.some((cell) => cell.trim().length > 0)) {
+                    return null;
+                  }
+
+                  return {
+                    rowNumber: rowNumber || 1,
+                    cells,
+                  };
+                })
+                .filter((row): row is NonNullable<typeof row> => Boolean(row))
+            : [];
+
+          const rowCount = typeof sheet?.rowCount === "number" && Number.isFinite(sheet.rowCount)
+            ? Math.max(rows.length, Math.trunc(sheet.rowCount))
+            : rows.length;
+
+          return {
+            name,
+            rowCount,
+            rows,
+          };
+        })
+        .filter((sheet): sheet is NonNullable<typeof sheet> => Boolean(sheet))
+    : [];
+
+  const normalizedSheetNames = Array.from(
+    new Set(
+      [
+        ...(Array.isArray(bomImport.sheetNames) ? bomImport.sheetNames.map((sheetName) => normalizeText(sheetName)).filter(Boolean) : []),
+        ...normalizedSheets.map((sheet) => sheet.name),
+      ],
+    ),
+  );
+
+  const normalizedReviewedColumnMapBySheet: Record<string, Record<string, number | null>> = {};
+  for (const [sheetName, columnMap] of Object.entries(bomImport.reviewedColumnMapBySheet ?? {})) {
+    const normalizedSheetName = normalizeText(sheetName);
+    if (!normalizedSheetName || !columnMap || typeof columnMap !== "object") {
+      continue;
+    }
+
+    const normalizedColumnMap: Record<string, number | null> = {};
+    for (const [columnKey, columnIndex] of Object.entries(columnMap)) {
+      if (columnIndex === null) {
+        normalizedColumnMap[columnKey] = null;
+        continue;
+      }
+
+      if (typeof columnIndex === "number" && Number.isFinite(columnIndex) && columnIndex >= 0) {
+        normalizedColumnMap[columnKey] = Math.trunc(columnIndex);
+      }
+    }
+
+    if (Object.keys(normalizedColumnMap).length) {
+      normalizedReviewedColumnMapBySheet[normalizedSheetName] = normalizedColumnMap;
+    }
+  }
+
+  const selectedSheetName = normalizeText(bomImport.selectedSheetName);
+  const normalizedStatus = bomImport.status === "captured" || bomImport.status === "reading" || bomImport.status === "loaded" || bomImport.status === "error"
+    ? bomImport.status
+    : "captured";
+  const normalizedReviewState = bomImport.reviewState === "pre_import_review" ? "pre_import_review" : "pending";
+  const normalizedSource = bomImport.source === "picker" ? "picker" : "drop";
+  const importedComponentCount = typeof bomImport.importedComponentCount === "number" && Number.isFinite(bomImport.importedComponentCount)
+    ? Math.max(0, Math.trunc(bomImport.importedComponentCount))
+    : undefined;
+  const hasStaleSavedWorkbookRows = normalizedSheets.length > 0
+    && normalizedSheets.some((sheet) => sheet.rowCount > 0)
+    && normalizedSheets.every((sheet) => sheet.rows.length === 0);
+
+  if (hasStaleSavedWorkbookRows) {
+    return {
+      fileName: normalizeText(bomImport.fileName),
+      sizeBytes: typeof bomImport.sizeBytes === "number" && Number.isFinite(bomImport.sizeBytes) ? Math.max(0, Math.trunc(bomImport.sizeBytes)) : 0,
+      mimeType: normalizeText(bomImport.mimeType) || undefined,
+      capturedAt: normalizeText(bomImport.capturedAt),
+      source: normalizedSource,
+      status: "error",
+      reviewState: "pending",
+      sheetNames: normalizedSheetNames,
+      sheets: [],
+      selectedSheetName: undefined,
+      reviewedColumnMapBySheet: undefined,
+      readError:
+        "This workbook capture was saved by an older RapidQuote build without the extracted row data. Remove the workbook and upload it again in this same quote.",
+      importedComponentCount: undefined,
+      importedAt: undefined,
+    };
+  }
+
+  return {
+    ...bomImport,
+    status: normalizedStatus,
+    reviewState: normalizedReviewState,
+    fileName: normalizeText(bomImport.fileName),
+    sizeBytes: typeof bomImport.sizeBytes === "number" && Number.isFinite(bomImport.sizeBytes) ? Math.max(0, Math.trunc(bomImport.sizeBytes)) : 0,
+    mimeType: normalizeText(bomImport.mimeType) || undefined,
+    capturedAt: normalizeText(bomImport.capturedAt),
+    source: normalizedSource,
+    sheetNames: normalizedSheetNames,
+    sheets: normalizedSheets,
+    selectedSheetName: selectedSheetName && normalizedSheets.some((sheet) => sheet.name === selectedSheetName)
+      ? selectedSheetName
+      : normalizedSheets[0]?.name,
+    reviewedColumnMapBySheet: Object.keys(normalizedReviewedColumnMapBySheet).length
+      ? normalizedReviewedColumnMapBySheet
+      : undefined,
+    readError: normalizeText(bomImport.readError) || undefined,
+    importedComponentCount,
+    importedAt: normalizeText(bomImport.importedAt) || undefined,
+  };
+}
+
 function normalizeMajorProjectAttachmentState(quote: QuoteRecord) {
   const next = quote;
   const options = next.majorProject?.options ?? [];
@@ -154,11 +288,7 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
           ...createDefaultMajorProjectState().summary,
           ...parsed.majorProject?.summary,
         },
-        bomImport: parsed.majorProject?.bomImport
-          ? {
-              ...parsed.majorProject.bomImport,
-            }
-          : createDefaultMajorProjectState().bomImport,
+        bomImport: normalizeMajorProjectBomImportState(parsed.majorProject?.bomImport),
         commercial: {
           ...createDefaultMajorProjectState().commercial,
           ...parsed.majorProject?.commercial,

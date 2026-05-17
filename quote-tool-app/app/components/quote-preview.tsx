@@ -4774,6 +4774,11 @@ export default function QuotePreview() {
                             Showing {selectedMajorProjectBomSheet.rows.length} preview row{selectedMajorProjectBomSheet.rows.length === 1 ? "" : "s"} from the selected tab using conservative header detection.
                             {selectedMajorProjectBomSheet.rowCount > selectedMajorProjectBomSheet.rows.length ? ` ${selectedMajorProjectBomSheet.rowCount} non-empty rows were captured in total.` : ""}
                           </div>
+                          {selectedMajorProjectBomSheet.rows.length === 0 ? (
+                            <div className="mt-3 rounded-[12px] border border-[#f2d3b5] bg-[#fff8ef] px-3 py-3 text-[12px] text-[#8a4b16]">
+                              No extracted workbook rows are available for this tab. If this workbook was captured before the latest BOM import update, remove it and upload it again in this same quote.
+                            </div>
+                          ) : null}
                           <div className="mt-3 rounded-[12px] border border-[#e4ebf2] bg-[#fbfdff] px-3 py-3 text-[12px] text-[#334150]">
                             <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#60707f]">Column mapping</strong>
                             <div className="mt-2 text-[12px] text-[#60707f]">
