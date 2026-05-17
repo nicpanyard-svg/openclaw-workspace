@@ -5,10 +5,10 @@ import type {
 } from "@/app/lib/quote-record";
 
 const MAJOR_PROJECT_BOM_COLUMN_MATCHERS: Record<MajorProjectBomColumnKey, string[]> = {
-  name: ["item name", "item", "product", "component", "equipment", "service", "part", "material"],
-  description: ["description", "scope", "details", "notes"],
+  name: ["cc part name", "sales use this", "customer facing name", "item name", "product name", "item", "product", "component", "equipment", "service", "part", "material"],
+  description: ["manufacturer equipment description", "equipment description", "description", "scope", "details", "notes"],
   quantity: ["qty", "quantity", "q'ty", "qyt", "count"],
-  vendor: ["vendor", "supplier", "distributor"],
+  vendor: ["vendor name", "vendor", "supplier", "distributor", "vendor part"],
   manufacturer: ["manufacturer", "mfg", "make", "provider", "brand"],
   unitCost: ["unit cost", "cost ea", "ea cost", "each cost", "unit price", "price each", "cost per", "unit amount"],
   totalCost: ["extended cost", "ext cost", "line total", "total cost", "amount", "extended price", "ext price"],
@@ -62,29 +62,36 @@ export function resolveMajorProjectBomColumnMap(headerCells: string[]) {
   const normalizedHeaders = headerCells.map((cell) => normalizeMajorProjectBomHeader(cell));
   const columnMap: Partial<Record<MajorProjectBomColumnKey, number>> = {};
 
-  const exactHeaderAliases: Partial<Record<MajorProjectBomColumnKey, string[]>> = {
-    vendor: ["vendor part"],
-    manufacturer: ["manufacturer part"],
+  const scoreHeaderMatch = (normalizedCell: string, candidates: string[]) => {
+    let bestScore = -1;
+    candidates.forEach((candidate, index) => {
+      if (!normalizedCell.includes(candidate)) return;
+      const exactMatch = normalizedCell === candidate;
+      const score = (exactMatch ? 1000 : 500) - index;
+      if (score > bestScore) {
+        bestScore = score;
+      }
+    });
+    return bestScore;
   };
 
-  (Object.entries(exactHeaderAliases) as Array<[MajorProjectBomColumnKey, string[]]>).forEach(([columnKey, aliases]) => {
-    const index = normalizedHeaders.findIndex((header) => aliases.some((alias) => header.includes(alias)));
-    if (index >= 0) {
-      columnMap[columnKey] = index;
-    }
-  });
+  for (const [columnKey, candidates] of Object.entries(MAJOR_PROJECT_BOM_COLUMN_MATCHERS) as Array<[MajorProjectBomColumnKey, string[]]>) {
+    let bestIndex = -1;
+    let bestScore = -1;
 
-  normalizedHeaders.forEach((normalizedCell, index) => {
-    if (!normalizedCell) return;
-
-    for (const [columnKey, candidates] of Object.entries(MAJOR_PROJECT_BOM_COLUMN_MATCHERS) as Array<[MajorProjectBomColumnKey, string[]]>) {
-      if (columnMap[columnKey] !== undefined) continue;
-      if (candidates.some((candidate) => normalizedCell.includes(candidate))) {
-        columnMap[columnKey] = index;
-        break;
+    normalizedHeaders.forEach((normalizedCell, index) => {
+      if (!normalizedCell) return;
+      const score = scoreHeaderMatch(normalizedCell, candidates);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
       }
+    });
+
+    if (bestIndex >= 0) {
+      columnMap[columnKey] = bestIndex;
     }
-  });
+  }
 
   return columnMap;
 }
