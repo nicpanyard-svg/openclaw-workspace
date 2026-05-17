@@ -479,9 +479,9 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
               {executiveSummaryRenderBlocks.map((block) => {
                 if (block.type === "heading") {
                   return (
-                    <div key={block.id} className="pt-1 text-[15px] font-semibold text-[#16202b]">
+                    <h3 key={block.id} className="pt-1 text-[15px] font-semibold leading-[1.35] text-[#16202b]">
                       {block.text}
-                    </div>
+                    </h3>
                   );
                 }
 
