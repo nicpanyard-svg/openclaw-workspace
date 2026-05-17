@@ -4,6 +4,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import * as XLSX from "xlsx";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
@@ -262,30 +263,78 @@ function validateMajorProjectVendorQuoteFile(file: File) {
   return null;
 }
 
-async function readMajorProjectBomWorkbook(file: File) {
-  const formData = new FormData();
-  formData.append("file", file);
-  const response = await fetch("/api/major-project-bom-parse", {
-    method: "POST",
-    body: formData,
+async function readMajorProjectBomWorkbookLocally(file: File) {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(new Uint8Array(buffer), {
+    type: "array",
+    dense: false,
   });
+  const sheetEntries = workbook.SheetNames
+    .map((rawSheetName) => ({
+      rawSheetName,
+      displayName: rawSheetName.trim(),
+    }))
+    .filter((entry) => entry.displayName);
+  const sheetNames = sheetEntries.map((entry) => entry.displayName);
 
-  if (!response.ok) {
-    throw new Error("Workbook upload succeeded, but RapidQuote could not parse the workbook rows.");
-  }
-
-  const parsed = await response.json() as {
-    sheetNames?: string[];
-    sheets?: MajorProjectBomImportSheet[];
-  };
-  const sheetNames = parsed.sheetNames?.map((sheetName) => sheetName.trim()).filter(Boolean) ?? [];
-  const sheets = parsed.sheets ?? [];
-
-  if (!sheetNames.length || !sheets.length) {
+  if (!sheetNames.length) {
     throw new Error("Workbook parsed but no sheets were found.");
   }
 
+  const sheets: MajorProjectBomImportSheet[] = sheetEntries.map((sheetEntry) => {
+    const worksheet = workbook.Sheets[sheetEntry.rawSheetName];
+    const rawRows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(worksheet, {
+      header: 1,
+      raw: false,
+      defval: "",
+      blankrows: false,
+    });
+    const normalizedRows = rawRows
+      .map((row, index) => ({
+        rowNumber: index + 1,
+        cells: (Array.isArray(row) ? row : []).map((value) => String(value ?? "").trim()),
+      }))
+      .filter((row) => row.cells.some((cell) => cell.trim().length > 0));
+
+    return {
+      name: sheetEntry.displayName,
+      rowCount: normalizedRows.length,
+      rows: normalizedRows.slice(0, MAJOR_PROJECT_BOM_MAX_SHEET_ROWS),
+    };
+  });
+
   return { sheetNames, sheets };
+}
+
+async function readMajorProjectBomWorkbook(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const response = await fetch("/api/major-project-bom-parse", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Workbook upload succeeded, but RapidQuote could not parse the workbook rows.");
+    }
+
+    const parsed = await response.json() as {
+      sheetNames?: string[];
+      sheets?: MajorProjectBomImportSheet[];
+    };
+    const sheetNames = parsed.sheetNames?.map((sheetName) => sheetName.trim()).filter(Boolean) ?? [];
+    const sheets = parsed.sheets ?? [];
+
+    if (!sheetNames.length || !sheets.length) {
+      throw new Error("Workbook parsed but no sheets were found.");
+    }
+
+    return { sheetNames, sheets };
+  } catch {
+    return readMajorProjectBomWorkbookLocally(file);
+  }
 }
 
 function getMajorProjectBomStatusLabel(status: NonNullable<QuoteRecord["majorProject"]["bomImport"]>["status"]) {
