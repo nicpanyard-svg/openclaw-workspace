@@ -365,6 +365,14 @@ function getMajorProjectVendorQuoteStatusLabel(status: MajorProjectVendorQuoteIm
   }
 }
 
+function applyMarginToCost(cost: number, marginPercent: number) {
+  const safeCost = Number.isFinite(cost) ? Math.max(cost, 0) : 0;
+  const safeMargin = Number.isFinite(marginPercent) ? Math.min(Math.max(marginPercent, 0), 95) : 0;
+  if (safeCost <= 0) return 0;
+  if (safeMargin <= 0) return Number(safeCost.toFixed(2));
+  return Number((safeCost / (1 - safeMargin / 100)).toFixed(2));
+}
+
 function formatCurrency(value: number, currencyCode = "USD") {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -722,8 +730,8 @@ function createDraftMajorProjectComponentFromBomRow(params: {
     vendor,
     manufacturer,
     quantity,
-    customerUnitPrice: vendorUnitCost,
-    customerExtendedPrice: vendorExtendedCost,
+    customerUnitPrice: 0,
+    customerExtendedPrice: 0,
     vendorUnitCost,
     vendorExtendedCost,
     notes: noteParts.join("\n"),
@@ -1728,6 +1736,7 @@ export default function QuotePreview() {
   const [isMajorProjectVendorQuoteDragging, setIsMajorProjectVendorQuoteDragging] = useState(false);
   const [majorProjectVendorQuoteCaptureError, setMajorProjectVendorQuoteCaptureError] = useState<MajorProjectVendorQuoteCaptureError | null>(null);
   const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
+  const [majorProjectImportedMarginPercent, setMajorProjectImportedMarginPercent] = useState("25");
 
   useEffect(() => {
     const activeProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
@@ -2397,7 +2406,7 @@ export default function QuotePreview() {
     setMajorProjectEditorTab("components");
     setWorkflowNotice(
       importedCount > 0
-        ? `Imported ${importedCount} draft component${importedCount === 1 ? "" : "s"} from ${selectedSheet.name}. Review them in Components before bundling.`
+        ? `Imported ${importedCount} draft component${importedCount === 1 ? "" : "s"} from ${selectedSheet.name}. Vendor cost came across; set customer pricing separately before bundling or direct output.`
         : `No obvious component rows were found in ${selectedSheet.name}.`,
     );
   };
@@ -2457,7 +2466,39 @@ export default function QuotePreview() {
       return draft;
     });
 
-    setWorkflowNotice(`Seeded starter pricing from vendor cost for ${importedWithoutPricing.length} imported component${importedWithoutPricing.length === 1 ? "" : "s"}. Review margin before bundling.`);
+    setWorkflowNotice(`Seeded customer pricing from vendor cost for ${importedWithoutPricing.length} imported component${importedWithoutPricing.length === 1 ? "" : "s"}. Review margin before bundling.`);
+  };
+
+  const applyImportedMajorProjectMarginFromCost = () => {
+    const marginPercent = Math.max(parseNumber(majorProjectImportedMarginPercent), 0);
+    const importedWithoutPricing = importedMajorProjectComponents.filter((component) => component.customerUnitPrice <= 0 && component.vendorUnitCost > 0);
+    if (!importedWithoutPricing.length) {
+      setWorkflowNotice("Imported components already have customer pricing, or there is no vendor cost available to price from.");
+      return;
+    }
+
+    updateMajorProjectQuote((draft) => {
+      const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
+      if (!option?.components) return draft;
+      option.components = option.components.map((component) => {
+        if (
+          !(component.notes ?? "").startsWith(MAJOR_PROJECT_BOM_IMPORT_SOURCE_PREFIX)
+          || component.customerUnitPrice > 0
+          || component.vendorUnitCost <= 0
+        ) {
+          return component;
+        }
+        const customerUnitPrice = applyMarginToCost(component.vendorUnitCost, marginPercent);
+        return {
+          ...component,
+          customerUnitPrice,
+          customerExtendedPrice: Number((component.quantity * customerUnitPrice).toFixed(2)),
+        };
+      });
+      return draft;
+    });
+
+    setWorkflowNotice(`Applied ${marginPercent}% margin to ${importedWithoutPricing.length} imported component${importedWithoutPricing.length === 1 ? "" : "s"} using vendor cost as the base.`);
   };
 
   const beginImportedMajorProjectBundling = () => {
@@ -4928,7 +4969,19 @@ export default function QuotePreview() {
                                 </div>
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   <button type="button" className="pill-button" onClick={seedImportedMajorProjectCustomerLabels} disabled={importedMajorProjectNeedsCustomerLabelCount === 0}>Seed blank customer labels</button>
-                                  <button type="button" className="pill-button" onClick={seedImportedMajorProjectPricingFromCost} disabled={importedMajorProjectNeedsCustomerPricingCount === 0}>Seed blank pricing from cost</button>
+                                  <button type="button" className="pill-button" onClick={seedImportedMajorProjectPricingFromCost} disabled={importedMajorProjectNeedsCustomerPricingCount === 0}>Seed customer pricing from cost</button>
+                                  <label className="builder-field compact min-w-[120px]">
+                                    <span>Margin %</span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      max="95"
+                                      value={majorProjectImportedMarginPercent}
+                                      onChange={(e) => setMajorProjectImportedMarginPercent(e.target.value)}
+                                    />
+                                  </label>
+                                  <button type="button" className="pill-button" onClick={applyImportedMajorProjectMarginFromCost} disabled={importedMajorProjectNeedsCustomerPricingCount === 0}>Apply margin from cost</button>
                                   <div className="rounded-full border border-[#d7e0e8] bg-white px-3 py-2 text-[12px] font-medium text-[#435262]">
                                     {importedMajorProjectUnbundledCount} unbundled component{importedMajorProjectUnbundledCount === 1 ? "" : "s"} still need packaging
                                   </div>
