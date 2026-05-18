@@ -171,6 +171,18 @@ const seededUsers: DirectoryUserRecord[] = [
     canManageUsers: false,
     password: "RapidQuote!30",
   },
+  {
+    id: "james-spencer",
+    name: "James Spencer",
+    email: "james.spencer@inetlte.com",
+    title: "Account Executive",
+    team: "Sales",
+    role: "sales",
+    status: "active",
+    initials: "JS",
+    canManageUsers: false,
+    password: "RapidQuote!James2026#",
+  },
 ];
 
 const seededAccessRequests: AccessRequestRecord[] = [
@@ -273,7 +285,16 @@ export function deserializeDirectoryUsers(value: string | null | undefined): Dir
       .filter((user) => user?.id && user?.email && user?.name)
       .map(normalizeDirectoryUser);
 
-    return normalized.length ? normalized : seededUsers.map(normalizeDirectoryUser);
+    if (!normalized.length) {
+      return seededUsers.map(normalizeDirectoryUser);
+    }
+
+    const mergedByEmail = new Map(seededUsers.map((user) => [user.email.trim().toLowerCase(), normalizeDirectoryUser(user)]));
+    for (const user of normalized) {
+      mergedByEmail.set(user.email.trim().toLowerCase(), user);
+    }
+
+    return Array.from(mergedByEmail.values());
   } catch {
     return seededUsers.map(normalizeDirectoryUser);
   }
