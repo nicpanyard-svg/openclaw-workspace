@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ProductLogo } from "@/app/components/product-logo";
 import { SignupEligibilityMessage, useAuth } from "@/app/components/auth-shell";
-import { buildAccessRequestId, canSelfServeSignUp, getDirectoryUsers, type AccessRequestRecord } from "@/app/lib/auth";
+import { buildAccessRequestId, canSelfServeSignUp, getDirectoryUsers, getUserByEmail, type AccessRequestRecord } from "@/app/lib/auth";
 
 export default function SignupPage() {
   const { submitAccessRequest } = useAuth();
@@ -14,6 +14,7 @@ export default function SignupPage() {
   const [roleNeeded, setRoleNeeded] = useState("");
   const [businessReason, setBusinessReason] = useState("");
   const [submittedRequest, setSubmittedRequest] = useState<AccessRequestRecord | null>(null);
+  const [formMessage, setFormMessage] = useState<string | null>(null);
   const directoryUsers = useMemo(() => getDirectoryUsers(), []);
   const eligible = canSelfServeSignUp(email);
 
@@ -30,19 +31,20 @@ export default function SignupPage() {
           </div>
         </div>
         <div className="workspace-eyebrow">Access management</div>
-        <div className="auth-demo-card-pill">Staging queue — request is stored locally for review demos</div>
+        <div className="auth-demo-card-pill">Internal approval queue</div>
         <h1 className="auth-form-title">Request RapidQuote access</h1>
         <p className="auth-form-copy">
-          Ask for workspace access the same way the real system will: who you are, what team you are on, what role you need, and why you need it.
-          This request now tees up tonight&apos;s backend auth work instead of acting like a demo-only placeholder.
+          Ask for workspace access the same way the team really does: who you are, what team you are on, what role you need,
+          and why you need it. Approved requests land in Access Manager, where an admin can provision your local RapidQuote
+          account for sign-in.
         </p>
 
         <div className="auth-roadmap-card">
           <div className="auth-roadmap-title">What this page handles right now</div>
           <ul>
             <li>Confirms whether the email is eligible for internal onboarding.</li>
-            <li>Captures a believable access request with team and business context.</li>
-            <li>Hands off cleanly to approval workflow and directory-backed account creation once the backend finishes landing.</li>
+            <li>Captures a real access request with team and business context.</li>
+            <li>Hands off cleanly to the approval workflow that provisions a local directory-backed account.</li>
           </ul>
         </div>
 
@@ -50,18 +52,27 @@ export default function SignupPage() {
           className="auth-form"
           onSubmit={(event) => {
             event.preventDefault();
+            setFormMessage(null);
+
+            const normalizedEmail = email.trim().toLowerCase();
+            const existingUser = getUserByEmail(normalizedEmail);
+            if (existingUser) {
+              setSubmittedRequest(null);
+              setFormMessage(`An account already exists for ${normalizedEmail}. Sign in or use Forgot password to choose a new password.`);
+              return;
+            }
 
             const request: AccessRequestRecord = {
               id: buildAccessRequestId(),
               name: name.trim(),
-              email: email.trim(),
+              email: normalizedEmail,
               team: team.trim(),
               roleNeeded: roleNeeded.trim(),
               businessReason: businessReason.trim(),
               requestedBy: "Self-serve request",
               status: eligible ? "pending" : "denied",
               createdAt: new Date().toISOString(),
-              notes: eligible ? "Waiting on admin review, provisioning, and backend account creation." : "Outside current onboarding rule.",
+              notes: eligible ? "Waiting on admin review for local RapidQuote account provisioning." : "Outside current onboarding rule.",
             };
 
             submitAccessRequest(request);
@@ -80,12 +91,12 @@ export default function SignupPage() {
 
           <label className="auth-field">
             <span>Team</span>
-            <input type="text" value={team} onChange={(event) => setTeam(event.target.value)} placeholder="Sales, RevOps, Engineering…" required />
+            <input type="text" value={team} onChange={(event) => setTeam(event.target.value)} placeholder="Sales, RevOps, Engineering..." required />
           </label>
 
           <label className="auth-field">
             <span>Role needed</span>
-            <input type="text" value={roleNeeded} onChange={(event) => setRoleNeeded(event.target.value)} placeholder="Account Executive, Sales Ops, Admin…" required />
+            <input type="text" value={roleNeeded} onChange={(event) => setRoleNeeded(event.target.value)} placeholder="Account Executive, Sales Ops, Admin..." required />
           </label>
 
           <label className="auth-field">
@@ -111,10 +122,12 @@ export default function SignupPage() {
           </div>
         </div>
 
+        {formMessage ? <div className="auth-inline-message auth-inline-message-warn">{formMessage}</div> : null}
+
         {submittedRequest ? (
           <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
             {eligible
-              ? `Access request captured for ${submittedRequest.email}. Staging note: it is stored in the local demo queue only until backend provisioning and reviewer workflow are connected.`
+              ? `Access request captured for ${submittedRequest.email}. An admin can now approve it in Access Manager and provision a local RapidQuote account for sign-in.`
               : `RapidQuote by iNet is internal-only today. ${submittedRequest.email} was captured, but it is outside the current onboarding rule.`}
           </div>
         ) : null}
@@ -127,7 +140,7 @@ export default function SignupPage() {
                 <div className="auth-directory-avatar">{user.initials}</div>
                 <div>
                   <div className="auth-directory-name">{user.name}</div>
-                  <div className="auth-directory-meta">{user.title} • {user.team}</div>
+                  <div className="auth-directory-meta">{user.title} - {user.team}</div>
                 </div>
               </div>
             ))}
@@ -136,7 +149,7 @@ export default function SignupPage() {
 
         <div className="auth-help-links">
           <Link href="/login">Back to sign in</Link>
-          <Link href="/access">View access queue direction</Link>
+          <Link href="/access">View access queue</Link>
           <Link href="/forgot-password">Forgot password</Link>
         </div>
       </div>

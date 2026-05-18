@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ProductLogo } from "@/app/components/product-logo";
-import { canSelfServeSignUp, getUserByEmail } from "@/app/lib/auth";
+import { useAuth } from "@/app/components/auth-shell";
+import { canSelfServeSignUp } from "@/app/lib/auth";
 
 export default function ForgotPasswordPage() {
+  const { requestPasswordReset } = useAuth();
   const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [resetPath, setResetPath] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const eligible = canSelfServeSignUp(email);
-  const knownUser = getUserByEmail(email);
 
   return (
     <main className="auth-shell auth-shell-simple">
@@ -24,18 +27,23 @@ export default function ForgotPasswordPage() {
           </div>
         </div>
         <div className="workspace-eyebrow">Password recovery</div>
-        <div className="auth-demo-card-pill">Staging only — no reset email is sent yet</div>
+        <div className="auth-demo-card-pill">Local reset delivery</div>
         <h1 className="auth-form-title">Reset your RapidQuote password</h1>
         <p className="auth-form-copy">
-          Start the internal recovery flow here. This screen now sets expectations for the real backend handoff: confirm the account, explain the next step,
-          and prepare for token-based delivery without promising email behavior that is not wired yet.
+          Start the recovery flow here. In this local access workflow, RapidQuote generates a real in-app reset link immediately
+          instead of pretending an email was sent.
         </p>
 
         <form
           className="auth-form"
           onSubmit={(event) => {
             event.preventDefault();
-            setSubmitted(true);
+            const result = requestPasswordReset(email);
+            setMessage(result.ok
+              ? `Reset link prepared for ${email.trim().toLowerCase()}. Use the button below to finish choosing a new password.`
+              : result.error ?? "Could not prepare a reset link.");
+            setResetPath(result.ok ? result.resetPath ?? null : null);
+            setExpiresAt(result.ok ? result.expiresAt ?? null : null);
           }}
         >
           <label className="auth-field">
@@ -53,23 +61,37 @@ export default function ForgotPasswordPage() {
           </div>
           <div className="auth-inline-support-item">
             <span>Reset path</span>
-            <strong>Internal guided flow</strong>
+            <strong>Immediate in-app link</strong>
           </div>
         </div>
 
-        {submitted ? (
-          <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
-            {eligible
-              ? knownUser
-                ? `Recovery request prepared for ${email}. Staging note: no real email or reset token has been sent yet. The backend still needs token delivery, audit logging, and session invalidation.`
-                : `Recovery request prepared for ${email}. Staging note: the UI is ready, but the backend still needs to verify identity before any reset instructions can be sent.`
-              : `RapidQuote by iNet recovery is limited to internal iNet accounts. Use an @inetlte.com address.`}
+        {message ? (
+          <div className={`auth-inline-message ${resetPath ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
+            {message}
+          </div>
+        ) : null}
+
+        {resetPath ? (
+          <div className="auth-roadmap-card">
+            <div className="auth-roadmap-title">Next step</div>
+            <p className="auth-form-copy">
+              This reset link stays valid until {expiresAt ? new Date(expiresAt).toLocaleString() : "the token expires"}.
+            </p>
+            <Link href={resetPath} className="workspace-primary-button auth-submit-button">
+              Open reset form
+            </Link>
+          </div>
+        ) : null}
+
+        {!eligible && email ? (
+          <div className="auth-inline-message auth-inline-message-warn">
+            RapidQuote by iNet recovery is limited to internal iNet accounts. Use an @inetlte.com address.
           </div>
         ) : null}
 
         <div className="auth-help-links">
-          <Link href={`/reset-password${email ? `?email=${encodeURIComponent(email)}` : ""}`}>Open reset form</Link>
           <Link href="/login">Back to sign in</Link>
+          <Link href="/signup">Request access</Link>
         </div>
       </div>
     </main>

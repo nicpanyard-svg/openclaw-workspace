@@ -2,6 +2,7 @@ export const AUTH_STORAGE_KEY = "rapidquote:auth-session";
 export const ACCESS_REQUESTS_STORAGE_KEY = "rapidquote:access-requests";
 export const USER_DIRECTORY_STORAGE_KEY = "rapidquote:user-directory";
 export const ACCESS_AUDIT_STORAGE_KEY = "rapidquote:access-audit";
+export const PASSWORD_RESET_STORAGE_KEY = "rapidquote:password-resets";
 
 export type RapidQuoteRole = "sales" | "sales_ops" | "solutions_engineering" | "admin";
 export type AccountStatus = "active" | "invited" | "pending_admin" | "suspended";
@@ -60,7 +61,17 @@ export type AccessAuditRecord = {
   note: string;
 };
 
+export type PasswordResetRecord = {
+  id: string;
+  email: string;
+  token: string;
+  createdAt: string;
+  expiresAt: string;
+  usedAt?: string;
+};
+
 const EIGHT_HOURS_MS = 1000 * 60 * 60 * 8;
+const THIRTY_MINUTES_MS = 1000 * 60 * 30;
 const DEFAULT_PASSWORD = "RapidQuote!23";
 
 const seededUsers: DirectoryUserRecord[] = [
@@ -352,6 +363,21 @@ export function deserializeAccessAudit(value: string | null | undefined): Access
   }
 }
 
+export function deserializePasswordResets(value: string | null | undefined): PasswordResetRecord[] {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value) as PasswordResetRecord[];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter((record) => record?.id && record?.email && record?.token && record?.createdAt && record?.expiresAt);
+  } catch {
+    return [];
+  }
+}
+
 export function getSeededAccessRequests(): AccessRequestRecord[] {
   return seededAccessRequests;
 }
@@ -362,6 +388,50 @@ export function buildAccessRequestId() {
 
 export function buildAccessAuditId() {
   return `rq-audit-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function buildPasswordResetId() {
+  return `rq-reset-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function buildPasswordResetToken() {
+  return `${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function buildPasswordResetRecord(email: string): PasswordResetRecord {
+  const createdAt = new Date();
+  const expiresAt = new Date(createdAt.getTime() + THIRTY_MINUTES_MS);
+
+  return {
+    id: buildPasswordResetId(),
+    email: email.trim().toLowerCase(),
+    token: buildPasswordResetToken(),
+    createdAt: createdAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+  };
+}
+
+export function isPasswordResetExpired(record: PasswordResetRecord) {
+  return new Date(record.expiresAt).getTime() <= Date.now();
+}
+
+export function getPasswordResetRecords(): PasswordResetRecord[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  return deserializePasswordResets(window.localStorage.getItem(PASSWORD_RESET_STORAGE_KEY));
+}
+
+export function getPasswordResetRecord(token: string): PasswordResetRecord | null {
+  const normalizedToken = token.trim();
+  if (!normalizedToken) return null;
+
+  return getPasswordResetRecords().find((record) => record.token === normalizedToken) ?? null;
+}
+
+export function buildPasswordResetPath(record: PasswordResetRecord) {
+  return `/reset-password?token=${encodeURIComponent(record.token)}&email=${encodeURIComponent(record.email)}`;
 }
 
 export function inferRoleFromRequest(roleNeeded: string): RapidQuoteRole {

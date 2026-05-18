@@ -10,11 +10,14 @@ import {
   ACCESS_AUDIT_STORAGE_KEY,
   ACCESS_REQUESTS_STORAGE_KEY,
   AUTH_STORAGE_KEY,
+  PASSWORD_RESET_STORAGE_KEY,
   USER_DIRECTORY_STORAGE_KEY,
   activeAdminCount,
   authenticateWithPassword,
   buildAccessAuditId,
   buildInitials,
+  buildPasswordResetPath,
+  buildPasswordResetRecord,
   buildSession,
   buildUserId,
   canSelfServeSignUp,
@@ -22,8 +25,10 @@ import {
   deserializeAccessRequests,
   deserializeAuthSession,
   deserializeDirectoryUsers,
+  deserializePasswordResets,
   getSeededAccessRequests,
   inferRoleFromRequest,
+  isPasswordResetExpired,
   isSessionExpired,
   normalizeDirectoryUser,
   roleLabel,
@@ -35,6 +40,7 @@ import {
   type AuthSession,
   type AuthUser,
   type DirectoryUserRecord,
+  type PasswordResetRecord,
   type RapidQuoteRole,
 } from "@/app/lib/auth";
 
@@ -46,6 +52,19 @@ type CreateUserInput = {
   role: RapidQuoteRole;
   status: AccountStatus;
   password: string;
+};
+
+type PasswordResetRequestResult = {
+  ok: boolean;
+  error?: string;
+  resetPath?: string;
+  expiresAt?: string;
+};
+
+type PasswordResetCompleteResult = {
+  ok: boolean;
+  error?: string;
+  email?: string;
 };
 
 type AuthContextValue = {
@@ -62,6 +81,8 @@ type AuthContextValue = {
   createUser: (input: CreateUserInput) => { ok: boolean; error?: string };
   updateUserRole: (userId: string, role: RapidQuoteRole) => { ok: boolean; error?: string };
   updateUserStatus: (userId: string, status: AccountStatus) => { ok: boolean; error?: string };
+  requestPasswordReset: (email: string) => PasswordResetRequestResult;
+  completePasswordReset: (token: string, password: string) => PasswordResetCompleteResult;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -95,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessRequests, setAccessRequests] = useState<AccessRequestRecord[]>(getSeededAccessRequests);
   const [directoryRecords, setDirectoryRecords] = useState<DirectoryUserRecord[]>(() => deserializeDirectoryUsers(null));
   const [accessAudit, setAccessAudit] = useState<AccessAuditRecord[]>([]);
+  const [passwordResets, setPasswordResets] = useState<PasswordResetRecord[]>([]);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -119,6 +141,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const savedAudit = deserializeAccessAudit(window.localStorage.getItem(ACCESS_AUDIT_STORAGE_KEY));
     window.localStorage.setItem(ACCESS_AUDIT_STORAGE_KEY, JSON.stringify(savedAudit));
     setAccessAudit(savedAudit);
+
+    const savedPasswordResets = deserializePasswordResets(window.localStorage.getItem(PASSWORD_RESET_STORAGE_KEY));
+    window.localStorage.setItem(PASSWORD_RESET_STORAGE_KEY, JSON.stringify(savedPasswordResets));
+    setPasswordResets(savedPasswordResets);
   }, []);
 
   useEffect(() => {
@@ -145,6 +171,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (event.key === ACCESS_AUDIT_STORAGE_KEY) {
         setAccessAudit(deserializeAccessAudit(event.newValue));
+        return;
+      }
+
+      if (event.key === PASSWORD_RESET_STORAGE_KEY) {
+        setPasswordResets(deserializePasswordResets(event.newValue));
       }
     };
 
@@ -192,6 +223,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession));
       }
     }
+  };
+
+  const persistPasswordResets = (nextResets: PasswordResetRecord[]) => {
+    setPasswordResets(nextResets);
+    window.localStorage.setItem(PASSWORD_RESET_STORAGE_KEY, JSON.stringify(nextResets));
   };
 
   const addAudit = (action: AccessAuditAction, target: { name: string; email: string }, note: string) => {
@@ -281,22 +317,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (status === "approved") {
         const existing = directoryRecords.find((record) => record.email === request.email.toLowerCase());
-        if (!existing) {
-          const role = inferRoleFromRequest(request.roleNeeded);
-          const nextUser = normalizeDirectoryUser({
-            id: buildUserId(request.name, request.email),
-            name: request.name,
-            email: request.email,
-            title: request.roleNeeded,
-            team: request.team,
-            role,
-            status: "active",
-            initials: buildInitials(request.name),
-            canManageUsers: role === "admin",
-            password: "RapidQuote!23",
-          });
-          persistDirectory([nextUser, ...directoryRecords]);
-        }
+        const role = inferRoleFromRequest(request.roleNeeded);
+        const nextUser = normalizeDirectoryUser(existing
+          ? {
+              ...existing,
+              name: request.name,
+              title: request.roleNeeded,
+              team: request.team,
+              role,
+              status: "active",
+              initials: buildInitials(request.name),
+              canManageUsers: role === "admin",
+            }
+          : {
+              id: buildUserId(request.name, request.email),
+              name: request.name,
+              email: request.email,
+              title: request.roleNeeded,
+              team: request.team,
+              role,
+              status: "active",
+              initials: buildInitials(request.name),
+              canManageUsers: role === "admin",
+              password: "RapidQuote!23",
+            });
+
+        const nextUsers = existing
+          ? directoryRecords.map((record) => record.id === existing.id ? nextUser : record)
+          : [nextUser, ...directoryRecords];
+
+        persistDirectory(nextUsers);
       }
 
       const action: AccessAuditAction = status === "approved" ? "request_approved" : status === "denied" ? "request_denied" : "request_needs_info";
@@ -358,7 +408,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       addAudit("status_changed", target, `${target.name} status changed from ${target.status} to ${status}.`);
       return { ok: true };
     },
-  }), [accessAudit, accessRequests, directoryRecords, isReady, router, session]);
+    requestPasswordReset(email: string) {
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail) {
+        return { ok: false, error: "Enter your work email to continue." };
+      }
+
+      if (!canSelfServeSignUp(normalizedEmail)) {
+        return { ok: false, error: "RapidQuote recovery is limited to internal iNet accounts." };
+      }
+
+      const existing = directoryRecords.find((record) => record.email === normalizedEmail);
+      if (!existing) {
+        return { ok: false, error: "No RapidQuote account was found for that email yet. Request access first or ask an admin to provision the account." };
+      }
+
+      if (existing.status !== "active") {
+        return { ok: false, error: "That account is not active yet. Ask a RapidQuote admin to activate it before resetting the password." };
+      }
+
+      const nextReset = buildPasswordResetRecord(normalizedEmail);
+      const nextResets = [
+        nextReset,
+        ...passwordResets.filter((record) => record.email !== normalizedEmail || record.usedAt),
+      ];
+      persistPasswordResets(nextResets);
+
+      return {
+        ok: true,
+        resetPath: buildPasswordResetPath(nextReset),
+        expiresAt: nextReset.expiresAt,
+      };
+    },
+    completePasswordReset(token: string, password: string) {
+      const normalizedToken = token.trim();
+      if (!normalizedToken) {
+        return { ok: false, error: "Open a valid reset link to choose a new password." };
+      }
+
+      const resetRecord = passwordResets.find((record) => record.token === normalizedToken);
+      if (!resetRecord) {
+        return { ok: false, error: "That reset link is not valid anymore. Start a new password reset." };
+      }
+
+      if (resetRecord.usedAt) {
+        return { ok: false, error: "That reset link has already been used. Start a new password reset." };
+      }
+
+      if (isPasswordResetExpired(resetRecord)) {
+        return { ok: false, error: "That reset link has expired. Start a new password reset." };
+      }
+
+      const target = directoryRecords.find((record) => record.email === resetRecord.email);
+      if (!target) {
+        return { ok: false, error: "That account is no longer in the RapidQuote directory. Request access or contact an admin." };
+      }
+
+      const nextUsers = directoryRecords.map((record) => record.email === resetRecord.email
+        ? normalizeDirectoryUser({
+            ...record,
+            password: password.trim(),
+            status: record.status === "suspended" ? record.status : "active",
+          })
+        : record);
+
+      persistDirectory(nextUsers);
+      persistPasswordResets(passwordResets.map((record) => record.token === normalizedToken ? { ...record, usedAt: new Date().toISOString() } : record));
+
+      return { ok: true, email: resetRecord.email };
+    },
+  }), [accessAudit, accessRequests, directoryRecords, isReady, passwordResets, router, session]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
