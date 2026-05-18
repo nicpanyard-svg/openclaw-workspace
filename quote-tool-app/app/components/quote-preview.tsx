@@ -2323,6 +2323,14 @@ export default function QuotePreview() {
     () => formatAttachmentUpdatedAt(activeProposal?.updatedAt ?? quote.metadata.lastTouchedAt ?? ""),
     [activeProposal?.updatedAt, quote.metadata.lastTouchedAt],
   );
+  const proposalHeroSummary = compactList([
+    customerEntryComplete ? quote.customer.name : "Finish customer intake",
+    quote.metadata.proposalNumber,
+    `Revision ${governanceState.revisionLabel}`,
+  ]).join(" • ");
+  const proposalHeroActionCopy = builderLocked
+    ? "Finish customer intake first so Save, Preview, PDF, and workbook export can unlock."
+    : "Save in the builder, then use Preview Proposal for the customer-facing document plus PDF and Approval Workbook exports.";
   const firstImportedMajorProjectCost = useMemo(
     () => importedMajorProjectComponents.find((component) => component.vendorUnitCost > 0)?.vendorUnitCost,
     [importedMajorProjectComponents],
@@ -4365,38 +4373,63 @@ export default function QuotePreview() {
   };
 
   return isHydrated ? (
-    <main className="min-h-screen px-4 py-6 text-[#232a31] md:px-6 md:py-8">
-      <div className="mx-auto max-w-[1380px] space-y-6">
-        <section className="rounded-[28px] border border-white/60 bg-[var(--workspace-panel)] p-6 shadow-[0_16px_40px_rgba(75,88,106,0.12)] backdrop-blur">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex max-w-[820px] items-start gap-4">
-              <ProductLogo width={156} height={44} className="workspace-brand-logo product-logo workspace-logo-inline shrink-0" priority />
-              <div>
-                <h1 className="mt-1 text-[32px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal Editor</h1>
+    <main className="proposal-editor-shell min-h-screen px-4 py-6 text-[#232a31] md:px-6 md:py-8">
+      <div className="proposal-editor-container mx-auto max-w-[1380px] space-y-6">
+        <section className="proposal-editor-hero">
+          <div className="proposal-editor-hero-grid">
+            <div className="proposal-editor-brand">
+              <div className="proposal-editor-logo-shell">
+                <ProductLogo width={168} height={48} className="workspace-brand-logo product-logo workspace-logo-inline shrink-0" priority />
+              </div>
+              <div className="proposal-editor-headline">
+                <div className="builder-eyebrow proposal-editor-kicker">{isMajorProject ? "Major Project workspace" : "Quick Quote workspace"}</div>
+                <h1 className="proposal-editor-title">{quote.metadata.documentTitle || "Proposal Editor"}</h1>
+                <p className="proposal-editor-subtitle">Build, review, and release the quote from one workspace without losing track of pricing, status, or customer-facing output.</p>
+                <div className="proposal-editor-meta-row">
+                  <span className="proposal-editor-meta-chip">{proposalHeroSummary}</span>
+                  <span className="proposal-editor-meta-chip proposal-editor-meta-chip-strong">{statusToStageLabel(quote.metadata.status)}</span>
+                  {quoteLastTouchedLabel ? <span className="proposal-editor-meta-chip">Saved {quoteLastTouchedLabel}</span> : null}
+                </div>
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="builder-stat-card"><div className="builder-stat-label">Recurring monthly</div><div className="builder-stat-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section A</div></div>
-              <div className="builder-stat-card"><div className="builder-stat-label">One-time equipment</div><div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div><div className="builder-stat-note">Updated from Section B</div></div>
-              <div className="builder-stat-card"><div className="builder-stat-label">Optional services</div><div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div><div className="builder-stat-note">Inspection and install totals</div></div>
-                <div className="builder-stat-card"><div className="builder-stat-label">Quote status</div><div className="builder-stat-value">{statusToStageLabel(quote.metadata.status)}</div><div className="builder-stat-note">Proposal workflow</div></div>
+            <div className="proposal-editor-metric-grid">
+              <div className="proposal-editor-metric-card">
+                <div className="builder-stat-label">Recurring monthly</div>
+                <div className="builder-stat-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
+                <div className="builder-stat-note">Section A is driving the live recurring view.</div>
+              </div>
+              <div className="proposal-editor-metric-card">
+                <div className="builder-stat-label">One-time equipment</div>
+                <div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
+                <div className="builder-stat-note">Hardware and one-time scope ready for review.</div>
+              </div>
+              <div className="proposal-editor-metric-card">
+                <div className="builder-stat-label">Optional services</div>
+                <div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
+                <div className="builder-stat-note">Inspection, install, and service totals.</div>
+              </div>
+              <div className="proposal-editor-metric-card proposal-editor-metric-card-accent">
+                <div className="builder-stat-label">Quote status</div>
+                <div className="builder-stat-value">{statusToStageLabel(quote.metadata.status)}</div>
+                <div className="builder-stat-note">Revision {governanceState.revisionLabel} • {isMajorProject ? "Mapped Builder" : "Quick Quote"}.</div>
+              </div>
             </div>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button type="button" className="pill-button" onClick={persistProposalState} disabled={!customerEntryComplete}>Save Draft</button>
-            <button type="button" className="pill-button" onClick={copyProposalFromBuilder} disabled={!customerEntryComplete}>Copy Proposal</button>
-            <button type="button" className="pill-button pill-button-active" onClick={handlePreviewProposal} disabled={!customerEntryComplete}>
-              Preview Proposal
-            </button>
-          </div>
-
-          {!builderLocked ? (
-            <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#f7fafc] px-4 py-3 text-[13px] text-[#435160]">
-              Review and exports now flow through <strong>Preview Proposal</strong>. Open the customer-facing document there for Approval Workbook and PDF output.
+          <div className="proposal-editor-actionbar">
+            <div className="proposal-editor-actioncopy">
+              <div className="proposal-editor-actiontitle">Work in the builder. Export from Preview.</div>
+              <div className="proposal-editor-actiontext">{proposalHeroActionCopy}</div>
             </div>
-          ) : null}
+            <div className="proposal-editor-actionbuttons">
+              <button type="button" className="pill-button" onClick={persistProposalState} disabled={!customerEntryComplete}>Save Draft</button>
+              <button type="button" className="pill-button" onClick={copyProposalFromBuilder} disabled={!customerEntryComplete}>Copy Proposal</button>
+              <button type="button" className="pill-button pill-button-active" onClick={handlePreviewProposal} disabled={!customerEntryComplete}>
+                Preview Proposal
+              </button>
+            </div>
+          </div>
 
           <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#fbfcfe] px-4 py-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -6435,8 +6468,35 @@ export default function QuotePreview() {
                 </div>
               </section>
             ) : (
-            <section className="builder-panel sticky top-6">
-              <div className="builder-panel-header"><div><div className="builder-eyebrow">Proposal summary</div><h2 className="builder-title">PDF-ready summary</h2></div></div>
+            <section className="builder-panel sticky top-6 proposal-editor-summary-rail">
+              <div className="builder-panel-header proposal-editor-summary-header">
+                <div>
+                  <div className="builder-eyebrow">Review rail</div>
+                  <h2 className="builder-title">Release confidence</h2>
+                  <p className="proposal-editor-summary-copy">Keep setup and pricing on the left. Use this rail to understand readiness, revision confidence, and final handoff before you preview or export.</p>
+                </div>
+                <div className="proposal-editor-summary-status">
+                  <span className="proposal-editor-meta-chip proposal-editor-meta-chip-strong">{statusToStageLabel(quote.metadata.status)}</span>
+                  <span className="proposal-editor-meta-chip">Revision {governanceState.revisionLabel}</span>
+                </div>
+              </div>
+              <div className="proposal-editor-summary-glance">
+                <div className="proposal-editor-summary-glance-card">
+                  <span>Needs attention</span>
+                  <strong>{editorNeedsAttention.length}</strong>
+                  <p>{editorNeedsAttention.length ? "Review items still queued before release." : "No major blockers are queued right now."}</p>
+                </div>
+                <div className="proposal-editor-summary-glance-card">
+                  <span>Preview status</span>
+                  <strong>{outputReadiness[0]?.state || "Ready"}</strong>
+                  <p>{outputReadiness[0]?.detail || "Customer-facing preview is ready to open."}</p>
+                </div>
+                <div className="proposal-editor-summary-glance-card">
+                  <span>Last saved</span>
+                  <strong>{quoteLastTouchedLabel || "Not saved yet"}</strong>
+                  <p>{latestProposalActivity?.message || "Save from the builder to keep the draft and activity history in sync."}</p>
+                </div>
+              </div>
               <div className="space-y-5 text-[14px] text-[#32404c]">
                 <div className="summary-block"><div className="summary-label">Customer</div><div className="summary-value">{quote.customer.name}</div><div className="summary-subvalue">{quote.customer.contactName} • {quote.metadata.proposalNumber} • {quote.metadata.proposalDate}</div></div>
                 <div className="summary-block"><div className="summary-label">Proposal info</div><div className="summary-value">{quote.metadata.documentTitle}</div><div className="summary-subvalue">Prepared by {quote.inet.contactName} • {quote.inet.contactPhone}</div></div>
