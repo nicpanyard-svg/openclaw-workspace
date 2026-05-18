@@ -1736,7 +1736,7 @@ export default function QuotePreview() {
   const [isMajorProjectVendorQuoteDragging, setIsMajorProjectVendorQuoteDragging] = useState(false);
   const [majorProjectVendorQuoteCaptureError, setMajorProjectVendorQuoteCaptureError] = useState<MajorProjectVendorQuoteCaptureError | null>(null);
   const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
-  const [majorProjectImportedMarginPercent, setMajorProjectImportedMarginPercent] = useState("25");
+  const [majorProjectImportedMarginPercent, setMajorProjectImportedMarginPercent] = useState("35");
 
   useEffect(() => {
     const activeProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
@@ -3076,7 +3076,7 @@ export default function QuotePreview() {
             source,
             status: "reading",
             quoteLabel: stripFileExtension(file.name),
-            pricingMarginPercent: 25,
+            pricingMarginPercent: 35,
             previewItems: [],
           },
         ];

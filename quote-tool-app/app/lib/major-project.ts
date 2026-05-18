@@ -495,7 +495,7 @@ function normalizeVendorQuoteImport(entry: Partial<MajorProjectVendorQuoteImport
     quoteLabel: normalizeText(entry?.quoteLabel) || undefined,
     pricingMarginPercent: typeof entry?.pricingMarginPercent === "number" && Number.isFinite(entry.pricingMarginPercent)
       ? Math.min(Math.max(entry.pricingMarginPercent, 0), 95)
-      : 25,
+      : 35,
     readError: normalizeText(entry?.readError) || undefined,
     previewItems: (entry?.previewItems ?? []).map((item, itemIndex) => normalizeVendorQuoteDraftItem(item, itemIndex)),
     importedRowIds: Array.from(new Set((entry?.importedRowIds ?? []).map((value) => normalizeText(value)).filter(Boolean))),
