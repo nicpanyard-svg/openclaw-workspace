@@ -4581,7 +4581,7 @@ export default function QuotePreview() {
               ) : null}
 
               {customerEntryMode === "select" ? (
-                <div className="mt-5 rounded-[22px] border border-[#dde3e8] bg-white p-4 md:p-5">
+                <div className="customer-entry-shell mt-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
                       <div className="builder-eyebrow">Choose customer</div>
@@ -4612,11 +4612,11 @@ export default function QuotePreview() {
                   </div>
 
                   {selectedCustomerProfile ? (
-                      <div className="mt-4 grid gap-3 md:grid-cols-4">
-                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Main contact</strong>{selectedCustomerProfile.mainContactName || "Not set"}<br />{selectedCustomerProfile.mainContactEmail || "No email"}<br />{selectedCustomerProfile.mainContactPhone || "No phone"}</div>
-                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Primary / default address</strong>{selectedCustomerProfile.primaryAddress.companyName || selectedCustomerProfile.companyName}<br />{selectedCustomerProfile.primaryAddress.lines.join(", ") || "No primary address"}</div>
-                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Billing / shipping defaults</strong>{selectedCustomerProfile.shippingSameAsBillTo ? "Shipping matches billing" : selectedCustomerProfile.shippingAddress.lines.join(", ") || "No shipping address"}<br />Owner default: {selectedCustomerProfile.defaultOwnerName || "Not set"}</div>
-                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Service pricing agreement</strong>{selectedCustomerServiceAgreement.agreementLabel || "No SLA name set"}<br />{hasSelectedCustomerServiceAgreement ? `${selectedCustomerServiceAgreement.categories.filter((category) => category.rateBasis !== "na").length} priced category defaults` : "No SLA pricing defaults saved yet"}</div>
+                      <div className="customer-entry-insight-grid mt-4">
+                        <div className="customer-entry-insight-card"><strong>Main contact</strong><span>{selectedCustomerProfile.mainContactName || "Not set"}</span><p>{selectedCustomerProfile.mainContactEmail || "No email"}<br />{selectedCustomerProfile.mainContactPhone || "No phone"}</p></div>
+                        <div className="customer-entry-insight-card"><strong>Primary / default address</strong><span>{selectedCustomerProfile.primaryAddress.companyName || selectedCustomerProfile.companyName}</span><p>{selectedCustomerProfile.primaryAddress.lines.join(", ") || "No primary address"}</p></div>
+                        <div className="customer-entry-insight-card"><strong>Billing / shipping defaults</strong><span>{selectedCustomerProfile.shippingSameAsBillTo ? "Shipping matches billing" : "Separate shipping saved"}</span><p>{selectedCustomerProfile.shippingSameAsBillTo ? "Billing address will also be used for shipping." : selectedCustomerProfile.shippingAddress.lines.join(", ") || "No shipping address"}<br />Owner default: {selectedCustomerProfile.defaultOwnerName || "Not set"}</p></div>
+                        <div className="customer-entry-insight-card"><strong>Service pricing agreement</strong><span>{selectedCustomerServiceAgreement.agreementLabel || "No SLA name set"}</span><p>{hasSelectedCustomerServiceAgreement ? `${selectedCustomerServiceAgreement.categories.filter((category) => category.rateBasis !== "na").length} priced category defaults` : "No SLA pricing defaults saved yet"}</p></div>
                       </div>
                   ) : customerProfiles.length === 0 ? (
                     <div className="mt-4 rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No saved customer profiles yet. Create one from this draft, then reuse it next time.</div>
@@ -4625,13 +4625,18 @@ export default function QuotePreview() {
               ) : null}
 
               {(customerEntryMode === "create" || customerEntryMode === "review") ? (
-                <div className="mt-5 rounded-[22px] border border-[#dde3e8] bg-white p-4 md:p-5">
+                <div className="customer-entry-shell mt-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
+                    <div className={customerEntryMode === "review" ? "customer-entry-selected-copy" : ""}>
                       <div className="builder-eyebrow">{customerEntryMode === "review" ? "Customer selected" : "Create customer"}</div>
                       <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">{customerEntryMode === "review" ? customerHeadline : "Customer details for this quote"}</h3>
+                      {customerEntryMode === "review" ? (
+                        <p className="customer-entry-selected-subtitle">
+                          This customer is now attached to the quote. Review the defaults below, then move straight into quote setup and pricing.
+                        </p>
+                      ) : null}
                     </div>
-                    <div className="flex flex-wrap gap-3">
+                    <div className={`flex flex-wrap gap-3 ${customerEntryMode === "review" ? "customer-entry-selected-actions" : ""}`}>
                       {customerEntryMode === "review" ? (
                         <>
                           <button type="button" className="pill-button" onClick={() => setCustomerEntryMode("select")}>Select different customer</button>
@@ -4650,11 +4655,11 @@ export default function QuotePreview() {
                   </div>
 
                   {customerEntryMode === "review" ? (
-                      <div className="mt-4 grid gap-3 md:grid-cols-4">
-                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Contact</strong>{customerSubline || "No contact details yet"}</div>
-                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Primary / default address</strong>{customerServiceAddress || "No primary address yet"}</div>
-                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Saved profile</strong>{selectedCustomerProfile ? selectedCustomerProfile.companyName : "Not linked yet"}<br />{selectedCustomerProfileId ? "Auto-update available on save" : "Save this customer when ready"}</div>
-                        <div className="rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">SLA defaults</strong>{quoteServiceAgreementProfile.agreementLabel || "No service agreement linked"}<br />{activeServiceAgreementCategories.length ? `${activeServiceAgreementCategories.length} active pricing categories ready` : "No customer pricing defaults applied yet"}</div>
+                      <div className="customer-entry-insight-grid mt-4">
+                        <div className="customer-entry-insight-card"><strong>Contact</strong><span>{quote.customer.contactName || customerHeadline}</span><p>{customerSubline || "No contact details yet"}</p></div>
+                        <div className="customer-entry-insight-card"><strong>Primary / default address</strong><span>{quote.customer.addressLines[0] || "No primary address yet"}</span><p>{customerServiceAddress || "No primary address yet"}</p></div>
+                        <div className="customer-entry-insight-card"><strong>Saved profile</strong><span>{selectedCustomerProfile ? selectedCustomerProfile.companyName : "Not linked yet"}</span><p>{selectedCustomerProfileId ? "Auto-update available on save" : "Save this customer when ready"}</p></div>
+                        <div className="customer-entry-insight-card"><strong>SLA defaults</strong><span>{quoteServiceAgreementProfile.agreementLabel || "No service agreement linked"}</span><p>{activeServiceAgreementCategories.length ? `${activeServiceAgreementCategories.length} active pricing categories ready` : "No customer pricing defaults applied yet"}</p></div>
                       </div>
                   ) : (
                     <>

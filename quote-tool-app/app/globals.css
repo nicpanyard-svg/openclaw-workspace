@@ -1520,6 +1520,68 @@ body {
   text-transform: none;
 }
 
+.customer-entry-shell {
+  border: 1px solid #dde3e8;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+  padding: 18px;
+  box-shadow: 0 14px 30px rgba(54, 68, 83, 0.05);
+}
+
+.customer-entry-selected-copy {
+  max-width: 72ch;
+}
+
+.customer-entry-selected-subtitle {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #60707f;
+}
+
+.customer-entry-selected-actions {
+  align-self: flex-start;
+}
+
+.customer-entry-insight-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.customer-entry-insight-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #e2e7ec;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #fbfcfe 0%, #ffffff 100%);
+  padding: 16px;
+  color: #51606d;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.customer-entry-insight-card strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7f8b97;
+}
+
+.customer-entry-insight-card span {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #16202b;
+}
+
+.customer-entry-insight-card p {
+  margin: 0;
+}
+
 .workspace-section-stack {
   margin-top: 22px;
   display: grid;
@@ -3298,6 +3360,7 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .customer-entry-insight-grid,
   .major-project-overview-grid,
   .major-project-path-grid,
   .proposal-editor-hero-grid,
