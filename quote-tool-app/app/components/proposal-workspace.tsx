@@ -598,6 +598,8 @@ function DashboardGroup({
             const hasOptionalServices = summary.optionalServicesTotal > 0;
             const isMajorProjectProposal = proposal.quote.metadata.workflowMode === "major_project" && Boolean(proposal.quote.majorProject?.enabled);
             const majorProjectTermMonths = proposal.quote.majorProject?.commercial.termMonths ?? 0;
+            const revisionLabel = proposal.quote.governance?.revisionLabel || proposal.quote.metadata.revisionVersion || "1.0";
+            const quoteTypeLabel = proposal.quote.metadata.quoteType === "lease" ? "Lease" : "Purchase";
 
             return (
               <article key={proposal.id} className={`proposal-list-card proposal-list-card-visual ${isActive ? "proposal-list-card-active" : ""}`}>
@@ -629,6 +631,29 @@ function DashboardGroup({
                 <div className="proposal-next-step-banner">
                   <span>Next step</span>
                   <strong>{nextStep}</strong>
+                </div>
+
+                <div className="proposal-review-strip">
+                  <div className="proposal-review-card">
+                    <span>Revision</span>
+                    <strong>{revisionLabel}</strong>
+                    <em>Record v{proposal.recordVersion}</em>
+                  </div>
+                  <div className="proposal-review-card">
+                    <span>Workflow</span>
+                    <strong>{isMajorProjectProposal ? "Major Project" : "Quick Quote"}</strong>
+                    <em>{summary.proposalNumber}</em>
+                  </div>
+                  <div className="proposal-review-card">
+                    <span>Quote type</span>
+                    <strong>{quoteTypeLabel}</strong>
+                    <em>{hasOptionalServices ? "Optional services included" : "Core scope only"}</em>
+                  </div>
+                  <div className="proposal-review-card">
+                    <span>Last touch</span>
+                    <strong>{formatRelativeTime(summary.updatedAt)}</strong>
+                    <em>{formatDateTime(proposal.updatedAt)}</em>
+                  </div>
                 </div>
 
                 <div className="proposal-commercial-grid">
