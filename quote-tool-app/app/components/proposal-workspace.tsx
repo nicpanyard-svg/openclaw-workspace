@@ -139,6 +139,34 @@ function StatFilterCard({
   );
 }
 
+function WorkspaceReviewCard({
+  label,
+  value,
+  detail,
+  tone = "neutral",
+}: {
+  label: string;
+  value: ReactNode;
+  detail: ReactNode;
+  tone?: "neutral" | "accent" | "success" | "warn";
+}) {
+  const toneClass = tone === "accent"
+    ? "commercial-metric-card-accent"
+    : tone === "success"
+      ? "commercial-metric-card-success"
+      : tone === "warn"
+        ? "commercial-metric-card-warn"
+        : "";
+
+  return (
+    <div className={`commercial-metric-card workspace-review-card ${toneClass}`.trim()}>
+      <span className="commercial-metric-label">{label}</span>
+      <strong className="commercial-metric-value">{value}</strong>
+      <p className="commercial-metric-detail">{detail}</p>
+    </div>
+  );
+}
+
 export function ProposalWorkspace() {
   const { user } = useAuth();
   const seed = useMemo(() => createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }), []);
@@ -731,6 +759,44 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
           </div>
         </section>
 
+        <section className="workspace-panel workspace-review-strip-panel">
+          <div className="workspace-panel-topbar workspace-panel-topbar-stack">
+            <div>
+              <div className="workspace-eyebrow">Review surface</div>
+              <h2 className="workspace-section-title">Commercial and release cues</h2>
+              <p className="workspace-panel-copy">
+                Use this strip to decide whether the proposal is ready for another pricing pass, internal review, or customer-facing preview.
+              </p>
+            </div>
+          </div>
+
+          <div className="workspace-review-strip">
+            <WorkspaceReviewCard
+              label="Current state"
+              value={proposal.stageLabel}
+              detail={statusToStageLabel(proposal.status)}
+              tone={proposal.status === "approved" || proposal.status === "sent" ? "success" : proposal.status === "in_review" ? "accent" : "neutral"}
+            />
+            <WorkspaceReviewCard
+              label="Next move"
+              value={getNextStepLabel(proposal)}
+              detail={latestActivity ? latestActivity.message : "No recent workflow activity recorded yet."}
+              tone="accent"
+            />
+            <WorkspaceReviewCard
+              label={isMajorProjectProposal ? "Contract margin" : "Gross margin"}
+              value={`${commercial.totalGrossMarginPercent.toFixed(1)}%`}
+              detail={`${isMajorProjectProposal ? "Contract GP" : "Gross profit"} ${formatCurrency(commercial.totalGrossProfit)}`}
+              tone={commercial.totalGrossMarginPercent >= 25 ? "success" : commercial.totalGrossMarginPercent > 0 ? "accent" : "warn"}
+            />
+            <WorkspaceReviewCard
+              label="Output path"
+              value="Preview -> PDF -> Workbook"
+              detail="Use Preview Proposal for the customer document, then launch print/PDF and workbook export from there."
+            />
+          </div>
+        </section>
+
         <div className="detail-grid detail-grid-wide">
           <section className="workspace-panel">
             <div className="workspace-panel-topbar">
@@ -760,18 +826,21 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
               <div>
                 <div className="workspace-eyebrow">Commercial snapshot</div>
                 <h2 className="workspace-section-title">Current totals</h2>
+                <p className="workspace-panel-copy">
+                  Keep the top-line numbers, margin, and contract basis readable here before you open the editor for line-by-line changes.
+                </p>
               </div>
             </div>
 
-            <div className="detail-card-grid">
-              <div className="detail-card"><span>Monthly recurring</span><strong>{formatCurrency(summary.totalMonthly)}</strong><em>Section A</em></div>
-              <div className="detail-card"><span>Equipment</span><strong>{formatCurrency(summary.equipmentTotal)}</strong><em>Section B</em></div>
-              <div className="detail-card"><span>Optional services</span><strong>{formatCurrency(summary.optionalServicesTotal)}</strong><em>Section C</em></div>
-              <div className="detail-card"><span>Prepared by</span><strong>{proposal.quote.inet.contactName}</strong><em>{proposal.quote.inet.contactEmail}</em></div>
-              <div className="detail-card"><span>{isMajorProjectProposal ? "Contract gross profit" : "Gross profit"}</span><strong>{formatCurrency(commercial.totalGrossProfit)}</strong><em>{isMajorProjectProposal && majorProjectTermMonths > 0 ? `${majorProjectTermMonths}-month contract basis` : "Internal only"}</em></div>
-              <div className="detail-card"><span>{isMajorProjectProposal ? "Contract gross margin" : "Gross margin"}</span><strong>{commercial.totalGrossMarginPercent.toFixed(1)}%</strong><em>{isMajorProjectProposal ? "MRR x months plus one-time value" : "Revenue vs cost"}</em></div>
-              <div className="detail-card"><span>Recurring margin</span><strong>{commercial.recurringGrossMarginPercent.toFixed(1)}%</strong><em>Monthly GP {formatCurrency(commercial.recurringGrossProfit)}</em></div>
-              <div className="detail-card"><span>Option label</span><strong>{proposal.quote.commercial.meta.optionLabel}</strong><em>{proposal.quote.commercial.meta.comparisonGroup || "Internal comparison"}</em></div>
+            <div className="commercial-metric-grid workspace-commercial-grid">
+              <WorkspaceReviewCard label="Monthly recurring" value={formatCurrency(summary.totalMonthly)} detail="Section A" tone="accent" />
+              <WorkspaceReviewCard label="Equipment" value={formatCurrency(summary.equipmentTotal)} detail="Section B" />
+              <WorkspaceReviewCard label="Optional services" value={formatCurrency(summary.optionalServicesTotal)} detail="Section C" />
+              <WorkspaceReviewCard label="Prepared by" value={proposal.quote.inet.contactName} detail={proposal.quote.inet.contactEmail} />
+              <WorkspaceReviewCard label={isMajorProjectProposal ? "Contract gross profit" : "Gross profit"} value={formatCurrency(commercial.totalGrossProfit)} detail={isMajorProjectProposal && majorProjectTermMonths > 0 ? `${majorProjectTermMonths}-month contract basis` : "Internal only"} tone={commercial.totalGrossProfit >= 0 ? "success" : "warn"} />
+              <WorkspaceReviewCard label={isMajorProjectProposal ? "Contract gross margin" : "Gross margin"} value={`${commercial.totalGrossMarginPercent.toFixed(1)}%`} detail={isMajorProjectProposal ? "MRR x months plus one-time value" : "Revenue vs cost"} tone={commercial.totalGrossMarginPercent >= 25 ? "success" : commercial.totalGrossMarginPercent > 0 ? "accent" : "warn"} />
+              <WorkspaceReviewCard label="Recurring margin" value={`${commercial.recurringGrossMarginPercent.toFixed(1)}%`} detail={`Monthly GP ${formatCurrency(commercial.recurringGrossProfit)}`} tone={commercial.recurringGrossMarginPercent >= 25 ? "success" : commercial.recurringGrossMarginPercent > 0 ? "accent" : "warn"} />
+              <WorkspaceReviewCard label="Option label" value={proposal.quote.commercial.meta.optionLabel} detail={proposal.quote.commercial.meta.comparisonGroup || "Internal comparison"} />
             </div>
           </section>
 

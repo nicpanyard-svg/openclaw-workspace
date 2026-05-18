@@ -1076,6 +1076,68 @@ body {
   color: #5f6e7b;
 }
 
+.commercial-metric-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.commercial-metric-grid-five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.commercial-metric-grid-rollup {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.commercial-metric-card {
+  border-radius: 18px;
+  border: 1px solid #dde4ea;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 253, 0.98) 100%);
+  padding: 14px 16px;
+  box-shadow: 0 10px 22px rgba(24, 36, 48, 0.04);
+}
+
+.commercial-metric-card-accent {
+  border-color: #e6c8cc;
+  background: linear-gradient(180deg, #fff8f8 0%, #ffffff 100%);
+}
+
+.commercial-metric-card-success {
+  border-color: #d6e6d9;
+  background: linear-gradient(180deg, #f7fcf8 0%, #ffffff 100%);
+}
+
+.commercial-metric-card-warn {
+  border-color: #efd8c0;
+  background: linear-gradient(180deg, #fff8f0 0%, #ffffff 100%);
+}
+
+.commercial-metric-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #82909d;
+}
+
+.commercial-metric-value {
+  display: block;
+  margin-top: 8px;
+  font-size: 22px;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  color: #16202b;
+}
+
+.commercial-metric-detail {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #5d6a77;
+}
+
 .workspace-panel-topbar,
 .builder-panel-header {
   display: flex;
@@ -2084,6 +2146,10 @@ body {
   .workspace-launchpad-grid,
   .workspace-stat-grid,
   .proposal-commercial-grid,
+  .commercial-metric-grid,
+  .commercial-metric-grid-five,
+  .commercial-metric-grid-rollup,
+  .workspace-review-strip,
   .detail-grid-wide,
   .detail-grid,
   .detail-card-grid {
@@ -2095,6 +2161,10 @@ body {
   .workspace-launchpad-grid,
   .workspace-stat-grid,
   .proposal-commercial-grid,
+  .commercial-metric-grid,
+  .commercial-metric-grid-five,
+  .commercial-metric-grid-rollup,
+  .workspace-review-strip,
   .detail-grid-wide,
   .detail-grid,
   .detail-card-grid {
@@ -2133,6 +2203,25 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.workspace-review-strip-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.workspace-review-strip {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.workspace-review-card {
+  min-height: 100%;
+}
+
+.workspace-commercial-grid {
+  margin-top: 18px;
 }
 
 .detail-grid-wide {

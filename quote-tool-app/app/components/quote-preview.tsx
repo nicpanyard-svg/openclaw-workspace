@@ -1145,12 +1145,30 @@ function ActionButton({
   );
 }
 
-function CommercialMetricCard({ label, value, note, accent = false }: { label: string; value: string; note: string; accent?: boolean }) {
+function CommercialMetricCard({
+  label,
+  value,
+  detail,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+  tone?: "neutral" | "accent" | "success" | "warn";
+}) {
+  const toneClass = tone === "accent"
+    ? "commercial-metric-card-accent"
+    : tone === "success"
+      ? "commercial-metric-card-success"
+      : tone === "warn"
+        ? "commercial-metric-card-warn"
+        : "";
+
   return (
-    <div className={`rounded-[18px] border p-4 ${accent ? "border-[#f1d1d1] bg-[#fff7f7]" : "border-[#dde3e8] bg-white"}`}>
-      <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">{label}</div>
-      <div className={`mt-2 text-[24px] font-semibold tracking-[-0.03em] ${accent ? "text-[#b00000]" : "text-[#16202b]"}`}>{value}</div>
-      <div className="mt-1 text-[13px] text-[#60707f]">{note}</div>
+    <div className={`commercial-metric-card ${toneClass}`.trim()}>
+      <span className="commercial-metric-label">{label}</span>
+      <strong className="commercial-metric-value">{value}</strong>
+      {detail ? <p className="commercial-metric-detail">{detail}</p> : null}
     </div>
   );
 }
@@ -5673,12 +5691,12 @@ export default function QuotePreview() {
                                     }}
                                     onSpecSheetLabelChange={(value) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, specSheetLabel: value }))}
                                   />
-                                  <div className="mt-3 grid gap-3 md:grid-cols-5 text-[12px] text-[#5f6c78]">
-                                    <div className="rounded-[14px] bg-white px-3 py-2">Ext. revenue {formatCurrency(rowRevenue, currencyCode)}</div>
-                                    <div className="rounded-[14px] bg-white px-3 py-2">Ext. cost {formatCurrency(rowCost, currencyCode)}</div>
-                                    <div className="rounded-[14px] bg-white px-3 py-2">GP {formatCurrency(rowGrossProfit, currencyCode)}</div>
-                                    <div className="rounded-[14px] bg-white px-3 py-2">Margin {formatPercent(rowMargin)}</div>
-                                    <div className="rounded-[14px] bg-white px-3 py-2">Proposal section {row.bucket === "hardware" ? "Section B" : row.bucket === "install" ? "Section C" : "Section A"}</div>
+                                  <div className="commercial-metric-grid commercial-metric-grid-five mt-3">
+                                    <CommercialMetricCard label="Ext. revenue" value={formatCurrency(rowRevenue, currencyCode)} detail="Customer-facing total" tone="accent" />
+                                    <CommercialMetricCard label="Ext. cost" value={formatCurrency(rowCost, currencyCode)} detail="Imported or edited cost basis" />
+                                    <CommercialMetricCard label="Gross profit" value={formatCurrency(rowGrossProfit, currencyCode)} detail="Revenue minus cost" tone={rowGrossProfit >= 0 ? "success" : "warn"} />
+                                    <CommercialMetricCard label="Margin" value={formatPercent(rowMargin)} detail="Current row margin" tone={rowMargin >= 25 ? "success" : rowMargin > 0 ? "accent" : "warn"} />
+                                    <CommercialMetricCard label="Proposal section" value={row.bucket === "hardware" ? "Section B" : row.bucket === "install" ? "Section C" : "Section A"} detail="Where this item lands downstream" />
                                   </div>
                                 </div>
                               );
@@ -5910,11 +5928,11 @@ export default function QuotePreview() {
                                 <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={component.passThrough} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, passThrough: e.target.checked }))} /> Pass-through</label>
                               </div>
                             </div>
-                            <div className="mt-3 grid gap-3 lg:grid-cols-4 text-[12px] text-[#5f6c78]">
-                              <div className="rounded-[14px] bg-white px-3 py-2">Revenue {formatCurrency(componentRevenue, currencyCode)}</div>
-                              <div className="rounded-[14px] bg-white px-3 py-2">Cost {formatCurrency(componentCost, currencyCode)}</div>
-                              <div className="rounded-[14px] bg-white px-3 py-2">GP {formatCurrency(componentGrossProfit, currencyCode)}</div>
-                              <div className="rounded-[14px] bg-white px-3 py-2">Margin {formatPercent(componentMargin)}</div>
+                            <div className="commercial-metric-grid mt-3">
+                              <CommercialMetricCard label="Revenue" value={formatCurrency(componentRevenue, currencyCode)} detail="Current customer-facing value" tone="accent" />
+                              <CommercialMetricCard label="Cost" value={formatCurrency(componentCost, currencyCode)} detail="Vendor or internal cost basis" />
+                              <CommercialMetricCard label="Gross profit" value={formatCurrency(componentGrossProfit, currencyCode)} detail="Revenue minus cost" tone={componentGrossProfit >= 0 ? "success" : "warn"} />
+                              <CommercialMetricCard label="Margin" value={formatPercent(componentMargin)} detail="Live component margin" tone={componentMargin >= 25 ? "success" : componentMargin > 0 ? "accent" : "warn"} />
                             </div>
                           </div>
                         );})}
@@ -5997,7 +6015,7 @@ export default function QuotePreview() {
                                   ))}
                                 </div>
                               </div>
-                              <div className="mt-3 grid gap-3 md:grid-cols-4 text-[12px] text-[#5f6c78]">
+                              <div className="commercial-metric-grid mt-3">
                                 {(() => {
                                   const rollup = buildMajorProjectContractRollup({
                                     oneTimeRevenue: bundleMetrics?.oneTimeRevenue ?? 0,
@@ -6008,10 +6026,10 @@ export default function QuotePreview() {
                                   });
                                   return (
                                     <>
-                                      <div className="rounded-[14px] bg-white px-3 py-2">Recurring MRR {formatCurrency(bundleMetrics?.recurringRevenue ?? 0, currencyCode)}</div>
-                                      <div className="rounded-[14px] bg-white px-3 py-2">One-time revenue {formatCurrency(bundleMetrics?.oneTimeRevenue ?? 0, currencyCode)}</div>
-                                      <div className="rounded-[14px] bg-white px-3 py-2">Contract value ({majorProjectTermMonths} mo) {formatCurrency(rollup.totalContractRevenue, currencyCode)}</div>
-                                      <div className="rounded-[14px] bg-white px-3 py-2">Contract cost ({majorProjectTermMonths} mo) {formatCurrency(rollup.totalContractCost, currencyCode)}</div>
+                                      <CommercialMetricCard label="Recurring MRR" value={formatCurrency(bundleMetrics?.recurringRevenue ?? 0, currencyCode)} detail="Bundle recurring revenue" tone="accent" />
+                                      <CommercialMetricCard label="One-time revenue" value={formatCurrency(bundleMetrics?.oneTimeRevenue ?? 0, currencyCode)} detail="Bundle hardware and services" />
+                                      <CommercialMetricCard label={`Contract value (${majorProjectTermMonths} mo)`} value={formatCurrency(rollup.totalContractRevenue, currencyCode)} detail="Recurring plus one-time contract value" tone="success" />
+                                      <CommercialMetricCard label={`Contract cost (${majorProjectTermMonths} mo)`} value={formatCurrency(rollup.totalContractCost, currencyCode)} detail="Internal cost basis" />
                                     </>
                                   );
                                 })()}
@@ -6124,7 +6142,7 @@ export default function QuotePreview() {
                                   </div>
                                 </div>
                               </details>
-                              <div className="mt-3 grid gap-3 md:grid-cols-4 text-[12px] text-[#5f6c78]">
+                              <div className="commercial-metric-grid mt-3">
                                 {(() => {
                                   const rollup = buildMajorProjectContractRollup({
                                     oneTimeRevenue: metrics?.oneTimeRevenue ?? 0,
@@ -6135,10 +6153,10 @@ export default function QuotePreview() {
                                   });
                                   return (
                                     <>
-                                      <div className="rounded-[14px] bg-white px-3 py-2">Recurring MRR {formatCurrency(metrics?.recurringRevenue ?? 0, currencyCode)}</div>
-                                      <div className="rounded-[14px] bg-white px-3 py-2">One-time revenue {formatCurrency(metrics?.oneTimeRevenue ?? 0, currencyCode)}</div>
-                                      <div className="rounded-[14px] bg-white px-3 py-2">Contract value ({majorProjectTermMonths} mo) {formatCurrency(rollup.totalContractRevenue, currencyCode)}</div>
-                                      <div className="rounded-[14px] bg-white px-3 py-2">Contract cost ({majorProjectTermMonths} mo) {formatCurrency(rollup.totalContractCost, currencyCode)}</div>
+                                      <CommercialMetricCard label="Recurring MRR" value={formatCurrency(metrics?.recurringRevenue ?? 0, currencyCode)} detail="Recurring revenue on this line" tone="accent" />
+                                      <CommercialMetricCard label="One-time revenue" value={formatCurrency(metrics?.oneTimeRevenue ?? 0, currencyCode)} detail="One-time bundle and override revenue" />
+                                      <CommercialMetricCard label={`Contract value (${majorProjectTermMonths} mo)`} value={formatCurrency(rollup.totalContractRevenue, currencyCode)} detail="What the customer sees over term" tone="success" />
+                                      <CommercialMetricCard label={`Contract cost (${majorProjectTermMonths} mo)`} value={formatCurrency(rollup.totalContractCost, currencyCode)} detail="Internal cost behind this line" />
                                     </>
                                   );
                                 })()}
@@ -6162,15 +6180,15 @@ export default function QuotePreview() {
                     </div>
                     <div className="mt-4 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
                       <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Major Project rollup</div>
-                      <div className="mt-3 space-y-2">
-                        <div className="flex items-center justify-between gap-3"><span>Sites in active option</span><strong>{majorProjectMetrics.siteCount}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Recurring month driver</span><strong>{majorProjectTermMonths} months</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Recurring MRR</span><strong>{formatCurrency(majorProjectMetrics.recurringRevenue, currencyCode)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>One-time revenue</span><strong>{formatCurrency(majorProjectMetrics.oneTimeRevenue, currencyCode)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Recurring contract value</span><strong>{formatCurrency(majorProjectMetrics.recurringContractRevenue, currencyCode)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Total contract value</span><strong>{formatCurrency(majorProjectMetrics.totalContractRevenue, currencyCode)}</strong></div>
-                        <div className="flex items-center justify-between gap-3"><span>Total contract cost</span><strong>{formatCurrency(majorProjectMetrics.totalContractCost, currencyCode)}</strong></div>
-                        <div className="flex items-center justify-between gap-3 text-[#b00000]"><span>Contract gross margin</span><strong>{formatPercent(majorProjectMetrics.totalContractGrossMarginPercent)}</strong></div>
+                      <div className="commercial-metric-grid commercial-metric-grid-rollup mt-3">
+                        <CommercialMetricCard label="Sites in active option" value={majorProjectMetrics.siteCount} detail="Current deployment scope" />
+                        <CommercialMetricCard label="Recurring month driver" value={`${majorProjectTermMonths} months`} detail="Used for internal contract math" />
+                        <CommercialMetricCard label="Recurring MRR" value={formatCurrency(majorProjectMetrics.recurringRevenue, currencyCode)} detail="Visible customer monthly revenue" tone="accent" />
+                        <CommercialMetricCard label="One-time revenue" value={formatCurrency(majorProjectMetrics.oneTimeRevenue, currencyCode)} detail="Hardware plus services" />
+                        <CommercialMetricCard label="Recurring contract value" value={formatCurrency(majorProjectMetrics.recurringContractRevenue, currencyCode)} detail="MRR x month driver" tone="success" />
+                        <CommercialMetricCard label="Total contract value" value={formatCurrency(majorProjectMetrics.totalContractRevenue, currencyCode)} detail="Recurring plus one-time value" tone="success" />
+                        <CommercialMetricCard label="Total contract cost" value={formatCurrency(majorProjectMetrics.totalContractCost, currencyCode)} detail="Internal cost to deliver" />
+                        <CommercialMetricCard label="Contract gross margin" value={formatPercent(majorProjectMetrics.totalContractGrossMarginPercent)} detail="Margin on full contract basis" tone={majorProjectMetrics.totalContractGrossMarginPercent >= 25 ? "success" : majorProjectMetrics.totalContractGrossMarginPercent > 0 ? "accent" : "warn"} />
                       </div>
                     </div>
                   </div>
@@ -6596,6 +6614,12 @@ export default function QuotePreview() {
                   <div className="summary-label">Current pricing</div>
                   <div className="summary-value">{isMajorProject ? "Imported cost + margin aware" : "Current proposal data"}</div>
                   <div className="summary-subvalue">{isMajorProject ? `Imported BOM and vendor quote defaults seed customer pricing from vendor cost at ${DEFAULT_IMPORTED_MARGIN_PERCENT}% margin unless you override it.` : "Recommended defaults plus any edits you made in this proposal."}</div>
+                  <div className="commercial-metric-grid mt-3">
+                    <CommercialMetricCard label={isMajorProject ? "Recurring MRR" : "Recurring monthly"} value={formatCurrency(recurringMonthlyTotal, currencyCode)} detail={isMajorProject ? `${majorProjectTermMonths}-month driver on internal contract math` : "Current monthly recurring total"} tone="accent" />
+                    <CommercialMetricCard label="One-time total" value={formatCurrency(equipmentTotal + sectionCTotal, currencyCode)} detail="Hardware and optional services combined" />
+                    <CommercialMetricCard label={isMajorProject ? "Contract GP" : "Gross profit"} value={formatCurrency(commercialMetrics.totalGrossProfit, currencyCode)} detail={isMajorProject ? "Internal full-contract profit" : "Current internal proposal profit"} tone={commercialMetrics.totalGrossProfit >= 0 ? "success" : "warn"} />
+                    <CommercialMetricCard label={isMajorProject ? "Contract margin" : "Gross margin"} value={formatPercent(commercialMetrics.totalGrossMarginPercent)} detail={`Recurring margin ${formatPercent(commercialMetrics.recurringGrossMarginPercent)}`} tone={commercialMetrics.totalGrossMarginPercent >= 25 ? "success" : commercialMetrics.totalGrossMarginPercent > 0 ? "accent" : "warn"} />
+                  </div>
                 </div>
                 <div className="summary-block"><div className="summary-label">Customer SLA profile</div><div className="summary-value">{quoteServiceAgreementProfile.agreementLabel || "No SLA profile name set"}</div><div className="summary-subvalue">{activeServiceAgreementCategories.length ? `${activeServiceAgreementCategories.length} active pricing categories on this quote` : "No active SLA defaults loaded on this quote"}{quoteServiceAgreementProfile.sourceDocument?.fileName ? ` • ${quoteServiceAgreementProfile.sourceDocument.fileName}` : ""}</div></div>
                 <div className="summary-block"><div className="summary-label">Enabled sections</div><ul className="list-disc pl-5 text-[#56616d]">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent && <li>Executive Summary</li>}{quote.sections.sectionA.enabled && contentPresence.hasSectionAContent && <li>{isMajorProject ? "MRR" : "Monthly Service"}</li>}{quote.sections.sectionB.enabled && contentPresence.hasSectionBContent && <li>Hardware</li>}{quote.sections.sectionC.enabled && contentPresence.hasSectionCContent && <li>Field Services</li>}</ul></div>
