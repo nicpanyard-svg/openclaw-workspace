@@ -169,6 +169,7 @@ const MAJOR_PROJECT_BOM_ALLOWED_MIME_TYPES = new Set([
 const MAJOR_PROJECT_BOM_MAX_SHEET_ROWS = 250;
 const MAJOR_PROJECT_BOM_PREVIEW_ROW_COUNT = 6;
 const MAJOR_PROJECT_BOM_IMPORT_SOURCE_PREFIX = "BOM import source:";
+const DEFAULT_IMPORTED_MARGIN_PERCENT = 35;
 const MAJOR_PROJECT_VENDOR_QUOTE_ALLOWED_EXTENSIONS = [".xlsx", ".xls", ".csv", ".pdf"] as const;
 const MAJOR_PROJECT_VENDOR_QUOTE_ALLOWED_MIME_TYPES = new Set([
   ...MAJOR_PROJECT_BOM_ALLOWED_MIME_TYPES,
@@ -713,6 +714,8 @@ function createDraftMajorProjectComponentFromBomRow(params: {
   const rawTotalCost = parseMajorProjectBomCurrency(totalCostValue);
   const vendorUnitCost = rawUnitCost ?? (rawTotalCost !== null && quantity > 0 ? Number((rawTotalCost / quantity).toFixed(2)) : 0);
   const vendorExtendedCost = rawTotalCost ?? Number((quantity * vendorUnitCost).toFixed(2));
+  const customerUnitPrice = applyMarginToCost(vendorUnitCost, DEFAULT_IMPORTED_MARGIN_PERCENT);
+  const customerExtendedPrice = Number((quantity * customerUnitPrice).toFixed(2));
   const hasObviousField = Boolean(name || description || vendor || manufacturer || rawUnitCost !== null || rawTotalCost !== null || quantityValue);
 
   if (!hasObviousField) return null;
@@ -730,8 +733,8 @@ function createDraftMajorProjectComponentFromBomRow(params: {
     vendor,
     manufacturer,
     quantity,
-    customerUnitPrice: 0,
-    customerExtendedPrice: 0,
+    customerUnitPrice,
+    customerExtendedPrice,
     vendorUnitCost,
     vendorExtendedCost,
     notes: noteParts.join("\n"),
@@ -1736,7 +1739,7 @@ export default function QuotePreview() {
   const [isMajorProjectVendorQuoteDragging, setIsMajorProjectVendorQuoteDragging] = useState(false);
   const [majorProjectVendorQuoteCaptureError, setMajorProjectVendorQuoteCaptureError] = useState<MajorProjectVendorQuoteCaptureError | null>(null);
   const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
-  const [majorProjectImportedMarginPercent, setMajorProjectImportedMarginPercent] = useState("35");
+  const [majorProjectImportedMarginPercent, setMajorProjectImportedMarginPercent] = useState(String(DEFAULT_IMPORTED_MARGIN_PERCENT));
 
   useEffect(() => {
     const activeProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
@@ -2406,7 +2409,7 @@ export default function QuotePreview() {
     setMajorProjectEditorTab("components");
     setWorkflowNotice(
       importedCount > 0
-        ? `Imported ${importedCount} draft component${importedCount === 1 ? "" : "s"} from ${selectedSheet.name}. Vendor cost came across; set customer pricing separately before bundling or direct output.`
+        ? `Imported ${importedCount} draft component${importedCount === 1 ? "" : "s"} from ${selectedSheet.name}. Vendor cost and ${DEFAULT_IMPORTED_MARGIN_PERCENT}% starter pricing came across; review before bundling or direct output.`
         : `No obvious component rows were found in ${selectedSheet.name}.`,
     );
   };
@@ -2457,16 +2460,17 @@ export default function QuotePreview() {
         ) {
           return component;
         }
+        const customerUnitPrice = applyMarginToCost(component.vendorUnitCost, DEFAULT_IMPORTED_MARGIN_PERCENT);
         return {
           ...component,
-          customerUnitPrice: component.vendorUnitCost,
-          customerExtendedPrice: Number((component.quantity * component.vendorUnitCost).toFixed(2)),
+          customerUnitPrice,
+          customerExtendedPrice: Number((component.quantity * customerUnitPrice).toFixed(2)),
         };
       });
       return draft;
     });
 
-    setWorkflowNotice(`Seeded customer pricing from vendor cost for ${importedWithoutPricing.length} imported component${importedWithoutPricing.length === 1 ? "" : "s"}. Review margin before bundling.`);
+    setWorkflowNotice(`Seeded ${DEFAULT_IMPORTED_MARGIN_PERCENT}% starter pricing from vendor cost for ${importedWithoutPricing.length} imported component${importedWithoutPricing.length === 1 ? "" : "s"}.`);
   };
 
   const applyImportedMajorProjectMarginFromCost = () => {
@@ -2900,7 +2904,7 @@ export default function QuotePreview() {
       const nextIndex = (option.simpleRows?.length ?? 0) + 1;
       const vendorName = vendorQuote.vendorName?.trim() || undefined;
       const quoteLabel = vendorQuote.quoteLabel?.trim() || stripFileExtension(vendorQuote.fileName);
-      const marginPercent = Math.min(Math.max(vendorQuote.pricingMarginPercent ?? 25, 0), 95);
+      const marginPercent = Math.min(Math.max(vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT, 0), 95);
       const nextRows = vendorQuote.previewItems.map((item, itemIndex) => {
         const quantity = Math.max(item.quantity, 0);
         const ourUnitCost = Math.max(item.unitCost ?? item.unitPrice, 0);
@@ -2975,7 +2979,7 @@ export default function QuotePreview() {
       const nextIndex = (option.components?.length ?? 0) + 1;
       const vendorName = vendorQuote.vendorName?.trim() || undefined;
       const quoteLabel = vendorQuote.quoteLabel?.trim() || stripFileExtension(vendorQuote.fileName);
-      const marginPercent = Math.min(Math.max(vendorQuote.pricingMarginPercent ?? 25, 0), 95);
+      const marginPercent = Math.min(Math.max(vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT, 0), 95);
       const nextComponents = vendorQuote.previewItems.map((item, itemIndex) => {
         const quantity = Math.max(item.quantity, 0) || 1;
         const vendorUnitCost = Math.max(item.unitCost ?? item.unitPrice, 0);
@@ -3226,7 +3230,7 @@ export default function QuotePreview() {
                     step="0.01"
                     min="0"
                     max="95"
-                    value={vendorQuote.pricingMarginPercent ?? 25}
+                    value={vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT}
                     onChange={(event) => updateActiveMajorVendorQuote(vendorQuote.id, (current) => ({
                       ...current,
                       pricingMarginPercent: Math.min(Math.max(parseNumber(event.target.value), 0), 95),
@@ -5198,7 +5202,7 @@ export default function QuotePreview() {
                                         step="0.01"
                                         min="0"
                                         max="95"
-                                        value={vendorQuote.pricingMarginPercent ?? 25}
+                                        value={vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT}
                                         onChange={(event) => updateActiveMajorVendorQuote(vendorQuote.id, (current) => ({
                                           ...current,
                                           pricingMarginPercent: Math.min(Math.max(parseNumber(event.target.value), 0), 95),
