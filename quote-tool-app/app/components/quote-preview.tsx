@@ -1710,6 +1710,32 @@ function MajorProjectStepCard({
   );
 }
 
+function WorkflowSummaryStat({
+  label,
+  value,
+  detail,
+  tone = "neutral",
+}: {
+  label: string;
+  value: number | string;
+  detail: string;
+  tone?: "neutral" | "success" | "warn";
+}) {
+  const toneClass = tone === "success"
+    ? "border-[#d7e3db] bg-[#f7fcf8]"
+    : tone === "warn"
+      ? "border-[#f2d3b5] bg-[#fff8ef]"
+      : "border-[#d7e0e8] bg-white";
+
+  return (
+    <div className={`rounded-[12px] border px-3 py-3 ${toneClass}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">{label}</div>
+      <div className="mt-2 text-[20px] font-semibold text-[#16202b]">{value}</div>
+      <div className="mt-1 text-[12px] text-[#435262]">{detail}</div>
+    </div>
+  );
+}
+
 export default function QuotePreview() {
   const { user } = useAuth();
   const router = useRouter();
@@ -2120,6 +2146,43 @@ export default function QuotePreview() {
     () => majorProjectMetrics.validation.uncoveredComponentIds.filter((componentId) => importedMajorProjectComponentIds.has(componentId)).length,
     [importedMajorProjectComponentIds, majorProjectMetrics.validation.uncoveredComponentIds],
   );
+  const importedMajorProjectWithVendorCostCount = useMemo(
+    () => importedMajorProjectComponents.filter((component) => component.vendorUnitCost > 0).length,
+    [importedMajorProjectComponents],
+  );
+  const importedMajorProjectWithCustomerPricingCount = useMemo(
+    () => importedMajorProjectComponents.filter((component) => component.customerUnitPrice > 0).length,
+    [importedMajorProjectComponents],
+  );
+  const importedMajorProjectNeedsReviewCount = useMemo(
+    () => importedMajorProjectComponents.filter((component) => (
+      !(component.customerFacingLabel ?? "").trim()
+      || component.customerUnitPrice <= 0
+      || majorProjectMetrics.validation.uncoveredComponentIds.includes(component.id)
+    )).length,
+    [importedMajorProjectComponents, majorProjectMetrics.validation.uncoveredComponentIds],
+  );
+  const importedMajorProjectNextActions = useMemo(() => {
+    const actions: string[] = [];
+    if (importedMajorProjectNeedsCustomerLabelCount > 0) {
+      actions.push(`${importedMajorProjectNeedsCustomerLabelCount} imported item${importedMajorProjectNeedsCustomerLabelCount === 1 ? "" : "s"} still need customer-facing labels.`);
+    }
+    if (importedMajorProjectNeedsCustomerPricingCount > 0) {
+      actions.push(`${importedMajorProjectNeedsCustomerPricingCount} imported item${importedMajorProjectNeedsCustomerPricingCount === 1 ? "" : "s"} still need customer sell pricing.`);
+    }
+    if (importedMajorProjectUnquotedCount > 0) {
+      actions.push(`${importedMajorProjectUnquotedCount} imported component${importedMajorProjectUnquotedCount === 1 ? "" : "s"} are not yet flowing into direct output or quote lines.`);
+    }
+    if (actions.length === 0 && importedMajorProjectComponents.length > 0) {
+      actions.push("Imported components are ready for direct output or optional packaging.");
+    }
+    return actions;
+  }, [
+    importedMajorProjectComponents.length,
+    importedMajorProjectNeedsCustomerLabelCount,
+    importedMajorProjectNeedsCustomerPricingCount,
+    importedMajorProjectUnquotedCount,
+  ]);
   const majorProjectBomInputId = "major-project-bom-import";
   const majorProjectVendorQuoteInputId = "major-project-vendor-quote-import";
   const hasComponentsStepContent = activeMajorOptionComponents.length > 0;
@@ -3041,7 +3104,12 @@ export default function QuotePreview() {
     });
 
     if (importedCount > 0) {
-      setWorkflowNotice(`Added ${importedCount} mapped component${importedCount === 1 ? "" : "s"} from the vendor quote and switched into Mapped Builder.`);
+      const loadedQuote = activeMajorOptionVendorQuotes.find((entry) => entry.id === quoteId);
+      const costCapturedCount = loadedQuote?.previewItems?.filter((item) => Math.max(item.unitCost ?? item.unitPrice, 0) > 0).length ?? 0;
+      const marginPercent = Math.min(Math.max(loadedQuote?.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT, 0), 95);
+      setWorkflowNotice(
+        `Added ${importedCount} mapped component${importedCount === 1 ? "" : "s"} from the vendor quote. Vendor cost came across on ${costCapturedCount} row${costCapturedCount === 1 ? "" : "s"}, and customer pricing was seeded at ${marginPercent}% margin.`,
+      );
     }
   };
 
@@ -4952,30 +5020,45 @@ export default function QuotePreview() {
                                     <button type="button" className="pill-button" onClick={() => setMajorProjectEditorTab("quote_lines")}>Open Quote Lines (optional)</button>
                                   </div>
                                 </div>
-                                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                                  <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">Imported raw components</div>
-                                    <div className="mt-2 text-[20px] font-semibold text-[#16202b]">{importedMajorProjectComponents.length}</div>
-                                    <div className="mt-1 text-[12px] text-[#435262]">Operations input currently staged in the internal component list.</div>
-                                  </div>
-                                  <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">Need customer labels</div>
-                                    <div className="mt-2 text-[20px] font-semibold text-[#16202b]">{importedMajorProjectNeedsCustomerLabelCount}</div>
-                                    <div className="mt-1 text-[12px] text-[#435262]">Blank customer-facing labels still need sales cleanup.</div>
-                                  </div>
-                                  <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">Need starter pricing</div>
-                                    <div className="mt-2 text-[20px] font-semibold text-[#16202b]">{importedMajorProjectNeedsCustomerPricingCount}</div>
-                                    <div className="mt-1 text-[12px] text-[#435262]">Imported components without a customer sell price yet.</div>
-                                  </div>
-                                  <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">Still not surfaced</div>
-                                    <div className="mt-2 text-[20px] font-semibold text-[#16202b]">{importedMajorProjectUnquotedCount}</div>
-                                    <div className="mt-1 text-[12px] text-[#435262]">Imported components not yet flowing through direct output or customer quote lines.</div>
+                                <div className="mt-3 rounded-[14px] border border-[#dce5fb] bg-[#f5f8ff] px-4 py-4 text-[13px] text-[#28446c]">
+                                  <div className="text-[13px] font-semibold text-[#16202b]">Import results</div>
+                                  <div className="mt-1 text-[12px] leading-[1.6] text-[#4f5e6d]">
+                                    RapidQuote created {importedMajorProjectComponents.length} internal component{importedMajorProjectComponents.length === 1 ? "" : "s"} from this workbook.
+                                    Vendor cost came across on {importedMajorProjectWithVendorCostCount} item{importedMajorProjectWithVendorCostCount === 1 ? "" : "s"}, customer pricing is seeded on {importedMajorProjectWithCustomerPricingCount},
+                                    and {importedMajorProjectNeedsReviewCount} imported component{importedMajorProjectNeedsReviewCount === 1 ? "" : "s"} still need review before release.
                                   </div>
                                 </div>
-                                <div className="mt-2 text-[12px] leading-[1.6] text-[#5f6d7a]">
-                                  Imported components land in Step 1 first. Review them there, seed starter customer-ready values, and then decide whether they should flow directly to output or move through bundles and quote lines.
+                                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                  <WorkflowSummaryStat
+                                    label="Components created"
+                                    value={importedMajorProjectComponents.length}
+                                    detail="Operations input is staged in the internal component list and ready for review."
+                                    tone="success"
+                                  />
+                                  <WorkflowSummaryStat
+                                    label="Vendor costs captured"
+                                    value={importedMajorProjectWithVendorCostCount}
+                                    detail="These items already have source cost available for margin and pricing decisions."
+                                    tone={importedMajorProjectWithVendorCostCount === importedMajorProjectComponents.length ? "success" : "neutral"}
+                                  />
+                                  <WorkflowSummaryStat
+                                    label="Customer pricing seeded"
+                                    value={importedMajorProjectWithCustomerPricingCount}
+                                    detail="Starter sell pricing is already on these imported items."
+                                    tone={importedMajorProjectNeedsCustomerPricingCount === 0 ? "success" : "neutral"}
+                                  />
+                                  <WorkflowSummaryStat
+                                    label="Still needs attention"
+                                    value={importedMajorProjectNeedsReviewCount}
+                                    detail="Missing labels, missing sell pricing, or output placement still need a pass."
+                                    tone={importedMajorProjectNeedsReviewCount > 0 ? "warn" : "success"}
+                                  />
+                                </div>
+                                <div className="mt-3 rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
+                                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">Next best review</div>
+                                  <ul className="mt-2 list-disc space-y-1 pl-5 text-[12px] leading-[1.6] text-[#435262]">
+                                    {importedMajorProjectNextActions.map((item) => <li key={item}>{item}</li>)}
+                                  </ul>
                                 </div>
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   <button type="button" className="pill-button" onClick={seedImportedMajorProjectCustomerLabels} disabled={importedMajorProjectNeedsCustomerLabelCount === 0}>Seed blank customer labels</button>
@@ -4993,7 +5076,7 @@ export default function QuotePreview() {
                                   </label>
                                   <button type="button" className="pill-button" onClick={applyImportedMajorProjectMarginFromCost} disabled={importedMajorProjectNeedsCustomerPricingCount === 0}>Apply margin from cost</button>
                                   <div className="rounded-full border border-[#d7e0e8] bg-white px-3 py-2 text-[12px] font-medium text-[#435262]">
-                                    {importedMajorProjectUnbundledCount} unbundled component{importedMajorProjectUnbundledCount === 1 ? "" : "s"} still need packaging
+                                    {importedMajorProjectUnbundledCount} component{importedMajorProjectUnbundledCount === 1 ? "" : "s"} are still unbundled if you want optional packaging
                                   </div>
                                 </div>
                                 <div className="mt-3 grid gap-3 md:grid-cols-3">
@@ -5190,12 +5273,41 @@ export default function QuotePreview() {
                                     </div>
                                   ) : null}
 
-                                  {vendorQuote.readError ? (
-                                    <div className="mt-3 rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">{vendorQuote.readError}</div>
-                                  ) : null}
+                {vendorQuote.readError ? (
+                  <div className="mt-3 rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">{vendorQuote.readError}</div>
+                ) : null}
 
-                                  {vendorQuote.previewItems?.length ? (
-                                    <div className="mt-3 rounded-[16px] border border-[#e5ebf1] bg-[#fbfdff] p-3">
+              {vendorQuote.previewItems?.length ? (
+                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <WorkflowSummaryStat
+                    label="Parsed items"
+                    value={vendorQuote.previewItems.length}
+                    detail="RapidQuote found these rows and staged them for builder review."
+                    tone="success"
+                  />
+                  <WorkflowSummaryStat
+                    label="Vendor costs captured"
+                    value={vendorQuote.previewItems.filter((item) => Math.max(item.unitCost ?? item.unitPrice, 0) > 0).length}
+                    detail="These preview rows already have usable cost for seeded pricing."
+                    tone="neutral"
+                  />
+                  <WorkflowSummaryStat
+                    label="Charge rows"
+                    value={vendorQuote.previewItems.filter((item) => item.rowKind === "charge").length}
+                    detail="Charges are kept visible so you can decide whether they belong in the quote."
+                    tone="neutral"
+                  />
+                  <WorkflowSummaryStat
+                    label="Needs review"
+                    value={vendorQuote.previewItems.filter((item) => !(item.label ?? "").trim() || Math.max(item.unitCost ?? item.unitPrice, 0) <= 0).length}
+                    detail="These rows still need cleanup because label or cost confidence is weak."
+                    tone={vendorQuote.previewItems.some((item) => !(item.label ?? "").trim() || Math.max(item.unitCost ?? item.unitPrice, 0) <= 0) ? "warn" : "success"}
+                  />
+                </div>
+              ) : null}
+
+              {vendorQuote.previewItems?.length ? (
+                <div className="mt-3 rounded-[16px] border border-[#e5ebf1] bg-[#fbfdff] p-3">
                                       <div className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#60707f]">Draft row preview</div>
                                       {vendorQuote.previewItems.length > MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT ? (
                                         <div className="mt-1 text-[12px] text-[#60707f]">Showing the first {MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT} parsed rows. Import will create all {vendorQuote.previewItems.length} draft rows.</div>
