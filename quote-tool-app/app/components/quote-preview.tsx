@@ -2900,11 +2900,12 @@ export default function QuotePreview() {
       const nextIndex = (option.simpleRows?.length ?? 0) + 1;
       const vendorName = vendorQuote.vendorName?.trim() || undefined;
       const quoteLabel = vendorQuote.quoteLabel?.trim() || stripFileExtension(vendorQuote.fileName);
+      const marginPercent = Math.min(Math.max(vendorQuote.pricingMarginPercent ?? 25, 0), 95);
       const nextRows = vendorQuote.previewItems.map((item, itemIndex) => {
         const quantity = Math.max(item.quantity, 0);
-        const customerUnitPrice = Math.max(item.unitPrice, 0);
+        const ourUnitCost = Math.max(item.unitCost ?? item.unitPrice, 0);
+        const customerUnitPrice = applyMarginToCost(ourUnitCost, marginPercent);
         const customerExtendedPrice = Number(((quantity || 1) * customerUnitPrice).toFixed(2));
-        const ourUnitCost = Math.max(item.unitCost ?? customerUnitPrice, 0);
         const ourExtendedCost = Number((item.extendedCost ?? ((quantity || 1) * ourUnitCost)).toFixed(2));
         const sourceText = createMajorProjectVendorQuoteSourceText(vendorName, quoteLabel, item.rowNumber);
         const metadataSummary = buildVendorQuoteMetadataSummary(item);
@@ -2912,7 +2913,7 @@ export default function QuotePreview() {
         return {
           ...createMajorProjectSimpleRowDraft(nextIndex + itemIndex),
           label: item.rowKind === "charge" ? `Charge: ${item.label || `Vendor quote item ${nextIndex + itemIndex}`}` : item.label || `Vendor quote item ${nextIndex + itemIndex}`,
-          description: [item.description, ...metadataSummary, sourceText, "Draft pricing seeded from the vendor quote. Review customer sell before release approval."].filter(Boolean).join("\n"),
+          description: [item.description, ...metadataSummary, sourceText, `Customer price seeded from vendor cost using ${marginPercent}% margin. Review before release approval.`].filter(Boolean).join("\n"),
           quantity: quantity || 1,
           unit: item.unit || "ea",
           customerUnitPrice,
@@ -2974,11 +2975,12 @@ export default function QuotePreview() {
       const nextIndex = (option.components?.length ?? 0) + 1;
       const vendorName = vendorQuote.vendorName?.trim() || undefined;
       const quoteLabel = vendorQuote.quoteLabel?.trim() || stripFileExtension(vendorQuote.fileName);
+      const marginPercent = Math.min(Math.max(vendorQuote.pricingMarginPercent ?? 25, 0), 95);
       const nextComponents = vendorQuote.previewItems.map((item, itemIndex) => {
         const quantity = Math.max(item.quantity, 0) || 1;
-        const customerUnitPrice = Math.max(item.unitPrice, 0);
+        const vendorUnitCost = Math.max(item.unitCost ?? item.unitPrice, 0);
+        const customerUnitPrice = applyMarginToCost(vendorUnitCost, marginPercent);
         const customerExtendedPrice = Number(((quantity || 1) * customerUnitPrice).toFixed(2));
-        const vendorUnitCost = Math.max(item.unitCost ?? customerUnitPrice, 0);
         const vendorExtendedCost = Number((item.extendedCost ?? ((quantity || 1) * vendorUnitCost)).toFixed(2));
         const lineType = majorProjectVendorQuoteLineType(item.bucket);
         const sourceText = createMajorProjectVendorQuoteSourceText(vendorName, quoteLabel, item.rowNumber);
@@ -3006,7 +3008,7 @@ export default function QuotePreview() {
             item.description,
             ...metadataSummary,
             sourceText,
-            "Imported from a vendor quote into the mapped builder. Review customer sell, bundle placement, and proposal presentation before release approval.",
+            `Imported from a vendor quote into the mapped builder. Customer price was seeded from vendor cost using ${marginPercent}% margin. Review sell, bundle placement, and proposal presentation before release approval.`,
           ].filter(Boolean).join("\n"),
           importSource: {
             type: "vendor_quote" as const,
@@ -3074,6 +3076,7 @@ export default function QuotePreview() {
             source,
             status: "reading",
             quoteLabel: stripFileExtension(file.name),
+            pricingMarginPercent: 25,
             previewItems: [],
           },
         ];
@@ -3216,11 +3219,25 @@ export default function QuotePreview() {
                     placeholder="Internal quote label or file reference"
                   />
                   </label>
+                <label className="builder-field compact">
+                  <span>Margin %</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="95"
+                    value={vendorQuote.pricingMarginPercent ?? 25}
+                    onChange={(event) => updateActiveMajorVendorQuote(vendorQuote.id, (current) => ({
+                      ...current,
+                      pricingMarginPercent: Math.min(Math.max(parseNumber(event.target.value), 0), 95),
+                    }))}
+                  />
+                </label>
                 </div>
 
                 {vendorQuote.status === "loaded" && !(vendorQuote.importedRowIds?.length) && !(vendorQuote.importedComponentIds?.length) ? (
                   <div className="mt-3 rounded-[14px] border border-[#dce5fb] bg-[#f5f8ff] px-3 py-3 text-[12px] text-[#28446c]">
-                    This file is staged only. Choose <strong>Add draft rows (Quick Quote)</strong> to switch this option into Quick Quote pricing, or <strong>Add components</strong> to keep working in Mapped Builder.
+                    This file is staged only. Choose <strong>Add draft rows (Quick Quote)</strong> or <strong>Add components</strong>; both will use vendor cost plus the margin % above to seed customer pricing.
                   </div>
                 ) : null}
 
@@ -5117,7 +5134,7 @@ export default function QuotePreview() {
                               }}
                             />
                             <span className="block text-[14px] font-semibold text-[#17212c]">Drag and drop vendor quote files here</span>
-                            <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose multiple `.xlsx`, `.xls`, `.csv`, or `.pdf` files. Imported draft rows seed both sell and cost from the quote so markup can be reviewed in one place.</span>
+                            <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose multiple `.xlsx`, `.xls`, `.csv`, or `.pdf` files. Imported draft rows keep vendor cost from the quote and can seed customer pricing from a margin %.</span>
                             {majorProjectVendorQuoteCaptureError ? (
                               <span className="mt-3 block rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">
                                 <strong className="block text-[13px] text-[#8f2424]">File rejected</strong>
@@ -5174,11 +5191,25 @@ export default function QuotePreview() {
                                         placeholder="Internal quote label or file reference"
                                       />
                                     </label>
+                                    <label className="builder-field compact">
+                                      <span>Margin %</span>
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        max="95"
+                                        value={vendorQuote.pricingMarginPercent ?? 25}
+                                        onChange={(event) => updateActiveMajorVendorQuote(vendorQuote.id, (current) => ({
+                                          ...current,
+                                          pricingMarginPercent: Math.min(Math.max(parseNumber(event.target.value), 0), 95),
+                                        }))}
+                                      />
+                                    </label>
                                   </div>
 
                                   {vendorQuote.status === "loaded" && !(vendorQuote.importedRowIds?.length) ? (
                                     <div className="mt-3 rounded-[14px] border border-[#dce5fb] bg-[#f5f8ff] px-3 py-3 text-[12px] text-[#28446c]">
-                                      This file is staged only. Choose <strong>Add draft rows</strong> to apply the parsed rows to the live quote.
+                                      This file is staged only. Choose <strong>Add draft rows</strong> to apply the parsed rows to the live quote using vendor cost plus the margin % above for customer pricing.
                                     </div>
                                   ) : null}
 

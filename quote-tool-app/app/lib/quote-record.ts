@@ -481,6 +481,7 @@ export type MajorProjectVendorQuoteImport = {
   status: "reading" | "loaded" | "error";
   vendorName?: string;
   quoteLabel?: string;
+  pricingMarginPercent?: number;
   readError?: string;
   previewItems?: MajorProjectVendorQuoteDraftItem[];
   importedRowIds?: string[];
