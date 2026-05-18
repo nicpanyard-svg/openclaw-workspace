@@ -27,6 +27,7 @@ type VendorQuotePdfColumnKey =
 type ParsedVendorQuotePdf = {
   vendorName?: string;
   quoteReference?: string;
+  extractionMode?: "deterministic" | "ai_fallback";
   previewItems: MajorProjectVendorQuoteDraftItem[];
 };
 
@@ -693,6 +694,7 @@ export async function parseVendorQuotePdf(bytes: Uint8Array): Promise<ParsedVend
   return {
     vendorName,
     quoteReference,
+    extractionMode: previewItems.length ? "deterministic" : (aiFallback?.previewItems?.length ? "ai_fallback" : undefined),
     previewItems: normalizedPreviewItems,
   };
 }

@@ -467,6 +467,7 @@ export type MajorProjectVendorQuoteDraftItem = {
   origin?: string;
   quoteReference?: string;
   rowKind?: "item" | "charge";
+  reviewState?: "ready" | "needs_review";
 };
 
 export type MajorProjectVendorQuoteSource = "drop" | "picker";
@@ -483,6 +484,7 @@ export type MajorProjectVendorQuoteImport = {
   quoteLabel?: string;
   pricingMarginPercent?: number;
   readError?: string;
+  extractionMode?: "deterministic" | "ai_fallback" | "placeholder";
   previewItems?: MajorProjectVendorQuoteDraftItem[];
   importedRowIds?: string[];
   importedComponentIds?: string[];
@@ -551,6 +553,7 @@ export type MajorProjectBomImportState = {
   reviewState: "pending" | "pre_import_review";
   sheetNames?: string[];
   sheets?: MajorProjectBomImportSheet[];
+  aiExtractedSheetNames?: string[];
   selectedSheetName?: string;
   reviewedColumnMapBySheet?: Partial<Record<string, MajorProjectBomColumnMap>>;
   readError?: string;

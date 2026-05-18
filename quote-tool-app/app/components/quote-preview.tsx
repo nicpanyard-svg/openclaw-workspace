@@ -64,6 +64,7 @@ import {
   type MajorProjectSpecAttachment,
   type MajorProjectSimpleBucket,
   type MajorProjectSimpleRow,
+  type MajorProjectVendorQuoteDraftItem,
   type MajorProjectVendorQuoteImport,
   type MajorProjectVendorQuoteSource,
   type AddressBlock,
@@ -304,7 +305,7 @@ async function readMajorProjectBomWorkbookLocally(file: File) {
     };
   });
 
-  return { sheetNames, sheets };
+  return { sheetNames, sheets, aiExtractedSheetNames: [] as string[] };
 }
 
 async function readMajorProjectBomWorkbook(file: File) {
@@ -324,15 +325,17 @@ async function readMajorProjectBomWorkbook(file: File) {
     const parsed = await response.json() as {
       sheetNames?: string[];
       sheets?: MajorProjectBomImportSheet[];
+      aiExtractedSheetNames?: string[];
     };
     const sheetNames = parsed.sheetNames?.map((sheetName) => sheetName.trim()).filter(Boolean) ?? [];
     const sheets = parsed.sheets ?? [];
+    const aiExtractedSheetNames = parsed.aiExtractedSheetNames?.map((sheetName) => sheetName.trim()).filter(Boolean) ?? [];
 
     if (!sheetNames.length || !sheets.length) {
       throw new Error("Workbook parsed but no sheets were found.");
     }
 
-    return { sheetNames, sheets };
+    return { sheetNames, sheets, aiExtractedSheetNames };
   } catch {
     return readMajorProjectBomWorkbookLocally(file);
   }
@@ -625,6 +628,55 @@ function buildVendorQuoteMetadataSummary(item: NonNullable<MajorProjectVendorQuo
   ].filter(Boolean);
 }
 
+function getVendorQuoteExtractionLabel(mode: MajorProjectVendorQuoteImport["extractionMode"]) {
+  switch (mode) {
+    case "ai_fallback":
+      return "AI-assisted review";
+    case "placeholder":
+      return "Manual review";
+    default:
+      return "Structured parse";
+  }
+}
+
+function getVendorQuoteExtractionGuidance(mode: MajorProjectVendorQuoteImport["extractionMode"]) {
+  switch (mode) {
+    case "ai_fallback":
+      return "RapidQuote used AI fallback because the file layout was weak or unusual. Review labels, quantities, and pricing before import.";
+    case "placeholder":
+      return "RapidQuote could not confidently extract line items from this file. Use the placeholder as a manual review anchor.";
+    default:
+      return "RapidQuote found structured quote rows directly. Review the preview, then import when it looks right.";
+  }
+}
+
+function getBomExtractionLabel(usesAiFallback: boolean) {
+  return usesAiFallback ? "AI-assisted review" : "Structured parse";
+}
+
+function getBomExtractionGuidance(usesAiFallback: boolean) {
+  return usesAiFallback
+    ? "RapidQuote used AI fallback because this tab did not expose a clean workbook structure. Review labels, quantities, and vendor cost before import."
+    : "RapidQuote found the item table directly. Review the visible rows, then import when the pricing and labels look right.";
+}
+
+function annotateVendorQuotePreviewItems(
+  items: NonNullable<MajorProjectVendorQuoteImport["previewItems"]>,
+  extractionMode: MajorProjectVendorQuoteImport["extractionMode"],
+): NonNullable<MajorProjectVendorQuoteImport["previewItems"]> {
+  return items.map((item) => {
+    const hasWeakPricing = Math.max(item.unitCost ?? item.unitPrice, 0) <= 0;
+    const hasWeakLabel = !(item.label ?? "").trim();
+    const reviewState: MajorProjectVendorQuoteDraftItem["reviewState"] = extractionMode === "deterministic" && !hasWeakPricing && !hasWeakLabel
+      ? "ready"
+      : "needs_review";
+    return {
+      ...item,
+      reviewState,
+    };
+  });
+}
+
 async function readMajorProjectVendorQuote(file: File, source: MajorProjectVendorQuoteSource): Promise<MajorProjectVendorQuoteImport> {
   const extension = getFileExtension(file.name);
   const isPdf = extension === ".pdf" || file.type.trim().toLowerCase() === "application/pdf";
@@ -645,10 +697,17 @@ async function readMajorProjectVendorQuote(file: File, source: MajorProjectVendo
     const parsed = await response.json() as {
       vendorName?: string;
       quoteReference?: string;
+      extractionMode?: MajorProjectVendorQuoteImport["extractionMode"];
       previewItems?: NonNullable<MajorProjectVendorQuoteImport["previewItems"]>;
     };
 
-    const previewItems = parsed.previewItems?.length ? parsed.previewItems : createPdfMajorProjectVendorQuotePreview(file);
+    const extractionMode = parsed.previewItems?.length
+      ? (parsed.extractionMode ?? "deterministic")
+      : "placeholder";
+    const previewItems = annotateVendorQuotePreviewItems(
+      parsed.previewItems?.length ? parsed.previewItems : createPdfMajorProjectVendorQuotePreview(file),
+      extractionMode,
+    );
 
     return {
       id,
@@ -658,19 +717,21 @@ async function readMajorProjectVendorQuote(file: File, source: MajorProjectVendo
       capturedAt: new Date().toISOString(),
       source,
       status: "loaded",
+      extractionMode,
       quoteLabel: parsed.quoteReference?.trim() || stripFileExtension(file.name),
       vendorName: parsed.vendorName?.trim() || undefined,
       previewItems,
     };
   }
 
-  const { sheets } = await readMajorProjectBomWorkbook(file);
+  const { sheets, aiExtractedSheetNames } = await readMajorProjectBomWorkbook(file);
   const selectedSheet = selectBestMajorProjectVendorQuoteSheet(sheets);
   if (!selectedSheet) {
     throw new Error("Vendor quote workbook parsed but no usable sheets were found.");
   }
 
-  const previewItems = buildMajorProjectVendorQuoteItems(selectedSheet, file.name);
+  const extractionMode: MajorProjectVendorQuoteImport["extractionMode"] = aiExtractedSheetNames.includes(selectedSheet.name) ? "ai_fallback" : "deterministic";
+  const previewItems = annotateVendorQuotePreviewItems(buildMajorProjectVendorQuoteItems(selectedSheet, file.name), extractionMode);
   if (!previewItems.length) {
     throw new Error("No usable quote rows were found. Use a sheet with item labels and pricing columns.");
   }
@@ -685,6 +746,7 @@ async function readMajorProjectVendorQuote(file: File, source: MajorProjectVendo
     capturedAt: new Date().toISOString(),
     source,
     status: "loaded",
+    extractionMode,
     quoteLabel: stripFileExtension(file.name),
     vendorName: detectedVendor || undefined,
     previewItems,
@@ -2011,6 +2073,13 @@ export default function QuotePreview() {
     const startIndex = selectedMajorProjectBomHeaderRowIndex >= 0 ? selectedMajorProjectBomHeaderRowIndex : 0;
     return selectedMajorProjectBomSheet.rows.slice(startIndex, startIndex + MAJOR_PROJECT_BOM_PREVIEW_ROW_COUNT);
   }, [selectedMajorProjectBomHeaderRowIndex, selectedMajorProjectBomSheet]);
+  const selectedMajorProjectBomSheetUsesAiFallback = useMemo(
+    () => Boolean(
+      selectedMajorProjectBomSheet
+      && majorProjectState.bomImport?.aiExtractedSheetNames?.includes(selectedMajorProjectBomSheet.name),
+    ),
+    [majorProjectState.bomImport?.aiExtractedSheetNames, selectedMajorProjectBomSheet],
+  );
   const componentOptions = useMemo(() => activeMajorOptionComponents.map((component) => ({
     id: component.id,
     label: component.internalName || component.customerFacingLabel || component.id,
@@ -2475,6 +2544,7 @@ export default function QuotePreview() {
         reviewState: "pending",
         sheetNames: [],
         sheets: [],
+        aiExtractedSheetNames: [],
         selectedSheetName: undefined,
         readError: undefined,
         importedComponentCount: undefined,
@@ -2484,7 +2554,7 @@ export default function QuotePreview() {
     });
 
     try {
-      const { sheetNames, sheets } = await readMajorProjectBomWorkbook(file);
+      const { sheetNames, sheets, aiExtractedSheetNames } = await readMajorProjectBomWorkbook(file);
       updateMajorProjectQuote((draft) => {
         if (!draft.majorProject) return draft;
         draft.majorProject.bomImport = {
@@ -2497,6 +2567,7 @@ export default function QuotePreview() {
           reviewState: "pre_import_review",
           sheetNames,
           sheets,
+          aiExtractedSheetNames,
           selectedSheetName: sheetNames[0] ?? undefined,
           readError: undefined,
           importedComponentCount: undefined,
@@ -2505,7 +2576,9 @@ export default function QuotePreview() {
         return draft;
       });
       setWorkflowNotice(sheetNames.length
-        ? `Captured ${file.name} and found ${sheetNames.length} workbook tab${sheetNames.length === 1 ? "" : "s"}.`
+        ? aiExtractedSheetNames.length
+          ? `Captured ${file.name} and found ${sheetNames.length} workbook tab${sheetNames.length === 1 ? "" : "s"}. AI-assisted extraction helped on ${aiExtractedSheetNames.length} tab${aiExtractedSheetNames.length === 1 ? "" : "s"}; review those rows before import.`
+          : `Captured ${file.name} and found ${sheetNames.length} workbook tab${sheetNames.length === 1 ? "" : "s"}.`
         : `Captured ${file.name}, but no workbook tabs were detected.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to read workbook.";
@@ -2521,6 +2594,7 @@ export default function QuotePreview() {
           reviewState: "pending",
           sheetNames: [],
           sheets: [],
+          aiExtractedSheetNames: [],
           selectedSheetName: undefined,
           readError: message,
           importedComponentCount: undefined,
@@ -3385,7 +3459,10 @@ export default function QuotePreview() {
 
       {activeMajorOptionVendorQuotes.length ? (
         <div className="mt-4 space-y-3">
-          {activeMajorOptionVendorQuotes.map((vendorQuote) => (
+          {activeMajorOptionVendorQuotes.map((vendorQuote) => {
+            const vendorQuoteExtractionMode = vendorQuote.extractionMode ?? "deterministic";
+            const vendorQuoteNeedsReviewCount = vendorQuote.previewItems?.filter((item) => item.reviewState === "needs_review").length ?? 0;
+            return (
             <div key={vendorQuote.id} className="rounded-[18px] border border-[#dfe6ed] bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -3395,6 +3472,24 @@ export default function QuotePreview() {
                     <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{formatAttachmentSize(vendorQuote.sizeBytes)}</span>
                     <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{formatMajorProjectVendorQuoteFileType(vendorQuote.fileName, vendorQuote.mimeType)}</span>
                     <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{vendorQuote.previewItems?.length ?? 0} preview item{(vendorQuote.previewItems?.length ?? 0) === 1 ? "" : "s"}</span>
+                    <span className={`rounded-full border px-3 py-1 ${
+                      vendorQuoteExtractionMode === "deterministic"
+                        ? "border-[#d7e0e8] bg-[#f8fbfd] text-[#435262]"
+                        : vendorQuoteExtractionMode === "placeholder"
+                          ? "border-[#efc1c1] bg-[#fff1f1] text-[#8f2424]"
+                          : "border-[#f2d3b5] bg-[#fff8ef] text-[#8a4b16]"
+                    }`}>
+                      {getVendorQuoteExtractionLabel(vendorQuoteExtractionMode)}
+                    </span>
+                    <span className={`rounded-full border px-3 py-1 ${
+                      vendorQuoteNeedsReviewCount > 0
+                        ? "border-[#f2d3b5] bg-[#fff8ef] text-[#8a4b16]"
+                        : "border-[#dbe7df] bg-[#f5fbf6] text-[#215a36]"
+                    }`}>
+                      {vendorQuoteNeedsReviewCount > 0
+                        ? `${vendorQuoteNeedsReviewCount} row${vendorQuoteNeedsReviewCount === 1 ? "" : "s"} need review`
+                        : "Preview ready"}
+                    </span>
                     {vendorQuote.importedComponentIds?.length ? <span className="rounded-full border border-[#dce5fb] bg-[#f2f6ff] px-3 py-1 text-[#234d99]">{vendorQuote.importedComponentIds.length} component{vendorQuote.importedComponentIds.length === 1 ? "" : "s"} created</span> : null}
                   </div>
                 </div>
@@ -3447,6 +3542,18 @@ export default function QuotePreview() {
                   <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#516a91]">Pricing default</strong>
                   <span className="mt-1 block">{buildMarginPricingSummary(vendorQuote.previewItems?.find((item) => Math.max(item.unitCost ?? item.unitPrice, 0) > 0)?.unitCost ?? vendorQuote.previewItems?.find((item) => Math.max(item.unitCost ?? item.unitPrice, 0) > 0)?.unitPrice, vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT, currencyCode)}</span>
                 </div>
+                <div className={`mt-3 rounded-[12px] border px-3 py-3 text-[12px] ${
+                  vendorQuoteExtractionMode === "deterministic"
+                    ? "border-[#dbe7df] bg-[#f5fbf6] text-[#215a36]"
+                    : vendorQuoteExtractionMode === "placeholder"
+                      ? "border-[#efc1c1] bg-[#fff1f1] text-[#7f1d1d]"
+                      : "border-[#f2d3b5] bg-[#fff8ef] text-[#8a4b16]"
+                }`}>
+                  <strong className="block text-[12px] uppercase tracking-[0.12em]">
+                    {getVendorQuoteExtractionLabel(vendorQuoteExtractionMode)}
+                  </strong>
+                  <span className="mt-1 block">{getVendorQuoteExtractionGuidance(vendorQuoteExtractionMode)}</span>
+                </div>
 
                 {vendorQuote.status === "loaded" && !(vendorQuote.importedComponentIds?.length) ? (
                   <div className="mt-3 rounded-[14px] border border-[#dce5fb] bg-[#f5f8ff] px-3 py-3 text-[12px] text-[#28446c]">
@@ -3470,6 +3577,7 @@ export default function QuotePreview() {
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <strong className="text-[13px] text-[#16202b]">{item.label}</strong>
                           <div className="flex flex-wrap gap-2">
+                            {item.reviewState === "needs_review" ? <span className="rounded-full border border-[#f2d3b5] bg-[#fff8ef] px-2 py-1 text-[#8a4b16]">Needs review</span> : <span className="rounded-full border border-[#dbe7df] bg-[#f5fbf6] px-2 py-1 text-[#215a36]">Ready</span>}
                             {item.rowKind === "charge" ? <span className="rounded-full border border-[#f2ddba] bg-[#fff9ef] px-2 py-1 text-[#7a4b00]">Charge row</span> : null}
                             <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">{majorProjectBucketLabel(item.bucket)}</span>
                             <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">{item.quantity} {item.unit || "ea"}</span>
@@ -3490,7 +3598,7 @@ export default function QuotePreview() {
                 </div>
               ) : null}
             </div>
-          ))}
+          )})}
         </div>
       ) : null}
     </div>
@@ -5197,6 +5305,32 @@ export default function QuotePreview() {
                             Showing {previewMajorProjectBomRows.length} preview row{previewMajorProjectBomRows.length === 1 ? "" : "s"} from the detected item table in the selected tab.
                             {selectedMajorProjectBomSheet.rowCount > selectedMajorProjectBomSheet.rows.length ? ` ${selectedMajorProjectBomSheet.rowCount} non-empty rows were captured in total.` : ""}
                           </div>
+                          <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                            <span className={`rounded-full border px-3 py-1 ${
+                              selectedMajorProjectBomSheetUsesAiFallback
+                                ? "border-[#f2d3b5] bg-[#fff8ef] text-[#8a4b16]"
+                                : "border-[#d7e0e8] bg-[#f8fbfd] text-[#435262]"
+                            }`}>
+                              {getBomExtractionLabel(selectedMajorProjectBomSheetUsesAiFallback)}
+                            </span>
+                            {previewMajorProjectBomRows.length ? (
+                              <span className="rounded-full border border-[#d7e0e8] bg-[#f8fbfd] px-3 py-1 text-[#435262]">
+                                {shouldForceMajorProjectBomColumnMapping ? "Mapping review suggested" : "Import-ready rows detected"}
+                              </span>
+                            ) : null}
+                          </div>
+                          {previewMajorProjectBomRows.length ? (
+                            <div className={`mt-3 rounded-[12px] border px-3 py-3 text-[12px] ${
+                              selectedMajorProjectBomSheetUsesAiFallback
+                                ? "border-[#f2d3b5] bg-[#fff8ef] text-[#8a4b16]"
+                                : "border-[#dbe7df] bg-[#f5fbf6] text-[#215a36]"
+                            }`}>
+                              <strong className="block text-[12px] uppercase tracking-[0.12em]">
+                                {getBomExtractionLabel(selectedMajorProjectBomSheetUsesAiFallback)}
+                              </strong>
+                              <span className="mt-1 block">{getBomExtractionGuidance(selectedMajorProjectBomSheetUsesAiFallback)}</span>
+                            </div>
+                          ) : null}
                           {previewMajorProjectBomRows.length === 0 ? (
                             <div className="mt-3 rounded-[12px] border border-[#f2d3b5] bg-[#fff8ef] px-3 py-3 text-[12px] text-[#8a4b16]">
                               No extracted workbook rows are available for this tab. If this workbook was captured before the latest BOM import update, remove it and upload it again in this same quote.
