@@ -1229,6 +1229,297 @@ body {
   color: #16202b;
 }
 
+.major-project-workspace {
+  margin-top: 20px;
+  display: grid;
+  gap: 16px;
+  border: 1px solid #ead9db;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at top left, rgba(176, 0, 0, 0.08), transparent 34%),
+    linear-gradient(180deg, #fffafa 0%, #ffffff 100%);
+  padding: 16px;
+  box-shadow: 0 20px 44px rgba(22, 32, 43, 0.06);
+}
+
+.major-project-shell-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+}
+
+.major-project-shell-copy {
+  max-width: 72ch;
+}
+
+.major-project-shell-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.major-project-overview-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(0, 1fr));
+}
+
+.major-project-overview-primary,
+.major-project-overview-stat {
+  border: 1px solid #e5e0e5;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 18px;
+}
+
+.major-project-overview-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8f5d64;
+}
+
+.major-project-overview-primary h4 {
+  margin-top: 10px;
+  font-size: 26px;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  color: #16202b;
+}
+
+.major-project-overview-primary p {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.68;
+  color: #5c6875;
+}
+
+.major-project-overview-stat {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.major-project-overview-stat span {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7b8794;
+}
+
+.major-project-overview-stat strong {
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  color: #16202b;
+}
+
+.major-project-overview-stat p {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #5f6b77;
+}
+
+.major-project-path-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.major-project-path-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dde3ea;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 16px;
+  text-align: left;
+  transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.major-project-path-card:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(22, 32, 43, 0.08);
+}
+
+.major-project-path-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.84;
+}
+
+.major-project-path-card-current {
+  border-color: #d89a9f;
+  background: #fff6f6;
+}
+
+.major-project-path-card-complete {
+  border-color: #d6e4d9;
+  background: #f7fcf8;
+}
+
+.major-project-path-card-locked {
+  border-color: #e2e8ee;
+  background: #f8fafc;
+}
+
+.major-project-path-step {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8b96a3;
+}
+
+.major-project-path-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #16202b;
+}
+
+.major-project-path-copy {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #53606d;
+}
+
+.major-project-path-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.major-project-path-meta span {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #eef3f7;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #42515f;
+}
+
+.major-project-shell-panel,
+.major-project-builder-shell {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #e7d8db;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 14px;
+}
+
+.major-project-panel-intro {
+  border: 1px solid #efe3e5;
+  border-radius: 18px;
+  background: #fffafa;
+  padding: 16px;
+}
+
+.major-project-intake-shell {
+  border: 1px solid #d8e0e8;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f8fbfd 0%, #ffffff 100%);
+  padding: 16px;
+}
+
+.major-project-import-review-shell {
+  border: 1px solid #d9e6ef;
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 14px;
+  color: #334150;
+}
+
+.major-project-post-import-shell {
+  border: 1px solid #dfe7ef;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f8fbfd 0%, #ffffff 100%);
+  padding: 16px;
+  font-size: 13px;
+  color: #334150;
+}
+
+.major-project-step-card {
+  border: 1px solid #dfe5eb;
+  border-radius: 22px;
+  padding: 16px;
+}
+
+.major-project-step-card-current {
+  border-color: #d69aa0;
+  background: linear-gradient(180deg, #fff7f7 0%, #ffffff 100%);
+  box-shadow: 0 12px 26px rgba(176, 0, 0, 0.06);
+}
+
+.major-project-step-card-complete {
+  border-color: #d7e3db;
+  background: linear-gradient(180deg, #f7fcf8 0%, #ffffff 100%);
+}
+
+.major-project-step-card-locked {
+  border-color: #e6eaef;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+.major-project-step-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.major-project-step-label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.major-project-step-optional,
+.major-project-step-badge,
+.major-project-step-count {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.major-project-step-optional {
+  background: #eef3f7;
+  color: #5a6978;
+}
+
+.major-project-step-badge-current {
+  background: #b00000;
+  color: #ffffff;
+}
+
+.major-project-step-badge-locked {
+  background: #edf1f5;
+  color: #708090;
+}
+
+.major-project-step-badge-complete {
+  background: #dff2e4;
+  color: #1f6a37;
+}
+
+.major-project-step-count {
+  background: rgba(255, 255, 255, 0.86);
+  color: #5f6c78;
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
 .workspace-section-stack {
   margin-top: 22px;
   display: grid;
@@ -3007,6 +3298,8 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .major-project-overview-grid,
+  .major-project-path-grid,
   .proposal-editor-hero-grid,
   .proposal-editor-summary-glance {
     grid-template-columns: 1fr;
@@ -3051,6 +3344,21 @@ body {
 
   .proposal-editor-title {
     font-size: 34px;
+  }
+
+  .major-project-workspace,
+  .major-project-shell-panel,
+  .major-project-builder-shell {
+    padding: 12px;
+  }
+
+  .major-project-overview-primary h4 {
+    font-size: 22px;
+  }
+
+  .major-project-shell-header,
+  .major-project-step-card-head {
+    align-items: flex-start;
   }
 
   .proposal-editor-actionbar,

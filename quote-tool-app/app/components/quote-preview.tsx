@@ -1675,6 +1675,7 @@ function MajorProjectStepCard({
   detail,
   status,
   count,
+  optional = false,
   onOpen,
   children,
 }: {
@@ -1684,39 +1685,45 @@ function MajorProjectStepCard({
   detail: string;
   status: MajorProjectStepStatus;
   count: number;
+  optional?: boolean;
   onOpen?: () => void;
   children?: ReactNode;
 }) {
   const isCurrent = status === "current";
   const isLocked = status === "locked";
   const toneClass = isCurrent
-    ? "border-[#b00000] bg-[#fff6f6]"
+    ? "major-project-step-card-current"
     : isLocked
-      ? "border-[#e6eaef] bg-[#f8fafc]"
-      : "border-[#d7e3db] bg-[#f7fcf8]";
+      ? "major-project-step-card-locked"
+      : "major-project-step-card-complete";
+  const statusLabel = isCurrent ? "Now" : isLocked ? "Locked" : optional ? "Optional" : "Done";
+  const actionLabel = isLocked ? "Finish earlier step first" : optional ? "Open optional step" : "View step";
 
   return (
-    <section className={`rounded-[18px] border p-3 md:p-4 ${toneClass}`}>
-      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+    <section className={`major-project-step-card ${toneClass}`}>
+      <div className="major-project-step-card-head">
         <div>
-          <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Step {step}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h4 className="text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">{title}</h4>
-            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${isCurrent ? "bg-[#b00000] text-white" : isLocked ? "bg-[#edf1f5] text-[#708090]" : "bg-[#dff2e4] text-[#1f6a37]"}`}>
-              {isCurrent ? "Now" : isLocked ? "Locked" : "Done"}
-            </span>
-            <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-[#5f6c78]">{count} item{count === 1 ? "" : "s"}</span>
+          <div className="major-project-step-label-row">
+            <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Step {step}</div>
+            {optional ? <span className="major-project-step-optional">Optional</span> : null}
           </div>
-          <p className="mt-1 text-[13px] text-[#44515d]">{summary}</p>
-          <p className="text-[12px] text-[#708090]">{detail}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <h4 className="text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">{title}</h4>
+            <span className={`major-project-step-badge ${isCurrent ? "major-project-step-badge-current" : isLocked ? "major-project-step-badge-locked" : "major-project-step-badge-complete"}`}>
+              {statusLabel}
+            </span>
+            <span className="major-project-step-count">{count} item{count === 1 ? "" : "s"}</span>
+          </div>
+          <p className="mt-2 text-[13px] text-[#44515d]">{summary}</p>
+          <p className="mt-1 text-[12px] leading-[1.55] text-[#708090]">{detail}</p>
         </div>
         {!isCurrent ? (
           <button type="button" className="pill-button self-start" onClick={onOpen} disabled={isLocked}>
-            {isLocked ? "Finish earlier step first" : "View step"}
+            {actionLabel}
           </button>
         ) : null}
       </div>
-      {isCurrent ? <div className="mt-3">{children}</div> : null}
+      {isCurrent ? <div className="mt-4">{children}</div> : null}
     </section>
   );
 }
@@ -4976,22 +4983,82 @@ export default function QuotePreview() {
               )}
 
               {isMajorProject && majorProjectState && (
-                <div id="major-project-workflow" className="mt-5 space-y-3 rounded-[20px] border border-[#ead9db] bg-[#fff9f9] p-3 md:p-4">
-                  <div className="builder-eyebrow">Major Project mode</div>
-                  <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                    <div>
-                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Major Project workflow</h3>
-                      <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                        This workflow stays on the main quoting page so you can build the full Major Project from mapped components, bundles, and customer quote lines in one place.
+                <div id="major-project-workflow" className="major-project-workspace">
+                  <div className="major-project-shell-header">
+                    <div className="major-project-shell-copy">
+                      <div className="builder-eyebrow">Major Project mode</div>
+                      <h3 className="mt-1 text-[24px] font-semibold tracking-[-0.03em] text-[#16202b]">Build the project once. Package it only when you need to.</h3>
+                      <p className="mt-2 text-[13px] leading-[1.6] text-[#60707f]">
+                        Components are the main work area. Bundles and customer quote lines stay available when you want a curated presentation layer, but they should not slow down the core quoting path.
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="major-project-shell-actions">
                       <button type="button" className="pill-button" onClick={addMajorProjectOption}>Add option</button>
                       <button type="button" className="pill-button" onClick={removeActiveMajorOption} disabled={(majorProjectState.options?.length ?? 0) <= 1}>Remove option</button>
                     </div>
                   </div>
 
-                  <div className="mt-3 space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
+                  <div className="major-project-overview-grid">
+                    <div className="major-project-overview-primary">
+                      <div className="major-project-overview-kicker">Recommended path</div>
+                      <h4>Start in Components, then stop there if direct output is enough.</h4>
+                      <p>
+                        RapidQuote keeps Major Project on the mapped builder. Review imported items, confirm cost and sell logic, then flow them straight into proposal output unless the customer really needs extra packaging.
+                      </p>
+                      <div className="major-project-chip-row">
+                        <span className="major-project-chip">{majorProjectUsesDirectComponentPath ? "Direct component output active" : "Structured output path available"}</span>
+                        <span className="major-project-chip">{majorProjectMetrics.validation.errorCount} validation blocker{majorProjectMetrics.validation.errorCount === 1 ? "" : "s"}</span>
+                        <span className="major-project-chip">{majorProjectState.commercial.termMonths} month term</span>
+                      </div>
+                    </div>
+                    <div className="major-project-overview-stat">
+                      <span>Mapped components</span>
+                      <strong>{activeMajorOptionComponents.length}</strong>
+                      <p>Internal items currently staged for pricing, specs, and output.</p>
+                    </div>
+                    <div className="major-project-overview-stat">
+                      <span>Sites in scope</span>
+                      <strong>{activeMajorOption?.siteCount ?? 0}</strong>
+                      <p>Project footprint tied to the active option and workbook imports.</p>
+                    </div>
+                    <div className="major-project-overview-stat">
+                      <span>Workflow state</span>
+                      <strong>{majorProjectMetrics.validation.errorCount === 0 ? "Ready" : "Needs review"}</strong>
+                      <p>{majorProjectMetrics.validation.errorCount === 0 ? "Preview and export are unblocked once commercial review is complete." : `${majorProjectMetrics.validation.errorCount} blocking validation item${majorProjectMetrics.validation.errorCount === 1 ? "" : "s"} still need cleanup.`}</p>
+                    </div>
+                  </div>
+
+                  <div className="major-project-path-grid">
+                    <button type="button" className={`major-project-path-card ${componentsStepStatus === "current" ? "major-project-path-card-current" : componentsStepStatus === "complete" ? "major-project-path-card-complete" : "major-project-path-card-locked"}`} onClick={() => setMajorProjectEditorTab("components")}>
+                      <div className="major-project-path-step">Step 1</div>
+                      <div className="major-project-path-title">Components</div>
+                      <div className="major-project-path-copy">Required. Review imported items, clean up names, specs, and confirm cost and sell logic.</div>
+                      <div className="major-project-path-meta">
+                        <span>{componentsStepStatus === "current" ? "In progress" : "Ready"}</span>
+                        <span>{activeMajorOptionComponents.length} item{activeMajorOptionComponents.length === 1 ? "" : "s"}</span>
+                      </div>
+                    </button>
+                    <button type="button" className={`major-project-path-card ${bundlesStepStatus === "current" ? "major-project-path-card-current" : bundlesStepStatus === "complete" ? "major-project-path-card-complete" : "major-project-path-card-locked"}`} onClick={() => setMajorProjectEditorTab("bundles")} disabled={bundlesStepStatus === "locked"}>
+                      <div className="major-project-path-step">Step 2</div>
+                      <div className="major-project-path-title">Bundles</div>
+                      <div className="major-project-path-copy">Optional. Group related components into priced packages only when the customer needs packaged presentation.</div>
+                      <div className="major-project-path-meta">
+                        <span>{bundlesStepStatus === "locked" ? "Later" : majorProjectCanSkipPackagingSteps ? "Optional" : bundlesStepStatus === "current" ? "Open" : "Ready"}</span>
+                        <span>{activeMajorOptionBundles.length} bundle{activeMajorOptionBundles.length === 1 ? "" : "s"}</span>
+                      </div>
+                    </button>
+                    <button type="button" className={`major-project-path-card ${quoteLinesStepStatus === "current" ? "major-project-path-card-current" : quoteLinesStepStatus === "complete" ? "major-project-path-card-complete" : "major-project-path-card-locked"}`} onClick={() => setMajorProjectEditorTab("quote_lines")} disabled={quoteLinesStepStatus === "locked"}>
+                      <div className="major-project-path-step">Step 3</div>
+                      <div className="major-project-path-title">Customer quote lines</div>
+                      <div className="major-project-path-copy">Optional. Curate how Sections A, B, and C present when direct component output is not enough.</div>
+                      <div className="major-project-path-meta">
+                        <span>{quoteLinesStepStatus === "locked" ? "Later" : majorProjectCanSkipPackagingSteps ? "Optional" : quoteLinesStepStatus === "current" ? "Open" : "Ready"}</span>
+                        <span>{activeMajorOptionQuoteLines.length} line{activeMajorOptionQuoteLines.length === 1 ? "" : "s"}</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div className="major-project-shell-panel">
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                       <label className="builder-field compact"><span>Project name</span><input value={majorProjectState.summary.projectName} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.projectName = e.target.value; return draft; })} /></label>
                       <label className="builder-field compact"><span>Active option</span><select value={majorProjectState.activeOptionId} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.activeOptionId = e.target.value; return draft; })}>{majorProjectState.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
@@ -5013,7 +5080,7 @@ export default function QuotePreview() {
                         return draft;
                       })}
                     />
-                    <div className="rounded-[18px] border border-[#d8e0e8] bg-[#f8fbfd] p-4">
+                    <div className="major-project-intake-shell">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <div className="text-[14px] font-semibold text-[#16202b]">BOM workbook import</div>
@@ -5093,7 +5160,7 @@ export default function QuotePreview() {
                         )}
                       </label>
                       {selectedMajorProjectBomSheet ? (
-                        <div className="mt-3 rounded-[14px] border border-[#d9e6ef] bg-white px-3 py-3 text-[#334150]">
+                        <div className="major-project-import-review-shell">
                           <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#60707f]">Draft component import</strong>
                           <label className="builder-field compact mt-3 block">
                             <span>Workbook tab</span>
@@ -5162,7 +5229,7 @@ export default function QuotePreview() {
                                 Last import: {majorProjectState.bomImport.importedComponentCount ?? 0} component{majorProjectState.bomImport.importedComponentCount === 1 ? "" : "s"}
                                 {formatAttachmentUpdatedAt(majorProjectState.bomImport.importedAt) ? ` • ${formatAttachmentUpdatedAt(majorProjectState.bomImport.importedAt)}` : ""}
                               </div>
-                              <div className="rounded-[14px] border border-[#dfe7ef] bg-[#f8fbfd] px-4 py-4 text-[13px] text-[#334150]">
+                              <div className="major-project-post-import-shell">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div>
                                       <div className="text-[13px] font-semibold text-[#16202b]">Post-import review and optional packaging</div>
@@ -5272,8 +5339,8 @@ export default function QuotePreview() {
 
                   </div>
 
-                  <div className="space-y-3 rounded-[16px] border border-[#e7d8db] bg-white p-3">
-                    <div className="rounded-[16px] border border-[#efe3e5] bg-[#fffafa] p-4">
+                    <div className="major-project-builder-shell">
+                    <div className="major-project-panel-intro">
                       <div>
                         <div className="flex items-center justify-between gap-3">
                           <div>
@@ -5856,6 +5923,7 @@ export default function QuotePreview() {
                       status={bundlesStepStatus}
                       summary="Optional: group related components into priced packages you want to carry forward."
                       detail={majorProjectCanSkipPackagingSteps ? "Optional. Skip this step when direct component output is enough." : "Use bundles when you want a curated packaging layer before proposal output."}
+                      optional
                       onOpen={() => setMajorProjectEditorTab("bundles")}
                     >
                       <div className="space-y-4">
@@ -5956,6 +6024,7 @@ export default function QuotePreview() {
                       status={quoteLinesStepStatus}
                       summary="Optional: choose which bundles appear in the proposal and where they land."
                       detail={majorProjectCanSkipPackagingSteps ? "Optional. Skip this step when components should flow straight to proposal output." : "Use quote lines when you want a separate presentation layer for Sections A, B, and C."}
+                      optional
                       onOpen={() => setMajorProjectEditorTab("quote_lines")}
                     >
                       <div className="space-y-4">
