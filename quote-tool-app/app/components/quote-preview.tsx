@@ -5483,8 +5483,8 @@ export default function QuotePreview() {
                               </div>
                             </div>
                             <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-                              <label className="builder-field compact"><span>Component name</span><input value={component.internalName} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
-                              <label className="builder-field compact"><span>Customer label (optional)</span><input value={component.customerFacingLabel ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, customerFacingLabel: e.target.value }))} /></label>
+                              <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Component name</span><input value={component.internalName} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
+                              <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Customer label (optional)</span><input value={component.customerFacingLabel ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, customerFacingLabel: e.target.value }))} /></label>
                               <label className="builder-field compact">
                                 <span>Vendor</span>
                                 <select
