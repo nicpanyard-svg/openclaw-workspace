@@ -2125,17 +2125,26 @@ export default function QuotePreview() {
   const hasComponentsStepContent = activeMajorOptionComponents.length > 0;
   const hasBundleStepContent = activeMajorOptionBundles.length > 0;
   const hasQuoteLineStepContent = activeMajorOptionQuoteLines.length > 0;
+  const majorProjectCanSkipPackagingSteps = hasComponentsStepContent && majorProjectUsesDirectComponentPath;
   const bundleCoverageCount = majorProjectMetrics.bundles.filter((bundle) => bundle.resolvedComponentIds.length > 0).length;
   const presentedBundleCount = activeMajorOptionBundles.length - majorProjectMetrics.validation.unpresentedBundleIds.length;
   const componentsStepStatus: MajorProjectStepStatus = majorProjectEditorTab === "components" ? "current" : hasComponentsStepContent ? "complete" : "current";
   const bundlesStepStatus: MajorProjectStepStatus = !hasComponentsStepContent
     ? "locked"
+    : majorProjectCanSkipPackagingSteps
+      ? majorProjectEditorTab === "bundles"
+        ? "current"
+        : "complete"
     : majorProjectEditorTab === "bundles"
       ? "current"
       : hasBundleStepContent && bundleCoverageCount > 0
         ? "complete"
         : "current";
-  const quoteLinesStepStatus: MajorProjectStepStatus = !majorProjectUsesDirectComponentPath && (!hasComponentsStepContent || !hasBundleStepContent || bundleCoverageCount === 0)
+  const quoteLinesStepStatus: MajorProjectStepStatus = majorProjectCanSkipPackagingSteps
+    ? majorProjectEditorTab === "quote_lines"
+      ? "current"
+      : "complete"
+    : !majorProjectUsesDirectComponentPath && (!hasComponentsStepContent || !hasBundleStepContent || bundleCoverageCount === 0)
     ? "locked"
     : majorProjectEditorTab === "quote_lines"
       ? "current"
@@ -4932,15 +4941,15 @@ export default function QuotePreview() {
                               <div className="rounded-[14px] border border-[#dfe7ef] bg-[#f8fbfd] px-4 py-4 text-[13px] text-[#334150]">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div>
-                                      <div className="text-[13px] font-semibold text-[#16202b]">Post-import pricing and bundling</div>
+                                      <div className="text-[13px] font-semibold text-[#16202b]">Post-import review and optional packaging</div>
                                       <div className="mt-1 text-[12px] leading-[1.6] text-[#5f6d7a]">
-                                        The BOM import feeds the internal component list first. Review those items, set customer-ready pricing, then either send them straight to proposal output or package them into bundles and quote lines.
+                                        The BOM import feeds the internal component list first. Review those items, then either send them straight to proposal output or optionally package them into bundles and quote lines.
                                       </div>
                                     </div>
                                   <div className="flex flex-wrap gap-2">
                                     <button type="button" className="pill-button" onClick={() => setMajorProjectEditorTab("components")}>Open Components</button>
-                                    <button type="button" className="pill-button" onClick={beginImportedMajorProjectBundling}>Start bundling</button>
-                                    <button type="button" className="pill-button" onClick={() => setMajorProjectEditorTab("quote_lines")}>Open Quote Lines</button>
+                                    <button type="button" className="pill-button" onClick={beginImportedMajorProjectBundling}>Start bundling (optional)</button>
+                                    <button type="button" className="pill-button" onClick={() => setMajorProjectEditorTab("quote_lines")}>Open Quote Lines (optional)</button>
                                   </div>
                                 </div>
                                 <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -4993,12 +5002,12 @@ export default function QuotePreview() {
                                     <div className="mt-2 text-[12px] text-[#435262]">Clean up raw names, quantities, vendors, manufacturers, and cost basis on the imported rows before they become customer-ready.</div>
                                   </div>
                                   <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">2. Develop pricing</div>
-                                    <div className="mt-2 text-[12px] text-[#435262]">Set customer labels, starting sell price, margin logic, and supporting specs before you decide how each item should present.</div>
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">2. Adjust pricing only if needed</div>
+                                    <div className="mt-2 text-[12px] text-[#435262]">Starter sell pricing is seeded automatically. Only change margin logic or supporting specs when the default output is not enough.</div>
                                   </div>
                                   <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">3. Package if needed</div>
-                                    <div className="mt-2 text-[12px] text-[#435262]">Keep reviewed components as direct output items, or group them into bundles and customer quote lines when you want a curated presentation layer.</div>
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">3. Package only if needed</div>
+                                    <div className="mt-2 text-[12px] text-[#435262]">You can stop after Components for direct output, or group items into bundles and quote lines when you want a curated presentation layer.</div>
                                   </div>
                                 </div>
                               </div>
@@ -5570,7 +5579,7 @@ export default function QuotePreview() {
                       count={activeMajorOptionBundles.length}
                       status={bundlesStepStatus}
                       summary="Optional: group related components into priced packages you want to carry forward."
-                      detail="Use bundles when you want a curated packaging layer before proposal output."
+                      detail={majorProjectCanSkipPackagingSteps ? "Optional. Skip this step when direct component output is enough." : "Use bundles when you want a curated packaging layer before proposal output."}
                       onOpen={() => setMajorProjectEditorTab("bundles")}
                     >
                       <div className="space-y-4">
@@ -5670,7 +5679,7 @@ export default function QuotePreview() {
                       count={activeMajorOptionQuoteLines.length}
                       status={quoteLinesStepStatus}
                       summary="Optional: choose which bundles appear in the proposal and where they land."
-                      detail="Use quote lines when you want a separate presentation layer for Sections A, B, and C."
+                      detail={majorProjectCanSkipPackagingSteps ? "Optional. Skip this step when components should flow straight to proposal output." : "Use quote lines when you want a separate presentation layer for Sections A, B, and C."}
                       onOpen={() => setMajorProjectEditorTab("quote_lines")}
                     >
                       <div className="space-y-4">
