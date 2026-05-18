@@ -75,6 +75,10 @@ export default function AccessPage() {
     if (isAdmin) return accessRequests;
     return accessRequests.filter((request) => request.email.toLowerCase() === user?.email.toLowerCase());
   }, [accessRequests, isAdmin, user]);
+  const requesterAccount = useMemo(() => {
+    if (isAdmin || !user?.email) return null;
+    return directoryUsers.find((entry) => entry.email.toLowerCase() === user.email.toLowerCase()) ?? null;
+  }, [directoryUsers, isAdmin, user]);
 
   const stats = useMemo(() => ({
     pending: queue.filter((request) => request.status === "pending").length,
@@ -127,7 +131,7 @@ export default function AccessPage() {
               <div className="workspace-brand-heading-row workspace-dashboard-heading-row">
                 <div>
                   <div className="workspace-eyebrow">Access Manager</div>
-                  <h1 className="workspace-title">{isAdmin ? "Manage users and requests" : "Your access status"}</h1>
+                  <h1 className="workspace-title">{isAdmin ? "Manage users and requests" : "Track access and reset help"}</h1>
                 </div>
                 <span className="workspace-user-chip">{isAdmin ? "Admin view" : "Requester view"}</span>
               </div>
@@ -135,11 +139,11 @@ export default function AccessPage() {
             <p className="workspace-subtitle">
               {isAdmin
                 ? "Review RapidQuote access requests, provision users, assign roles, and keep an audit trail of every access change."
-                : "Track your RapidQuote access request and review any admin notes tied to your account."}
+                : "Check your request status, see whether an account has been provisioned yet, and jump straight to password reset or a new request when needed."}
             </p>
           </div>
           <div className="workspace-actions workspace-dashboard-actions">
-            <Link href="/signup" className="workspace-secondary-button">New request</Link>
+            {isAdmin ? <Link href="/signup" className="workspace-secondary-button">New request</Link> : <Link href="/forgot-password" className="workspace-secondary-button">Forgot password</Link>}
             <Link href="/" className="workspace-primary-button">Back to dashboard</Link>
           </div>
         </section>
@@ -163,11 +167,28 @@ export default function AccessPage() {
             <p className="workspace-support-copy">Requests approved by an admin.</p>
           </div>
           <div className="workspace-launchpad-card">
-            <div className="workspace-support-label">Directory users</div>
-            <strong>{stats.users}</strong>
-            <p className="workspace-support-copy">RapidQuote users saved in the local directory.</p>
+            <div className="workspace-support-label">{isAdmin ? "Directory users" : "Directory account"}</div>
+            <strong>{isAdmin ? stats.users : requesterAccount ? roleLabel(requesterAccount.role) : "Not provisioned"}</strong>
+            <p className="workspace-support-copy">{isAdmin ? "RapidQuote users saved in the local directory." : requesterAccount ? `${requesterAccount.status === "active" ? "Active" : requesterAccount.status} account ready for sign-in help.` : "No local RapidQuote account has been provisioned for this email yet."}</p>
           </div>
         </section>
+
+        {!isAdmin ? (
+          <section className="workspace-panel">
+            <div className="workspace-panel-topbar workspace-panel-topbar-stack">
+              <div>
+                <div className="workspace-eyebrow">What to do next</div>
+                <h2 className="workspace-section-title">Simple access path</h2>
+                <p className="workspace-panel-copy">Use Request access only when you still need an account. Once an admin provisions you, come back through Sign in or Forgot password instead of creating duplicate requests.</p>
+              </div>
+            </div>
+            <div className="rounded-[18px] border border-[#dde3ea] bg-[#fbfcfe] px-4 py-4 text-[13px] leading-[1.6] text-[#51606d]">
+              {requesterAccount
+                ? `Your directory account is currently ${requesterAccount.status}. If you cannot sign in, use Forgot password to set a new password without creating another access request.`
+                : "No local account is provisioned yet. Stay with your current request unless an admin tells you to submit a new one."}
+            </div>
+          </section>
+        ) : null}
 
         {isAdmin ? (
           <section className="workspace-panel workspace-focus-panel">

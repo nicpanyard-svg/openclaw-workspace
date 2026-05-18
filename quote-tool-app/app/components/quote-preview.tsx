@@ -44,6 +44,7 @@ import {
   type SavedCustomerProfile,
 } from "@/app/lib/customer-profiles";
 import { ensureNickTrainingDemoProfiles, ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
+import { normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState, getActiveMajorProjectOption, majorProjectLineTypeLabel } from "@/app/lib/major-project";
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
 import {
@@ -384,6 +385,16 @@ function formatCurrency(value: number, currencyCode = "USD") {
 
 function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
+}
+
+function buildMarginPricingSummary(cost: number | undefined, marginPercent: number, currencyCode = "USD") {
+  const safeCost = Number.isFinite(Number(cost)) ? Math.max(Number(cost), 0) : 0;
+  const safeMargin = Number.isFinite(marginPercent) ? Math.min(Math.max(marginPercent, 0), 95) : 0;
+  if (safeCost <= 0) {
+    return `${safeMargin}% gross margin will seed customer pricing from vendor cost when cost is available.`;
+  }
+  const customerPrice = applyMarginToCost(safeCost, safeMargin);
+  return `${formatCurrency(safeCost, currencyCode)} vendor cost -> ${formatCurrency(customerPrice, currencyCode)} customer price at ${safeMargin}% margin.`;
 }
 
 function parseNumber(value: string) {
@@ -2292,6 +2303,110 @@ export default function QuotePreview() {
   ]).join(" • ");
   const customerServiceAddress = compactList(quote.customer.addressLines).join(", ");
   const builderLocked = !customerEntryComplete;
+  const governanceState = useMemo(
+    () => normalizeQuoteGovernanceState({
+      metadata: quote.metadata,
+      internal: quote.internal,
+      governance: quote.governance,
+    }),
+    [quote.governance, quote.internal, quote.metadata],
+  );
+  const latestRevisionEntry = useMemo(
+    () => quote.revisionHistory.at(-1) ?? null,
+    [quote.revisionHistory],
+  );
+  const latestProposalActivity = useMemo(
+    () => activeProposal?.activity?.at(-1) ?? null,
+    [activeProposal?.activity],
+  );
+  const quoteLastTouchedLabel = useMemo(
+    () => formatAttachmentUpdatedAt(activeProposal?.updatedAt ?? quote.metadata.lastTouchedAt ?? ""),
+    [activeProposal?.updatedAt, quote.metadata.lastTouchedAt],
+  );
+  const firstImportedMajorProjectCost = useMemo(
+    () => importedMajorProjectComponents.find((component) => component.vendorUnitCost > 0)?.vendorUnitCost,
+    [importedMajorProjectComponents],
+  );
+  const bomImportedPricingSummary = useMemo(
+    () => buildMarginPricingSummary(firstImportedMajorProjectCost, parseNumber(majorProjectImportedMarginPercent), currencyCode),
+    [currencyCode, firstImportedMajorProjectCost, majorProjectImportedMarginPercent],
+  );
+  const editorNeedsAttention = useMemo(() => {
+    const items: string[] = [];
+
+    if (quote.executiveSummary.enabled && !contentPresence.hasExecutiveSummaryContent) {
+      items.push("Executive Summary is enabled but still has no customer-facing content.");
+    }
+    if (quote.sections.sectionB.enabled && !contentPresence.hasSectionBContent) {
+      items.push("Hardware output is enabled but there are no live hardware rows yet.");
+    }
+    if (quote.sections.sectionC.enabled && !contentPresence.hasSectionCContent) {
+      items.push("Install / site services are enabled but there are no live service rows yet.");
+    }
+    if (quote.warranty.enabled && !quote.warranty.manufacturerReference.trim() && !quote.warranty.coverageNote.trim()) {
+      items.push("Warranty is enabled but still needs source text or coverage notes.");
+    }
+    if (quote.metadata.quoteType === "lease" && !hasActiveDataAgreement) {
+      items.push("Lease pricing still needs an active data agreement before release.");
+    }
+    if (isMajorProject && majorProjectMetrics.validation.errorCount > 0) {
+      items.push(`${majorProjectMetrics.validation.errorCount} Major Project validation issue${majorProjectMetrics.validation.errorCount === 1 ? "" : "s"} still block preview/export readiness.`);
+    }
+    if (isMajorProject && importedMajorProjectNeedsReviewCount > 0) {
+      items.push(`${importedMajorProjectNeedsReviewCount} imported component${importedMajorProjectNeedsReviewCount === 1 ? "" : "s"} still need label, pricing, or output review.`);
+    }
+
+    return items;
+  }, [
+    contentPresence.hasExecutiveSummaryContent,
+    contentPresence.hasSectionBContent,
+    contentPresence.hasSectionCContent,
+    hasActiveDataAgreement,
+    importedMajorProjectNeedsReviewCount,
+    isMajorProject,
+    majorProjectMetrics.validation.errorCount,
+    quote.executiveSummary.enabled,
+    quote.metadata.quoteType,
+    quote.sections.sectionB.enabled,
+    quote.sections.sectionC.enabled,
+    quote.warranty.coverageNote,
+    quote.warranty.enabled,
+    quote.warranty.manufacturerReference,
+  ]);
+  const outputReadiness = useMemo(() => {
+    if (!customerEntryComplete) {
+      return [
+        { label: "Preview Proposal", state: "Locked", detail: "Finish customer intake to unlock the customer-facing preview." },
+        { label: "PDF preview", state: "Locked", detail: "PDF export opens from Preview Proposal after the draft is ready." },
+        { label: "Approval workbook", state: "Locked", detail: "Workbook export stays on hold until the quote can be saved and previewed." },
+      ];
+    }
+
+    const previewBlocked = majorProjectHasBlockingErrors;
+    return [
+      {
+        label: "Preview Proposal",
+        state: previewBlocked ? "Blocked" : "Ready",
+        detail: previewBlocked
+          ? `${majorProjectMetrics.validation.errorCount} Major Project validation issue${majorProjectMetrics.validation.errorCount === 1 ? "" : "s"} still need cleanup.`
+          : "Customer-facing proposal is ready to open from this draft.",
+      },
+      {
+        label: "PDF preview",
+        state: previewBlocked ? "Blocked" : "Ready",
+        detail: previewBlocked
+          ? "PDF stays blocked until the same preview blockers are cleared."
+          : "PDF output uses the same proposal route as Preview Proposal.",
+      },
+      {
+        label: "Approval workbook",
+        state: previewBlocked ? "Needs fixes" : "Ready",
+        detail: previewBlocked
+          ? "Workbook export should wait until pricing and validation blockers are resolved."
+          : "Approval workbook exports from Preview Proposal with the current quote math.",
+      },
+    ];
+  }, [customerEntryComplete, majorProjectHasBlockingErrors, majorProjectMetrics.validation.errorCount]);
 
   const updateMajorProjectQuote = (updater: (draft: QuoteRecord) => QuoteRecord) => {
     updateQuote((current) => applyMajorProjectToQuote(updater(ensureMajorProjectState(current))));
@@ -3263,8 +3378,8 @@ export default function QuotePreview() {
                 </div>
               </div>
 
-                <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1.4fr]">
-                  <label className="builder-field compact">
+                <div className="mt-3 grid gap-3 lg:grid-cols-[1.1fr_1.3fr_.7fr]">
+                  <label className="builder-field compact lg:col-span-1">
                     <span>Vendor / source label</span>
                     <input
                     value={vendorQuote.vendorName ?? ""}
@@ -3272,7 +3387,7 @@ export default function QuotePreview() {
                     placeholder="Enter vendor name"
                   />
                 </label>
-                <label className="builder-field compact">
+                <label className="builder-field compact lg:col-span-1">
                   <span>Quote reference</span>
                   <input
                     value={vendorQuote.quoteLabel ?? ""}
@@ -3294,6 +3409,10 @@ export default function QuotePreview() {
                     }))}
                   />
                 </label>
+                </div>
+                <div className="mt-3 rounded-[12px] border border-[#dce5fb] bg-[#f5f8ff] px-3 py-3 text-[12px] text-[#28446c]">
+                  <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#516a91]">Pricing default</strong>
+                  <span className="mt-1 block">{buildMarginPricingSummary(vendorQuote.previewItems?.find((item) => Math.max(item.unitCost ?? item.unitPrice, 0) > 0)?.unitCost ?? vendorQuote.previewItems?.find((item) => Math.max(item.unitCost ?? item.unitPrice, 0) > 0)?.unitPrice, vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT, currencyCode)}</span>
                 </div>
 
                 {vendorQuote.status === "loaded" && !(vendorQuote.importedComponentIds?.length) ? (
@@ -3327,8 +3446,8 @@ export default function QuotePreview() {
                         {item.description ? <div className="mt-2 text-[#5f6c78]">{item.description}</div> : null}
                         {buildVendorQuoteMetadataSummary(item).length ? <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[#60707f]">{buildVendorQuoteMetadataSummary(item).map((detail) => <span key={`${item.id}-${detail}`} className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">{detail}</span>)}</div> : null}
                         <div className="mt-2 flex flex-wrap gap-4 text-[#5f6c78]">
-                          <span>Draft sell {formatCurrency(item.unitPrice, currencyCode)}</span>
-                          <span>Draft cost {formatCurrency(item.unitPrice, currencyCode)}</span>
+                          <span>Vendor cost {formatCurrency(Math.max(item.unitCost ?? item.unitPrice, 0), currencyCode)}</span>
+                          <span>Seeded sell {formatCurrency(applyMarginToCost(Math.max(item.unitCost ?? item.unitPrice, 0), vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT), currencyCode)}</span>
                           <span>Ext. {formatCurrency(item.extendedPrice, currencyCode)}</span>
                           {item.vendor ? <span>Vendor {item.vendor}</span> : null}
                         </div>
@@ -4201,10 +4320,13 @@ export default function QuotePreview() {
 
     setActiveProposal(updatedProposal);
     setQuote(nextQuote);
+    const savedMessage = statusChanged
+      ? `Draft saved. Quote is now ${statusToStageLabel(nextQuote.metadata.status)} on revision ${governanceState.revisionLabel}.`
+      : `Draft saved for ${nextQuote.metadata.proposalNumber} on revision ${governanceState.revisionLabel}.`;
     setWorkflowNotice(
       majorProjectHasBlockingErrors
-        ? `Draft saved, but Major Project validation still has ${majorProjectMetrics.validation.errorCount} blocking error${majorProjectMetrics.validation.errorCount === 1 ? "" : "s"}.`
-        : "Draft saved.",
+        ? `${savedMessage} Major Project validation still has ${majorProjectMetrics.validation.errorCount} blocking error${majorProjectMetrics.validation.errorCount === 1 ? "" : "s"}.`
+        : savedMessage,
     );
 
     return { proposal: updatedProposal, store: nextStore };
@@ -4239,6 +4361,7 @@ export default function QuotePreview() {
     persistQuoteRecord(copiedProposal.quote);
     setActiveProposal(copiedProposal);
     setQuote(copiedProposal.quote);
+    setWorkflowNotice(`Created ${copiedProposal.quote.metadata.proposalNumber} as a new draft copy on revision ${copiedProposal.quote.governance?.revisionLabel || copiedProposal.quote.metadata.revisionVersion || "1.0"}. Review status, pricing, and customer-facing output before sending.`);
   };
 
   return isHydrated ? (
@@ -5079,6 +5202,10 @@ export default function QuotePreview() {
                                     {importedMajorProjectUnbundledCount} component{importedMajorProjectUnbundledCount === 1 ? "" : "s"} are still unbundled if you want optional packaging
                                   </div>
                                 </div>
+                                <div className="mt-3 rounded-[12px] border border-[#dce5fb] bg-[#f5f8ff] px-3 py-3 text-[12px] text-[#28446c]">
+                                  <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#516a91]">Pricing default</strong>
+                                  <span className="mt-1 block">{bomImportedPricingSummary}</span>
+                                </div>
                                 <div className="mt-3 grid gap-3 md:grid-cols-3">
                                   <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">1. Review components</div>
@@ -5234,7 +5361,7 @@ export default function QuotePreview() {
                                     </div>
                                   </div>
 
-                                  <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1.4fr]">
+                                  <div className="mt-3 grid gap-3 lg:grid-cols-[1.1fr_1.3fr_.7fr]">
                                     <label className="builder-field compact">
                                       <span>Vendor / source label</span>
                                       <input
@@ -5265,6 +5392,10 @@ export default function QuotePreview() {
                                         }))}
                                       />
                                     </label>
+                                  </div>
+                                  <div className="mt-3 rounded-[12px] border border-[#dce5fb] bg-[#f5f8ff] px-3 py-3 text-[12px] text-[#28446c]">
+                                    <strong className="block text-[12px] uppercase tracking-[0.12em] text-[#516a91]">Pricing default</strong>
+                                    <span className="mt-1 block">{buildMarginPricingSummary(vendorQuote.previewItems?.find((item) => Math.max(item.unitCost ?? item.unitPrice, 0) > 0)?.unitCost ?? vendorQuote.previewItems?.find((item) => Math.max(item.unitCost ?? item.unitPrice, 0) > 0)?.unitPrice, vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT, currencyCode)}</span>
                                   </div>
 
                                   {vendorQuote.status === "loaded" && !(vendorQuote.importedRowIds?.length) ? (
@@ -5325,8 +5456,8 @@ export default function QuotePreview() {
                                             </div>
                                             {item.description ? <div className="mt-2 text-[#5f6c78]">{item.description}</div> : null}
                                             <div className="mt-2 flex flex-wrap gap-4 text-[#5f6c78]">
-                                              <span>Draft sell {formatCurrency(item.unitPrice, currencyCode)}</span>
-                                              <span>Draft cost {formatCurrency(item.unitPrice, currencyCode)}</span>
+                                              <span>Vendor cost {formatCurrency(Math.max(item.unitCost ?? item.unitPrice, 0), currencyCode)}</span>
+                                              <span>Seeded sell {formatCurrency(applyMarginToCost(Math.max(item.unitCost ?? item.unitPrice, 0), vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT), currencyCode)}</span>
                                               <span>Ext. {formatCurrency(item.extendedPrice, currencyCode)}</span>
                                               {item.vendor ? <span>Vendor {item.vendor}</span> : null}
                                             </div>
@@ -5729,8 +5860,8 @@ export default function QuotePreview() {
                                 </div>
                               </div>
                               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-                                <label className="builder-field compact"><span>Bundle name</span><input value={bundle.internalName} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
-                                <label className="builder-field compact"><span>Customer-facing label</span><input value={bundle.customerFacingLabel} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, customerFacingLabel: e.target.value }))} /></label>
+                                <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Bundle name</span><input value={bundle.internalName} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
+                                <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Customer-facing label</span><input value={bundle.customerFacingLabel} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, customerFacingLabel: e.target.value }))} /></label>
                                 <label className="builder-field compact"><span>Category</span><input value={bundle.category ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, category: e.target.value }))} /></label>
                                 <label className="builder-field compact"><span>Schedule</span><select value={bundle.schedule ?? "mixed"} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, schedule: e.target.value as MajorProjectBundle["schedule"] }))}><option value="mixed">Mixed</option><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
                               </div>
@@ -5831,7 +5962,7 @@ export default function QuotePreview() {
                                 />
                               </div>
                               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-                                <label className="builder-field compact"><span>Quote line label</span><input value={line.label} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, label: e.target.value }))} /></label>
+                                <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Quote line label</span><input value={line.label} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, label: e.target.value }))} /></label>
                                 <label className="builder-field compact"><span>Presentation category</span><select value={line.presentationCategory ?? "other"} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, presentationCategory: e.target.value as MajorProjectCustomerQuoteLine["presentationCategory"] }))}><option value="recurring">Section A / recurring</option><option value="hardware">Section B / hardware</option><option value="services">Section C / services</option><option value="other">Section C / other</option></select></label>
                                 <label className="builder-field compact"><span>Schedule</span><select value={line.schedule ?? "mixed"} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, schedule: e.target.value as MajorProjectCustomerQuoteLine["schedule"] }))}><option value="mixed">Mixed</option><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
                                 <div className="rounded-[16px] border border-[#e2e7ec] bg-white px-4 py-3 text-[13px] text-[#5e6975]"><div className="font-semibold text-[#16202b]">{line.presentationCategory === "recurring" ? "Downstream MRR" : "Downstream total"}</div><div className="mt-1">{formatCurrency((metrics?.oneTimeRevenue ?? 0) + (metrics?.recurringRevenue ?? 0), currencyCode)}</div></div>
@@ -6313,10 +6444,58 @@ export default function QuotePreview() {
                 <div className="summary-block"><div className="summary-label">Executive Summary</div><div className="summary-value">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent ? (quote.executiveSummary.heading?.trim() || "Executive Summary") : "Hidden"}</div><div className="summary-subvalue">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent ? `${executiveSummaryRenderBlocks.length} structured block(s) ready for output` : "Not included in proposal output"}</div></div>
                 <div className="summary-block"><div className="summary-label">Workflow</div><div className="summary-value">{isMajorProject ? "Major Project" : "Quick Quote"}</div><div className="summary-subvalue">{isMajorProject ? "Commercial model is driving downstream proposal sections" : "Builder rows are driving proposal sections directly"}</div></div>
                 <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : hasActiveDataAgreement ? `Estimated monthly blended total over ${selectedLeaseTerm} months` : "Lease pricing blocked until active data agreement is confirmed"}</div></div>
-                <div className="summary-block"><div className="summary-label">Current pricing</div><div className="summary-value">Current proposal data</div><div className="summary-subvalue">Recommended defaults plus any edits you made in this proposal</div></div>
+                <div className="summary-block">
+                  <div className="summary-label">Revision confidence</div>
+                  <div className="summary-value">Revision {governanceState.revisionLabel}</div>
+                  <div className="summary-subvalue">
+                    {governanceState.sourceMode === "crm_attached" ? "CRM-attached lineage" : "Standalone-first lineage"}
+                    {` • Family ${governanceState.quoteFamilyId}`}
+                    {quoteLastTouchedLabel ? ` • Saved ${quoteLastTouchedLabel}` : ""}
+                  </div>
+                  <div className="mt-2 rounded-[14px] border border-[#e2e7ec] bg-white px-3 py-3 text-[12px] leading-[1.6] text-[#51606d]">
+                    <strong className="block text-[#16202b]">Latest recorded change</strong>
+                    <span className="mt-1 block">{latestRevisionEntry?.changeDetails || latestProposalActivity?.message || "This draft is using the current saved proposal state."}</span>
+                    {governanceState.basedOnRevisionId ? <span className="mt-1 block text-[#6d7782]">Based on {governanceState.basedOnRevisionId}</span> : null}
+                  </div>
+                </div>
+                <div className="summary-block">
+                  <div className="summary-label">Current pricing</div>
+                  <div className="summary-value">{isMajorProject ? "Imported cost + margin aware" : "Current proposal data"}</div>
+                  <div className="summary-subvalue">{isMajorProject ? `Imported BOM and vendor quote defaults seed customer pricing from vendor cost at ${DEFAULT_IMPORTED_MARGIN_PERCENT}% margin unless you override it.` : "Recommended defaults plus any edits you made in this proposal."}</div>
+                </div>
                 <div className="summary-block"><div className="summary-label">Customer SLA profile</div><div className="summary-value">{quoteServiceAgreementProfile.agreementLabel || "No SLA profile name set"}</div><div className="summary-subvalue">{activeServiceAgreementCategories.length ? `${activeServiceAgreementCategories.length} active pricing categories on this quote` : "No active SLA defaults loaded on this quote"}{quoteServiceAgreementProfile.sourceDocument?.fileName ? ` • ${quoteServiceAgreementProfile.sourceDocument.fileName}` : ""}</div></div>
                 <div className="summary-block"><div className="summary-label">Enabled sections</div><ul className="list-disc pl-5 text-[#56616d]">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent && <li>Executive Summary</li>}{quote.sections.sectionA.enabled && contentPresence.hasSectionAContent && <li>{isMajorProject ? "MRR" : "Monthly Service"}</li>}{quote.sections.sectionB.enabled && contentPresence.hasSectionBContent && <li>Hardware</li>}{quote.sections.sectionC.enabled && contentPresence.hasSectionCContent && <li>Field Services</li>}</ul></div>
                 {customSectionFields.length > 0 && <div className="summary-block"><div className="summary-label">Extra section fields</div><div className="space-y-1 text-[#56616d]">{customSectionFields.map((field) => <div key={field.id}><strong>{field.label}:</strong> {field.value || "—"} <span className="text-[#8b96a3]">({field.visibility === "customer" ? "proposal" : "internal"})</span></div>)}</div></div>}
+                <div className="summary-block">
+                  <div className="summary-label">Needs attention</div>
+                  <div className="summary-value">{editorNeedsAttention.length ? `${editorNeedsAttention.length} review item${editorNeedsAttention.length === 1 ? "" : "s"}` : "No major blockers queued"}</div>
+                  <div className="summary-subvalue">{editorNeedsAttention.length ? "These are the remaining items most likely to slow preview, export, or release confidence." : "This draft is in good shape for preview, export, and approval review."}</div>
+                  {editorNeedsAttention.length ? (
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-[12px] text-[#56616d]">
+                      {editorNeedsAttention.map((item) => <li key={item}>{item}</li>)}
+                    </ul>
+                  ) : null}
+                </div>
+                <div className="summary-block">
+                  <div className="summary-label">Output readiness</div>
+                  <div className="space-y-2">
+                    {outputReadiness.map((item) => (
+                      <div key={item.label} className="rounded-[14px] border border-[#e2e7ec] bg-white px-3 py-3 text-[12px] text-[#51606d]">
+                        <div className="flex items-center justify-between gap-3">
+                          <strong className="text-[#16202b]">{item.label}</strong>
+                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
+                            item.state === "Ready"
+                              ? "bg-[#ecf7ee] text-[#25643b]"
+                              : item.state === "Blocked" || item.state === "Needs fixes"
+                                ? "bg-[#fff1f1] text-[#8d1f1f]"
+                                : "bg-[#eef2f7] text-[#51606f]"
+                          }`}>{item.state}</span>
+                        </div>
+                        <div className="mt-1">{item.detail}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{isMajorProject ? "MRR schedule" : quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{isMajorProject ? `Month driver: ${quote.sections.sectionA.termMonths} months • generated from ${activeMajorOption?.label ?? "active major option"}` : `${activeSectionARows.length} row(s) ready for the proposal`}</div></div>
                 <div className="summary-block"><div className="summary-label">Section B output</div><div className="summary-value">{contentPresence.hasSectionBContent ? `${quote.sections.sectionB.lineItems.length} hardware row(s)` : "No hardware added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionBContent ? (suggestedAccessories.length > 0 ? `${suggestedAccessories.length} accessory suggestion(s) available` : "All suggested accessories are already added") : "Add equipment only when this quote actually needs one-time hardware."}</div></div>
                 <div className="summary-block"><div className="summary-label">Section C output</div><div className="summary-value">{contentPresence.hasSectionCContent ? quote.sections.sectionC.title : "No field services added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionCContent ? `${quote.sections.sectionC.lineItems.length} service row(s) • ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "budgetary").length} budgetary / ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "final").length} final` : "Field services stay out of the proposal until live rows exist."}</div></div>
