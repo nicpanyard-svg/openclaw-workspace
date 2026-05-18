@@ -44,7 +44,7 @@ import {
   type SavedCustomerProfile,
 } from "@/app/lib/customer-profiles";
 import { ensureNickTrainingDemoProfiles, ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
-import { applyMajorProjectToQuote, buildMajorProjectMetrics, convertMajorProjectQuickBuilderToMappedModel, ensureMajorProjectState, getActiveMajorProjectOption, majorProjectLineTypeLabel } from "@/app/lib/major-project";
+import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState, getActiveMajorProjectOption, majorProjectLineTypeLabel } from "@/app/lib/major-project";
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
 import {
   createDefaultServiceAgreementProfile,
@@ -57,7 +57,6 @@ import {
   type MajorProjectBomColumnMap,
   type MajorProjectBomColumnKey,
   type MajorProjectBomImportSheet,
-  type MajorProjectBuilderMode,
   type MajorProjectComponent,
   type MajorProjectCustomerQuoteLine,
   type MajorProjectOption,
@@ -2767,14 +2766,6 @@ export default function QuotePreview() {
     });
   };
 
-  const setMajorProjectBuilderMode = (mode: MajorProjectBuilderMode) => {
-    updateMajorProjectQuote((draft) => {
-      if (!draft.majorProject) return draft;
-      draft.majorProject.builderMode = mode;
-      return mode === "advanced" ? convertMajorProjectQuickBuilderToMappedModel(draft) : draft;
-    });
-  };
-
   const addMajorProjectSimpleRow = () => {
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
@@ -2955,7 +2946,7 @@ export default function QuotePreview() {
     });
 
     if (blockedByMappedBuilderContent) {
-      setWorkflowNotice("This option already has mapped builder content. Use Add components here, or switch the option back to Quick Quote before importing draft rows.");
+      setWorkflowNotice("This option already has mapped builder content. Use Add components here to keep building from the structured component workflow.");
       return;
     }
 
@@ -3097,9 +3088,7 @@ export default function QuotePreview() {
           source: current.source,
         }));
         setWorkflowNotice(
-          majorProjectState.builderMode === "advanced"
-            ? `Loaded ${file.name}. Choose Add components to keep working in Mapped Builder, or Add draft rows to switch this option to Quick Quote.`
-            : `Loaded ${file.name}. Review the preview, then choose Add draft rows to apply it to the quote.`,
+          `Loaded ${file.name}. Review the preview, then choose Add components to bring the parsed items into Mapped Builder.`,
         );
       } catch (caughtError) {
         updateActiveMajorVendorQuote(entryId, (current) => ({
@@ -3157,7 +3146,7 @@ export default function QuotePreview() {
           }}
         />
         <span className="block text-[14px] font-semibold text-[#17212c]">Drag and drop vendor quote files here</span>
-        <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose multiple `.xlsx`, `.xls`, `.csv`, or `.pdf` files. Imported content can become Quick Quote draft rows or mapped builder components while preserving vendor and source-row traceability.</span>
+        <span className="mt-1 block text-[12px] text-[#60707f]">Or click to choose multiple `.xlsx`, `.xls`, `.csv`, or `.pdf` files. Imported content becomes mapped builder components while preserving vendor and source-row traceability.</span>
         {majorProjectVendorQuoteCaptureError ? (
           <span className="mt-3 block rounded-[14px] border border-[#efc1c1] bg-[#fff1f1] px-3 py-3 text-[12px] text-[#7f1d1d]">
             <strong className="block text-[13px] text-[#8f2424]">File rejected</strong>
@@ -3181,7 +3170,6 @@ export default function QuotePreview() {
                     <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{formatAttachmentSize(vendorQuote.sizeBytes)}</span>
                     <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{formatMajorProjectVendorQuoteFileType(vendorQuote.fileName, vendorQuote.mimeType)}</span>
                     <span className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-3 py-1">{vendorQuote.previewItems?.length ?? 0} preview item{(vendorQuote.previewItems?.length ?? 0) === 1 ? "" : "s"}</span>
-                    {vendorQuote.importedRowIds?.length ? <span className="rounded-full border border-[#dbe7df] bg-[#f5fbf6] px-3 py-1 text-[#215a36]">{vendorQuote.importedRowIds.length} draft row{vendorQuote.importedRowIds.length === 1 ? "" : "s"} created</span> : null}
                     {vendorQuote.importedComponentIds?.length ? <span className="rounded-full border border-[#dce5fb] bg-[#f2f6ff] px-3 py-1 text-[#234d99]">{vendorQuote.importedComponentIds.length} component{vendorQuote.importedComponentIds.length === 1 ? "" : "s"} created</span> : null}
                   </div>
                 </div>
@@ -3189,14 +3177,6 @@ export default function QuotePreview() {
                   <button
                     type="button"
                     className="pill-button pill-button-active"
-                    disabled={vendorQuote.status !== "loaded" || !(vendorQuote.previewItems?.length)}
-                    onClick={() => importMajorProjectVendorQuoteRows(vendorQuote.id)}
-                  >
-                    Add draft rows (Quick Quote)
-                  </button>
-                  <button
-                    type="button"
-                    className="pill-button"
                     disabled={vendorQuote.status !== "loaded" || !(vendorQuote.previewItems?.length)}
                     onClick={() => importMajorProjectVendorQuoteComponents(vendorQuote.id)}
                   >
@@ -3239,9 +3219,9 @@ export default function QuotePreview() {
                 </label>
                 </div>
 
-                {vendorQuote.status === "loaded" && !(vendorQuote.importedRowIds?.length) && !(vendorQuote.importedComponentIds?.length) ? (
+                {vendorQuote.status === "loaded" && !(vendorQuote.importedComponentIds?.length) ? (
                   <div className="mt-3 rounded-[14px] border border-[#dce5fb] bg-[#f5f8ff] px-3 py-3 text-[12px] text-[#28446c]">
-                    This file is staged only. Choose <strong>Add draft rows (Quick Quote)</strong> or <strong>Add components</strong>; both will use vendor cost plus the margin % above to seed customer pricing.
+                    This file is staged only. Choose <strong>Add components</strong>; RapidQuote will use vendor cost plus the margin % above to seed customer pricing.
                   </div>
                 ) : null}
 
@@ -3253,7 +3233,7 @@ export default function QuotePreview() {
                 <div className="mt-3 rounded-[16px] border border-[#e5ebf1] bg-[#fbfdff] p-3">
                   <div className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#60707f]">Import preview</div>
                   {vendorQuote.previewItems.length > MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT ? (
-                    <div className="mt-1 text-[12px] text-[#60707f]">Showing the first {MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT} parsed rows. Import will create all {vendorQuote.previewItems.length} draft rows or mapped components.</div>
+                    <div className="mt-1 text-[12px] text-[#60707f]">Showing the first {MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT} parsed rows. Import will create all {vendorQuote.previewItems.length} mapped components.</div>
                   ) : null}
                   <div className="mt-2 space-y-2">
                     {vendorQuote.previewItems.slice(0, MAJOR_PROJECT_VENDOR_QUOTE_PREVIEW_ITEM_COUNT).map((item) => (
@@ -4769,7 +4749,7 @@ export default function QuotePreview() {
                     <div>
                       <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Major Project workflow</h3>
                       <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                        This workflow stays on the main quoting page so you can move between Quick Quote and Mapped Builder in one place.
+                        This workflow stays on the main quoting page so you can build the full Major Project from mapped components, bundles, and customer quote lines in one place.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -5045,12 +5025,12 @@ export default function QuotePreview() {
                       <div>
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <div className="text-[14px] font-semibold text-[#16202b]">Choose your workflow</div>
-                            <div className="mt-1 text-[12px] text-[#627181]">Pick the workflow that fits this option. Quick Quote builds quote-ready rows. Mapped Builder starts with components, then adds optional bundles and customer quote lines when you need them.</div>
+                            <div className="text-[14px] font-semibold text-[#16202b]">Mapped Builder</div>
+                            <div className="mt-1 text-[12px] text-[#627181]">Major Project now uses the mapped builder only. Start with components, then add optional bundles and customer quote lines when you need them.</div>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="rounded-full border border-[#d7e0e8] bg-[#f8fbfd] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">
-                              Mapped Builder
+                              Single workflow
                             </span>
                             <span
                               aria-hidden="true"
@@ -5061,28 +5041,12 @@ export default function QuotePreview() {
                           </div>
                         </div>
                       </div>
-                      <div className="mt-3 grid gap-3 md:grid-cols-2">
-                        <ToggleCard
-                          label="Quick Quote"
-                          description="Build with quote-ready rows, live sell, cost, margin, and downstream bucket assignment."
-                          active={majorProjectState.builderMode !== "advanced"}
-                          onClick={() => setMajorProjectBuilderMode("simple")}
-                        />
-                        <ToggleCard
-                          label="Mapped Builder"
-                          description="Build from mapped components and bundles while keeping customer-facing quote lines structured."
-                          active={majorProjectState.builderMode === "advanced"}
-                          onClick={() => setMajorProjectBuilderMode("advanced")}
-                        />
+                      <div className="mt-3 rounded-[16px] border border-[#ead7da] bg-white px-4 py-3 text-[13px] text-[#5d6772]">
+                        Existing Major Project options are normalized into mapped components automatically, so this workflow stays focused on the structured builder.
                       </div>
-                      {majorProjectState.builderMode === "advanced" ? (
-                        <div className="mt-3 rounded-[16px] border border-[#ead7da] bg-white px-4 py-3 text-[13px] text-[#5d6772]">
-                          This proposal is currently using Mapped Builder. Quick Quote rows stay out of the way so this workflow remains focused.
-                        </div>
-                      ) : null}
                     </div>
 
-                    {majorProjectState.builderMode === "advanced" ? renderMajorProjectVendorQuoteIntake() : null}
+                    {renderMajorProjectVendorQuoteIntake()}
 
                       {majorProjectState.builderMode !== "advanced" ? (
                       <div className="space-y-4">

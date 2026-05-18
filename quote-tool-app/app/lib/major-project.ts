@@ -311,10 +311,7 @@ function sumSimpleRows(
 }
 
 function resolveMajorProjectBuilderMode(option: MajorProjectOption | null | undefined, quoteMode: MajorProjectBuilderMode | undefined) {
-  if (quoteMode === "advanced") return "advanced" as const;
-  if (quoteMode === "simple") return "simple" as const;
-  if ((option?.components?.length ?? 0) > 0) return "advanced" as const;
-  return "simple" as const;
+  return "advanced" as const;
 }
 
 function normalizeComponent(component: Partial<MajorProjectComponent> | undefined, index: number): MajorProjectComponent {
@@ -1125,7 +1122,7 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
 export function createDefaultMajorProjectState() {
   return {
     enabled: false,
-    builderMode: "simple" as MajorProjectBuilderMode,
+    builderMode: "advanced" as MajorProjectBuilderMode,
     summary: {
       projectName: "",
       projectDescription: "",
@@ -1179,11 +1176,7 @@ export function getActiveMajorProjectOption(quote: QuoteRecord) {
 export function ensureMajorProjectState(quote: QuoteRecord): QuoteRecord {
   const defaults = createDefaultMajorProjectState();
   const optionSource = quote.majorProject?.options?.length ? quote.majorProject.options : defaults.options;
-  const options = optionSource.map((option, index) => normalizeOption(option, index));
-  const resolvedBuilderMode = resolveMajorProjectBuilderMode(
-    options.find((option) => option.id === quote.majorProject?.activeOptionId) ?? options[0] ?? null,
-    quote.majorProject?.builderMode,
-  );
+  const options = optionSource.map((option, index) => buildMappedOptionFromQuickBuilder(normalizeOption(option, index)));
 
   return {
     ...quote,
@@ -1207,7 +1200,7 @@ export function ensureMajorProjectState(quote: QuoteRecord): QuoteRecord {
         ...quote.majorProject?.commercial,
       },
       options,
-      builderMode: resolvedBuilderMode,
+      builderMode: "advanced",
       activeOptionId: quote.majorProject?.activeOptionId ?? options[0]?.id ?? defaults.activeOptionId,
     },
   };
