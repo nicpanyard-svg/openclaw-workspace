@@ -2919,6 +2919,37 @@ body {
   background-size: cover;
 }
 
+.proposal-shell-ilios .cover-band,
+.proposal-shell-ilios .page-bottom-band {
+  min-height: 72px;
+  background-image: none;
+  background-color: #ffffff;
+}
+
+.proposal-shell-ilios .cover-band::before,
+.proposal-shell-ilios .page-bottom-band::before,
+.proposal-shell-ilios .cover-band::after,
+.proposal-shell-ilios .page-bottom-band::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.proposal-shell-ilios .cover-band::before,
+.proposal-shell-ilios .page-bottom-band::before {
+  bottom: 12px;
+  height: 22px;
+  background: var(--proposal-brand-primary);
+}
+
+.proposal-shell-ilios .cover-band::after,
+.proposal-shell-ilios .page-bottom-band::after {
+  bottom: 0;
+  height: 12px;
+  background: var(--proposal-brand-accent);
+}
+
 .page-bottom-band {
   margin-top: auto;
   break-inside: avoid;

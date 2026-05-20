@@ -296,10 +296,20 @@ const styles = StyleSheet.create({
     right: -12,
     bottom: -10,
     height: 88,
+    justifyContent: "flex-end",
+    backgroundColor: "#ffffff",
   },
   bottomBandImage: {
     width: "100%",
     height: "100%",
+  },
+  bottomBandStripePrimary: {
+    width: "100%",
+    height: 22,
+  },
+  bottomBandStripeAccent: {
+    width: "100%",
+    height: 12,
   },
   dateCard: {
     minWidth: 108,
@@ -825,6 +835,7 @@ function SupportBullets({ items }: { items?: string[] }) {
 
 function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote: QuoteRecord }) {
   const selectedBranding = getQuoteBranding(quote);
+  const isIliosBranding = selectedBranding.key === "ilios";
   const pdfLogoSrc = `${process.cwd()}\\public${selectedBranding.logoSrc.replace(/\//g, "\\")}`;
   const coverSummaryItems = model.pricingSnapshotItems.map((item) => ({
     label: item.label,
@@ -896,7 +907,14 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
         </View>
 
         <View style={styles.bottomBand} fixed>
-          <Image src={FOOTER_HEX_SRC} style={styles.bottomBandImage} />
+          {isIliosBranding ? (
+            <>
+              <View style={[styles.bottomBandStripePrimary, { backgroundColor: selectedBranding.primaryColor }]} />
+              <View style={[styles.bottomBandStripeAccent, { backgroundColor: selectedBranding.accentColor }]} />
+            </>
+          ) : (
+            <Image src={FOOTER_HEX_SRC} style={styles.bottomBandImage} />
+          )}
         </View>
       </Page>
 
@@ -1390,7 +1408,14 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
         </View>
 
         <View style={styles.bottomBand} fixed>
-          <Image src={FOOTER_HEX_SRC} style={styles.bottomBandImage} />
+          {isIliosBranding ? (
+            <>
+              <View style={[styles.bottomBandStripePrimary, { backgroundColor: selectedBranding.primaryColor }]} />
+              <View style={[styles.bottomBandStripeAccent, { backgroundColor: selectedBranding.accentColor }]} />
+            </>
+          ) : (
+            <Image src={FOOTER_HEX_SRC} style={styles.bottomBandImage} />
+          )}
         </View>
       </Page>
     </>

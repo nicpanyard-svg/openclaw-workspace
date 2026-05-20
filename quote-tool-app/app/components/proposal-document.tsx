@@ -308,7 +308,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
 
   return (
     <main
-      className="proposal-shell"
+      className={`proposal-shell proposal-shell-${selectedBranding.key}`}
       data-attachments-ready={systemDrawingPreviewsReady && specSheetPreviewsReady ? "true" : "false"}
       style={{
         ["--proposal-brand-primary" as string]: selectedBranding.primaryColor,
