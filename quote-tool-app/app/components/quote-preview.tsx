@@ -1170,7 +1170,7 @@ function ToggleCard({
       onClick={onClick}
       className={`rounded-[18px] border px-4 py-4 text-left transition ${
         active
-          ? "border-[#b00000] bg-[#fff6f6] shadow-[0_12px_24px_rgba(176,0,0,0.10)]"
+          ? "toggle-card-active"
           : "border-[#d8dde3] bg-white hover:border-[#c3ccd6]"
       }`}
     >
@@ -5026,7 +5026,7 @@ export default function QuotePreview() {
               </div>
 
               {quote.metadata.quoteType === "lease" && (
-                <div className="mt-5 rounded-[22px] border border-[#ead9db] bg-[#fff7f7] p-4 md:p-5">
+                <div className="brand-soft-shell mt-5 rounded-[22px] p-4 md:p-5">
                   <div className="builder-eyebrow">Lease calculator</div>
                   <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Lease pricing builder</h3>
                   <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
@@ -5110,7 +5110,7 @@ export default function QuotePreview() {
                       </div>
                       <div className="border-t border-[#e8edf2] pt-3">
                         <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Lease monthly</div>
-                        <div className={`mt-1 text-[28px] font-semibold tracking-[-0.03em] ${hasActiveDataAgreement ? "text-[#b00000]" : "text-[#7f8a96]"}`}>
+                        <div className={`mt-1 text-[28px] font-semibold tracking-[-0.03em] ${hasActiveDataAgreement ? "brand-text-emphasis" : "text-[#7f8a96]"}`}>
                           {hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}
                         </div>
                         <div className="mt-1 text-[13px] text-[#60707f]">
@@ -5873,7 +5873,7 @@ export default function QuotePreview() {
                           <button type="button" className="pill-button pill-button-active" onClick={() => addMajorProjectComponent()}>Add component</button>
                         </div>
                         {majorProjectComponentBundleDraft ? (
-                          <div className="rounded-[18px] border border-[#ead9db] bg-[#fff7f7] p-4 text-[13px] text-[#5d6772]">
+                          <div className="brand-soft-shell rounded-[18px] p-4 text-[13px] text-[#5d6772]">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div>
                                 <strong className="text-[#16202b]">Bundle with this</strong>
@@ -6804,7 +6804,7 @@ export default function QuotePreview() {
                 <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{isMajorProject ? "MRR schedule" : quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{isMajorProject ? `Month driver: ${quote.sections.sectionA.termMonths} months • generated from ${activeMajorOption?.label ?? "active major option"}` : `${activeSectionARows.length} row(s) ready for the proposal`}</div></div>
                 <div className="summary-block"><div className="summary-label">Section B output</div><div className="summary-value">{contentPresence.hasSectionBContent ? `${quote.sections.sectionB.lineItems.length} hardware row(s)` : "No hardware added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionBContent ? (suggestedAccessories.length > 0 ? `${suggestedAccessories.length} accessory suggestion(s) available` : "All suggested accessories are already added") : "Add equipment only when this quote actually needs one-time hardware."}</div></div>
                 <div className="summary-block"><div className="summary-label">Section C output</div><div className="summary-value">{contentPresence.hasSectionCContent ? quote.sections.sectionC.title : "No field services added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionCContent ? `${quote.sections.sectionC.lineItems.length} service row(s) • ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "budgetary").length} budgetary / ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "final").length} final` : "Field services stay out of the proposal until live rows exist."}</div></div>
-                <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>{isMajorProject ? "MRR" : "Recurring monthly"}</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>{contentPresence.hasSectionBContent && <div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>}{contentPresence.hasSectionCContent && <div className="flex justify-between gap-3"><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>}{quote.metadata.quoteType === "lease" && <div className="flex justify-between gap-3 text-[#b00000]"><span>Blended lease monthly</span><strong>{hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}</strong></div>}</div></div>
+                <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>{isMajorProject ? "MRR" : "Recurring monthly"}</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>{contentPresence.hasSectionBContent && <div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>}{contentPresence.hasSectionCContent && <div className="flex justify-between gap-3"><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>}{quote.metadata.quoteType === "lease" && <div className="brand-text-emphasis flex justify-between gap-3"><span>Blended lease monthly</span><strong>{hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}</strong></div>}</div></div>
                 <div className="summary-block">
                   <div className="summary-label">Review handoff</div>
                   <div className="summary-value">Save here. Export from Preview.</div>

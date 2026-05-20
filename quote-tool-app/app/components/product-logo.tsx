@@ -14,8 +14,8 @@ export function ProductLogo({
 }) {
   return (
     <Image
-      src="/rapidquote-logo.jpg"
-      alt={`${RAPIDQUOTE_DEPLOYMENT_BRANDING.appLabel} logo`}
+      src={RAPIDQUOTE_DEPLOYMENT_BRANDING.logoSrc}
+      alt={RAPIDQUOTE_DEPLOYMENT_BRANDING.logoAlt}
       width={width}
       height={height}
       className={className}

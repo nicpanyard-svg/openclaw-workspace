@@ -1,13 +1,16 @@
 @import "tailwindcss";
 
 :root {
+  --brand-primary: #ae0910;
+  --brand-accent: #f7eaea;
+  --brand-muted: #6f7c89;
   --workspace-bg: #e7eaef;
   --workspace-panel: rgba(255, 255, 255, 0.88);
   --page-text: #232a31;
-  --quote-red: #b00000;
-  --quote-red-dark: #850000;
-  --quote-red-soft: #f7e7e7;
-  --quote-red-deep: #7a042e;
+  --quote-red: var(--brand-primary);
+  --quote-red-dark: color-mix(in srgb, var(--brand-primary) 78%, #101820 22%);
+  --quote-red-soft: color-mix(in srgb, var(--brand-primary) 10%, white 90%);
+  --quote-red-deep: color-mix(in srgb, var(--brand-primary) 70%, #15202b 30%);
   --quote-ink: #18222c;
   --quote-slate: #60707f;
   --quote-line: #dbe2e9;
@@ -22,7 +25,12 @@
 }
 
 html {
-  background: radial-gradient(circle at top, #f6f8fb 0%, #e5e9ef 48%, #dce1e8 100%);
+  background: radial-gradient(
+    circle at top,
+    color-mix(in srgb, var(--brand-primary) 10%, #f6f8fb 90%) 0%,
+    color-mix(in srgb, var(--brand-accent) 12%, #e5e9ef 88%) 48%,
+    #dce1e8 100%
+  );
 }
 
 body {
@@ -40,8 +48,8 @@ body {
   align-items: center;
   gap: 18px;
   padding: 18px 24px;
-  border-bottom: 1px solid rgba(215, 221, 228, 0.9);
-  background: rgba(248, 250, 252, 0.94);
+  border-bottom: 1px solid color-mix(in srgb, var(--brand-primary) 14%, rgba(215, 221, 228, 0.9) 86%);
+  background: color-mix(in srgb, var(--brand-primary) 6%, rgba(248, 250, 252, 0.94) 94%);
   backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
@@ -107,9 +115,13 @@ body {
   min-height: 28px;
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid #d7dde4;
-  background: linear-gradient(180deg, #ffffff 0%, #f6f8fb 100%);
-  color: #46515d;
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 18%, #d7dde4 82%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand-accent) 10%, #ffffff 90%) 0%,
+    color-mix(in srgb, var(--brand-primary) 6%, #f6f8fb 94%) 100%
+  );
+  color: color-mix(in srgb, var(--brand-primary) 56%, #46515d 44%);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -191,7 +203,7 @@ body {
 .app-shell-nav a,
 .auth-help-links a,
 .auth-footer-note a {
-  color: #7a042e;
+  color: var(--quote-red-deep);
   font-weight: 700;
   text-decoration: none;
 }
@@ -315,8 +327,12 @@ body {
   margin-top: 20px;
   padding: 14px 16px;
   border-radius: 18px;
-  border: 1px solid #f0caca;
-  background: #fff7f7;
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 18%, #dfe5ec 82%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand-accent) 18%, #ffffff 82%) 0%,
+    color-mix(in srgb, var(--brand-primary) 5%, #ffffff 95%) 100%
+  );
 }
 
 .auth-form-header {
@@ -430,9 +446,9 @@ body {
   min-height: 30px;
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid #f0caca;
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 18%, #dfe5ec 82%);
   background: white;
-  color: #8f0000;
+  color: var(--quote-red-deep);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -729,10 +745,10 @@ body {
 .workspace-primary-button,
 .pill-button-active,
 .proposal-print-button {
-  background: linear-gradient(180deg, #c81414 0%, #8f0000 100%);
+  background: linear-gradient(180deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 78%, #0f1720 22%) 100%);
   color: white;
-  border-color: rgba(143, 0, 0, 0.9);
-  box-shadow: 0 14px 28px rgba(176, 0, 0, 0.24);
+  border-color: color-mix(in srgb, var(--brand-primary) 70%, #102030 30%);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--brand-primary) 24%, transparent);
 }
 
 .workspace-secondary-button,
@@ -746,17 +762,16 @@ body {
 
 .workspace-primary-button:hover,
 .pill-button-active:hover,
-.proposal-print-button:hover,
-.danger-button:hover {
+.proposal-print-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 16px 28px rgba(176, 0, 0, 0.28);
+  box-shadow: 0 16px 28px color-mix(in srgb, var(--brand-primary) 28%, transparent);
 }
 
 .workspace-secondary-button:hover,
 .pill-button:hover,
 .proposal-secondary-button:hover {
-  border-color: #c4ced9;
-  background: #fffdfd;
+  border-color: color-mix(in srgb, var(--brand-primary) 20%, #c4ced9 80%);
+  background: color-mix(in srgb, var(--brand-primary) 3%, white 97%);
 }
 
 .workspace-primary-button:focus-visible,
@@ -765,7 +780,7 @@ body {
 .proposal-secondary-button:focus-visible,
 .proposal-print-button:focus-visible,
 .danger-button:focus-visible {
-  outline: 3px solid rgba(176, 0, 0, 0.18);
+  outline: 3px solid color-mix(in srgb, var(--brand-primary) 18%, transparent);
   outline-offset: 2px;
 }
 
@@ -774,10 +789,54 @@ body {
 }
 
 .danger-button {
-  background: linear-gradient(180deg, #c81414 0%, #8f0000 100%);
+  background: linear-gradient(180deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 78%, #0f1720 22%) 100%);
   color: white;
   border-color: rgba(143, 0, 0, 0.9);
   box-shadow: 0 12px 24px rgba(176, 0, 0, 0.2);
+}
+
+.danger-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(176, 0, 0, 0.28);
+}
+
+.workspace-stat-card-active {
+  border-color: color-mix(in srgb, var(--brand-primary) 36%, #d7dde4 64%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand-primary) 7%, #ffffff 93%) 0%,
+    color-mix(in srgb, var(--brand-accent) 10%, #fbfcfe 90%) 100%
+  );
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-primary) 20%, transparent);
+}
+
+.workspace-stat-card-hover:hover,
+.front-door-profile-card:hover {
+  border-color: color-mix(in srgb, var(--brand-primary) 28%, #d8b7b7 72%);
+  background: white;
+}
+
+.toggle-card-active {
+  border-color: color-mix(in srgb, var(--brand-primary) 34%, #d8dde3 66%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand-primary) 7%, #ffffff 93%) 0%,
+    color-mix(in srgb, var(--brand-accent) 12%, #ffffff 88%) 100%
+  );
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--brand-primary) 10%, transparent);
+}
+
+.brand-soft-shell {
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 18%, #e2e7ec 82%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand-accent) 16%, #ffffff 84%) 0%,
+    color-mix(in srgb, var(--brand-primary) 5%, #ffffff 95%) 100%
+  );
+}
+
+.brand-text-emphasis {
+  color: var(--quote-red);
 }
 
 .summary-block ul li,
@@ -958,7 +1017,7 @@ body {
 }
 
 .proposal-editor-meta-chip-strong {
-  background: linear-gradient(180deg, #c81414 0%, #8f0000 100%);
+  background: linear-gradient(180deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 78%, #0f1720 22%) 100%);
   border-color: rgba(143, 0, 0, 0.9);
   color: white;
   box-shadow: 0 12px 22px rgba(176, 0, 0, 0.18);
@@ -1514,9 +1573,13 @@ body {
 }
 
 .major-project-step-card-current {
-  border-color: #d69aa0;
-  background: linear-gradient(180deg, #fff7f7 0%, #ffffff 100%);
-  box-shadow: 0 12px 26px rgba(176, 0, 0, 0.06);
+  border-color: color-mix(in srgb, var(--brand-primary) 28%, #dfe5eb 72%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand-primary) 7%, #ffffff 93%) 0%,
+    color-mix(in srgb, var(--brand-accent) 10%, #ffffff 90%) 100%
+  );
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--brand-primary) 8%, transparent);
 }
 
 .major-project-step-card-complete {
@@ -1561,7 +1624,7 @@ body {
 }
 
 .major-project-step-badge-current {
-  background: #b00000;
+  background: var(--quote-red);
   color: #ffffff;
 }
 
@@ -1686,17 +1749,17 @@ body {
   min-height: 42px;
   padding: 8px 12px;
   border-radius: 999px;
-  border: 1px solid #e4caca;
-  background: #fff7f7;
-  color: #8f0000;
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 24%, #e4caca 76%);
+  background: color-mix(in srgb, var(--brand-primary) 10%, #fff7f7 90%);
+  color: var(--quote-red-deep);
   font-size: 14px;
   font-weight: 800;
 }
 
 .workspace-dashboard-group-count-next {
-  border-color: #f0caca;
-  background: #fff3f3;
-  color: #981818;
+  border-color: color-mix(in srgb, var(--brand-primary) 24%, #f0caca 76%);
+  background: color-mix(in srgb, var(--brand-accent) 18%, #fff3f3 82%);
+  color: var(--quote-red-deep);
 }
 
 .workspace-dashboard-group-count-watch {
@@ -1769,8 +1832,8 @@ body {
 }
 
 .proposal-list-card-active {
-  border-color: #d78f8f;
-  box-shadow: 0 18px 36px rgba(125, 23, 23, 0.12);
+  border-color: color-mix(in srgb, var(--brand-primary) 28%, #d7dde4 72%);
+  box-shadow: 0 18px 36px color-mix(in srgb, var(--brand-primary) 12%, transparent);
 }
 
 .proposal-state-accent {
@@ -2023,12 +2086,16 @@ body {
 }
 
 .proposal-commercial-card-primary {
-  border-color: #f0caca;
-  background: linear-gradient(180deg, #fff8f8 0%, #fdf0f0 100%);
+  border-color: color-mix(in srgb, var(--brand-primary) 18%, #dfe5ec 82%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand-primary) 7%, #ffffff 93%) 0%,
+    color-mix(in srgb, var(--brand-accent) 12%, #ffffff 88%) 100%
+  );
 }
 
 .proposal-commercial-card-primary strong {
-  color: #8f0000;
+  color: var(--quote-red-deep);
 }
 
 .proposal-commercial-card-optional {
@@ -2343,8 +2410,8 @@ body {
 }
 
 .owner-list-card-active {
-  border-color: #b00000;
-  background: #fff7f7;
+  border-color: var(--quote-red);
+  background: color-mix(in srgb, var(--brand-primary) 8%, #fff7f7 92%);
 }
 
 .activity-item {
@@ -2364,7 +2431,7 @@ body {
   height: 10px;
   margin-top: 6px;
   border-radius: 999px;
-  background: #b00000;
+  background: var(--quote-red);
   flex: 0 0 auto;
 }
 
@@ -2378,7 +2445,11 @@ body {
 
 .proposal-route-shell {
   min-height: 100vh;
-  background: linear-gradient(180deg, #edf1f5 0%, #dde3ea 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand-primary) 5%, #edf1f5 95%) 0%,
+    color-mix(in srgb, var(--brand-accent) 8%, #dde3ea 92%) 100%
+  );
 }
 
 .pdf-signing-poc-panel {
@@ -2567,9 +2638,9 @@ body {
 }
 
 .proposal-shell {
-  --proposal-brand-primary: #ae0910;
-  --proposal-brand-accent: #f7e7e7;
-  --proposal-brand-muted: #6f7c89;
+  --proposal-brand-primary: var(--brand-primary);
+  --proposal-brand-accent: color-mix(in srgb, var(--brand-accent) 32%, white 68%);
+  --proposal-brand-muted: var(--brand-muted);
   min-height: 100vh;
   padding: 28px 0 56px;
   background: transparent;

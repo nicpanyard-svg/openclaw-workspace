@@ -411,7 +411,7 @@ export function RapidQuoteFrontDoor() {
                 !newCustomer.primaryAddressLine1.trim()
               }
               onClick={saveNewCustomer}
-              className="mt-5 inline-flex rounded-full bg-[#b00000] px-5 py-3 text-[14px] font-semibold text-white disabled:bg-[#cfd5dc]"
+              className="workspace-primary-button mt-5 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Save customer and open builder
             </button>
@@ -438,7 +438,7 @@ export function RapidQuoteFrontDoor() {
             <button
               type="button"
               onClick={() => setShowCreateCustomer(true)}
-              className="mt-5 inline-flex rounded-full bg-[#b00000] px-5 py-3 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(176,0,0,0.18)]"
+              className="workspace-primary-button mt-5"
             >
               Start new customer intake
             </button>
@@ -481,7 +481,7 @@ export function RapidQuoteFrontDoor() {
                   href={`/new?mode=new&entry=select-customer&customerProfileId=${encodeURIComponent(
                     profile.id,
                   )}`}
-                  className="block rounded-[16px] border border-[#edf1f4] bg-[#fcfdfe] px-3 py-3 transition hover:border-[#b00000] hover:bg-white"
+                  className="front-door-profile-card block rounded-[16px] border border-[#edf1f4] bg-[#fcfdfe] px-3 py-3 transition"
                 >
                   <strong className="block text-[#16202b]">
                     {profile.companyName}

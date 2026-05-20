@@ -129,7 +129,7 @@ function StatFilterCard({
     <button
       type="button"
       onClick={onClick}
-      className={`workspace-stat-card text-left transition ${active ? "ring-2 ring-[#b00000] bg-[#fff7f7]" : "hover:border-[#d8b7b7]"}`}
+      className={`workspace-stat-card text-left transition ${active ? "workspace-stat-card-active" : "workspace-stat-card-hover"}`}
       aria-pressed={active}
     >
       <div className="workspace-stat-label">{label}</div>
