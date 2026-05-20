@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:vercel": "npm run build && node scripts/ensure-vercel-routes-manifest.cjs",
     "start": "next start",
     "lint": "eslint"
   },
