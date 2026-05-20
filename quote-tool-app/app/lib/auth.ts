@@ -200,6 +200,18 @@ const seededUsersByDeployment: Record<typeof RAPIDQUOTE_DEPLOYMENT_KEY, Director
       canManageUsers: true,
       password: "RapidQuote!Ilios2026#",
     },
+    {
+      id: "saulo",
+      name: "Saulo",
+      email: "saulo@ilios-integrators.com",
+      title: "Account Executive",
+      team: "Sales",
+      role: "sales",
+      status: "active",
+      initials: "S",
+      canManageUsers: false,
+      password: "RapidQuote!Saulo2026#",
+    },
   ],
 };
 
