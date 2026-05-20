@@ -98,6 +98,20 @@ const mockUsersByDeployment: Record<typeof RAPIDQUOTE_DEPLOYMENT_KEY, ProposalOw
       role: "Operations Lead",
       team: "Operations",
     },
+    {
+      id: "saulo",
+      name: "Saulo",
+      email: "saulo@ilios-integrators.com",
+      role: "Sales Engineer",
+      team: "Sales",
+    },
+    {
+      id: "vanderson",
+      name: "Vanderson",
+      email: "vanderson@ilios-integrators.com",
+      role: "Project Manager",
+      team: "Delivery",
+    },
   ],
 };
 

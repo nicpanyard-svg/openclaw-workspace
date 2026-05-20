@@ -44,7 +44,7 @@ import {
   type SavedCustomerProfile,
 } from "@/app/lib/customer-profiles";
 import { RAPIDQUOTE_DEPLOYMENT_BRANDING } from "@/app/lib/app-environment";
-import { ensureNickTrainingDemoProfiles, ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
+import { ensureEnvironmentCustomerProfiles, ensureEnvironmentProposalStore } from "@/app/lib/environment-samples";
 import { normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState, getActiveMajorProjectOption, majorProjectLineTypeLabel } from "@/app/lib/major-project";
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
@@ -1889,7 +1889,7 @@ export default function QuotePreview() {
           ...fallbackStore,
           currentUser: sessionUser,
         };
-    const store = ensureNickTrainingDemoProposalStore(baseStore);
+    const store = ensureEnvironmentProposalStore(baseStore);
 
     window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(store));
 
@@ -1898,7 +1898,7 @@ export default function QuotePreview() {
     const savedQuote = deserializeQuoteRecord(
       window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY) ?? window.localStorage.getItem(PROPOSAL_STORAGE_FALLBACK_KEY),
     );
-    const savedCustomerProfiles = ensureNickTrainingDemoProfiles(deserializeCustomerProfiles(
+    const savedCustomerProfiles = ensureEnvironmentCustomerProfiles(deserializeCustomerProfiles(
       window.localStorage.getItem(CUSTOMER_PROFILE_STORE_KEY) ?? window.localStorage.getItem(CUSTOMER_PROFILE_STORE_FALLBACK_KEY),
     ));
     window.localStorage.setItem(CUSTOMER_PROFILE_STORE_KEY, serializeCustomerProfiles(savedCustomerProfiles));

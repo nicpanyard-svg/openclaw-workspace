@@ -10,7 +10,7 @@ import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import { deleteProposalFromBrowserState } from "@/app/lib/proposal-delete";
 import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, buildProposalSummary, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, isOpenQuoteStatus, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
-import { ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
+import { ensureEnvironmentProposalStore } from "@/app/lib/environment-samples";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 function formatCurrency(value: number) {
@@ -197,7 +197,7 @@ export function ProposalWorkspace() {
           ...fallbackStore,
           currentUser: sessionUser,
         };
-    const nextStore = ensureNickTrainingDemoProposalStore(baseStore);
+    const nextStore = ensureEnvironmentProposalStore(baseStore);
     window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
 
     const savedActiveProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);

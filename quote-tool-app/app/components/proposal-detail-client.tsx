@@ -14,7 +14,7 @@ import {
   serializeProposalStore,
   type ProposalStoreData,
 } from "@/app/lib/proposal-store";
-import { ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
+import { ensureEnvironmentProposalStore } from "@/app/lib/environment-samples";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 export default function ProposalDetailClient({ proposalId }: { proposalId: string }) {
@@ -27,7 +27,7 @@ export default function ProposalDetailClient({ proposalId }: { proposalId: strin
     }
 
     const saved = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
-    const nextStore = ensureNickTrainingDemoProposalStore(saved ?? fallbackStore);
+    const nextStore = ensureEnvironmentProposalStore(saved ?? fallbackStore);
 
     window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
 

@@ -23,9 +23,9 @@ import {
   serializeProposalStore,
 } from "@/app/lib/proposal-store";
 import {
-  ensureNickTrainingDemoProfiles,
-  ensureNickTrainingDemoProposalStore,
-} from "@/app/lib/nick-training-demo";
+  ensureEnvironmentCustomerProfiles,
+  ensureEnvironmentProposalStore,
+} from "@/app/lib/environment-samples";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 function cleanAddressLines(lines: string[]) {
@@ -83,13 +83,13 @@ export function RapidQuoteFrontDoor() {
           ...fallbackStore,
           currentUser: sessionUser,
         };
-    const nextStore = ensureNickTrainingDemoProposalStore(baseStore);
+    const nextStore = ensureEnvironmentProposalStore(baseStore);
 
     const savedProfiles = deserializeCustomerProfiles(
       window.localStorage.getItem(CUSTOMER_PROFILE_STORE_KEY) ??
         window.localStorage.getItem(CUSTOMER_PROFILE_STORE_FALLBACK_KEY),
     );
-    const nextProfiles = ensureNickTrainingDemoProfiles(savedProfiles);
+    const nextProfiles = ensureEnvironmentCustomerProfiles(savedProfiles);
 
     window.localStorage.setItem(
       PROPOSAL_STORE_KEY,
