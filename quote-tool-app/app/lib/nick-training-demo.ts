@@ -9,6 +9,7 @@ import {
   type SavedProposalRecord,
 } from "@/app/lib/proposal-store";
 import type { QuoteRecord } from "@/app/lib/quote-record";
+import { RAPIDQUOTE_DEMO_DATA_ENABLED } from "@/app/lib/app-environment";
 
 export const NICK_TRAINING_CUSTOMER_PROFILE_ID = "customer_nick_training_demo";
 export const NICK_TRAINING_QUICK_PROPOSAL_ID = "proposal_nick_training_quick_quote";
@@ -394,12 +395,18 @@ export function getNickTrainingDemoProposals() {
 }
 
 export function ensureNickTrainingDemoProfiles(profiles: SavedCustomerProfile[]) {
+  if (!RAPIDQUOTE_DEMO_DATA_ENABLED) {
+    return profiles;
+  }
   const demoProfile = getNickTrainingDemoCustomerProfile();
   const withoutDemo = profiles.filter((profile) => profile.id !== demoProfile.id);
   return [demoProfile, ...withoutDemo].sort((a, b) => a.companyName.localeCompare(b.companyName));
 }
 
 export function ensureNickTrainingDemoProposalStore(store: ProposalStoreData): ProposalStoreData {
+  if (!RAPIDQUOTE_DEMO_DATA_ENABLED) {
+    return store;
+  }
   const demoProposals = getNickTrainingDemoProposals();
   const demoIds = new Set(demoProposals.map((proposal) => proposal.id));
   const existingWithoutDemo = store.proposals.filter((proposal) => !demoIds.has(proposal.id));

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useAuth } from "@/app/components/auth-shell";
 import { canSelfServeSignUp } from "@/app/lib/auth";
+import { RAPIDQUOTE_DEPLOYMENT_BRANDING, getDeploymentAccessScopeLabel, getDeploymentEmailPlaceholder } from "@/app/lib/app-environment";
 
 export default function ForgotPasswordPage() {
   const { requestPasswordReset } = useAuth();
@@ -22,7 +23,7 @@ export default function ForgotPasswordPage() {
             <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
           </div>
           <div className="brand-signature-stack">
-            <span className="brand-signature-pill">by iNet</span>
+            <span className="brand-signature-pill">{RAPIDQUOTE_DEPLOYMENT_BRANDING.shortName}</span>
             <div className="brand-trust-note">Internal recovery flow</div>
           </div>
         </div>
@@ -48,7 +49,7 @@ export default function ForgotPasswordPage() {
         >
           <label className="auth-field">
             <span>Work email</span>
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required autoComplete="username email" />
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={getDeploymentEmailPlaceholder()} required autoComplete="username email" />
           </label>
 
           <button type="submit" className="workspace-primary-button auth-submit-button">Continue</button>
@@ -57,7 +58,7 @@ export default function ForgotPasswordPage() {
         <div className="auth-inline-support-row">
           <div className="auth-inline-support-item">
             <span>Eligible accounts</span>
-            <strong>@inetlte.com only</strong>
+            <strong>{getDeploymentAccessScopeLabel()}</strong>
           </div>
           <div className="auth-inline-support-item">
             <span>Reset path</span>
@@ -85,7 +86,7 @@ export default function ForgotPasswordPage() {
 
         {!eligible && email ? (
           <div className="auth-inline-message auth-inline-message-warn">
-            RapidQuote by iNet recovery is limited to internal iNet accounts. Use an @inetlte.com address.
+            {`${RAPIDQUOTE_DEPLOYMENT_BRANDING.appLabel} recovery is limited to internal ${RAPIDQUOTE_DEPLOYMENT_BRANDING.shortName} accounts. Use ${getDeploymentAccessScopeLabel()}.`}
           </div>
         ) : null}
 

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ProductLogo } from "@/app/components/product-logo";
 import { SignupEligibilityMessage, useAuth } from "@/app/components/auth-shell";
 import { buildAccessRequestId, canSelfServeSignUp, getDirectoryUsers, getUserByEmail, type AccessRequestRecord } from "@/app/lib/auth";
+import { RAPIDQUOTE_DEPLOYMENT_BRANDING, getDeploymentEmailPlaceholder } from "@/app/lib/app-environment";
 
 export default function SignupPage() {
   const { submitAccessRequest } = useAuth();
@@ -26,7 +27,7 @@ export default function SignupPage() {
             <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
           </div>
           <div className="brand-signature-stack">
-            <span className="brand-signature-pill">by iNet</span>
+            <span className="brand-signature-pill">{RAPIDQUOTE_DEPLOYMENT_BRANDING.shortName}</span>
             <div className="brand-trust-note">Internal access workflow</div>
           </div>
         </div>
@@ -35,7 +36,7 @@ export default function SignupPage() {
         <h1 className="auth-form-title">Request RapidQuote access</h1>
         <p className="auth-form-copy">
           Ask for workspace access the same way the team really does: who you are, what team you are on, what role you need,
-          and why you need it. Approved requests land in Access Manager, where an admin can provision your local RapidQuote
+          and why you need it. Approved requests land in Access Manager, where an admin can provision your local {RAPIDQUOTE_DEPLOYMENT_BRANDING.appLabel}
           account for sign-in.
         </p>
 
@@ -86,7 +87,7 @@ export default function SignupPage() {
 
           <label className="auth-field">
             <span>Work email</span>
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required autoComplete="email" />
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={getDeploymentEmailPlaceholder()} required autoComplete="email" />
           </label>
 
           <label className="auth-field">
@@ -114,7 +115,7 @@ export default function SignupPage() {
         <div className="auth-inline-support-row">
           <div className="auth-inline-support-item">
             <span>Who can request</span>
-            <strong>iNet teammates</strong>
+            <strong>{`${RAPIDQUOTE_DEPLOYMENT_BRANDING.shortName} teammates`}</strong>
           </div>
           <div className="auth-inline-support-item">
             <span>What happens next</span>
@@ -127,8 +128,8 @@ export default function SignupPage() {
         {submittedRequest ? (
           <div className={`auth-inline-message ${eligible ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
             {eligible
-              ? `Access request captured for ${submittedRequest.email}. An admin can now approve it in Access Manager and provision a local RapidQuote account for sign-in.`
-              : `RapidQuote by iNet is internal-only today. ${submittedRequest.email} was captured, but it is outside the current onboarding rule.`}
+              ? `Access request captured for ${submittedRequest.email}. An admin can now approve it in Access Manager and provision a local ${RAPIDQUOTE_DEPLOYMENT_BRANDING.appLabel} account for sign-in.`
+              : `${RAPIDQUOTE_DEPLOYMENT_BRANDING.appLabel} is internal-only today. ${submittedRequest.email} was captured, but it is outside the current onboarding rule.`}
           </div>
         ) : null}
 

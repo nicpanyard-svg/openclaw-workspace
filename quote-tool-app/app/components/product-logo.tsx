@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { RAPIDQUOTE_DEPLOYMENT_BRANDING } from "@/app/lib/app-environment";
 
 export function ProductLogo({
   width = 160,
@@ -14,7 +15,7 @@ export function ProductLogo({
   return (
     <Image
       src="/rapidquote-logo.jpg"
-      alt="RapidQuote logo"
+      alt={`${RAPIDQUOTE_DEPLOYMENT_BRANDING.appLabel} logo`}
       width={width}
       height={height}
       className={className}

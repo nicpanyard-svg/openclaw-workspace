@@ -4,7 +4,8 @@ import { createQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { createDefaultMajorProjectState } from "@/app/lib/major-project";
 import { createDefaultQuoteServiceAgreementState } from "@/app/lib/service-agreement";
 import { createDefaultQuoteWarrantyDetails } from "@/app/lib/quote-warranty";
-import { buildDefaultExpirationDate } from "@/app/lib/quote-branding";
+import { RAPIDQUOTE_DEPLOYMENT_KEY } from "@/app/lib/app-environment";
+import { applyCompanyBrandingToQuote, buildDefaultExpirationDate } from "@/app/lib/quote-branding";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 
 function deepClone<T>(value: T): T {
@@ -28,22 +29,25 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
   quote.metadata.proposalNumber = generateQuoteNumber(now);
   quote.metadata.proposalDate = proposalDate;
   quote.metadata.revisionVersion = "1.0";
-  quote.metadata.expirationDate = buildDefaultExpirationDate(proposalDate, quote.metadata.companyKey ?? "inet");
+  quote.metadata.companyKey = RAPIDQUOTE_DEPLOYMENT_KEY;
+  quote.metadata.outputTemplateKey = undefined;
+  applyCompanyBrandingToQuote(quote, RAPIDQUOTE_DEPLOYMENT_KEY);
+  quote.metadata.expirationDate = buildDefaultExpirationDate(proposalDate, RAPIDQUOTE_DEPLOYMENT_KEY);
   quote.metadata.customerShortName = "";
   quote.metadata.accountId = undefined;
   quote.metadata.accountName = undefined;
-  quote.metadata.companyKey = quote.metadata.companyKey ?? "inet";
-  quote.metadata.outputTemplateKey = quote.metadata.outputTemplateKey ?? "inet_proposal";
   quote.metadata.status = "draft";
   quote.metadata.salesTaxAmount = quote.metadata.salesTaxAmount ?? 0;
   quote.metadata.workflowMode = "quick_quote";
   quote.metadata.lastTouchedAt = now.toISOString();
+  quote.metadata.documentTitle = "";
+  quote.metadata.documentSubtitle = "";
   quote.commercial = createDefaultCommercialState();
   quote.majorProject = createDefaultMajorProjectState();
   quote.serviceAgreement = createDefaultQuoteServiceAgreementState();
   quote.warranty = createDefaultQuoteWarrantyDetails();
 
-  quote.documentation.proposalTitle = quote.metadata.documentTitle;
+  quote.documentation.proposalTitle = "";
   quote.documentation.proposalDateLabel = proposalDate;
   quote.documentation.proposalNumberLabel = quote.metadata.proposalNumber;
 
@@ -87,7 +91,6 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
   quote.sections.sectionC.computed.serviceTotal = 0;
 
   quote.customFields = [];
-
   quote.governance = createQuoteGovernanceState({
     quoteId: `quote_${stamp}`,
   });

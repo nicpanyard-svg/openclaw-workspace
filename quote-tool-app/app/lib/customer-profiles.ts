@@ -1,9 +1,10 @@
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { createQuoteServiceAgreementFromCustomer, normalizeServiceAgreementProfile } from "@/app/lib/service-agreement";
 import type { ServiceAgreementProfile } from "@/app/lib/quote-record";
+import { scopeStorageKey } from "@/app/lib/app-environment";
 
-export const CUSTOMER_PROFILE_STORE_KEY = "rapidquote:customer-profiles";
-export const CUSTOMER_PROFILE_STORE_FALLBACK_KEY = "quote-tool-app:customer-profiles";
+export const CUSTOMER_PROFILE_STORE_KEY = scopeStorageKey("rapidquote:customer-profiles");
+export const CUSTOMER_PROFILE_STORE_FALLBACK_KEY = scopeStorageKey("quote-tool-app:customer-profiles");
 
 export type SavedCustomerProfile = {
   id: string;

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ProductLogo } from "@/app/components/product-logo";
 import { useAuth } from "@/app/components/auth-shell";
 import { roleLabel, type AccessRequestRecord, type AccountStatus, type RapidQuoteRole } from "@/app/lib/auth";
+import { getDeploymentEmailPlaceholder } from "@/app/lib/app-environment";
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -206,7 +207,7 @@ export default function AccessPage() {
               </label>
               <label className="detail-card">
                 <span>Email</span>
-                <input className="auth-input" value={newUser.email} onChange={(event) => setNewUser({ ...newUser, email: event.target.value })} placeholder="taylor.brooks@inetlte.com" />
+                <input className="auth-input" value={newUser.email} onChange={(event) => setNewUser({ ...newUser, email: event.target.value })} placeholder={getDeploymentEmailPlaceholder()} />
               </label>
               <label className="detail-card">
                 <span>Title</span>

@@ -1,4 +1,5 @@
 import type { QuoteWarrantyDetails } from "@/app/lib/quote-record";
+import { RAPIDQUOTE_DEPLOYMENT_BRANDING } from "@/app/lib/app-environment";
 
 function normalizeText(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -10,7 +11,7 @@ export function createDefaultQuoteWarrantyDetails(): QuoteWarrantyDetails {
     heading: "Manufacturer Warranty Reference",
     manufacturerReference: "Quoted hardware follows the applicable manufacturer warranty in effect at the time of shipment.",
     coverageNote: "Use this quote-level section to confirm any warranty coverage limits, registration requirements, or manufacturer-specific exceptions that should travel with the proposal.",
-    claimNote: "iNet can help coordinate commercially reasonable warranty support, but onsite labor, expedited freight, and items outside manufacturer coverage stay excluded unless this proposal states otherwise.",
+    claimNote: `${RAPIDQUOTE_DEPLOYMENT_BRANDING.shortName} can help coordinate commercially reasonable warranty support, but onsite labor, expedited freight, and items outside manufacturer coverage stay excluded unless this proposal states otherwise.`,
   };
 }
 

@@ -3,9 +3,10 @@ import type { QuoteRecord, QuoteStatus } from "@/app/lib/quote-record";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import { createCopiedQuoteGovernanceState, normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { generateQuoteNumber } from "@/app/lib/quote-template";
+import { RAPIDQUOTE_DEPLOYMENT_KEY, scopeStorageKey } from "@/app/lib/app-environment";
 
-export const PROPOSAL_STORE_KEY = "rapidquote:proposal-store";
-export const ACTIVE_PROPOSAL_ID_KEY = "rapidquote:active-proposal-id";
+export const PROPOSAL_STORE_KEY = scopeStorageKey("rapidquote:proposal-store");
+export const ACTIVE_PROPOSAL_ID_KEY = scopeStorageKey("rapidquote:active-proposal-id");
 
 export type ProposalOwner = {
   id: string;
@@ -65,29 +66,42 @@ export type ProposalStoreData = {
   proposals: SavedProposalRecord[];
 };
 
-export const mockUsers: ProposalOwner[] = [
-  {
-    id: "nick-panyard",
-    name: "Nick Panyard",
-    email: "nick.panyard@inetlte.com",
-    role: "Account Executive",
-    team: "Sales",
-  },
-  {
-    id: "casey-ops",
-    name: "Casey Morgan",
-    email: "casey@inetlte.com",
-    role: "Sales Ops",
-    team: "Revenue Operations",
-  },
-  {
-    id: "sam-engineering",
-    name: "Sam Rivera",
-    email: "sam@inetlte.com",
-    role: "Solutions Engineer",
-    team: "Engineering",
-  },
-];
+const mockUsersByDeployment: Record<typeof RAPIDQUOTE_DEPLOYMENT_KEY, ProposalOwner[]> = {
+  inet: [
+    {
+      id: "nick-panyard",
+      name: "Nick Panyard",
+      email: "nick.panyard@inetlte.com",
+      role: "Account Executive",
+      team: "Sales",
+    },
+    {
+      id: "casey-ops",
+      name: "Casey Morgan",
+      email: "casey@inetlte.com",
+      role: "Sales Ops",
+      team: "Revenue Operations",
+    },
+    {
+      id: "sam-engineering",
+      name: "Sam Rivera",
+      email: "sam@inetlte.com",
+      role: "Solutions Engineer",
+      team: "Engineering",
+    },
+  ],
+  ilios: [
+    {
+      id: "bbataille",
+      name: "B. Bataille",
+      email: "bbataille@ilios-integrators.com",
+      role: "Operations Lead",
+      team: "Operations",
+    },
+  ],
+};
+
+export const mockUsers: ProposalOwner[] = mockUsersByDeployment[RAPIDQUOTE_DEPLOYMENT_KEY];
 
 export const QUOTE_STATUS_OPTIONS: Array<{ value: QuoteStatus; label: string }> = [
   { value: "draft", label: "Draft" },
@@ -433,6 +447,14 @@ export function removeProposal(store: ProposalStoreData, proposalId: string): Pr
 }
 
 export function getDefaultProposalStore(seedProposal: SavedProposalRecord): ProposalStoreData {
+  if (RAPIDQUOTE_DEPLOYMENT_KEY === "ilios") {
+    return {
+      currentUser: mockUsers[0],
+      users: mockUsers,
+      proposals: [],
+    };
+  }
+
   const proposals: SavedProposalRecord[] = [
     seedProposal,
     {

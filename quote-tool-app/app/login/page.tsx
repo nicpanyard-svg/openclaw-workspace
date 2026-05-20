@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { ProductLogo } from "@/app/components/product-logo";
+import { RAPIDQUOTE_DEPLOYMENT_BRANDING, getDeploymentEmailPlaceholder } from "@/app/lib/app-environment";
 
 function LoginForm() {
   const router = useRouter();
@@ -42,13 +43,13 @@ function LoginForm() {
       <div className="auth-form-header">
         <div className="auth-brand-header auth-brand-header-compact">
           <div className="flex items-center gap-5">
-            <Image src="/inet-logo.png" alt="iNet logo" width={88} height={88} className="h-18 w-18 object-contain" priority />
+            <Image src={RAPIDQUOTE_DEPLOYMENT_BRANDING.logoSrc} alt={RAPIDQUOTE_DEPLOYMENT_BRANDING.logoAlt} width={88} height={88} className="h-18 w-18 object-contain" priority />
             <ProductLogo width={188} height={54} className="h-auto w-auto object-contain" priority />
           </div>
         </div>
         <h2 className="auth-form-title">Sign in to RapidQuote</h2>
         <p className="auth-form-copy">
-          Use your approved internal account to get back into the proposal workspace, pick up where your last quote left off, and keep approvals, access,
+          Use your approved internal {RAPIDQUOTE_DEPLOYMENT_BRANDING.shortName} account to get back into the proposal workspace, pick up where your last quote left off, and keep approvals, access,
           and output in one steady flow.
         </p>
       </div>
@@ -56,7 +57,7 @@ function LoginForm() {
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="auth-field">
           <span>Work email</span>
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@inetlte.com" required autoComplete="email" />
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={getDeploymentEmailPlaceholder()} required autoComplete="email" />
         </label>
 
         <label className="auth-field">

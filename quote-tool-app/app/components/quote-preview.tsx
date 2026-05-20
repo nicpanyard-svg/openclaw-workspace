@@ -43,13 +43,12 @@ import {
   upsertCustomerProfile,
   type SavedCustomerProfile,
 } from "@/app/lib/customer-profiles";
-import { COMPANY_BRANDING } from "@/app/lib/company-branding";
-import type { RapidQuoteCompanyKey } from "@/app/lib/branding-types";
+import { RAPIDQUOTE_DEPLOYMENT_BRANDING } from "@/app/lib/app-environment";
 import { ensureNickTrainingDemoProfiles, ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
 import { normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState, getActiveMajorProjectOption, majorProjectLineTypeLabel } from "@/app/lib/major-project";
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
-import { applyCompanyBrandingToQuote, getQuoteBranding, resolveQuoteCompanyKey } from "@/app/lib/quote-branding";
+import { getQuoteBranding } from "@/app/lib/quote-branding";
 import {
   createDefaultServiceAgreementProfile,
   createServiceRowFromAgreementCategory,
@@ -1973,7 +1972,6 @@ export default function QuotePreview() {
   const selectedLeaseTerm = quote.metadata.leaseTermMonths ?? 12;
   const hasActiveDataAgreement = quote.metadata.hasActiveDataAgreement ?? false;
   const leaseMarginPercent = quote.metadata.leaseMarginPercent ?? 35;
-  const selectedCompanyKey = resolveQuoteCompanyKey(quote);
   const selectedBranding = getQuoteBranding(quote);
 
   const leaseMarginAmount = useMemo(() => {
@@ -4919,20 +4917,11 @@ export default function QuotePreview() {
                   <strong className="mt-1 block text-[16px] text-[#16202b]">{quote.metadata.proposalNumber}</strong>
                   <span className="mt-1 block">Assigned automatically for new quotes and preserved on saved drafts.</span>
                 </div>
-                <label className="builder-field">
-                  <span>Company lane</span>
-                  <select
-                    value={selectedCompanyKey}
-                    onChange={(e) => updateQuote((draft) => {
-                      applyCompanyBrandingToQuote(draft, e.target.value as RapidQuoteCompanyKey);
-                      return draft;
-                    })}
-                  >
-                    {Object.values(COMPANY_BRANDING).map((company) => (
-                      <option key={company.key} value={company.key}>{company.label}</option>
-                    ))}
-                  </select>
-                </label>
+                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]">
+                  <span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Environment</span>
+                  <strong className="mt-1 block text-[16px] text-[#16202b]">{RAPIDQUOTE_DEPLOYMENT_BRANDING.label}</strong>
+                  <span className="mt-1 block">This deployment is locked to {RAPIDQUOTE_DEPLOYMENT_BRANDING.legalName}. Quotes here do not switch between companies.</span>
+                </div>
                 <label className="builder-field"><span>Proposal date</span><input value={quote.metadata.proposalDate} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalDate = e.target.value; draft.documentation.proposalDateLabel = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Proposal title</span><input value={quote.metadata.documentTitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentTitle = e.target.value; draft.documentation.proposalTitle = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Status</span><select value={quote.metadata.status} onChange={(e) => updateQuote((draft) => { draft.metadata.status = e.target.value as QuoteRecord["metadata"]["status"]; draft.internal.quoteStatus = e.target.value as QuoteRecord["metadata"]["status"]; return draft; })}>{QUOTE_STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>

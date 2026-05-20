@@ -9,9 +9,10 @@ import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spe
 import { createDefaultQuoteServiceAgreementState, normalizeQuoteServiceAgreementState } from "@/app/lib/service-agreement";
 import { normalizeQuoteWarrantyDetails } from "@/app/lib/quote-warranty";
 import type { QuoteCustomField, QuoteRecord } from "@/app/lib/quote-record";
+import { RAPIDQUOTE_DEPLOYMENT_KEY, scopeStorageKey } from "@/app/lib/app-environment";
 
-export const PROPOSAL_STORAGE_KEY = "quote-tool-app:proposal-state";
-export const PROPOSAL_STORAGE_FALLBACK_KEY = "quote-tool-app:proposal-state-fallback";
+export const PROPOSAL_STORAGE_KEY = scopeStorageKey("quote-tool-app:proposal-state");
+export const PROPOSAL_STORAGE_FALLBACK_KEY = scopeStorageKey("quote-tool-app:proposal-state-fallback");
 
 function normalizeText(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -244,7 +245,7 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
     const shippingSameAsBillTo = parsed.shippingSameAsBillTo ?? false;
     const inetAddressLines = normalizeLines(parsed.inet?.addressLines);
 
-    const normalizedCompanyKey = parsed.metadata?.companyKey === "ilios" ? "ilios" : "inet";
+    const normalizedCompanyKey = RAPIDQUOTE_DEPLOYMENT_KEY;
 
     return normalizeMajorProjectAttachmentState({
       ...parsed,

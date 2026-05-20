@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { RAPIDQUOTE_DEPLOYMENT_BRANDING, RAPIDQUOTE_DEPLOYMENT_EMAIL_DOMAIN } from "@/app/lib/app-environment";
 import {
   ACCESS_AUDIT_STORAGE_KEY,
   ACCESS_REQUESTS_STORAGE_KEY,
@@ -236,7 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: buildAccessAuditId(),
       action,
       actorName: actor?.name ?? "RapidQuote Admin",
-      actorEmail: actor?.email ?? "admin@inetlte.com",
+      actorEmail: actor?.email ?? `admin@${RAPIDQUOTE_DEPLOYMENT_EMAIL_DOMAIN}`,
       targetName: target.name,
       targetEmail: target.email,
       createdAt: new Date().toISOString(),
@@ -415,7 +416,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!canSelfServeSignUp(normalizedEmail)) {
-        return { ok: false, error: "RapidQuote recovery is limited to internal iNet accounts." };
+        return { ok: false, error: `${RAPIDQUOTE_DEPLOYMENT_BRANDING.appLabel} recovery is limited to internal company accounts.` };
       }
 
       const existing = directoryRecords.find((record) => record.email === normalizedEmail);
@@ -521,8 +522,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
         <div className="app-shell-brand-lockup">
           <div className="app-shell-brand-family">
             <Image
-              src="/inet-logo.png"
-              alt="iNet logo"
+              src={RAPIDQUOTE_DEPLOYMENT_BRANDING.logoSrc}
+              alt={RAPIDQUOTE_DEPLOYMENT_BRANDING.logoAlt}
               width={112}
               height={32}
               className="app-shell-parent-brand-logo h-auto w-auto"
@@ -557,16 +558,16 @@ export function AuthMarketingPanel() {
   return (
     <section className="auth-marketing-panel" aria-hidden="true">
       <div className="auth-marketing-kicker">Secure proposal workspace</div>
-      <h1 className="auth-marketing-title">RapidQuote by iNet gives every teammate a clean front door into quoting, approvals, and proposal delivery.</h1>
+      <h1 className="auth-marketing-title">{RAPIDQUOTE_DEPLOYMENT_BRANDING.appLabel} gives every teammate a clean front door into quoting, approvals, and proposal delivery.</h1>
       <p className="auth-marketing-copy">
-        RapidQuote keeps account access behind an internal review path, so quoting data stays with approved iNet teammates.
+        RapidQuote keeps account access behind an internal review path, so quoting data stays with approved internal teammates for this deployment only.
       </p>
 
       <div className="auth-marketing-grid">
         <article className="auth-marketing-card">
           <span>Access rules</span>
           <strong>Internal first</strong>
-          <p>iNet users can request access directly, while external parties stay on exported proposal outputs.</p>
+          <p>Only approved internal users for this company deployment can sign in, while external parties stay on exported proposal outputs.</p>
         </article>
         <article className="auth-marketing-card">
           <span>Shared ownership</span>
@@ -605,7 +606,7 @@ export function AuthSignInStatusCard() {
       <div className="auth-demo-credentials-grid">
         <div className="auth-demo-credential-item">
           <span>Who can sign in</span>
-          <code>Approved iNet users</code>
+          <code>{`Approved @${RAPIDQUOTE_DEPLOYMENT_EMAIL_DOMAIN} users`}</code>
         </div>
         <div className="auth-demo-credential-item">
           <span>Where access is managed</span>
@@ -625,8 +626,8 @@ export function SignupEligibilityMessage({ email }: { email: string }) {
   return (
     <div className={`auth-inline-message ${selfServe ? "auth-inline-message-success" : "auth-inline-message-warn"}`}>
       {selfServe
-        ? "Looks like an iNet teammate. You can request RapidQuote by iNet access and get routed into the internal approval queue."
-        : "RapidQuote by iNet is currently limited to internal iNet users. Use an @inetlte.com address or contact the product owner for access."}
+        ? `Looks like an internal ${RAPIDQUOTE_DEPLOYMENT_BRANDING.shortName} teammate. You can request ${RAPIDQUOTE_DEPLOYMENT_BRANDING.appLabel} access and get routed into the internal approval queue.`
+        : `${RAPIDQUOTE_DEPLOYMENT_BRANDING.appLabel} is currently limited to internal ${RAPIDQUOTE_DEPLOYMENT_BRANDING.shortName} users. Use an @${RAPIDQUOTE_DEPLOYMENT_EMAIL_DOMAIN} address or contact the product owner for access.`}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { ProductLogo } from "@/app/components/product-logo";
 import { getPasswordResetRecord, getUserByEmail, isPasswordResetExpired } from "@/app/lib/auth";
+import { RAPIDQUOTE_DEPLOYMENT_BRANDING } from "@/app/lib/app-environment";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -71,7 +72,7 @@ function ResetPasswordForm() {
           <ProductLogo width={160} height={45} className="workspace-brand-logo product-logo" priority />
         </div>
         <div className="brand-signature-stack">
-          <span className="brand-signature-pill">by iNet</span>
+          <span className="brand-signature-pill">{RAPIDQUOTE_DEPLOYMENT_BRANDING.shortName}</span>
           <div className="brand-trust-note">Internal credential reset</div>
         </div>
       </div>

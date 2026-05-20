@@ -1,8 +1,10 @@
-export const AUTH_STORAGE_KEY = "rapidquote:auth-session";
-export const ACCESS_REQUESTS_STORAGE_KEY = "rapidquote:access-requests";
-export const USER_DIRECTORY_STORAGE_KEY = "rapidquote:user-directory";
-export const ACCESS_AUDIT_STORAGE_KEY = "rapidquote:access-audit";
-export const PASSWORD_RESET_STORAGE_KEY = "rapidquote:password-resets";
+import { RAPIDQUOTE_DEPLOYMENT_BRANDING, RAPIDQUOTE_DEPLOYMENT_EMAIL_DOMAIN, RAPIDQUOTE_DEPLOYMENT_KEY, scopeStorageKey } from "@/app/lib/app-environment";
+
+export const AUTH_STORAGE_KEY = scopeStorageKey("rapidquote:auth-session");
+export const ACCESS_REQUESTS_STORAGE_KEY = scopeStorageKey("rapidquote:access-requests");
+export const USER_DIRECTORY_STORAGE_KEY = scopeStorageKey("rapidquote:user-directory");
+export const ACCESS_AUDIT_STORAGE_KEY = scopeStorageKey("rapidquote:access-audit");
+export const PASSWORD_RESET_STORAGE_KEY = scopeStorageKey("rapidquote:password-resets");
 
 export type RapidQuoteRole = "sales" | "sales_ops" | "solutions_engineering" | "admin";
 export type AccountStatus = "active" | "invited" | "pending_admin" | "suspended";
@@ -74,159 +76,182 @@ const EIGHT_HOURS_MS = 1000 * 60 * 60 * 8;
 const THIRTY_MINUTES_MS = 1000 * 60 * 30;
 const DEFAULT_PASSWORD = "RapidQuote!23";
 
-const seededUsers: DirectoryUserRecord[] = [
-  {
-    id: "nick-panyard",
-    name: "Nick Panyard",
-    email: "nick.panyard@inetlte.com",
-    title: "Account Executive",
-    team: "Sales",
-    role: "sales",
-    status: "active",
-    initials: "NP",
-    canManageUsers: false,
-    password: "RapidQuote!23",
-  },
-  {
-    id: "casey-morgan",
-    name: "Casey Morgan",
-    email: "casey@inetlte.com",
-    title: "Sales Ops Lead",
-    team: "Revenue Operations",
-    role: "admin",
-    status: "active",
-    initials: "CM",
-    canManageUsers: true,
-    password: "RapidQuote!23",
-  },
-  {
-    id: "sam-rivera",
-    name: "Sam Rivera",
-    email: "sam@inetlte.com",
-    title: "Solutions Engineer",
-    team: "Engineering",
-    role: "solutions_engineering",
-    status: "active",
-    initials: "SR",
-    canManageUsers: false,
-    password: "RapidQuote!23",
-  },
-  {
-    id: "john-mcmahon",
-    name: "John McMahon",
-    email: "john.mcmahon@inetlte.com",
-    title: "Account Executive",
-    team: "Sales",
-    role: "sales",
-    status: "active",
-    initials: "JM",
-    canManageUsers: false,
-    password: "RapidQuote!26",
-  },
-  {
-    id: "tracy-poindexter",
-    name: "Tracy Poindexter",
-    email: "tracy.poindexter@inetlte.com",
-    title: "Account Executive",
-    team: "Sales",
-    role: "sales",
-    status: "active",
-    initials: "TP",
-    canManageUsers: false,
-    password: "RapidQuote!27",
-  },
-  {
-    id: "mathew-clayton",
-    name: "Mathew Clayton",
-    email: "mattew.clayton@inetlte.com",
-    title: "Account Executive",
-    team: "Sales",
-    role: "sales",
-    status: "active",
-    initials: "MC",
-    canManageUsers: false,
-    password: "RapidQuote!28",
-  },
-  {
-    id: "xavier-trevino",
-    name: "Xavier Trevino",
-    email: "xavier.trevino@inetlte.com",
-    title: "Account Executive",
-    team: "Sales",
-    role: "sales",
-    status: "active",
-    initials: "XT",
-    canManageUsers: false,
-    password: "RapidQuote!29",
-  },
-  {
-    id: "michael-lam",
-    name: "Michael Lam",
-    email: "michael.lam@inetlte.com",
-    title: "Account Executive",
-    team: "Sales",
-    role: "sales",
-    status: "active",
-    initials: "ML",
-    canManageUsers: false,
-    password: "RapidQuote!30",
-  },
-  {
-    id: "james-spencer",
-    name: "James Spencer",
-    email: "james.spencer@inetlte.com",
-    title: "Account Executive",
-    team: "Sales",
-    role: "sales",
-    status: "active",
-    initials: "JS",
-    canManageUsers: false,
-    password: "RapidQuote!James2026#",
-  },
-];
+const seededUsersByDeployment: Record<typeof RAPIDQUOTE_DEPLOYMENT_KEY, DirectoryUserRecord[]> = {
+  inet: [
+    {
+      id: "nick-panyard",
+      name: "Nick Panyard",
+      email: "nick.panyard@inetlte.com",
+      title: "Account Executive",
+      team: "Sales",
+      role: "sales",
+      status: "active",
+      initials: "NP",
+      canManageUsers: false,
+      password: "RapidQuote!23",
+    },
+    {
+      id: "casey-morgan",
+      name: "Casey Morgan",
+      email: "casey@inetlte.com",
+      title: "Sales Ops Lead",
+      team: "Revenue Operations",
+      role: "admin",
+      status: "active",
+      initials: "CM",
+      canManageUsers: true,
+      password: "RapidQuote!23",
+    },
+    {
+      id: "sam-rivera",
+      name: "Sam Rivera",
+      email: "sam@inetlte.com",
+      title: "Solutions Engineer",
+      team: "Engineering",
+      role: "solutions_engineering",
+      status: "active",
+      initials: "SR",
+      canManageUsers: false,
+      password: "RapidQuote!23",
+    },
+    {
+      id: "john-mcmahon",
+      name: "John McMahon",
+      email: "john.mcmahon@inetlte.com",
+      title: "Account Executive",
+      team: "Sales",
+      role: "sales",
+      status: "active",
+      initials: "JM",
+      canManageUsers: false,
+      password: "RapidQuote!26",
+    },
+    {
+      id: "tracy-poindexter",
+      name: "Tracy Poindexter",
+      email: "tracy.poindexter@inetlte.com",
+      title: "Account Executive",
+      team: "Sales",
+      role: "sales",
+      status: "active",
+      initials: "TP",
+      canManageUsers: false,
+      password: "RapidQuote!27",
+    },
+    {
+      id: "mathew-clayton",
+      name: "Mathew Clayton",
+      email: "mattew.clayton@inetlte.com",
+      title: "Account Executive",
+      team: "Sales",
+      role: "sales",
+      status: "active",
+      initials: "MC",
+      canManageUsers: false,
+      password: "RapidQuote!28",
+    },
+    {
+      id: "xavier-trevino",
+      name: "Xavier Trevino",
+      email: "xavier.trevino@inetlte.com",
+      title: "Account Executive",
+      team: "Sales",
+      role: "sales",
+      status: "active",
+      initials: "XT",
+      canManageUsers: false,
+      password: "RapidQuote!29",
+    },
+    {
+      id: "michael-lam",
+      name: "Michael Lam",
+      email: "michael.lam@inetlte.com",
+      title: "Account Executive",
+      team: "Sales",
+      role: "sales",
+      status: "active",
+      initials: "ML",
+      canManageUsers: false,
+      password: "RapidQuote!30",
+    },
+    {
+      id: "james-spencer",
+      name: "James Spencer",
+      email: "james.spencer@inetlte.com",
+      title: "Account Executive",
+      team: "Sales",
+      role: "sales",
+      status: "active",
+      initials: "JS",
+      canManageUsers: false,
+      password: "RapidQuote!James2026#",
+    },
+  ],
+  ilios: [
+    {
+      id: "bbataille",
+      name: "B. Bataille",
+      email: "bbataille@ilios-integrators.com",
+      title: "Operations Lead",
+      team: "Operations",
+      role: "admin",
+      status: "active",
+      initials: "BB",
+      canManageUsers: true,
+      password: "RapidQuote!Ilios2026#",
+    },
+  ],
+};
 
-const seededAccessRequests: AccessRequestRecord[] = [
-  {
-    id: "rq-access-1001",
-    name: "Taylor Brooks",
-    email: "taylor.brooks@inetlte.com",
-    team: "Sales",
-    roleNeeded: "Account Executive",
-    businessReason: "Needs access to build and review customer quote packages for new midstream opportunities.",
-    requestedBy: "Manager invite",
-    status: "pending",
-    createdAt: "2026-04-18T14:15:00.000Z",
-    notes: "New hire starting Monday. Prioritize before territory handoff.",
-  },
-  {
-    id: "rq-access-1002",
-    name: "Jordan Lee",
-    email: "jordan.lee@inetlte.com",
-    team: "Revenue Operations",
-    roleNeeded: "Sales Ops Analyst",
-    businessReason: "Needs visibility into proposal output and approval workflow for process QA.",
-    requestedBy: "Self-serve request",
-    status: "needs_info",
-    createdAt: "2026-04-17T09:40:00.000Z",
-    reviewedAt: "2026-04-17T15:10:00.000Z",
-    reviewerName: "Casey Morgan",
-    notes: "Waiting on manager confirmation for admin scope.",
-  },
-  {
-    id: "rq-access-1003",
-    name: "Morgan Patel",
-    email: "morgan.patel@partnerco.com",
-    team: "Partner",
-    roleNeeded: "External reviewer",
-    businessReason: "Asked for access to customer-facing quotes during a joint pursuit.",
-    requestedBy: "Self-serve request",
-    status: "denied",
-    createdAt: "2026-04-16T12:05:00.000Z",
-    reviewedAt: "2026-04-16T16:30:00.000Z",
-    reviewerName: "Casey Morgan",
-    notes: "External access is limited to exported proposal files.",
-  },
-];
+const seededUsers: DirectoryUserRecord[] = seededUsersByDeployment[RAPIDQUOTE_DEPLOYMENT_KEY];
+
+const seededAccessRequestsByDeployment: Record<typeof RAPIDQUOTE_DEPLOYMENT_KEY, AccessRequestRecord[]> = {
+  inet: [
+    {
+      id: "rq-access-1001",
+      name: "Taylor Brooks",
+      email: "taylor.brooks@inetlte.com",
+      team: "Sales",
+      roleNeeded: "Account Executive",
+      businessReason: "Needs access to build and review customer quote packages for new midstream opportunities.",
+      requestedBy: "Manager invite",
+      status: "pending",
+      createdAt: "2026-04-18T14:15:00.000Z",
+      notes: "New hire starting Monday. Prioritize before territory handoff.",
+    },
+    {
+      id: "rq-access-1002",
+      name: "Jordan Lee",
+      email: "jordan.lee@inetlte.com",
+      team: "Revenue Operations",
+      roleNeeded: "Sales Ops Analyst",
+      businessReason: "Needs visibility into proposal output and approval workflow for process QA.",
+      requestedBy: "Self-serve request",
+      status: "needs_info",
+      createdAt: "2026-04-17T09:40:00.000Z",
+      reviewedAt: "2026-04-17T15:10:00.000Z",
+      reviewerName: "Casey Morgan",
+      notes: "Waiting on manager confirmation for admin scope.",
+    },
+    {
+      id: "rq-access-1003",
+      name: "Morgan Patel",
+      email: "morgan.patel@partnerco.com",
+      team: "Partner",
+      roleNeeded: "External reviewer",
+      businessReason: "Asked for access to customer-facing quotes during a joint pursuit.",
+      requestedBy: "Self-serve request",
+      status: "denied",
+      createdAt: "2026-04-16T12:05:00.000Z",
+      reviewedAt: "2026-04-16T16:30:00.000Z",
+      reviewerName: "Casey Morgan",
+      notes: "External access is limited to exported proposal files.",
+    },
+  ],
+  ilios: [],
+};
+
+const seededAccessRequests: AccessRequestRecord[] = seededAccessRequestsByDeployment[RAPIDQUOTE_DEPLOYMENT_KEY];
 
 function stripPassword(user: DirectoryUserRecord): AuthUser {
   const { password, ...safeUser } = user;
@@ -320,7 +345,7 @@ export function getUserByEmail(email: string): AuthUser | null {
 }
 
 export function canSelfServeSignUp(email: string) {
-  return email.trim().toLowerCase().endsWith("@inetlte.com");
+  return email.trim().toLowerCase().endsWith(`@${RAPIDQUOTE_DEPLOYMENT_EMAIL_DOMAIN}`);
 }
 
 export function buildSession(user: AuthUser): AuthSession {
@@ -482,7 +507,7 @@ export function authenticateWithPassword(email: string, password: string): SignI
   if (match.status !== "active") {
     return {
       ok: false,
-      error: "This account is not active yet. Check your invite status or contact the RapidQuote admin owner.",
+      error: `This account is not active yet. Check your invite status or contact the ${RAPIDQUOTE_DEPLOYMENT_BRANDING.appLabel} admin owner.`,
     };
   }
 
