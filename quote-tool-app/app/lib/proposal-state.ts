@@ -1,5 +1,7 @@
 import { createDefaultIntegrationState } from "@/app/lib/crm";
 import { createDefaultCommercialState } from "@/app/lib/commercial-model";
+import { buildDefaultExpirationDate } from "@/app/lib/quote-branding";
+import { COMPANY_BRANDING } from "@/app/lib/company-branding";
 import { normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { normalizeExecutiveSummaryBlocks, serializeExecutiveSummaryBlocks } from "@/app/lib/executive-summary";
 import { createDefaultMajorProjectState } from "@/app/lib/major-project";
@@ -242,6 +244,8 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
     const shippingSameAsBillTo = parsed.shippingSameAsBillTo ?? false;
     const inetAddressLines = normalizeLines(parsed.inet?.addressLines);
 
+    const normalizedCompanyKey = parsed.metadata?.companyKey === "ilios" ? "ilios" : "inet";
+
     return normalizeMajorProjectAttachmentState({
       ...parsed,
       customer: {
@@ -256,9 +260,18 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
       },
       metadata: {
         ...parsed.metadata,
+        companyKey: normalizedCompanyKey,
+        outputTemplateKey:
+          parsed.metadata?.outputTemplateKey === "estimate_compact"
+            ? "estimate_compact"
+            : COMPANY_BRANDING[normalizedCompanyKey].defaultOutputTemplateKey,
+        expirationDate: normalizeText(parsed.metadata?.expirationDate) || buildDefaultExpirationDate(normalizeText(parsed.metadata?.proposalDate), normalizedCompanyKey),
         workflowMode: parsed.metadata?.workflowMode ?? "quick_quote",
         opportunityId: normalizeText(parsed.metadata?.opportunityId) || undefined,
         opportunityName: normalizeText(parsed.metadata?.opportunityName) || undefined,
+        salesTaxAmount: typeof parsed.metadata?.salesTaxAmount === "number" && Number.isFinite(parsed.metadata.salesTaxAmount)
+          ? parsed.metadata.salesTaxAmount
+          : 0,
       },
       governance: normalizeQuoteGovernanceState({
         metadata: {

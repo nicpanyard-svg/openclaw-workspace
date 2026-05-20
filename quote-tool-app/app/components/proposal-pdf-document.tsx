@@ -12,11 +12,12 @@ import {
   formatCurrency,
   type ProposalPdfViewModel,
 } from "@/app/lib/proposal-pdf";
+import { IliosEstimatePdfDocument } from "@/app/components/ilios-estimate-pdf-document";
+import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
 import type { QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
 Font.registerHyphenationCallback((word) => [word]);
 
-const INET_LOGO_SRC = `${process.cwd()}\\public\\inet-logo.png`;
 const FOOTER_HEX_SRC = `${process.cwd()}\\public\\proposal-footer-hex.jpg`;
 
 const styles = StyleSheet.create({
@@ -822,7 +823,9 @@ function SupportBullets({ items }: { items?: string[] }) {
   );
 }
 
-function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
+function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote: QuoteRecord }) {
+  const selectedBranding = getQuoteBranding(quote);
+  const pdfLogoSrc = `${process.cwd()}\\public${selectedBranding.logoSrc.replace(/\//g, "\\")}`;
   const coverSummaryItems = model.pricingSnapshotItems.map((item) => ({
     label: item.label,
     value: item.formattedValue,
@@ -839,19 +842,19 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
 
         <View style={styles.coverTopbar}>
           <View style={styles.brandLockup}>
-            <Image src={INET_LOGO_SRC} style={styles.logo} />
-            <Text style={styles.brandSubtitle}>iNet Communications Proposal</Text>
+            <Image src={pdfLogoSrc} style={styles.logo} />
+            <Text style={styles.brandSubtitle}>{selectedBranding.proposalBannerText}</Text>
           </View>
           <View style={styles.coverMetaCard}>
             <Text style={styles.overline}>Proposal</Text>
             <Text style={styles.coverMetaValue}>#{model.proposalNumber}</Text>
             <Text>{model.proposalDate}</Text>
-            <Text style={styles.coverMetaChip}>Budgetary Estimate</Text>
+            <Text style={styles.coverMetaChip}>{model.documentTitle}</Text>
           </View>
         </View>
 
         <View style={styles.coverContent}>
-          <Text style={styles.coverKicker}>Budgetary Estimate</Text>
+          <Text style={styles.coverKicker}>{model.documentTitle}</Text>
           <Text style={styles.coverTitle}>{model.documentTitle}</Text>
           <Text style={styles.coverSubtitle}>{model.documentSubtitle}</Text>
 
@@ -928,7 +931,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
           <View style={styles.summaryPanel}>
             <Text style={styles.summaryLabel}>Date</Text>
             <Text style={styles.summaryPanelValue}>{model.documentation.proposalDateLabel}</Text>
-            <Text style={styles.summaryPanelCopy}>Budgetary Estimate</Text>
+            <Text style={styles.summaryPanelCopy}>{model.documentTitle}</Text>
           </View>
           <View style={styles.summaryPanel}>
             <Text style={styles.summaryLabel}>{model.documentation.preparedByLabel ?? "Prepared By"}</Text>
@@ -947,7 +950,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             {renderTextLines(model.customerAddressLines)}
           </View>
           <View style={[styles.card, styles.half]}>
-            <Text style={styles.miniHeading}>{model.documentation.inetSalesHeading ?? "iNet"}</Text>
+            <Text style={styles.miniHeading}>{model.documentation.inetSalesHeading ?? selectedBranding.shortName}</Text>
             <Text style={styles.paragraph}><Text style={{ fontWeight: 700 }}>{model.documentation.preparedByLabel ?? "Prepared By"}</Text> {model.inetContactName}</Text>
             <Text style={styles.paragraph}><Text style={{ fontWeight: 700 }}>Contact Phone</Text> {model.inetContactPhone}</Text>
             <Text style={styles.paragraph}><Text style={{ fontWeight: 700 }}>Contact Email</Text> {model.inetContactEmail}</Text>
@@ -1336,7 +1339,7 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
             installation assumptions, and delivery details may be refined in the next revision.
           </Text>
           <Text style={styles.paragraph}>
-            Please sign below to indicate acceptance of this proposal and authorization for iNet to proceed with order
+            Please sign below to indicate acceptance of this proposal and authorization for {selectedBranding.shortName} to proceed with order
             processing based on the approved scope.
           </Text>
           {model.approval.approvalNote ? <Text style={styles.paragraph}>{model.approval.approvalNote}</Text> : null}
@@ -1395,11 +1398,16 @@ function ProposalPdfPages({ model }: { model: ProposalPdfViewModel }) {
 }
 
 export function ProposalPdfDocument({ quote }: { quote: QuoteRecord }) {
+  if (resolveQuoteOutputTemplateKey(quote) === "estimate_compact") {
+    return <IliosEstimatePdfDocument quote={quote} />;
+  }
+
+  const selectedBranding = getQuoteBranding(quote);
   const model = buildProposalPdfViewModel(quote);
 
   return (
-    <Document title={`${model.proposalNumber} Proposal`} author="RapidQuote" subject={model.documentTitle}>
-      <ProposalPdfPages model={model} />
+    <Document title={`${model.proposalNumber} Proposal`} author={selectedBranding.legalName} subject={model.documentTitle}>
+      <ProposalPdfPages model={model} quote={quote} />
     </Document>
   );
 }

@@ -1,4 +1,5 @@
 import type { QuoteIntegrationState } from "@/app/lib/crm";
+import type { RapidQuoteCompanyKey, RapidQuoteOutputTemplateKey } from "@/app/lib/branding-types";
 
 export type CurrencyCode = "USD" | "CAD" | "EUR" | string;
 export type QuoteStatus = "draft" | "in_review" | "approved" | "sent" | "booked";
@@ -195,12 +196,16 @@ export type QuoteServiceAgreementState = {
 export type QuoteMetadata = {
   proposalNumber: string;
   proposalDate: string;
+  expirationDate?: string;
   revisionVersion: string;
   documentTitle: string;
   documentSubtitle: string;
+  companyKey?: RapidQuoteCompanyKey;
+  outputTemplateKey?: RapidQuoteOutputTemplateKey;
   customerShortName: string;
   customerProvider: "Starlink" | "UniSIM" | "T-Mobile";
   currencyCode: CurrencyCode;
+  salesTaxAmount?: number;
   status: QuoteStatus;
   quoteType: QuoteType;
   workflowMode?: QuoteWorkflowMode;

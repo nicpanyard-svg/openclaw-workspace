@@ -2,6 +2,7 @@ import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import { buildExecutiveSummaryWorkbookText } from "@/app/lib/executive-summary";
 import type { MajorProjectCustomerQuoteLineMetrics } from "@/app/lib/major-project";
 import { buildMajorProjectMetrics, majorProjectLineTypeLabel } from "@/app/lib/major-project";
+import { getQuoteBranding } from "@/app/lib/quote-branding";
 import type {
   MajorProjectComponent,
   MajorProjectSimpleRow,
@@ -1717,15 +1718,16 @@ function buildNotesSheet(workbook: Workbook, model: ApprovalWorkbookModel, rollu
 
 export async function buildProposalApprovalWorkbook(quote: QuoteRecord) {
   const model = buildWorkbookModel(quote);
+  const selectedBranding = getQuoteBranding(quote);
   const exceljs = await import("exceljs");
   const workbook = new exceljs.Workbook();
 
   workbook.creator = "RapidQuote";
-  workbook.company = "iNet Managed Technology Services";
+  workbook.company = selectedBranding.legalName;
   workbook.created = new Date();
   workbook.modified = new Date();
   workbook.subject = "Internal Approval Workbook";
-  workbook.title = `${model.proposalNumber} iNet Approval Workbook`;
+  workbook.title = `${model.proposalNumber} ${selectedBranding.shortName} Approval Workbook`;
   workbook.calcProperties.fullCalcOnLoad = true;
 
   const detailSheetResult = buildLineItemDetailSheet(workbook, model);
@@ -1733,21 +1735,24 @@ export async function buildProposalApprovalWorkbook(quote: QuoteRecord) {
   const summarySheet = buildExecutiveSummarySheet(exceljs, workbook, model, detailSheetResult.rollups);
   const notesSheet = buildNotesSheet(workbook, model, detailSheetResult.rollups);
 
-  const summaryLogoEmbedded = await addWorkbookImageByWidth(
-    workbook,
-    summarySheet,
-    "/inet-logo.png",
-    "png",
-    { col: 7.12, row: 1.2 },
-    104,
-  );
+  const workbookLogoPath = selectedBranding.logoSrc.endsWith(".png") ? selectedBranding.logoSrc : null;
+  const summaryLogoEmbedded = workbookLogoPath
+    ? await addWorkbookImageByWidth(
+      workbook,
+      summarySheet,
+      workbookLogoPath,
+      "png",
+      { col: 7.12, row: 1.2 },
+      104,
+    )
+    : false;
 
-  if (summaryLogoEmbedded) {
-    await addWorkbookImageByWidth(workbook, detailSheet, "/inet-logo.png", "png", {
+  if (summaryLogoEmbedded && workbookLogoPath) {
+    await addWorkbookImageByWidth(workbook, detailSheet, workbookLogoPath, "png", {
       col: 8.9,
       row: 0.3,
     }, 108);
-    await addWorkbookImageByWidth(workbook, notesSheet, "/inet-logo.png", "png", {
+    await addWorkbookImageByWidth(workbook, notesSheet, workbookLogoPath, "png", {
       col: 0.08,
       row: 0.2,
     }, 72);

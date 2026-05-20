@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { IliosEstimateDocument } from "@/app/components/ilios-estimate-document";
 import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
 import {
   buildProposalCommercialSummary,
@@ -12,6 +13,7 @@ import {
 } from "@/app/lib/proposal-commercial-summary";
 import { getMajorProjectSpecAttachmentFile, isMajorProjectSpecAttachmentPdf } from "@/app/lib/major-project-spec-attachments";
 import { resolveMajorProjectOutputSpecAttachments, type MajorProjectOutputSpecAttachment } from "@/app/lib/major-project";
+import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
 import type { MajorProjectSpecAttachment, QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
 type ProposalDocumentProps = {
@@ -110,7 +112,8 @@ function getSpecOutputSectionLabel(outputSection: MajorProjectOutputSpecAttachme
   }
 }
 
-export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProps) {
+function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentProps) {
+  const selectedBranding = getQuoteBranding(quote);
   const [systemDrawingPreviews, setSystemDrawingPreviews] = useState<ResolvedSystemDrawingPreview[]>([]);
   const [specSheetPreviews, setSpecSheetPreviews] = useState<ResolvedSpecSheetPreview[]>([]);
   const [systemDrawingPreviewsReady, setSystemDrawingPreviewsReady] = useState(false);
@@ -304,20 +307,28 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
   const failedSpecSheetPreviews = specSheetPreviews.filter((entry) => !entry.objectUrl);
 
   return (
-    <main className="proposal-shell" data-attachments-ready={systemDrawingPreviewsReady && specSheetPreviewsReady ? "true" : "false"}>
+    <main
+      className="proposal-shell"
+      data-attachments-ready={systemDrawingPreviewsReady && specSheetPreviewsReady ? "true" : "false"}
+      style={{
+        ["--proposal-brand-primary" as string]: selectedBranding.primaryColor,
+        ["--proposal-brand-accent" as string]: selectedBranding.accentColor,
+        ["--proposal-brand-muted" as string]: selectedBranding.mutedColor,
+      }}
+    >
       <section className="proposal-page cover-page proposal-page-with-band" data-page-label={coverPageLabel}>
         <div className="cover-grid">
           <div className="cover-topbar">
             <div className="cover-brand-row">
               <div className="cover-brand-lockup">
                 <img
-                  src={assetOverrides?.inetLogoSrc ?? "/inet-logo.png"}
-                  alt="iNet logo"
+                  src={assetOverrides?.inetLogoSrc ?? selectedBranding.logoSrc}
+                  alt={selectedBranding.logoAlt}
                   className="cover-brand-logo h-auto w-auto"
                   width={208}
                   height={64}
                 />
-                <div className="cover-brand-subtitle">iNet Communications Proposal</div>
+                <div className="cover-brand-subtitle">{selectedBranding.proposalBannerText}</div>
               </div>
               <div className="cover-proposal-meta">
                 <div className="cover-meta-label">Proposal</div>
@@ -437,7 +448,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
             ))}
           </div>
           <div className="proposal-copy proposal-copy-card print-keep-block">
-            <div className="proposal-mini-heading">{quote.documentation.inetSalesHeading ?? "iNet"}</div>
+            <div className="proposal-mini-heading">{quote.documentation.inetSalesHeading ?? selectedBranding.shortName}</div>
             <p><strong>{quote.documentation.preparedByLabel ?? "Prepared By"}</strong> {quote.inet.contactName}</p>
             <p><strong>Contact Phone</strong> {quote.inet.contactPhone}</p>
             <p><strong>Contact Email</strong> {quote.inet.contactEmail}</p>
@@ -976,7 +987,7 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
             installation assumptions, and delivery details may be refined in the next revision.
           </p>
           <p>
-            Please sign below to indicate acceptance of this proposal and authorization for iNet to proceed with order
+            Please sign below to indicate acceptance of this proposal and authorization for {selectedBranding.shortName} to proceed with order
             processing based on the approved scope.
           </p>
           {quote.approval.approvalNote ? <p>{quote.approval.approvalNote}</p> : null}
@@ -1017,4 +1028,12 @@ export function ProposalDocument({ quote, assetOverrides }: ProposalDocumentProp
       </section>
     </main>
   );
+}
+
+export function ProposalDocument(props: ProposalDocumentProps) {
+  if (resolveQuoteOutputTemplateKey(props.quote) === "estimate_compact") {
+    return <IliosEstimateDocument quote={props.quote} />;
+  }
+
+  return <DetailedProposalDocument {...props} />;
 }

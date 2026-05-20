@@ -2567,6 +2567,9 @@ body {
 }
 
 .proposal-shell {
+  --proposal-brand-primary: #ae0910;
+  --proposal-brand-accent: #f7e7e7;
+  --proposal-brand-muted: #6f7c89;
   min-height: 100vh;
   padding: 28px 0 56px;
   background: transparent;
@@ -2648,7 +2651,7 @@ body {
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #6f7c89;
+  color: var(--proposal-brand-muted);
 }
 
 .cover-proposal-meta {
@@ -2692,8 +2695,8 @@ body {
   display: inline-block;
   margin-top: 8px;
   border-radius: 999px;
-  background: #f7eaea;
-  color: #8c1212;
+  background: color-mix(in srgb, var(--proposal-brand-accent) 78%, white 22%);
+  color: var(--proposal-brand-primary);
   font-size: 11px;
   font-weight: 700;
   padding: 4px 10px;
@@ -2914,7 +2917,7 @@ body {
   width: 100%;
   height: 2px;
   margin: 16px 0 18px;
-  background: linear-gradient(90deg, #ae0910 0%, rgba(174, 9, 16, 0.22) 56%, rgba(174, 9, 16, 0) 100%);
+  background: linear-gradient(90deg, var(--proposal-brand-primary) 0%, color-mix(in srgb, var(--proposal-brand-primary) 22%, transparent 78%) 56%, transparent 100%);
 }
 
 .section-heading-badge {
@@ -2923,8 +2926,8 @@ body {
   justify-content: center;
   border-radius: 999px;
   padding: 5px 12px;
-  background: #f7e7e7;
-  color: #8c1212;
+  background: color-mix(in srgb, var(--proposal-brand-accent) 78%, white 22%);
+  color: var(--proposal-brand-primary);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.18em;

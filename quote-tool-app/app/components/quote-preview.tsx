@@ -43,10 +43,13 @@ import {
   upsertCustomerProfile,
   type SavedCustomerProfile,
 } from "@/app/lib/customer-profiles";
+import { COMPANY_BRANDING } from "@/app/lib/company-branding";
+import type { RapidQuoteCompanyKey } from "@/app/lib/branding-types";
 import { ensureNickTrainingDemoProfiles, ensureNickTrainingDemoProposalStore } from "@/app/lib/nick-training-demo";
 import { normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState, getActiveMajorProjectOption, majorProjectLineTypeLabel } from "@/app/lib/major-project";
 import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
+import { applyCompanyBrandingToQuote, getQuoteBranding, resolveQuoteCompanyKey } from "@/app/lib/quote-branding";
 import {
   createDefaultServiceAgreementProfile,
   createServiceRowFromAgreementCategory,
@@ -1970,6 +1973,8 @@ export default function QuotePreview() {
   const selectedLeaseTerm = quote.metadata.leaseTermMonths ?? 12;
   const hasActiveDataAgreement = quote.metadata.hasActiveDataAgreement ?? false;
   const leaseMarginPercent = quote.metadata.leaseMarginPercent ?? 35;
+  const selectedCompanyKey = resolveQuoteCompanyKey(quote);
+  const selectedBranding = getQuoteBranding(quote);
 
   const leaseMarginAmount = useMemo(() => {
     if (quote.metadata.quoteType !== "lease" || !isMajorProject) return 0;
@@ -4914,6 +4919,20 @@ export default function QuotePreview() {
                   <strong className="mt-1 block text-[16px] text-[#16202b]">{quote.metadata.proposalNumber}</strong>
                   <span className="mt-1 block">Assigned automatically for new quotes and preserved on saved drafts.</span>
                 </div>
+                <label className="builder-field">
+                  <span>Company lane</span>
+                  <select
+                    value={selectedCompanyKey}
+                    onChange={(e) => updateQuote((draft) => {
+                      applyCompanyBrandingToQuote(draft, e.target.value as RapidQuoteCompanyKey);
+                      return draft;
+                    })}
+                  >
+                    {Object.values(COMPANY_BRANDING).map((company) => (
+                      <option key={company.key} value={company.key}>{company.label}</option>
+                    ))}
+                  </select>
+                </label>
                 <label className="builder-field"><span>Proposal date</span><input value={quote.metadata.proposalDate} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalDate = e.target.value; draft.documentation.proposalDateLabel = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Proposal title</span><input value={quote.metadata.documentTitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentTitle = e.target.value; draft.documentation.proposalTitle = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Status</span><select value={quote.metadata.status} onChange={(e) => updateQuote((draft) => { draft.metadata.status = e.target.value as QuoteRecord["metadata"]["status"]; draft.internal.quoteStatus = e.target.value as QuoteRecord["metadata"]["status"]; return draft; })}>{QUOTE_STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
@@ -4928,6 +4947,11 @@ export default function QuotePreview() {
               <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-2">
                 <label className="builder-field"><span>Proposal subtitle</span><input value={quote.metadata.documentSubtitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentSubtitle = e.target.value; return draft; })} /></label>
                 <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]"><span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Customer on this draft</span><strong className="mt-1 block text-[16px] text-[#16202b]">{customerHeadline}</strong><span className="mt-1 block">{customerSubline || "Use Customer entry above to edit customer details."}</span></div>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+                <label className="builder-field"><span>Expiration date</span><input value={quote.metadata.expirationDate ?? ""} onChange={(e) => updateQuote((draft) => { draft.metadata.expirationDate = e.target.value; return draft; })} /></label>
+                <label className="builder-field"><span>Sales tax amount</span><input type="number" min="0" step="0.01" value={quote.metadata.salesTaxAmount ?? 0} onChange={(e) => updateQuote((draft) => { draft.metadata.salesTaxAmount = Number(e.target.value || 0); return draft; })} /></label>
               </div>
 
               <details className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]">
@@ -4948,13 +4972,13 @@ export default function QuotePreview() {
               <details className="mt-5 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
                 <summary className="cursor-pointer list-none">
                   <div className="builder-eyebrow">Prepared by</div>
-                  <div className="mt-1 text-[18px] font-semibold text-[#16202b]">iNet contact and sender details</div>
+                  <div className="mt-1 text-[18px] font-semibold text-[#16202b]">{selectedBranding.label} contact and sender details</div>
                 </summary>
                 <div className="mt-4 space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                   <div className="flex items-start gap-3">
-                    <Image src="/inet-logo.png" alt="iNet logo" width={120} height={34} className="workspace-logo-inline h-auto w-auto object-contain" />
+                    <img src={selectedBranding.logoSrc} alt={selectedBranding.logoAlt} className="workspace-logo-inline h-auto max-h-[34px] w-auto object-contain" />
                     <div>
-                      <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">iNet</div>
+                      <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{selectedBranding.shortName}</div>
                       <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Sales contact</div>
                     </div>
                   </div>
@@ -6725,7 +6749,7 @@ export default function QuotePreview() {
               </div>
               <div className="space-y-5 text-[14px] text-[#32404c]">
                 <div className="summary-block"><div className="summary-label">Customer</div><div className="summary-value">{quote.customer.name}</div><div className="summary-subvalue">{quote.customer.contactName} • {quote.metadata.proposalNumber} • {quote.metadata.proposalDate}</div></div>
-                <div className="summary-block"><div className="summary-label">Proposal info</div><div className="summary-value">{quote.metadata.documentTitle}</div><div className="summary-subvalue">Prepared by {quote.inet.contactName} • {quote.inet.contactPhone}</div></div>
+                <div className="summary-block"><div className="summary-label">Proposal info</div><div className="summary-value">{quote.metadata.documentTitle}</div><div className="summary-subvalue">Prepared by {quote.inet.contactName || selectedBranding.shortName} • {quote.inet.contactPhone}</div></div>
                 <div className="summary-block"><div className="summary-label">Bill To / Ship To</div><div className="summary-value">{quote.billTo.companyName || quote.customer.name}</div><div className="summary-subvalue">{quote.shippingSameAsBillTo ? "Ship To matches Bill To" : `${quote.shipTo.companyName || "Custom Ship To"} configured separately`}</div></div>
                 <div className="summary-block"><div className="summary-label">Executive Summary</div><div className="summary-value">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent ? (quote.executiveSummary.heading?.trim() || "Executive Summary") : "Hidden"}</div><div className="summary-subvalue">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent ? `${executiveSummaryRenderBlocks.length} structured block(s) ready for output` : "Not included in proposal output"}</div></div>
                 <div className="summary-block"><div className="summary-label">Workflow</div><div className="summary-value">{isMajorProject ? "Major Project" : "Quick Quote"}</div><div className="summary-subvalue">{isMajorProject ? "Commercial model is driving downstream proposal sections" : "Builder rows are driving proposal sections directly"}</div></div>
