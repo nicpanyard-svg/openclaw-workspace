@@ -1,125 +1,220 @@
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
+const { execSync } = require('child_process');
 
-const root = path.join(process.cwd(), 'graham-stock-board');
-const boardPath = path.join(root, 'index.html');
-const portfolioPath = path.join(root, 'paper-trades.json');
-const alertsPath = path.join(root, 'alerts.json');
+const base = __dirname;
+const paperPath = path.join(base, 'paper-trades.json');
+const boardSeedPath = path.join(base, 'board.seed.json');
+const alertsPath = path.join(base, 'alerts.json');
+const syncScript = path.join(base, '..', 'sync-stock-board.js');
 
-function postStatus(currentTask) {
-  return new Promise((resolve) => {
-    const data = JSON.stringify({ name: 'Graham', status: 'ACTIVE', currentTask });
-    const req = http.request({
-      hostname: 'localhost',
-      port: 3000,
-      path: '/api/agent-status',
+const paper = JSON.parse(fs.readFileSync(paperPath, 'utf8'));
+const board = JSON.parse(fs.readFileSync(boardSeedPath, 'utf8'));
+const alerts = JSON.parse(fs.readFileSync(alertsPath, 'utf8'));
+const boardCards = board.cards || [];
+
+const tickers = new Set([
+  ...Object.keys(paper.watchlist || {}),
+  ...boardCards.map(c => c.ticker).filter(Boolean),
+  ...alerts.map(a => a.ticker).filter(Boolean)
+]);
+
+async function postStatus(currentTask) {
+  try {
+    await fetch('http://localhost:3000/api/agent-status', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(data)
-      }
-    }, (res) => {
-      res.on('data', () => {});
-      res.on('end', resolve);
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Graham', status: 'ACTIVE', currentTask })
     });
-    req.on('error', () => resolve());
-    req.write(data);
-    req.end();
-  });
+  } catch {}
 }
 
-function parseDisplayedPrice(html, ticker) {
-  const re = new RegExp(`"ticker":\\s*"${ticker}"[\\s\\S]*?"price":\\s*"\\$?([0-9]+(?:\\.[0-9]+)?)"`, 'i');
-  const m = html.match(re);
-  return m ? parseFloat(m[1]) : null;
+async function fetchOneQuote(symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!res.ok) throw new Error(`Quote fetch failed for ${symbol}: ${res.status}`);
+  const json = await res.json();
+  const result = json?.chart?.result?.[0];
+  const meta = result?.meta || {};
+  const price = meta.regularMarketPrice;
+  const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? meta.regularMarketPreviousClose;
+  return {
+    price,
+    prevClose,
+    chgPct: Number.isFinite(price) && Number.isFinite(prevClose) && prevClose
+      ? ((price - prevClose) / prevClose) * 100
+      : 0
+  };
+}
+
+async function fetchQuotes(symbols) {
+  const map = {};
+  const batchSize = 5;
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batch = symbols.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map(async symbol => {
+      try {
+        return [symbol, await fetchOneQuote(symbol)];
+      } catch {
+        return [symbol, null];
+      }
+    }));
+    for (const [symbol, quote] of results) if (quote) map[symbol] = quote;
+  }
+  return map;
 }
 
 function parseRange(text) {
   if (!text) return null;
-  const m = text.match(/\$?([0-9]+(?:\.[0-9]+)?)\s*-\s*\$?([0-9]+(?:\.[0-9]+)?)/);
-  if (!m) return null;
-  return [parseFloat(m[1]), parseFloat(m[2])];
+  const nums = String(text).replace(/,/g, '').match(/\$?([0-9]+(?:\.[0-9]+)?)/g);
+  if (!nums || nums.length < 2) return null;
+  const vals = nums.slice(0, 2).map(s => parseFloat(s.replace(/[^0-9.]/g, ''))).filter(Number.isFinite);
+  if (vals.length < 2) return null;
+  return { low: Math.min(vals[0], vals[1]), high: Math.max(vals[0], vals[1]) };
+}
+
+function fmt(n) {
+  return '$' + Number(n).toFixed(2);
+}
+
+function formatYmd(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatShortDate(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    month: 'numeric',
+    day: 'numeric',
+    year: '2-digit'
+  }).formatToParts(date);
+  const month = parts.find(part => part.type === 'month')?.value;
+  const day = parts.find(part => part.type === 'day')?.value;
+  const year = parts.find(part => part.type === 'year')?.value;
+  return `${month}/${day}/${year}`;
+}
+
+function formatNoteTime(date) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    month: 'numeric',
+    day: 'numeric',
+    year: '2-digit',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short'
+  }).format(date);
 }
 
 (async () => {
   await postStatus('Scanning prices and checking positions');
 
-  const portfolio = JSON.parse(fs.readFileSync(portfolioPath, 'utf8'));
-  const alerts = JSON.parse(fs.readFileSync(alertsPath, 'utf8'));
-  const html = fs.readFileSync(boardPath, 'utf8');
-  const nowIso = '2026-04-14T19:30:00Z';
-  const noteTime = '4/14/26, 2:30 PM CT';
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const todayYmd = formatYmd(now);
+  const shortDate = formatShortDate(now);
+  const noteTime = formatNoteTime(now);
+  const quotes = await fetchQuotes([...tickers]);
+  const alertsFired = [];
 
-  const watchTickers = ['PLTR', 'TEM', 'RKLB', 'IONQ', 'SERV', 'RXRX'];
-  const quotes = {};
-  for (const t of watchTickers) {
-    const watchPrice = portfolio.watchlist?.[t]?.price;
-    const boardPrice = parseDisplayedPrice(html, t);
-    const price = typeof watchPrice === 'number' ? watchPrice : boardPrice;
-    if (typeof price === 'number') quotes[t] = price;
-  }
-
-  const openPositions = portfolio.positions || [];
-  for (const p of openPositions) {
-    const q = quotes[p.ticker] ?? parseDisplayedPrice(html, p.ticker);
-    if (typeof q === 'number') {
-      p.currentPrice = +q.toFixed(2);
-      p.marketValue = +(q * p.shares).toFixed(2);
-      p.pnl = +((q - p.entryPrice) * p.shares).toFixed(2);
-      p.pnlPct = +(((q - p.entryPrice) / p.entryPrice) * 100).toFixed(2);
+  for (const alert of alerts) {
+    if (!alert.active) continue;
+    const q = quotes[alert.ticker];
+    if (!q || !Number.isFinite(q.price)) continue;
+    let fired = false;
+    if (alert.condition === 'above' && q.price >= alert.price) fired = true;
+    if (alert.condition === 'below' && q.price <= alert.price) fired = true;
+    if (fired) {
+      alert.active = false;
+      alert.firedAt = nowIso;
+      alert.firedPrice = Number(q.price.toFixed(2));
+      alertsFired.push(`${alert.ticker} ${alert.condition} ${alert.price} @ ${q.price.toFixed(2)}`);
     }
   }
 
-  const fired = [];
-  for (const a of alerts) {
-    if (!a.active || typeof a.price !== 'number') continue;
-    const q = quotes[a.ticker] ?? parseDisplayedPrice(html, a.ticker);
-    if (typeof q !== 'number') continue;
-    const hit = (a.condition === 'above' && q >= a.price) || (a.condition === 'below' && q <= a.price);
-    if (hit) {
-      a.active = false;
-      a.firedAt = nowIso;
-      a.firedPrice = +q.toFixed(2);
-      fired.push(`${a.ticker} ${a.condition} ${a.price} at ${q.toFixed(2)}`);
-    }
+  paper.positions = (paper.positions || []).map(pos => {
+    const q = quotes[pos.ticker];
+    if (!q || !Number.isFinite(q.price)) return pos;
+    const currentPrice = q.price;
+    const pnl = (currentPrice - Number(pos.entryPrice)) * Number(pos.shares);
+    const pnlPct = ((currentPrice / Number(pos.entryPrice)) - 1) * 100;
+    return {
+      ...pos,
+      currentPrice: Number(currentPrice.toFixed(2)),
+      pnl: Number(pnl.toFixed(2)),
+      pnlPct: Number(pnlPct.toFixed(2))
+    };
+  });
+
+  let deployed = 0;
+  for (const pos of paper.positions) deployed += Number(pos.currentPrice || pos.entryPrice) * Number(pos.shares || 0);
+  paper.deployed = Number(deployed.toFixed(2));
+  paper.deployedPct = Number(((paper.deployed / paper.portfolioSize) * 100).toFixed(2));
+  paper.portfolioValue = Number((paper.cash + paper.deployed).toFixed(2));
+  paper.totalPnl = Number((paper.portfolioValue - paper.portfolioSize).toFixed(2));
+  paper.totalPnlPct = Number(((paper.totalPnl / paper.portfolioSize) * 100).toFixed(2));
+  paper.lastUpdated = nowIso;
+
+  for (const [ticker, entry] of Object.entries(paper.watchlist || {})) {
+    const q = quotes[ticker];
+    if (!q || !Number.isFinite(q.price)) continue;
+    entry.price = Number(q.price.toFixed(2));
+    entry.prevClose = Number((q.prevClose ?? q.price).toFixed(2));
+    entry.chgPct = Number((q.chgPct ?? 0).toFixed(2));
   }
 
   const zoneChanges = [];
-  const stockMatches = Array.from(html.matchAll(/\{[\s\S]*?"ticker":\s*"([^"]+)"[\s\S]*?"price":\s*"\$?([0-9]+(?:\.[0-9]+)?)"[\s\S]*?"starterBuy":\s*"([^"]*)"/g));
-  for (const m of stockMatches) {
-    const ticker = m[1];
-    const price = parseFloat(m[2]);
-    const starter = m[3];
-    const range = parseRange(starter);
-    if (!range) continue;
-    const [lo, hi] = range;
-    if (price < lo * 0.8 || price > hi * 1.2) zoneChanges.push(`${ticker} outside starter zone`);
-  }
-
-  const quoteSummary = watchTickers.map(t => `${t} ${typeof quotes[t] === 'number' ? quotes[t].toFixed(2) : 'n/a'}`).join(' · ');
-  const note = `${noteTime} - All cash. No positions. Quote check: ${quoteSummary}. Alerts fired: ${fired.length ? fired.join('; ') : 'none'}. Zone changes: none. No trades. Held cash.`;
-
-  portfolio.lastUpdated = nowIso;
-  portfolio.date = '2026-04-14';
-  portfolio.note = note;
-  portfolio.grahamNote = note;
-  portfolio.strategy.currentAssessment = note;
-  for (const t of Object.keys(portfolio.watchlist || {})) {
-    if (typeof quotes[t] === 'number') {
-      portfolio.watchlist[t].price = +quotes[t].toFixed(2);
-      portfolio.watchlist[t].note = note;
+  for (const card of boardCards) {
+    const q = quotes[card.ticker];
+    if (q && Number.isFinite(q.price)) card.price = Number(q.price.toFixed(2));
+    const range = parseRange(card.starterBuy);
+    if (!range || !q || !Number.isFinite(q.price)) continue;
+    const lowerBound = range.low * 0.8;
+    const upperBound = range.high * 1.2;
+    if (q.price < lowerBound || q.price > upperBound) {
+      const low = q.price < 20 ? Number((q.price * 0.9).toFixed(2)) : Number((q.price * 0.9).toFixed(0));
+      const high = q.price < 20 ? Number((q.price * 1.1).toFixed(2)) : Number((q.price * 1.1).toFixed(0));
+      const lowStr = low >= 1000 ? low.toLocaleString('en-US') : String(low);
+      const highStr = high >= 1000 ? high.toLocaleString('en-US') : String(high);
+      const newZone = `$${lowStr}-$${highStr} (zone revised ${shortDate})`;
+      if (card.starterBuy !== newZone) {
+        card.starterBuy = newZone;
+        card.lastUpdated = todayYmd;
+        zoneChanges.push(`${card.ticker} -> ${newZone}`);
+      }
     }
   }
-  portfolio.deployed = +(openPositions.reduce((sum, p) => sum + (p.marketValue || 0), 0)).toFixed(2);
-  portfolio.deployedPct = +(portfolio.portfolioSize ? (portfolio.deployed / portfolio.portfolioSize) * 100 : 0).toFixed(2);
-  portfolio.portfolioValue = +(portfolio.cash + portfolio.deployed).toFixed(2);
-  portfolio.totalPnl = +(portfolio.portfolioValue - portfolio.portfolioSize).toFixed(2);
-  portfolio.totalPnlPct = +((portfolio.totalPnl / portfolio.portfolioSize) * 100).toFixed(2);
 
-  fs.writeFileSync(portfolioPath, JSON.stringify(portfolio, null, 2));
+  const focus = ['IONQ','PLTR','RKLB','RXRX','SERV','TEM','MELI','HIMS','AFRM','NU'];
+  const focusLine = focus.map(t => {
+    const q = quotes[t];
+    return q && Number.isFinite(q.price) ? `${t} ${fmt(q.price)}` : null;
+  }).filter(Boolean).join(' | ');
+
+  const note = `${noteTime} - All cash. No open positions to mark. Watchlist: ${focusLine}. Alerts fired: ${alertsFired.length ? alertsFired.join('; ') : 'none'}. Zone check: ${zoneChanges.length ? zoneChanges.join('; ') : 'no starter-buy zones more than 20% out of range'}. No trades. Held cash.`;
+  paper.note = note;
+  paper.grahamNote = note;
+  if (paper.strategy) paper.strategy.currentAssessment = note;
+  for (const entry of Object.values(paper.watchlist || {})) entry.note = note;
+
+  fs.writeFileSync(paperPath, JSON.stringify(paper, null, 2));
   fs.writeFileSync(alertsPath, JSON.stringify(alerts, null, 2));
+  fs.writeFileSync(boardSeedPath, JSON.stringify(board, null, 2));
 
-  console.log(JSON.stringify({ quotes, fired, zoneChanges, note }, null, 2));
-  await postStatus(`Held cash — ${quoteSummary}`);
-})();
+  let synced = false;
+  if (fs.existsSync(syncScript)) {
+    execSync(`node "${syncScript}"`, { stdio: 'inherit' });
+    synced = true;
+  }
+
+  const statusLine = zoneChanges.length
+    ? `Held cash - updated ${zoneChanges[0]}${zoneChanges.length > 1 ? ` +${zoneChanges.length - 1} more` : ''}`
+    : `Held cash - watching ${focus.slice(0, 2).map(t => `${t} ${fmt(quotes[t]?.price || 0)}`).join(' | ')}`;
+  await postStatus(statusLine);
+
+  console.log(JSON.stringify({ alertsFired, zoneChanges, synced, note }, null, 2));
+})().catch(async err => {
+  console.error(err);
+  await postStatus('Scan error - check logs');
+  process.exit(1);
+});

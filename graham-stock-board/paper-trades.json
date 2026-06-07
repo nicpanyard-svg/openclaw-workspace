@@ -3,13 +3,13 @@
   "portfolioSize": 10000,
   "cash": 9987.81,
   "deployed": 0,
-  "deployedPct": 0.0,
+  "deployedPct": 0,
   "portfolioValue": 9987.81,
   "totalPnl": -12.19,
   "totalPnlPct": -0.12,
-  "date": "2026-04-24",
-  "lastUpdated": "2026-04-24T20:50:00.000Z",
-  "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash.",
+  "date": "2026-04-30",
+  "lastUpdated": "2026-04-30T20:40:00.000Z",
+  "note": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash.",
   "positions": [],
   "trades": [
     {
@@ -106,153 +106,303 @@
   "passed": [
     {
       "ticker": "RXRX",
-      "reason": "Score 69. Quote last verified 4/24/26 3:50 PM CT: 3.51."
+      "reason": "Score 69. Quote last verified 4/27/26 2:40 PM CT: 3.50."
     },
     {
       "ticker": "SERV",
-      "reason": "Score 65. Quote last verified 4/24/26 3:50 PM CT: 9.23."
+      "reason": "Score 65. Quote last verified 4/27/26 2:40 PM CT: 9.89."
     },
     {
       "ticker": "HIMS",
-      "reason": "Score 57, cautious \u00e2\u20ac\u201d FDA GLP-1 binary risk. Quote last verified 4/24/26 3:50 PM CT: 30.55."
+      "reason": "Score 57, cautious — FDA GLP-1 binary risk. Quote last verified 4/27/26 2:40 PM CT: 29.34."
     },
     {
       "ticker": "SOUN",
-      "reason": "EXITED 2026-03-25 \u00e2\u20ac\u201d COO + SVP + Director all sold in one week. Quote last verified 4/24/26 3:50 PM CT: 8.19."
+      "reason": "EXITED 2026-03-25 — COO + SVP + Director all sold in one week. Quote last verified 4/27/26 2:40 PM CT: 8.14."
     },
     {
       "ticker": "RKLB",
-      "reason": "EXITED 2026-03-25. Quote last verified 4/24/26 3:50 PM CT: 79.65."
+      "reason": "EXITED 2026-03-25. Quote last verified 4/27/26 2:40 PM CT: 81.67."
     },
     {
       "ticker": "IONQ",
-      "reason": "STOPPED OUT 2026-03-26. Quote last verified 4/24/26 3:50 PM CT: 42.69."
+      "reason": "STOPPED OUT 2026-03-26. Quote last verified 4/27/26 2:40 PM CT: 43.56."
     },
     {
       "ticker": "PLTR",
-      "reason": "STOPPED OUT 2026-03-27. Quote last verified 4/24/26 3:50 PM CT: 143.06."
+      "reason": "STOPPED OUT 2026-03-27. Quote last verified 4/27/26 2:40 PM CT: 142.77."
     }
   ],
   "watchlist": {
     "IONQ": {
-      "price": 42.69,
-      "prevClose": 44.13,
-      "chgPct": -3.26,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 45.12,
+      "prevClose": 42.25,
+      "chgPct": 6.79,
+      "note": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "PLTR": {
-      "price": 143.06,
-      "prevClose": 142.49,
-      "chgPct": 0.4,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 139.11,
+      "prevClose": 138.46,
+      "chgPct": 0.47,
+      "note": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "RKLB": {
-      "price": 79.65,
-      "prevClose": 85.88,
-      "chgPct": -7.25,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 82.51,
+      "prevClose": 77.87,
+      "chgPct": 5.96,
+      "note": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "RXRX": {
-      "price": 3.51,
-      "prevClose": 3.5,
-      "chgPct": 0.16,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 3.48,
+      "prevClose": 3.3,
+      "chgPct": 5.46,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "SERV": {
-      "price": 9.23,
-      "prevClose": 9.37,
-      "chgPct": -1.48,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 9.415,
+      "prevClose": 8.99,
+      "chgPct": 4.73,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "TEM": {
-      "price": 52.13,
-      "prevClose": 51.89,
-      "chgPct": 0.46,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 55.48,
+      "prevClose": 50.197,
+      "chgPct": 10.52,
+      "note": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "MELI": {
-      "price": 1835.22,
-      "prevClose": 1812.84,
-      "chgPct": 1.23,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 1792.63,
+      "prevClose": 1768,
+      "chgPct": 1.39,
+      "note": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "SOUN": {
-      "price": 8.19,
-      "prevClose": 7.95,
-      "chgPct": 3.08,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 7.945,
+      "prevClose": 7.71,
+      "chgPct": 3.05,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "HIMS": {
-      "price": 30.55,
-      "prevClose": 28.18,
-      "chgPct": 8.41,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 27.25,
+      "prevClose": 26.33,
+      "chgPct": 3.49,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "AFRM": {
-      "price": 63.71,
-      "prevClose": 63.25,
-      "chgPct": 0.73,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 64.35,
+      "prevClose": 63.48,
+      "chgPct": 1.37,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "APP": {
-      "price": 448.13,
-      "prevClose": 454.88,
-      "chgPct": -1.48,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 446.35,
+      "prevClose": 441.75,
+      "chgPct": 1.04,
+      "note": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "AXON": {
-      "price": 396.99,
-      "prevClose": 393.01,
-      "chgPct": 1.01,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 401.76,
+      "prevClose": 401.94,
+      "chgPct": -0.04,
+      "note": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "CRWD": {
-      "price": 448.08,
-      "prevClose": 445.75,
-      "chgPct": 0.52,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 445.75,
+      "prevClose": 452.01,
+      "chgPct": -1.38,
+      "note": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "NU": {
-      "price": 14.51,
-      "prevClose": 14.48,
-      "chgPct": 0.21,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 14.48,
+      "prevClose": 14.09,
+      "chgPct": 2.77,
+      "note": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "SPY": {
-      "price": 713.98,
-      "prevClose": 709.54,
-      "chgPct": 0.63,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 719.42,
+      "prevClose": 711.58,
+      "chgPct": 1.1,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "QQQ": {
-      "price": 663.91,
-      "prevClose": 655.2,
-      "chgPct": 1.33,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 667.936,
+      "prevClose": 661.57,
+      "chgPct": 0.96,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "TLT": {
-      "price": 86.7,
-      "prevClose": 86.61,
-      "chgPct": 0.1,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 85.57,
+      "prevClose": 85.7,
+      "chgPct": -0.15,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "HYG": {
-      "price": 80.49,
-      "prevClose": 80.25,
-      "chgPct": 0.3,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 80.4,
+      "prevClose": 80.13,
+      "chgPct": 0.34,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "GLD": {
-      "price": 433.13,
-      "prevClose": 431.1,
-      "chgPct": 0.47,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 423.69,
+      "prevClose": 417.41,
+      "chgPct": 1.5,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     },
     "ASTS": {
-      "price": 76.42,
-      "prevClose": 79.66,
-      "chgPct": -4.07,
-      "note": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+      "price": 73.48,
+      "prevClose": 69.85,
+      "chgPct": 5.2,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "SYM": {
+      "price": 58.875,
+      "prevClose": 57.35,
+      "chgPct": 2.66,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "FLNC": {
+      "price": 12.163,
+      "prevClose": 11.83,
+      "chgPct": 2.81,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "BBAI": {
+      "price": 3.985,
+      "prevClose": 3.82,
+      "chgPct": 4.32,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "PL": {
+      "price": 36.7,
+      "prevClose": 34.08,
+      "chgPct": 7.69,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "AVAV": {
+      "price": 194.955,
+      "prevClose": 183.5,
+      "chgPct": 6.24,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "HOOD": {
+      "price": 72.765,
+      "prevClose": 71.2,
+      "chgPct": 2.2,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "NXT": {
+      "price": 118.93,
+      "prevClose": 114.27,
+      "chgPct": 4.08,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "PONY": {
+      "price": 9.88,
+      "prevClose": 9.56,
+      "chgPct": 3.35,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "DUOL": {
+      "price": 110.62,
+      "prevClose": 106.82,
+      "chgPct": 3.56,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "LUNR": {
+      "price": 25.26,
+      "prevClose": 24.79,
+      "chgPct": 1.9,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "KTOS": {
+      "price": 62.89,
+      "prevClose": 59.56,
+      "chgPct": 5.59,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "SOFI": {
+      "price": 16.015,
+      "prevClose": 15.525,
+      "chgPct": 3.16,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "COIN": {
+      "price": 187.72,
+      "prevClose": 181.73,
+      "chgPct": 3.3,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "RIVN": {
+      "price": 16.52,
+      "prevClose": 16.06,
+      "chgPct": 2.86,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "JOBY": {
+      "price": 9.195,
+      "prevClose": 8.7,
+      "chgPct": 5.69,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "ACHR": {
+      "price": 5.76,
+      "prevClose": 5.6,
+      "chgPct": 2.86,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "CRSP": {
+      "price": 52.5,
+      "prevClose": 50.71,
+      "chgPct": 3.53,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "SNOW": {
+      "price": 136.25,
+      "prevClose": 141.22,
+      "chgPct": -3.52,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "DDOG": {
+      "price": 132.72,
+      "prevClose": 133.98,
+      "chgPct": -0.94,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "MNDY": {
+      "price": 65.81,
+      "prevClose": 66.66,
+      "chgPct": -1.28,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "GTLB": {
+      "price": 22.05,
+      "prevClose": 21.91,
+      "chgPct": 0.64,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "CELH": {
+      "price": 33.62,
+      "prevClose": 32.66,
+      "chgPct": 2.94,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "BEAM": {
+      "price": 30.52,
+      "prevClose": 29.38,
+      "chgPct": 3.88,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "BE": {
+      "price": 280.74,
+      "prevClose": 287.97,
+      "chgPct": -2.51,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
+    },
+    "TDOC": {
+      "price": 6.085,
+      "prevClose": 5.95,
+      "chgPct": 2.27,
+      "note": "4/30/26 3:00 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.15 | PLTR 139.24 | RKLB 82.21 | TEM 55.13 | MELI 1801.10 | AXON 400.75 | CRWD 445.04 | APP 445.09 | NU 14.52. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
     }
   },
   "strategy": {
@@ -268,7 +418,7 @@
     "tradingFrequency": "Low ? 1 to 3 trades per week max. No churning.",
     "stopPolicy": "Hard stops on every position. A 10% loss on a $1,000 position = $100 hit, ~1% of portfolio. Acceptable. A 30% loss without a stop is not.",
     "entryDiscipline": "No chasing. Enter on pullbacks to support or confirmed breakouts with volume. Setup must be clear before entry.",
-    "currentAssessment": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+    "currentAssessment": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
   },
-  "grahamNote": "4/24/26 3:50 PM CT - All cash. No open positions. No trades made. Alerts fired: none. Watchlist refreshed. SPY +0.63%; QQQ +1.33%; IONQ -3.26%; PLTR +0.40%; RKLB -7.25%; TEM +0.46%. Zone check: no changes. Held cash."
+  "grahamNote": "4/30/26 3:40 PM CT - All cash. No open positions to mark. Watchlist: IONQ 45.12 | PLTR 139.11 | RKLB 82.51 | TEM 55.48 | MELI 1792.63 | AXON 401.76 | CRWD 445.75 | APP 446.35 | NU 14.48. Alerts fired: none. Zone check: no starter-buy zones more than 20% out of range on tracked names. No trades. Held cash."
 }

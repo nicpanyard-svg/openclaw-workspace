@@ -355,7 +355,8 @@
         "Capital Intensity",
         "Execution Risk"
       ],
-      "lastUpdated": "2026-03-21"
+      "lastUpdated": "2026-03-21",
+      "price": 73.85
     },
     {
       "ticker": "RKLB",
@@ -382,7 +383,8 @@
         "High Beta",
         "Execution Risk"
       ],
-      "lastUpdated": "2026-03-21"
+      "lastUpdated": "2026-03-21",
+      "price": 82.28
     },
     {
       "ticker": "TEM",
@@ -410,7 +412,8 @@
         "Execution Risk",
         "Regulatory Risk"
       ],
-      "lastUpdated": "2026-03-21"
+      "lastUpdated": "2026-03-21",
+      "price": 54.75
     },
     {
       "ticker": "APP",
@@ -420,7 +423,7 @@
       "status": "Bullish",
       "conviction": 4,
       "grahamScore": 83,
-      "price": 461.26,
+      "price": 439.55,
       "analystTarget": 703.71,
       "analystConsensus": "Strong Buy",
       "analystCount": 17,
@@ -453,7 +456,7 @@
       "status": "Bullish",
       "conviction": 4,
       "grahamScore": 77,
-      "price": 152,
+      "price": 138.79,
       "analystTarget": 196.32,
       "analystConsensus": "Moderate Buy",
       "analystCount": 28,
@@ -486,7 +489,7 @@
       "status": "Bullish",
       "conviction": 4,
       "grahamScore": 76,
-      "price": 1675.97,
+      "price": 1791.83,
       "analystTarget": 2733.13,
       "analystConsensus": "Strong Buy",
       "analystCount": 16,
@@ -519,7 +522,7 @@
       "status": "Bullish",
       "conviction": 4,
       "grahamScore": 76,
-      "price": 379.95,
+      "price": 398.1,
       "analystTarget": 767.85,
       "analystConsensus": "Strong Buy",
       "analystCount": 14,
@@ -552,7 +555,7 @@
       "status": "Bullish",
       "conviction": 3,
       "grahamScore": 69,
-      "price": 416.37,
+      "price": 442.56,
       "analystTarget": 507.2,
       "analystConsensus": "Buy",
       "analystCount": 44,
@@ -585,11 +588,11 @@
       "status": "Bullish",
       "conviction": 3,
       "grahamScore": 68,
-      "price": 14.82,
+      "price": 14.35,
       "analystTarget": 17.84,
       "analystConsensus": "Buy",
       "analystCount": 9,
-      "starterBuy": "Pipeline — wait for clearer setup. UBS upgrade to Strong Buy on March 19 is promising. Entry at $14-15 if thesis firms.",
+      "starterBuy": "$12.90-$15.76 (zone revised 4/30/26)",
       "addZone": "Add on continued credit portfolio growth, Mexico/Colombia expansion proof, and path to U.S. market entry.",
       "trimZone": "Trim on sharp runs above $20 or if credit quality deteriorates.",
       "thesisBreak": "Material credit loss surge, Brazilian regulatory crackdown, or inability to maintain margin on credit expansion.",
