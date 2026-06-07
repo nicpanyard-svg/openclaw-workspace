@@ -239,7 +239,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
               return {
                 ...entry,
                 objectUrl: null,
-                loadError: `Missing local attachment file: ${entry.attachment.fileName}.`,
+                loadError: `Preview unavailable in this render context for ${entry.attachment.fileName}.`,
               } satisfies ResolvedSpecSheetPreview;
             }
 
@@ -305,6 +305,9 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   const closingPageLabel = `Page ${printPageNumber++}`;
   const loadedSpecSheetCount = specSheetPreviews.filter((entry) => Boolean(entry.objectUrl)).length;
   const failedSpecSheetPreviews = specSheetPreviews.filter((entry) => !entry.objectUrl);
+  const specSheetPreviewNote = loadedSpecSheetCount > 0
+    ? `${loadedSpecSheetCount} inline preview${loadedSpecSheetCount === 1 ? "" : "s"} loaded. Stored PDF attachments are merged into the final exported PDF as full proposal pages when available.`
+    : "Inline preview is not available in this render context. Stored PDF attachments are still referenced for final PDF assembly when available.";
 
   return (
     <main
@@ -835,10 +838,11 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
             <div className="proposal-copy proposal-copy-card proposal-spec-sheet-meta print-keep-block">
               {index === 0 ? (
                 <div className="proposal-attachment-status-card">
-                  <p><strong>Attachment status</strong> {loadedSpecSheetCount} of {specSheetPreviews.length} supporting spec attachment{specSheetPreviews.length === 1 ? "" : "s"} loaded into proposal output.</p>
+                  <p><strong>Attachment status</strong> {specSheetPreviews.length} supporting spec attachment{specSheetPreviews.length === 1 ? "" : "s"} referenced for proposal output.</p>
+                  <p>{specSheetPreviewNote}</p>
                   {failedSpecSheetPreviews.length ? (
                     <>
-                      <p><strong>Missing or failed attachments</strong></p>
+                      <p><strong>Preview notes</strong></p>
                       <ul className="proposal-bullets compact">
                         {failedSpecSheetPreviews.map((entry) => (
                           <li key={`failed-${entry.attachment.storageKey}`}>

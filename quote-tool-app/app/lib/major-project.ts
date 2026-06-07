@@ -795,6 +795,40 @@ function directComponentDisplayLabel(component: MajorProjectComponent, index: nu
   return component.customerFacingLabel?.trim() || component.internalName?.trim() || `Component ${index + 1}`;
 }
 
+function formatMajorProjectComponentQuantity(component: MajorProjectComponent) {
+  const quantity = Number(component.quantity);
+  if (!Number.isFinite(quantity) || quantity <= 0) return "";
+
+  const formattedQuantity = Number.isInteger(quantity) ? String(quantity) : String(roundCurrency(quantity));
+  return `${formattedQuantity} ${component.unit?.trim() || "ea"}`;
+}
+
+function buildIncludedComponentItems(components: MajorProjectComponent[], limit = 8) {
+  const uniqueComponents = dedupeComponents(components);
+  const visibleComponents = uniqueComponents.slice(0, limit);
+  const items = visibleComponents.map((component, index) => {
+    const quantity = formatMajorProjectComponentQuantity(component);
+    const label = directComponentDisplayLabel(component, index);
+    return quantity ? `${quantity} ${label}` : label;
+  });
+  const remainingCount = uniqueComponents.length - visibleComponents.length;
+
+  if (remainingCount > 0) {
+    items.push(`${remainingCount} more item${remainingCount === 1 ? "" : "s"}`);
+  }
+
+  return items;
+}
+
+function buildIncludedComponentSentence(components: MajorProjectComponent[]) {
+  const items = buildIncludedComponentItems(components);
+  return items.length ? `Includes: ${items.join("; ")}.` : "";
+}
+
+function buildQuoteLineIncludedSentence(line: MajorProjectCustomerQuoteLineMetrics) {
+  return buildIncludedComponentSentence(line.revenueComponents.length ? line.revenueComponents : line.costComponents);
+}
+
 function collectDuplicateIds(items: Array<{ id: string }>) {
   const counts = new Map<string, number>();
   for (const item of items) counts.set(item.id, (counts.get(item.id) ?? 0) + 1);
@@ -1558,7 +1592,9 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     `${siteCount} site${siteCount === 1 ? "" : "s"} under commercial management`,
     state.summary.paymentTerms ? `Payment terms: ${state.summary.paymentTerms}` : "",
     state.summary.billingStart ? `Billing start: ${state.summary.billingStart}` : "",
-    metrics.hasThreeLayerModel ? `${metrics.bundles.length} bundle${metrics.bundles.length === 1 ? "" : "s"} / ${metrics.vendorSummary.length} vendor bucket${metrics.vendorSummary.length === 1 ? "" : "s"} in internal worksheet` : "Built from Major Project row buckets with live margin rollups.",
+    metrics.hasThreeLayerModel
+      ? buildIncludedComponentSentence(metrics.components.filter((component) => component.schedule === "recurring"))
+      : "Built from Major Project row buckets with live margin rollups.",
   ]);
 
   const supportRow = {
@@ -1706,11 +1742,11 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       id: line.id,
       sourceType: "custom" as const,
       itemName: line.label,
-      itemCategory: "Bundle",
+      itemCategory: line.resolvedBundleIds.length > 1 ? `${line.resolvedBundleIds.length} bundles` : "Bundle",
       quantity: 1,
       unitPrice: line.oneTimeRevenue,
       totalPrice: line.oneTimeRevenue,
-      description: line.description || `Bundle ${index + 1}`,
+      description: compact([line.description, buildQuoteLineIncludedSentence(line)]).join(" "),
       specSheetLabel: line.resolvedSpecSheetLabel,
       sourceLabel: "Major Project customer bundle",
     }))
@@ -1774,7 +1810,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       quantity: 1,
       unitPrice: line.oneTimeRevenue,
       totalPrice: line.oneTimeRevenue,
-      notes: line.description || "Customer-facing bundle rollup",
+      notes: compact([line.description, buildQuoteLineIncludedSentence(line)]).join(" "),
       specSheetLabel: line.resolvedSpecSheetLabel,
       serviceCategory: "custom" as const,
       pricingStage: "budgetary" as const,
