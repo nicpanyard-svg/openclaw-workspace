@@ -18,6 +18,10 @@ function normalizeText(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
+function normalizeNumber(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
 function normalizeLines(lines: unknown) {
   if (!Array.isArray(lines)) return [];
   return lines.map((line) => normalizeText(line));
@@ -246,6 +250,10 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
     const inetAddressLines = normalizeLines(parsed.inet?.addressLines);
 
     const normalizedCompanyKey = RAPIDQUOTE_DEPLOYMENT_KEY;
+    const normalizedQuoteType = parsed.metadata?.quoteType === "lease" ? "lease" : "purchase";
+    const parsedLeaseTerm = parsed.metadata?.leaseTermMonths;
+    const normalizedLeaseTerm = parsedLeaseTerm === 24 || parsedLeaseTerm === 36 ? parsedLeaseTerm : 12;
+    const normalizedLeaseMarginPercent = Math.min(Math.max(normalizeNumber(parsed.metadata?.leaseMarginPercent, 35), 0), 95);
 
     return normalizeMajorProjectAttachmentState({
       ...parsed,
@@ -268,6 +276,10 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
             : COMPANY_BRANDING[normalizedCompanyKey].defaultOutputTemplateKey,
         expirationDate: normalizeText(parsed.metadata?.expirationDate) || buildDefaultExpirationDate(normalizeText(parsed.metadata?.proposalDate), normalizedCompanyKey),
         workflowMode: parsed.metadata?.workflowMode ?? "quick_quote",
+        quoteType: normalizedQuoteType,
+        leaseTermMonths: normalizedLeaseTerm,
+        leaseMarginPercent: normalizedLeaseMarginPercent,
+        hasActiveDataAgreement: parsed.metadata?.hasActiveDataAgreement ?? false,
         opportunityId: normalizeText(parsed.metadata?.opportunityId) || undefined,
         opportunityName: normalizeText(parsed.metadata?.opportunityName) || undefined,
         salesTaxAmount: typeof parsed.metadata?.salesTaxAmount === "number" && Number.isFinite(parsed.metadata.salesTaxAmount)
