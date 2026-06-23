@@ -672,6 +672,47 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: "#16202b",
   },
+  leasePricingCard: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#d7dde5",
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.97)",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  leasePricingTitle: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#16202b",
+  },
+  leasePricingGrid: {
+    marginTop: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  leasePricingCell: {
+    width: "48.5%",
+    borderWidth: 1,
+    borderColor: "#dfe5ec",
+    borderRadius: 10,
+    backgroundColor: "#fbfcfe",
+    paddingVertical: 8,
+    paddingHorizontal: 9,
+  },
+  leasePricingTotalCell: {
+    width: "100%",
+    borderColor: "#f0cbcb",
+    backgroundColor: "#fff8f8",
+  },
+  leasePricingValue: {
+    marginTop: 4,
+    fontSize: 12.5,
+    fontWeight: 700,
+    color: "#16202b",
+  },
   approvalBlock: {
     marginTop: 16,
     borderWidth: 1,
@@ -1350,6 +1391,50 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
             </View>
           ) : null}
         </View>
+
+        {model.quoteType === "lease" ? (
+          <View style={styles.leasePricingCard}>
+            <Text style={styles.overline}>Lease pricing</Text>
+            <Text style={styles.leasePricingTitle}>Lease pricing schedule</Text>
+            <View style={styles.leasePricingGrid}>
+              <View style={styles.leasePricingCell}>
+                <Text style={styles.summaryLabel}>Lease term</Text>
+                <Text style={styles.leasePricingValue}>{model.leaseTermMonths} months</Text>
+              </View>
+              <View style={styles.leasePricingCell}>
+                <Text style={styles.summaryLabel}>Target hardware margin</Text>
+                <Text style={styles.leasePricingValue}>{model.leaseMarginPercent.toFixed(2)}%</Text>
+              </View>
+              <View style={styles.leasePricingCell}>
+                <Text style={styles.summaryLabel}>Hardware cost basis</Text>
+                <Text style={styles.leasePricingValue}>{formatCurrency(model.leaseHardwareCost, model.currencyCode)}</Text>
+              </View>
+              <View style={styles.leasePricingCell}>
+                <Text style={styles.summaryLabel}>Required hardware revenue</Text>
+                <Text style={styles.leasePricingValue}>{formatCurrency(model.leaseRequiredHardwareRevenue, model.currencyCode)}</Text>
+              </View>
+              <View style={styles.leasePricingCell}>
+                <Text style={styles.summaryLabel}>Hardware monthly</Text>
+                <Text style={styles.leasePricingValue}>{formatCurrency(model.leaseHardwareMonthly, model.currencyCode)}</Text>
+              </View>
+              <View style={styles.leasePricingCell}>
+                <Text style={styles.summaryLabel}>Recurring monthly service</Text>
+                <Text style={styles.leasePricingValue}>{formatCurrency(model.recurringMonthlyTotal, model.currencyCode)}</Text>
+              </View>
+              <View style={[styles.leasePricingCell, styles.leasePricingTotalCell]}>
+                <Text style={styles.summaryLabel}>Estimated lease monthly</Text>
+                <Text style={styles.grandTotalValue}>{formatCurrency(model.leaseMonthly, model.currencyCode)}</Text>
+              </View>
+            </View>
+            <Text style={styles.paragraph}>
+              Formula: hardware cost divided by (1 - margin) = required hardware revenue; required hardware revenue
+              divided by term = hardware monthly; hardware monthly plus recurring monthly service = estimated lease monthly.
+            </Text>
+            {!model.leaseHasActiveDataAgreement ? (
+              <Text style={styles.paragraph}>Active data agreement has not been confirmed on this saved lease quote.</Text>
+            ) : null}
+          </View>
+        ) : null}
 
         <View style={styles.paragraphCard}>
           <Text style={styles.paragraph}>

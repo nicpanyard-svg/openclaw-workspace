@@ -6,6 +6,7 @@ import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
 import {
   buildProposalCommercialSummary,
   getEquipmentTotal,
+  getLeasePricingSummary,
   getLeaseMonthlyTotal,
   getOptionalServicesTotal,
   getQuoteContentPresence,
@@ -123,7 +124,10 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
   const equipmentTotal = getEquipmentTotal(quote);
   const sectionCTotal = getOptionalServicesTotal(quote);
-  const leaseMonthly = getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
+  const leasePricing = getLeasePricingSummary(quote, recurringMonthlyTotal, equipmentTotal);
+  const leaseMonthly = quote.metadata.quoteType === "lease"
+    ? leasePricing.leaseMonthly
+    : getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
   const executiveSummaryRenderBlocks = buildExecutiveSummaryRenderBlocks(quote.executiveSummary);
   const sectionAHeading = buildSectionHeadingContent("Services", "Recurring services", quote.sections.sectionA.title);
   const sectionBHeading = buildSectionHeadingContent("Equipment", "Equipment and accessories", quote.sections.sectionB.title);
@@ -984,6 +988,51 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
             </div>
           )}
         </div>
+
+        {quote.metadata.quoteType === "lease" ? (
+          <div className="proposal-copy proposal-copy-card proposal-lease-pricing-card print-keep-block">
+            <div className="proposal-overline">Lease pricing</div>
+            <h3 className="proposal-mini-heading">Lease pricing schedule</h3>
+            <div className="proposal-lease-pricing-grid">
+              <div>
+                <span>Lease term</span>
+                <strong>{leasePricing.termMonths} months</strong>
+              </div>
+              <div>
+                <span>Target hardware margin</span>
+                <strong>{leasePricing.marginPercent.toFixed(2)}%</strong>
+              </div>
+              <div>
+                <span>Hardware cost basis</span>
+                <strong>{formatCurrency(leasePricing.hardwareCost, currencyCode)}</strong>
+              </div>
+              <div>
+                <span>Required hardware revenue</span>
+                <strong>{formatCurrency(leasePricing.requiredHardwareRevenue, currencyCode)}</strong>
+              </div>
+              <div>
+                <span>Hardware monthly</span>
+                <strong>{formatCurrency(leasePricing.hardwareMonthly, currencyCode)}</strong>
+              </div>
+              <div>
+                <span>Recurring monthly service</span>
+                <strong>{formatCurrency(leasePricing.recurringMonthlyTotal, currencyCode)}</strong>
+              </div>
+              <div className="proposal-lease-pricing-total">
+                <span>Estimated lease monthly</span>
+                <strong>{formatCurrency(leasePricing.leaseMonthly, currencyCode)}</strong>
+              </div>
+            </div>
+            <p>
+              Formula: hardware cost divided by (1 - margin) = required hardware revenue; required hardware
+              revenue divided by term = hardware monthly; hardware monthly plus recurring monthly service =
+              estimated lease monthly.
+            </p>
+            {!leasePricing.hasActiveDataAgreement ? (
+              <p>Active data agreement has not been confirmed on this saved lease quote.</p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="proposal-copy proposal-copy-card closing-copy closing-copy-strong print-keep-block">
           <p>

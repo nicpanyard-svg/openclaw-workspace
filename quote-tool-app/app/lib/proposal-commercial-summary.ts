@@ -104,18 +104,51 @@ function getLeaseHardwareCost(quote: QuoteRecord, equipmentTotal: number) {
   return Number((capturedEquipmentCost > 0 ? capturedEquipmentCost : equipmentTotal).toFixed(2));
 }
 
+export type LeasePricingSummary = {
+  isLease: boolean;
+  hasActiveDataAgreement: boolean;
+  termMonths: 12 | 24 | 36;
+  marginPercent: number;
+  recurringMonthlyTotal: number;
+  hardwareCost: number;
+  requiredHardwareRevenue: number;
+  hardwareGrossProfit: number;
+  hardwareMonthly: number;
+  leaseMonthly: number;
+};
+
+export function getLeasePricingSummary(
+  quote: QuoteRecord,
+  recurringMonthlyTotal?: number,
+  equipmentTotal?: number,
+): LeasePricingSummary {
+  const recurring = recurringMonthlyTotal ?? getRecurringMonthlyTotal(quote);
+  const equipment = equipmentTotal ?? getEquipmentTotal(quote);
+  const marginPercent = quote.metadata.leaseMarginPercent ?? 35;
+  const term = quote.metadata.leaseTermMonths ?? 12;
+  const leaseHardwareCost = getLeaseHardwareCost(quote, equipment);
+  const requiredHardwareRevenue = applyMarginToCost(leaseHardwareCost, marginPercent);
+  const hardwareMonthly = Number((requiredHardwareRevenue / term).toFixed(2));
+
+  return {
+    isLease: quote.metadata.quoteType === "lease",
+    hasActiveDataAgreement: quote.metadata.hasActiveDataAgreement ?? false,
+    termMonths: term,
+    marginPercent,
+    recurringMonthlyTotal: recurring,
+    hardwareCost: leaseHardwareCost,
+    requiredHardwareRevenue,
+    hardwareGrossProfit: Number((requiredHardwareRevenue - leaseHardwareCost).toFixed(2)),
+    hardwareMonthly,
+    leaseMonthly: Number((recurring + hardwareMonthly).toFixed(2)),
+  };
+}
+
 export function getLeaseMonthlyTotal(quote: QuoteRecord, recurringMonthlyTotal?: number, equipmentTotal?: number) {
   if (quote.metadata.quoteType !== "lease") return 0;
   if (!quote.metadata.hasActiveDataAgreement) return 0;
 
-  const recurring = recurringMonthlyTotal ?? getRecurringMonthlyTotal(quote);
-  const equipment = equipmentTotal ?? getEquipmentTotal(quote);
-  const marginPercent = quote.metadata.leaseMarginPercent ?? 35;
-  const leaseHardwareCost = getLeaseHardwareCost(quote, equipment);
-  const leaseBase = applyMarginToCost(leaseHardwareCost, marginPercent);
-  const term = quote.metadata.leaseTermMonths ?? 12;
-
-  return Number((recurring + leaseBase / term).toFixed(2));
+  return getLeasePricingSummary(quote, recurringMonthlyTotal, equipmentTotal).leaseMonthly;
 }
 
 export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalCommercialSummaryItem[] {

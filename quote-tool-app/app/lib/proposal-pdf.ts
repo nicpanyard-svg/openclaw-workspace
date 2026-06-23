@@ -2,6 +2,7 @@ import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
 import {
   buildProposalCommercialSummary,
   getEquipmentTotal,
+  getLeasePricingSummary,
   getLeaseMonthlyTotal,
   getOptionalServicesTotal,
   getQuoteContentPresence,
@@ -65,6 +66,13 @@ export type ProposalPdfViewModel = {
   serviceTotal: number;
   quoteType: QuoteRecord["metadata"]["quoteType"];
   leaseMonthly: number;
+  leaseTermMonths: 12 | 24 | 36;
+  leaseMarginPercent: number;
+  leaseHardwareCost: number;
+  leaseRequiredHardwareRevenue: number;
+  leaseHardwareGrossProfit: number;
+  leaseHardwareMonthly: number;
+  leaseHasActiveDataAgreement: boolean;
   currencyCode: string;
   terms: QuoteRecord["terms"];
   approval: QuoteRecord["approval"];
@@ -95,7 +103,10 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
   const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
   const equipmentTotal = getEquipmentTotal(quote);
   const serviceTotal = getOptionalServicesTotal(quote);
-  const leaseMonthly = getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
+  const leasePricing = getLeasePricingSummary(quote, recurringMonthlyTotal, equipmentTotal);
+  const leaseMonthly = quote.metadata.quoteType === "lease"
+    ? leasePricing.leaseMonthly
+    : getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
 
   const executiveSummaryBlocks = buildExecutiveSummaryRenderBlocks(quote.executiveSummary);
   const customerVisibleCustomFields = (quote.customFields ?? []).filter(
@@ -171,6 +182,13 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     serviceTotal,
     quoteType: quote.metadata.quoteType,
     leaseMonthly,
+    leaseTermMonths: leasePricing.termMonths,
+    leaseMarginPercent: leasePricing.marginPercent,
+    leaseHardwareCost: leasePricing.hardwareCost,
+    leaseRequiredHardwareRevenue: leasePricing.requiredHardwareRevenue,
+    leaseHardwareGrossProfit: leasePricing.hardwareGrossProfit,
+    leaseHardwareMonthly: leasePricing.hardwareMonthly,
+    leaseHasActiveDataAgreement: leasePricing.hasActiveDataAgreement,
     currencyCode: quote.metadata.currencyCode || "USD",
     terms: quote.terms,
     approval: quote.approval,

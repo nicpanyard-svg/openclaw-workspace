@@ -3060,6 +3060,46 @@ body {
   page-break-inside: avoid;
 }
 
+.proposal-lease-pricing-card {
+  margin-top: 12px;
+}
+
+.proposal-lease-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.proposal-lease-pricing-grid > div {
+  border: 1px solid #dfe5ec;
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 9px 10px;
+}
+
+.proposal-lease-pricing-grid span {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7d8996;
+}
+
+.proposal-lease-pricing-grid strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  color: #16202b;
+}
+
+.proposal-lease-pricing-grid .proposal-lease-pricing-total {
+  grid-column: 1 / -1;
+  border-color: #f0cbcb;
+  background: #fff8f8;
+}
+
 .proposal-detail-grid,
 .proposal-address-grid,
 .proposal-callout-grid {
