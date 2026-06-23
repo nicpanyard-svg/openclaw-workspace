@@ -1973,16 +1973,20 @@ export default function QuotePreview() {
   const hasActiveDataAgreement = quote.metadata.hasActiveDataAgreement ?? false;
   const leaseMarginPercent = quote.metadata.leaseMarginPercent ?? 35;
   const selectedBranding = getQuoteBranding(quote);
-
-  const leaseMarginAmount = useMemo(() => {
-    if (quote.metadata.quoteType !== "lease" || !isMajorProject) return 0;
-    return Number((equipmentTotal * (leaseMarginPercent / 100)).toFixed(2));
-  }, [equipmentTotal, isMajorProject, leaseMarginPercent, quote.metadata.quoteType]);
+  const leaseHardwareCost = useMemo(() => {
+    const capturedEquipmentCost = quote.commercial?.costs?.oneTimeEquipmentCost ?? 0;
+    return Number((capturedEquipmentCost > 0 ? capturedEquipmentCost : equipmentTotal).toFixed(2));
+  }, [equipmentTotal, quote.commercial?.costs?.oneTimeEquipmentCost]);
 
   const leaseEquipmentBase = useMemo(() => {
     if (quote.metadata.quoteType !== "lease") return 0;
-    return Number((equipmentTotal + leaseMarginAmount).toFixed(2));
-  }, [equipmentTotal, leaseMarginAmount, quote.metadata.quoteType]);
+    return applyMarginToCost(leaseHardwareCost, leaseMarginPercent);
+  }, [leaseHardwareCost, leaseMarginPercent, quote.metadata.quoteType]);
+
+  const leaseMarginAmount = useMemo(() => {
+    if (quote.metadata.quoteType !== "lease") return 0;
+    return Number((leaseEquipmentBase - leaseHardwareCost).toFixed(2));
+  }, [leaseEquipmentBase, leaseHardwareCost, quote.metadata.quoteType]);
 
   const leaseEquipmentMonthly = useMemo(() => {
     if (quote.metadata.quoteType !== "lease") return 0;
@@ -5030,9 +5034,7 @@ export default function QuotePreview() {
                   <div className="builder-eyebrow">Lease calculator</div>
                   <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Lease pricing builder</h3>
                   <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                    {isMajorProject
-                      ? "Lease pricing is gated by an active data agreement. Hardware margin is editable and spread across the selected lease term."
-                      : "Lease pricing is gated by an active data agreement. Quick Quote spreads the hardware total across the selected term, then adds monthly service."}
+                    Lease pricing is gated by an active data agreement. Set the target hardware margin, then RapidQuote solves the lease hardware revenue and spreads it across the selected term.
                   </p>
 
                   <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
@@ -5065,47 +5067,46 @@ export default function QuotePreview() {
                           </select>
                         </label>
 
-                        {isMajorProject && (
-                          <label className="builder-field compact">
-                            <span>Lease margin %</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={leaseMarginPercent}
-                              onChange={(e) => updateQuote((draft) => {
-                                draft.metadata.leaseMarginPercent = Math.max(parseNumber(e.target.value), 0);
-                                return draft;
-                              })}
-                            />
-                          </label>
-                        )}
+                        <label className="builder-field compact">
+                          <span>Target hardware margin %</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="95"
+                            step="0.01"
+                            value={leaseMarginPercent}
+                            onChange={(e) => updateQuote((draft) => {
+                              draft.metadata.leaseMarginPercent = Math.min(Math.max(parseNumber(e.target.value), 0), 95);
+                              return draft;
+                            })}
+                          />
+                        </label>
                       </div>
 
                       <div className={`rounded-[18px] border px-4 py-3 text-[13px] leading-[1.5] ${hasActiveDataAgreement ? "border-[#d9e7dd] bg-[#f5fbf6] text-[#365444]" : "border-[#f0d1d1] bg-[#fff1f1] text-[#7d4b4b]"}`}>
                         {hasActiveDataAgreement
-                          ? isMajorProject
-                            ? `Lease pricing is active. The monthly lease total below now includes the ${leaseMarginPercent}% hardware margin spread across the selected term.`
-                            : "Lease pricing is active. The monthly lease total below spreads hardware across the selected term and adds recurring monthly service."
+                          ? `Lease pricing is active. The monthly lease total below includes ${leaseMarginPercent}% target hardware margin spread across the selected term.`
                           : "Lease pricing is locked until an active data agreement is confirmed. Turn this on to enable the lease monthly number."}
                       </div>
                     </div>
 
                     <div className="space-y-3 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                       <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Purchase hardware total</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>
-                      {isMajorProject && <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Lease margin ({leaseMarginPercent}%)</span><strong>{formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>}
-                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Lease hardware base</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
+                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Hardware cost basis</span><strong>{formatCurrency(leaseHardwareCost, currencyCode)}</strong></div>
+                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Target hardware margin</span><strong>{formatPercent(leaseMarginPercent)}</strong></div>
+                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Required hardware revenue</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
+                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Hardware gross profit</span><strong>{formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>
                       <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Selected term</span><strong>{selectedLeaseTerm} months</strong></div>
                       <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Hardware per month</span><strong>{formatCurrency(leaseEquipmentMonthly, currencyCode)}</strong></div>
                       <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Recurring monthly service</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>
                       <div className="rounded-[16px] border border-[#e8edf2] bg-[#fafcfd] px-4 py-3 text-[13px] text-[#5d6874]">
                         <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Calculation breakdown</div>
                         <div className="mt-2 space-y-2">
-                          <div className="flex items-center justify-between gap-3"><span>1. Equipment total</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>
-                          {isMajorProject && <div className="flex items-center justify-between gap-3"><span>2. + Margin ({leaseMarginPercent}%)</span><strong>+ {formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>}
-                          <div className="flex items-center justify-between gap-3"><span>{isMajorProject ? "3." : "2."} Lease hardware base</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>{isMajorProject ? "4." : "3."} ÷ Term ({selectedLeaseTerm})</span><strong>{formatCurrency(leaseEquipmentMonthly, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>{isMajorProject ? "5." : "4."} + Recurring monthly service</span><strong>+ {formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>1. Hardware cost basis</span><strong>{formatCurrency(leaseHardwareCost, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>2. Divide by (1 - {formatPercent(leaseMarginPercent)})</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>3. Hardware gross profit</span><strong>{formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>4. Divide by term ({selectedLeaseTerm})</span><strong>{formatCurrency(leaseEquipmentMonthly, currencyCode)}</strong></div>
+                          <div className="flex items-center justify-between gap-3"><span>5. Add recurring monthly service</span><strong>+ {formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>
                         </div>
                       </div>
                       <div className="border-t border-[#e8edf2] pt-3">
@@ -5115,9 +5116,7 @@ export default function QuotePreview() {
                         </div>
                         <div className="mt-1 text-[13px] text-[#60707f]">
                           {hasActiveDataAgreement
-                            ? isMajorProject
-                              ? `Formula: ${formatCurrency(equipmentTotal, currencyCode)} + ${leaseMarginPercent}% margin = ${formatCurrency(leaseEquipmentBase, currencyCode)}; then ${formatCurrency(leaseEquipmentBase, currencyCode)} ÷ ${selectedLeaseTerm} = ${formatCurrency(leaseEquipmentMonthly, currencyCode)}; then + ${formatCurrency(recurringMonthlyTotal, currencyCode)} recurring monthly service.`
-                              : `Formula: ${formatCurrency(equipmentTotal, currencyCode)} ÷ ${selectedLeaseTerm} = ${formatCurrency(leaseEquipmentMonthly, currencyCode)}; then + ${formatCurrency(recurringMonthlyTotal, currencyCode)} recurring monthly service.`
+                            ? `Formula: ${formatCurrency(leaseHardwareCost, currencyCode)} divided by (1 - ${formatPercent(leaseMarginPercent)}) = ${formatCurrency(leaseEquipmentBase, currencyCode)}; then ${formatCurrency(leaseEquipmentBase, currencyCode)} divided by ${selectedLeaseTerm} = ${formatCurrency(leaseEquipmentMonthly, currencyCode)}; then + ${formatCurrency(recurringMonthlyTotal, currencyCode)} recurring monthly service.`
                             : "This lease calculator stays disabled until the active data agreement box is checked."}
                         </div>
                       </div>

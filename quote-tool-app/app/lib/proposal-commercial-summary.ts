@@ -91,6 +91,19 @@ export function getCombinedOneTimeTotal(
   return Number((equipment + services).toFixed(2));
 }
 
+function applyMarginToCost(cost: number, marginPercent: number) {
+  const safeCost = Number.isFinite(cost) ? Math.max(cost, 0) : 0;
+  const safeMargin = Number.isFinite(marginPercent) ? Math.min(Math.max(marginPercent, 0), 95) : 0;
+  if (safeCost <= 0) return 0;
+  if (safeMargin <= 0) return Number(safeCost.toFixed(2));
+  return Number((safeCost / (1 - safeMargin / 100)).toFixed(2));
+}
+
+function getLeaseHardwareCost(quote: QuoteRecord, equipmentTotal: number) {
+  const capturedEquipmentCost = quote.commercial?.costs?.oneTimeEquipmentCost ?? 0;
+  return Number((capturedEquipmentCost > 0 ? capturedEquipmentCost : equipmentTotal).toFixed(2));
+}
+
 export function getLeaseMonthlyTotal(quote: QuoteRecord, recurringMonthlyTotal?: number, equipmentTotal?: number) {
   if (quote.metadata.quoteType !== "lease") return 0;
   if (!quote.metadata.hasActiveDataAgreement) return 0;
@@ -98,7 +111,8 @@ export function getLeaseMonthlyTotal(quote: QuoteRecord, recurringMonthlyTotal?:
   const recurring = recurringMonthlyTotal ?? getRecurringMonthlyTotal(quote);
   const equipment = equipmentTotal ?? getEquipmentTotal(quote);
   const marginPercent = quote.metadata.leaseMarginPercent ?? 35;
-  const leaseBase = equipment * (1 + marginPercent / 100);
+  const leaseHardwareCost = getLeaseHardwareCost(quote, equipment);
+  const leaseBase = applyMarginToCost(leaseHardwareCost, marginPercent);
   const term = quote.metadata.leaseTermMonths ?? 12;
 
   return Number((recurring + leaseBase / term).toFixed(2));
