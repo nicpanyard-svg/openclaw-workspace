@@ -423,9 +423,47 @@ export function deserializeProposalStore(value: string | null | undefined): Prop
   }
 }
 
+function normalizeProposalIdentifier(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/^#/, "").toLowerCase();
+}
+
+function compactProposalIdentifier(value: string | null | undefined) {
+  return normalizeProposalIdentifier(value).replace(/[^a-z0-9]+/g, "");
+}
+
+function getLongNumericIdentifier(value: string | null | undefined) {
+  const match = normalizeProposalIdentifier(value).match(/(\d{6,})$/);
+  return match?.[1] ?? "";
+}
+
+function proposalIdentifierMatches(requested: string | null | undefined, candidate: string | null | undefined) {
+  const normalizedRequested = normalizeProposalIdentifier(requested);
+  const normalizedCandidate = normalizeProposalIdentifier(candidate);
+  if (!normalizedRequested || !normalizedCandidate) return false;
+  if (normalizedRequested === normalizedCandidate) return true;
+
+  const compactRequested = compactProposalIdentifier(normalizedRequested);
+  const compactCandidate = compactProposalIdentifier(normalizedCandidate);
+  if (compactRequested && compactRequested === compactCandidate) return true;
+
+  const requestedNumber = getLongNumericIdentifier(normalizedRequested);
+  const candidateNumber = getLongNumericIdentifier(normalizedCandidate);
+  return requestedNumber.length >= 6 && requestedNumber === candidateNumber;
+}
+
 export function getProposalById(store: ProposalStoreData, proposalId: string | null | undefined) {
   if (!proposalId) return null;
-  return store.proposals.find((proposal) => proposal.id === proposalId) ?? null;
+  return store.proposals.find((proposal) => {
+    const identifiers = [
+      proposal.id,
+      proposal.quote.internal?.savedProposalId,
+      proposal.quote.internal?.quoteId,
+      proposal.quote.metadata?.proposalNumber,
+      proposal.quote.documentation?.proposalNumberLabel,
+    ];
+
+    return identifiers.some((identifier) => proposalIdentifierMatches(proposalId, identifier));
+  }) ?? null;
 }
 
 export function getActiveProposalId(store: ProposalStoreData, preferredId?: string | null) {
