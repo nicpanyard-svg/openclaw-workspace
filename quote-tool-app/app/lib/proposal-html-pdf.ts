@@ -128,7 +128,7 @@ export async function renderHtmlPdf(url: string, options?: PDFOptions, storageSt
 
 export async function renderHtmlContentPdf(html: string, options?: PDFOptions) {
   return withPdfPage(async (page) => {
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setContent(html, { waitUntil: "load" });
     await page.evaluateHandle("document.fonts.ready");
     return page.pdf(buildPdfOptions(options));
   });
