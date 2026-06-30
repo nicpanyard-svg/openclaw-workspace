@@ -1961,6 +1961,7 @@ export default function QuotePreview() {
   const currencyCode = quote.metadata.currencyCode || "USD";
   const workflowMode = quote.metadata.workflowMode ?? "quick_quote";
   const isMajorProject = workflowMode === "major_project";
+  const isLeaseQuote = quote.metadata.quoteType === "lease";
   const majorProjectState = ensureMajorProjectState(quote).majorProject;
   const activeMajorOption = getActiveMajorProjectOption(ensureMajorProjectState(quote));
   const activeSectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
@@ -1968,6 +1969,7 @@ export default function QuotePreview() {
   const recurringMonthlyTotal = useMemo(() => Number(activeSectionARows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2)), [activeSectionARows]);
   const equipmentTotal = useMemo(() => Number(quote.sections.sectionB.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? row.quantity * row.unitPrice), 0).toFixed(2)), [quote.sections.sectionB.lineItems]);
   const sectionCTotal = useMemo(() => Number(quote.sections.sectionC.lineItems.reduce((sum, row) => sum + row.totalPrice, 0).toFixed(2)), [quote.sections.sectionC.lineItems]);
+  const customerFacingOneTimeTotal = useMemo(() => Number(((isLeaseQuote ? 0 : equipmentTotal) + sectionCTotal).toFixed(2)), [equipmentTotal, isLeaseQuote, sectionCTotal]);
 
   const selectedLeaseTerm = quote.metadata.leaseTermMonths ?? 12;
   const hasActiveDataAgreement = quote.metadata.hasActiveDataAgreement ?? false;
@@ -4540,9 +4542,9 @@ export default function QuotePreview() {
                 <div className="builder-stat-note">Section A is driving the live recurring view.</div>
               </div>
               <div className="proposal-editor-metric-card">
-                <div className="builder-stat-label">One-time equipment</div>
+                <div className="builder-stat-label">{isLeaseQuote ? "Leased equipment" : "One-time equipment"}</div>
                 <div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
-                <div className="builder-stat-note">Hardware and one-time scope ready for review.</div>
+                <div className="builder-stat-note">{isLeaseQuote ? "Hardware selected for the lease pricing basis." : "Hardware and one-time scope ready for review."}</div>
               </div>
               <div className="proposal-editor-metric-card">
                 <div className="builder-stat-label">Optional services</div>
@@ -5091,7 +5093,7 @@ export default function QuotePreview() {
                     </div>
 
                     <div className="space-y-3 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
-                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Purchase hardware total</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>
+                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Selected hardware total</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>
                       <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Hardware cost basis</span><strong>{formatCurrency(leaseHardwareCost, currencyCode)}</strong></div>
                       <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Target hardware margin</span><strong>{formatPercent(leaseMarginPercent)}</strong></div>
                       <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Required hardware revenue</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
@@ -6762,7 +6764,7 @@ export default function QuotePreview() {
                   <div className="summary-subvalue">{isMajorProject ? `Imported BOM and vendor quote defaults seed customer pricing from vendor cost at ${DEFAULT_IMPORTED_MARGIN_PERCENT}% margin unless you override it.` : "Recommended defaults plus any edits you made in this proposal."}</div>
                   <div className="commercial-metric-grid mt-3">
                     <CommercialMetricCard label={isMajorProject ? "Recurring MRR" : "Recurring monthly"} value={formatCurrency(recurringMonthlyTotal, currencyCode)} detail={isMajorProject ? `${majorProjectTermMonths}-month driver on internal contract math` : "Current monthly recurring total"} tone="accent" />
-                    <CommercialMetricCard label="One-time total" value={formatCurrency(equipmentTotal + sectionCTotal, currencyCode)} detail="Hardware and optional services combined" />
+                    <CommercialMetricCard label="Customer one-time total" value={formatCurrency(customerFacingOneTimeTotal, currencyCode)} detail={isLeaseQuote ? "Leased hardware excluded; optional services only" : "Hardware and optional services combined"} />
                     <CommercialMetricCard label={isMajorProject ? "Contract GP" : "Gross profit"} value={formatCurrency(commercialMetrics.totalGrossProfit, currencyCode)} detail={isMajorProject ? "Internal full-contract profit" : "Current internal proposal profit"} tone={commercialMetrics.totalGrossProfit >= 0 ? "success" : "warn"} />
                     <CommercialMetricCard label={isMajorProject ? "Contract margin" : "Gross margin"} value={formatPercent(commercialMetrics.totalGrossMarginPercent)} detail={`Recurring margin ${formatPercent(commercialMetrics.recurringGrossMarginPercent)}`} tone={commercialMetrics.totalGrossMarginPercent >= 25 ? "success" : commercialMetrics.totalGrossMarginPercent > 0 ? "accent" : "warn"} />
                   </div>
@@ -6803,7 +6805,7 @@ export default function QuotePreview() {
                 <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{isMajorProject ? "MRR schedule" : quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{isMajorProject ? `Month driver: ${quote.sections.sectionA.termMonths} months • generated from ${activeMajorOption?.label ?? "active major option"}` : `${activeSectionARows.length} row(s) ready for the proposal`}</div></div>
                 <div className="summary-block"><div className="summary-label">Section B output</div><div className="summary-value">{contentPresence.hasSectionBContent ? `${quote.sections.sectionB.lineItems.length} hardware row(s)` : "No hardware added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionBContent ? (suggestedAccessories.length > 0 ? `${suggestedAccessories.length} accessory suggestion(s) available` : "All suggested accessories are already added") : "Add equipment only when this quote actually needs one-time hardware."}</div></div>
                 <div className="summary-block"><div className="summary-label">Section C output</div><div className="summary-value">{contentPresence.hasSectionCContent ? quote.sections.sectionC.title : "No field services added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionCContent ? `${quote.sections.sectionC.lineItems.length} service row(s) • ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "budgetary").length} budgetary / ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "final").length} final` : "Field services stay out of the proposal until live rows exist."}</div></div>
-                <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>{isMajorProject ? "MRR" : "Recurring monthly"}</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>{contentPresence.hasSectionBContent && <div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>}{contentPresence.hasSectionCContent && <div className="flex justify-between gap-3"><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>}{quote.metadata.quoteType === "lease" && <div className="brand-text-emphasis flex justify-between gap-3"><span>Blended lease monthly</span><strong>{hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}</strong></div>}</div></div>
+                <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>{isMajorProject ? "MRR" : "Recurring monthly"}</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>{contentPresence.hasSectionBContent && !isLeaseQuote && <div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>}{contentPresence.hasSectionCContent && <div className="flex justify-between gap-3"><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>}{quote.metadata.quoteType === "lease" && <div className="brand-text-emphasis flex justify-between gap-3"><span>Blended lease monthly</span><strong>{hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}</strong></div>}</div></div>
                 <div className="summary-block">
                   <div className="summary-label">Review handoff</div>
                   <div className="summary-value">Save here. Export from Preview.</div>

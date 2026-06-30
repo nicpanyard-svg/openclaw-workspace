@@ -81,14 +81,31 @@ export function getOptionalServicesTotal(quote: QuoteRecord) {
   );
 }
 
+export function isLeaseQuote(quote: QuoteRecord) {
+  return quote.metadata.quoteType === "lease";
+}
+
+export function getCustomerFacingEquipmentTotal(quote: QuoteRecord, equipmentTotal?: number) {
+  const equipment = equipmentTotal ?? getEquipmentTotal(quote);
+  return isLeaseQuote(quote) ? 0 : equipment;
+}
+
+export function getCustomerFacingOneTimeTotal(
+  quote: QuoteRecord,
+  equipmentTotal?: number,
+  optionalServicesTotal?: number,
+) {
+  const equipment = getCustomerFacingEquipmentTotal(quote, equipmentTotal);
+  const services = optionalServicesTotal ?? getOptionalServicesTotal(quote);
+  return Number((equipment + services).toFixed(2));
+}
+
 export function getCombinedOneTimeTotal(
   quote: QuoteRecord,
   equipmentTotal?: number,
   optionalServicesTotal?: number,
 ) {
-  const equipment = equipmentTotal ?? getEquipmentTotal(quote);
-  const services = optionalServicesTotal ?? getOptionalServicesTotal(quote);
-  return Number((equipment + services).toFixed(2));
+  return getCustomerFacingOneTimeTotal(quote, equipmentTotal, optionalServicesTotal);
 }
 
 function applyMarginToCost(cost: number, marginPercent: number) {
@@ -146,7 +163,6 @@ export function getLeasePricingSummary(
 
 export function getLeaseMonthlyTotal(quote: QuoteRecord, recurringMonthlyTotal?: number, equipmentTotal?: number) {
   if (quote.metadata.quoteType !== "lease") return 0;
-  if (!quote.metadata.hasActiveDataAgreement) return 0;
 
   return getLeasePricingSummary(quote, recurringMonthlyTotal, equipmentTotal).leaseMonthly;
 }
@@ -155,8 +171,11 @@ export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalComm
   const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
   const equipmentTotal = getEquipmentTotal(quote);
   const optionalServicesTotal = getOptionalServicesTotal(quote);
+  const isLease = isLeaseQuote(quote);
   const combinedOneTimeTotal = getCombinedOneTimeTotal(quote, equipmentTotal, optionalServicesTotal);
-  const leaseMonthlyTotal = getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
+  const leaseMonthlyTotal = isLease
+    ? getLeasePricingSummary(quote, recurringMonthlyTotal, equipmentTotal).leaseMonthly
+    : getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
   const presence = getQuoteContentPresence(quote);
 
   const items: ProposalCommercialSummaryItem[] = [];
@@ -169,7 +188,7 @@ export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalComm
     });
   }
 
-  if (presence.hasSectionBContent) {
+  if (presence.hasSectionBContent && !isLease) {
     items.push({
       key: "one-time-equipment",
       label: "One-time equipment",
@@ -191,7 +210,7 @@ export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalComm
     });
   }
 
-  if (quote.metadata.quoteType === "lease") {
+  if (isLease) {
     items.push({
       key: "estimated-lease-monthly",
       label: "Estimated lease monthly",

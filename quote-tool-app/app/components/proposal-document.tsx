@@ -5,6 +5,7 @@ import { IliosEstimateDocument } from "@/app/components/ilios-estimate-document"
 import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
 import {
   buildProposalCommercialSummary,
+  getCombinedOneTimeTotal,
   getEquipmentTotal,
   getLeasePricingSummary,
   getLeaseMonthlyTotal,
@@ -125,7 +126,8 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   const equipmentTotal = getEquipmentTotal(quote);
   const sectionCTotal = getOptionalServicesTotal(quote);
   const leasePricing = getLeasePricingSummary(quote, recurringMonthlyTotal, equipmentTotal);
-  const leaseMonthly = quote.metadata.quoteType === "lease"
+  const isLeaseQuote = quote.metadata.quoteType === "lease";
+  const leaseMonthly = isLeaseQuote
     ? leasePricing.leaseMonthly
     : getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
   const executiveSummaryRenderBlocks = buildExecutiveSummaryRenderBlocks(quote.executiveSummary);
@@ -149,6 +151,22 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   );
   const contentPresence = getQuoteContentPresence(quote);
   const commercialSummaryItems = buildProposalCommercialSummary(quote);
+  const customerFacingOneTimeTotal = getCombinedOneTimeTotal(
+    quote,
+    equipmentTotal,
+    contentPresence.hasSectionCContent ? sectionCTotal : 0,
+  );
+  const sectionBIntroText = isLeaseQuote
+    ? "The equipment below is included in the lease structure and is not billed as a separate upfront equipment purchase."
+    : quote.sections.sectionB.introText || "The prices below reflect one-time hardware and accessory charges.";
+  const sectionBSummaryValue = isLeaseQuote ? "Included in lease" : formatCurrency(equipmentTotal, currencyCode);
+  const sectionBSummaryCopy = isLeaseQuote
+    ? "Hardware is retained as the lease cost basis and rolled into the estimated lease monthly."
+    : "One-time hardware, accessories, and related material pricing.";
+  const sectionBUnitPriceLabel = isLeaseQuote ? "Lease Treatment" : "Unit Price";
+  const sectionBTotalPriceLabel = isLeaseQuote ? "Customer Upfront" : "Total Price";
+  const sectionBTotalLabel = isLeaseQuote ? "Customer upfront equipment total" : "One-time equipment total";
+  const sectionBTotalValue = isLeaseQuote ? formatCurrency(0, currencyCode) : formatCurrency(equipmentTotal, currencyCode);
   const systemDrawingAttachments = quote.majorProject?.summary?.systemDrawings ?? [];
   const resolvedSpecSheetAttachments = useMemo(() => resolveMajorProjectOutputSpecAttachments(quote), [quote]);
   const pricingSnapshotItems = commercialSummaryItems.map((item) => ({
@@ -646,16 +664,13 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
             {sectionBHeading.badge ? <div className="section-heading-badge">{sectionBHeading.badge}</div> : null}
             {sectionBHeading.overline ? <div className="proposal-overline">{sectionBHeading.overline}</div> : null}
             <h2 className="proposal-section-title">{sectionBHeading.title}</h2>
-            <p className="proposal-intro">
-              {quote.sections.sectionB.introText ||
-                "The prices below reflect one-time hardware and accessory charges."}
-            </p>
+            <p className="proposal-intro">{sectionBIntroText}</p>
           </div>
 
           <div className="proposal-section-summary-card keep-with-next">
             <div className="proposal-section-summary-label">Section summary</div>
-            <div className="proposal-section-summary-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
-            <div className="proposal-section-summary-copy">One-time hardware, accessories, and related material pricing.</div>
+            <div className="proposal-section-summary-value">{sectionBSummaryValue}</div>
+            <div className="proposal-section-summary-copy">{sectionBSummaryCopy}</div>
           </div>
 
           <table className="proposal-table sample-table">
@@ -663,8 +678,8 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
               <tr>
                 <th>Equipment Description</th>
                 <th>Qty</th>
-                <th>Unit Price</th>
-                <th>Total Price</th>
+                <th>{sectionBUnitPriceLabel}</th>
+                <th>{sectionBTotalPriceLabel}</th>
               </tr>
             </thead>
             <tbody>
@@ -690,15 +705,15 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
                     </div>
                   </td>
                   <td>{row.quantity}</td>
-                  <td>{formatCurrency(row.unitPrice, currencyCode)}</td>
-                  <td>{formatCurrency(row.totalPrice, currencyCode)}</td>
+                  <td>{isLeaseQuote ? "Included in lease" : formatCurrency(row.unitPrice, currencyCode)}</td>
+                  <td>{isLeaseQuote ? formatCurrency(0, currencyCode) : formatCurrency(row.totalPrice, currencyCode)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="proposal-total-row">
-                <td colSpan={3}>One-time equipment total</td>
-                <td>{formatCurrency(equipmentTotal, currencyCode)}</td>
+                <td colSpan={3}>{sectionBTotalLabel}</td>
+                <td>{sectionBTotalValue}</td>
               </tr>
             </tfoot>
           </table>
@@ -963,7 +978,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
               <div className="grand-total-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
             </div>
           )}
-          {contentPresence.hasSectionBContent && (
+          {contentPresence.hasSectionBContent && !isLeaseQuote && (
             <div className="grand-total-card print-keep-block">
               <div className="grand-total-label">One-time equipment</div>
               <div className="grand-total-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
@@ -977,11 +992,11 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
               </div>
               <div className="grand-total-card accent-card print-keep-block">
                 <div className="grand-total-label">One-time total</div>
-                <div className="grand-total-value">{formatCurrency(equipmentTotal + sectionCTotal, currencyCode)}</div>
+                <div className="grand-total-value">{formatCurrency(customerFacingOneTimeTotal, currencyCode)}</div>
               </div>
             </>
           )}
-          {quote.metadata.quoteType === "lease" && (
+          {isLeaseQuote && (
             <div className="grand-total-card accent-card print-keep-block">
               <div className="grand-total-label">Estimated lease monthly</div>
               <div className="grand-total-value">{formatCurrency(leaseMonthly, currencyCode)}</div>
@@ -989,7 +1004,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
           )}
         </div>
 
-        {quote.metadata.quoteType === "lease" ? (
+        {isLeaseQuote ? (
           <div className="proposal-copy proposal-copy-card proposal-lease-pricing-card print-keep-block">
             <div className="proposal-overline">Lease pricing</div>
             <h3 className="proposal-mini-heading">Lease pricing schedule</h3>

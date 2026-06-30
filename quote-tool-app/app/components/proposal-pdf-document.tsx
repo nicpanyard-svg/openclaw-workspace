@@ -886,6 +886,15 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
   const sectionAHeading = buildSectionHeadingContent("Services", "Recurring services", model.sectionATitle);
   const sectionBHeading = buildSectionHeadingContent("Equipment", "Equipment and accessories", model.sectionBTitle);
   const sectionCHeading = buildSectionHeadingContent("Services", "Field services", model.sectionCTitle);
+  const isLeaseQuote = model.quoteType === "lease";
+  const sectionBSummaryValue = isLeaseQuote ? "Included in lease" : formatCurrency(model.equipmentTotal, model.currencyCode);
+  const sectionBSummaryCopy = isLeaseQuote
+    ? "Hardware is retained as the lease cost basis and rolled into the estimated lease monthly."
+    : "One-time hardware, accessories, and related material pricing.";
+  const sectionBUnitPriceLabel = isLeaseQuote ? "Lease Treatment" : "Unit Price";
+  const sectionBTotalPriceLabel = isLeaseQuote ? "Customer Upfront" : "Total Price";
+  const sectionBTotalLabel = isLeaseQuote ? "Customer upfront equipment total" : "One-time equipment total";
+  const sectionBTotalValue = isLeaseQuote ? formatCurrency(0, model.currencyCode) : formatCurrency(model.equipmentTotal, model.currencyCode);
 
   return (
     <>
@@ -1206,16 +1215,16 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
 
           <View style={styles.sectionSummaryCard}>
             <Text style={styles.summaryLabel}>Section summary</Text>
-            <Text style={styles.sectionSummaryValue}>{formatCurrency(model.equipmentTotal, model.currencyCode)}</Text>
-            <Text style={styles.summaryPanelCopy}>One-time hardware, accessories, and related material pricing.</Text>
+            <Text style={styles.sectionSummaryValue}>{sectionBSummaryValue}</Text>
+            <Text style={styles.summaryPanelCopy}>{sectionBSummaryCopy}</Text>
           </View>
 
           <View style={styles.table}>
             <TableRow style={styles.tableHead}>
               <Cell style={styles.colWide}><Text style={styles.th}>Equipment Description</Text></Cell>
               <Cell style={styles.colNarrow}><Text style={styles.th}>Qty</Text></Cell>
-              <Cell style={styles.colMid}><Text style={styles.th}>Unit Price</Text></Cell>
-              <Cell style={styles.colMid}><Text style={styles.th}>Total Price</Text></Cell>
+              <Cell style={styles.colMid}><Text style={styles.th}>{sectionBUnitPriceLabel}</Text></Cell>
+              <Cell style={styles.colMid}><Text style={styles.th}>{sectionBTotalPriceLabel}</Text></Cell>
             </TableRow>
 
             {model.equipmentRows.map((row, index) => (
@@ -1231,16 +1240,16 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
                   </View>
                 </Cell>
                 <Cell style={styles.colNarrow}><Text style={styles.td}>{row.quantity}</Text></Cell>
-                <Cell style={styles.colMid}><Text style={styles.td}>{formatCurrency(row.unitPrice, model.currencyCode)}</Text></Cell>
-                <Cell style={styles.colMid}><Text style={styles.td}>{formatCurrency(row.totalPrice, model.currencyCode)}</Text></Cell>
+                <Cell style={styles.colMid}><Text style={styles.td}>{isLeaseQuote ? "Included in lease" : formatCurrency(row.unitPrice, model.currencyCode)}</Text></Cell>
+                <Cell style={styles.colMid}><Text style={styles.td}>{isLeaseQuote ? formatCurrency(0, model.currencyCode) : formatCurrency(row.totalPrice, model.currencyCode)}</Text></Cell>
               </TableRow>
             ))}
 
             <TableRow style={styles.totalRow}>
-              <Cell style={styles.colWide}><Text style={styles.td}>One-time equipment total</Text></Cell>
+              <Cell style={styles.colWide}><Text style={styles.td}>{sectionBTotalLabel}</Text></Cell>
               <Cell style={styles.colNarrow} />
               <Cell style={styles.colMid} />
-              <Cell style={styles.colMid}><Text style={styles.td}>{formatCurrency(model.equipmentTotal, model.currencyCode)}</Text></Cell>
+              <Cell style={styles.colMid}><Text style={styles.td}>{sectionBTotalValue}</Text></Cell>
             </TableRow>
           </View>
         </Page>
@@ -1368,10 +1377,12 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
             <Text style={styles.summaryLabel}>Recurring monthly</Text>
             <Text style={styles.grandTotalValue}>{formatCurrency(model.recurringMonthlyTotal, model.currencyCode)}</Text>
           </View>
-          <View style={styles.grandTotalCard}>
-            <Text style={styles.summaryLabel}>One-time equipment</Text>
-            <Text style={styles.grandTotalValue}>{formatCurrency(model.equipmentTotal, model.currencyCode)}</Text>
-          </View>
+          {!isLeaseQuote ? (
+            <View style={styles.grandTotalCard}>
+              <Text style={styles.summaryLabel}>One-time equipment</Text>
+              <Text style={styles.grandTotalValue}>{formatCurrency(model.equipmentTotal, model.currencyCode)}</Text>
+            </View>
+          ) : null}
           {model.sectionCEnabled ? (
             <>
               <View style={styles.grandTotalCard}>
@@ -1384,7 +1395,7 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
               </View>
             </>
           ) : null}
-          {model.quoteType === "lease" ? (
+          {isLeaseQuote ? (
             <View style={[styles.grandTotalCard, { borderColor: "#f0cbcb", backgroundColor: "#fff8f8" }]}>
               <Text style={styles.summaryLabel}>Estimated lease monthly</Text>
               <Text style={styles.grandTotalValue}>{formatCurrency(model.leaseMonthly, model.currencyCode)}</Text>
@@ -1392,7 +1403,7 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
           ) : null}
         </View>
 
-        {model.quoteType === "lease" ? (
+        {isLeaseQuote ? (
           <View style={styles.leasePricingCard}>
             <Text style={styles.overline}>Lease pricing</Text>
             <Text style={styles.leasePricingTitle}>Lease pricing schedule</Text>

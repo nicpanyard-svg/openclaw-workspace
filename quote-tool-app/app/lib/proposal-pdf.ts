@@ -1,6 +1,7 @@
 import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
 import {
   buildProposalCommercialSummary,
+  getCombinedOneTimeTotal,
   getEquipmentTotal,
   getLeasePricingSummary,
   getLeaseMonthlyTotal,
@@ -104,7 +105,8 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
   const equipmentTotal = getEquipmentTotal(quote);
   const serviceTotal = getOptionalServicesTotal(quote);
   const leasePricing = getLeasePricingSummary(quote, recurringMonthlyTotal, equipmentTotal);
-  const leaseMonthly = quote.metadata.quoteType === "lease"
+  const isLeaseQuote = quote.metadata.quoteType === "lease";
+  const leaseMonthly = isLeaseQuote
     ? leasePricing.leaseMonthly
     : getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
 
@@ -120,7 +122,11 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     formattedValue: formatCurrency(item.value, quote.metadata.currencyCode || "USD"),
     tone: item.tone ?? "default",
   }));
-  const oneTimeTotal = equipmentTotal + (contentPresence.hasSectionCContent ? serviceTotal : 0);
+  const oneTimeTotal = getCombinedOneTimeTotal(
+    quote,
+    equipmentTotal,
+    contentPresence.hasSectionCContent ? serviceTotal : 0,
+  );
   const billToLines = cleanLines([
     quote.billTo.companyName ?? "",
     quote.billTo.attention ?? "",
@@ -170,8 +176,9 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     recurringMonthlyTotal,
     sectionBEnabled: quote.sections.sectionB.enabled && contentPresence.hasSectionBContent,
     sectionBTitle: quote.sections.sectionB.title,
-    sectionBIntro:
-      quote.sections.sectionB.introText || "The prices below reflect one-time hardware and accessory charges.",
+    sectionBIntro: isLeaseQuote
+      ? "The equipment below is included in the lease structure and is not billed as a separate upfront equipment purchase."
+      : quote.sections.sectionB.introText || "The prices below reflect one-time hardware and accessory charges.",
     equipmentRows: quote.sections.sectionB.lineItems,
     equipmentTotal,
     sectionCEnabled: quote.sections.sectionC.enabled && contentPresence.hasSectionCContent,
