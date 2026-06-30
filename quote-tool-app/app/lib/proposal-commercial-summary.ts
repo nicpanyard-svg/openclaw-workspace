@@ -180,7 +180,7 @@ export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalComm
 
   const items: ProposalCommercialSummaryItem[] = [];
 
-  if (presence.hasSectionAContent && recurringMonthlyTotal > 0) {
+  if (presence.hasSectionAContent && recurringMonthlyTotal > 0 && !isLease) {
     items.push({
       key: "recurring-monthly",
       label: "Monthly recurring",
@@ -212,8 +212,8 @@ export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalComm
 
   if (isLease) {
     items.push({
-      key: "estimated-lease-monthly",
-      label: "Estimated lease monthly",
+      key: "monthly-total",
+      label: "Monthly total",
       value: leaseMonthlyTotal,
       tone: "accent",
     });

@@ -972,7 +972,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
         <div className="section-title-rule" />
 
         <div className="proposal-grand-totals print-keep-group">
-          {contentPresence.hasSectionAContent && recurringMonthlyTotal > 0 && (
+          {contentPresence.hasSectionAContent && recurringMonthlyTotal > 0 && !isLeaseQuote && (
             <div className="grand-total-card print-keep-block">
               <div className="grand-total-label">Recurring monthly</div>
               <div className="grand-total-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
@@ -998,7 +998,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
           )}
           {isLeaseQuote && (
             <div className="grand-total-card accent-card print-keep-block">
-              <div className="grand-total-label">Estimated lease monthly</div>
+              <div className="grand-total-label">Monthly total</div>
               <div className="grand-total-value">{formatCurrency(leaseMonthly, currencyCode)}</div>
             </div>
           )}
@@ -1014,19 +1014,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
                 <strong>{leasePricing.termMonths} months</strong>
               </div>
               <div>
-                <span>Target hardware margin</span>
-                <strong>{leasePricing.marginPercent.toFixed(2)}%</strong>
-              </div>
-              <div>
-                <span>Hardware cost basis</span>
-                <strong>{formatCurrency(leasePricing.hardwareCost, currencyCode)}</strong>
-              </div>
-              <div>
-                <span>Required hardware revenue</span>
-                <strong>{formatCurrency(leasePricing.requiredHardwareRevenue, currencyCode)}</strong>
-              </div>
-              <div>
-                <span>Hardware monthly</span>
+                <span>Leased equipment monthly</span>
                 <strong>{formatCurrency(leasePricing.hardwareMonthly, currencyCode)}</strong>
               </div>
               <div>
@@ -1034,14 +1022,12 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
                 <strong>{formatCurrency(leasePricing.recurringMonthlyTotal, currencyCode)}</strong>
               </div>
               <div className="proposal-lease-pricing-total">
-                <span>Estimated lease monthly</span>
+                <span>Monthly total</span>
                 <strong>{formatCurrency(leasePricing.leaseMonthly, currencyCode)}</strong>
               </div>
             </div>
             <p>
-              Formula: hardware cost divided by (1 - margin) = required hardware revenue; required hardware
-              revenue divided by term = hardware monthly; hardware monthly plus recurring monthly service =
-              estimated lease monthly.
+              This monthly total includes recurring service and leased equipment for the selected lease term.
             </p>
             {!leasePricing.hasActiveDataAgreement ? (
               <p>Active data agreement has not been confirmed on this saved lease quote.</p>

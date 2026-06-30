@@ -1373,10 +1373,12 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
         </View>
 
         <View style={styles.closingTotals}>
-          <View style={styles.grandTotalCard}>
-            <Text style={styles.summaryLabel}>Recurring monthly</Text>
-            <Text style={styles.grandTotalValue}>{formatCurrency(model.recurringMonthlyTotal, model.currencyCode)}</Text>
-          </View>
+          {!isLeaseQuote ? (
+            <View style={styles.grandTotalCard}>
+              <Text style={styles.summaryLabel}>Recurring monthly</Text>
+              <Text style={styles.grandTotalValue}>{formatCurrency(model.recurringMonthlyTotal, model.currencyCode)}</Text>
+            </View>
+          ) : null}
           {!isLeaseQuote ? (
             <View style={styles.grandTotalCard}>
               <Text style={styles.summaryLabel}>One-time equipment</Text>
@@ -1397,7 +1399,7 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
           ) : null}
           {isLeaseQuote ? (
             <View style={[styles.grandTotalCard, { borderColor: "#f0cbcb", backgroundColor: "#fff8f8" }]}>
-              <Text style={styles.summaryLabel}>Estimated lease monthly</Text>
+              <Text style={styles.summaryLabel}>Monthly total</Text>
               <Text style={styles.grandTotalValue}>{formatCurrency(model.leaseMonthly, model.currencyCode)}</Text>
             </View>
           ) : null}
@@ -1413,19 +1415,7 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
                 <Text style={styles.leasePricingValue}>{model.leaseTermMonths} months</Text>
               </View>
               <View style={styles.leasePricingCell}>
-                <Text style={styles.summaryLabel}>Target hardware margin</Text>
-                <Text style={styles.leasePricingValue}>{model.leaseMarginPercent.toFixed(2)}%</Text>
-              </View>
-              <View style={styles.leasePricingCell}>
-                <Text style={styles.summaryLabel}>Hardware cost basis</Text>
-                <Text style={styles.leasePricingValue}>{formatCurrency(model.leaseHardwareCost, model.currencyCode)}</Text>
-              </View>
-              <View style={styles.leasePricingCell}>
-                <Text style={styles.summaryLabel}>Required hardware revenue</Text>
-                <Text style={styles.leasePricingValue}>{formatCurrency(model.leaseRequiredHardwareRevenue, model.currencyCode)}</Text>
-              </View>
-              <View style={styles.leasePricingCell}>
-                <Text style={styles.summaryLabel}>Hardware monthly</Text>
+                <Text style={styles.summaryLabel}>Leased equipment monthly</Text>
                 <Text style={styles.leasePricingValue}>{formatCurrency(model.leaseHardwareMonthly, model.currencyCode)}</Text>
               </View>
               <View style={styles.leasePricingCell}>
@@ -1433,13 +1423,12 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
                 <Text style={styles.leasePricingValue}>{formatCurrency(model.recurringMonthlyTotal, model.currencyCode)}</Text>
               </View>
               <View style={[styles.leasePricingCell, styles.leasePricingTotalCell]}>
-                <Text style={styles.summaryLabel}>Estimated lease monthly</Text>
+                <Text style={styles.summaryLabel}>Monthly total</Text>
                 <Text style={styles.grandTotalValue}>{formatCurrency(model.leaseMonthly, model.currencyCode)}</Text>
               </View>
             </View>
             <Text style={styles.paragraph}>
-              Formula: hardware cost divided by (1 - margin) = required hardware revenue; required hardware revenue
-              divided by term = hardware monthly; hardware monthly plus recurring monthly service = estimated lease monthly.
+              This monthly total includes recurring service and leased equipment for the selected lease term.
             </Text>
             {!model.leaseHasActiveDataAgreement ? (
               <Text style={styles.paragraph}>Active data agreement has not been confirmed on this saved lease quote.</Text>
