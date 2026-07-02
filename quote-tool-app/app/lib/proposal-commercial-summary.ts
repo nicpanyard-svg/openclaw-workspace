@@ -1,4 +1,4 @@
-import type { EquipmentPricingRow, PerKitPricingRow, PoolPricingRow, QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
+import type { EquipmentPricingRow, LeaseTermMonths, PerKitPricingRow, PoolPricingRow, QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 import { hasExecutiveSummaryStructuredContent } from "@/app/lib/executive-summary";
 
 export type CommercialSummaryItemTone = "default" | "accent";
@@ -124,7 +124,7 @@ function getLeaseHardwareCost(quote: QuoteRecord, equipmentTotal: number) {
 export type LeasePricingSummary = {
   isLease: boolean;
   hasActiveDataAgreement: boolean;
-  termMonths: 12 | 24 | 36;
+  termMonths: LeaseTermMonths;
   marginPercent: number;
   recurringMonthlyTotal: number;
   hardwareCost: number;

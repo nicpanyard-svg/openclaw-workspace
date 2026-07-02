@@ -70,6 +70,7 @@ import {
   type MajorProjectVendorQuoteImport,
   type MajorProjectVendorQuoteSource,
   type AddressBlock,
+  type LeaseTermMonths,
   type EquipmentPricingRow,
   type PerKitPricingRow,
   type PoolPricingRow,
@@ -5059,10 +5060,13 @@ export default function QuotePreview() {
                           <select
                             value={selectedLeaseTerm}
                             onChange={(e) => updateQuote((draft) => {
-                              draft.metadata.leaseTermMonths = Number(e.target.value) as 12 | 24 | 36;
+                              draft.metadata.leaseTermMonths = Number(e.target.value) as LeaseTermMonths;
                               return draft;
                             })}
                           >
+                            <option value={3}>3 months</option>
+                            <option value={6}>6 months</option>
+                            <option value={9}>9 months</option>
                             <option value={12}>12 months</option>
                             <option value={24}>24 months</option>
                             <option value={36}>36 months</option>

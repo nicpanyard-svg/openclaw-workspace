@@ -8,11 +8,17 @@ import { createDefaultMajorProjectState } from "@/app/lib/major-project";
 import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spec-attachments";
 import { createDefaultQuoteServiceAgreementState, normalizeQuoteServiceAgreementState } from "@/app/lib/service-agreement";
 import { normalizeQuoteWarrantyDetails } from "@/app/lib/quote-warranty";
-import type { QuoteCustomField, QuoteRecord } from "@/app/lib/quote-record";
+import type { LeaseTermMonths, QuoteCustomField, QuoteRecord } from "@/app/lib/quote-record";
 import { RAPIDQUOTE_DEPLOYMENT_KEY, scopeStorageKey } from "@/app/lib/app-environment";
 
 export const PROPOSAL_STORAGE_KEY = scopeStorageKey("quote-tool-app:proposal-state");
 export const PROPOSAL_STORAGE_FALLBACK_KEY = scopeStorageKey("quote-tool-app:proposal-state-fallback");
+
+const LEASE_TERM_OPTIONS: LeaseTermMonths[] = [3, 6, 9, 12, 24, 36];
+
+function normalizeLeaseTermMonths(value: unknown): LeaseTermMonths {
+  return typeof value === "number" && LEASE_TERM_OPTIONS.includes(value as LeaseTermMonths) ? value as LeaseTermMonths : 12;
+}
 
 function normalizeText(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -251,8 +257,7 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
 
     const normalizedCompanyKey = RAPIDQUOTE_DEPLOYMENT_KEY;
     const normalizedQuoteType = parsed.metadata?.quoteType === "lease" ? "lease" : "purchase";
-    const parsedLeaseTerm = parsed.metadata?.leaseTermMonths;
-    const normalizedLeaseTerm = parsedLeaseTerm === 24 || parsedLeaseTerm === 36 ? parsedLeaseTerm : 12;
+    const normalizedLeaseTerm = normalizeLeaseTermMonths(parsed.metadata?.leaseTermMonths);
     const normalizedLeaseMarginPercent = Math.min(Math.max(normalizeNumber(parsed.metadata?.leaseMarginPercent, 35), 0), 95);
 
     return normalizeMajorProjectAttachmentState({

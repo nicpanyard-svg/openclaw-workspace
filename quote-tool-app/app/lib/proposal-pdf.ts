@@ -10,6 +10,7 @@ import {
   getRecurringMonthlyTotal,
 } from "@/app/lib/proposal-commercial-summary";
 import type {
+  LeaseTermMonths,
   PerKitPricingRow,
   PoolPricingRow,
   QuoteRecord,
@@ -67,7 +68,7 @@ export type ProposalPdfViewModel = {
   serviceTotal: number;
   quoteType: QuoteRecord["metadata"]["quoteType"];
   leaseMonthly: number;
-  leaseTermMonths: 12 | 24 | 36;
+  leaseTermMonths: LeaseTermMonths;
   leaseMarginPercent: number;
   leaseHardwareCost: number;
   leaseRequiredHardwareRevenue: number;

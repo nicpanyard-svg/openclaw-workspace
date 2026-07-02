@@ -5,6 +5,7 @@ export type CurrencyCode = "USD" | "CAD" | "EUR" | string;
 export type QuoteStatus = "draft" | "in_review" | "approved" | "sent" | "booked";
 export type SectionAMode = "pool" | "per_kit";
 export type QuoteType = "purchase" | "lease";
+export type LeaseTermMonths = 3 | 6 | 9 | 12 | 24 | 36;
 export type QuoteWorkflowMode = "quick_quote" | "major_project";
 
 export type QuoteStructuredTextBlockType = "heading" | "paragraph" | "bullet_list" | "numbered_list";
@@ -209,7 +210,7 @@ export type QuoteMetadata = {
   status: QuoteStatus;
   quoteType: QuoteType;
   workflowMode?: QuoteWorkflowMode;
-  leaseTermMonths?: 12 | 24 | 36;
+  leaseTermMonths?: LeaseTermMonths;
   leaseMarginPercent?: number;
   hasActiveDataAgreement?: boolean;
   ownerUserId?: string;
