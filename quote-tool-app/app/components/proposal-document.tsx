@@ -15,6 +15,7 @@ import {
 } from "@/app/lib/proposal-commercial-summary";
 import { getMajorProjectSpecAttachmentFile, isMajorProjectSpecAttachmentPdf } from "@/app/lib/major-project-spec-attachments";
 import { resolveMajorProjectOutputSpecAttachments, type MajorProjectOutputSpecAttachment } from "@/app/lib/major-project";
+import { chunkEquipmentRowsForProposalPages } from "@/app/lib/proposal-print-pagination";
 import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
 import type { MajorProjectSpecAttachment, QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
@@ -150,6 +151,9 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
     (field) => field.visibility === "customer" && (field.label ?? "").trim().length > 0 && (field.value ?? "").trim().length > 0,
   );
   const contentPresence = getQuoteContentPresence(quote);
+  const equipmentRowPages = quote.sections.sectionB.enabled && contentPresence.hasSectionBContent
+    ? chunkEquipmentRowsForProposalPages(quote.sections.sectionB.lineItems)
+    : [];
   const commercialSummaryItems = buildProposalCommercialSummary(quote);
   const customerFacingOneTimeTotal = getCombinedOneTimeTotal(
     quote,
@@ -318,18 +322,14 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   let printPageNumber = 1;
   const coverPageLabel = `Page ${printPageNumber++}`;
   const proposalInfoPageLabel = `Page ${printPageNumber++}`;
-  const recurringServicesPageLabel = quote.sections.sectionA.enabled ? `Page ${printPageNumber++}` : null;
-  const equipmentPageLabel = quote.sections.sectionB.enabled ? `Page ${printPageNumber++}` : null;
-  const fieldServicesPageLabel = quote.sections.sectionC.enabled ? `Page ${printPageNumber++}` : null;
+  const proposalAddressPageLabel = `Page ${printPageNumber++}`;
+  const recurringServicesPageLabel = quote.sections.sectionA.enabled && contentPresence.hasSectionAContent ? `Page ${printPageNumber++}` : null;
+  const equipmentPageLabels = equipmentRowPages.map(() => `Page ${printPageNumber++}`);
+  const fieldServicesPageLabel = quote.sections.sectionC.enabled && contentPresence.hasSectionCContent ? `Page ${printPageNumber++}` : null;
   const systemDrawingPageLabels = systemDrawingPreviews.map(() => `Page ${printPageNumber++}`);
   const specSheetPageLabels = specSheetPreviews.map(() => `Page ${printPageNumber++}`);
   const termsPageLabel = `Page ${printPageNumber++}`;
   const closingPageLabel = `Page ${printPageNumber++}`;
-  const loadedSpecSheetCount = specSheetPreviews.filter((entry) => Boolean(entry.objectUrl)).length;
-  const failedSpecSheetPreviews = specSheetPreviews.filter((entry) => !entry.objectUrl);
-  const specSheetPreviewNote = loadedSpecSheetCount > 0
-    ? `${loadedSpecSheetCount} inline preview${loadedSpecSheetCount === 1 ? "" : "s"} loaded. Stored PDF attachments are merged into the final exported PDF as full proposal pages when available.`
-    : "Inline preview is not available in this render context. Stored PDF attachments are still referenced for final PDF assembly when available.";
 
   return (
     <main
@@ -486,7 +486,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
 
       </section>
 
-      <section className="proposal-page proposal-info-page proposal-info-address-page proposal-page-force-new-sheet" data-page-label={proposalInfoPageLabel}>
+      <section className="proposal-page proposal-info-page proposal-info-address-page proposal-page-force-new-sheet" data-page-label={proposalAddressPageLabel}>
         <div className="proposal-header">
           <span>Proposal details</span>
           <span>Proposal #{quote.metadata.proposalNumber}</span>
@@ -653,72 +653,92 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
         </section>
       )}
 
-      {quote.sections.sectionB.enabled && contentPresence.hasSectionBContent && (
-        <section className="proposal-page" data-page-label={equipmentPageLabel ?? "Page"}>
-          <div className="proposal-header">
-            <span>Equipment and accessories</span>
-            <span>Proposal #{quote.metadata.proposalNumber}</span>
-          </div>
+      {equipmentRowPages.map((equipmentRows, pageIndex) => {
+        const isFirstPage = pageIndex === 0;
+        const isLastPage = pageIndex === equipmentRowPages.length - 1;
 
-          <div className="proposal-section-heading keep-with-next">
-            {sectionBHeading.badge ? <div className="section-heading-badge">{sectionBHeading.badge}</div> : null}
-            {sectionBHeading.overline ? <div className="proposal-overline">{sectionBHeading.overline}</div> : null}
-            <h2 className="proposal-section-title">{sectionBHeading.title}</h2>
-            <p className="proposal-intro">{sectionBIntroText}</p>
-          </div>
+        return (
+          <section
+            key={`equipment-page-${pageIndex}`}
+            className="proposal-page"
+            data-page-label={equipmentPageLabels[pageIndex] ?? "Page"}
+          >
+            <div className="proposal-header">
+              <span>Equipment and accessories</span>
+              <span>Proposal #{quote.metadata.proposalNumber}</span>
+            </div>
 
-          <div className="proposal-section-summary-card keep-with-next">
-            <div className="proposal-section-summary-label">Section summary</div>
-            <div className="proposal-section-summary-value">{sectionBSummaryValue}</div>
-            <div className="proposal-section-summary-copy">{sectionBSummaryCopy}</div>
-          </div>
+            {isFirstPage ? (
+              <>
+                <div className="proposal-section-heading keep-with-next">
+                  {sectionBHeading.badge ? <div className="section-heading-badge">{sectionBHeading.badge}</div> : null}
+                  {sectionBHeading.overline ? <div className="proposal-overline">{sectionBHeading.overline}</div> : null}
+                  <h2 className="proposal-section-title">{sectionBHeading.title}</h2>
+                  <p className="proposal-intro">{sectionBIntroText}</p>
+                </div>
 
-          <table className="proposal-table sample-table">
-            <thead>
-              <tr>
-                <th>Equipment Description</th>
-                <th>Qty</th>
-                <th>{sectionBUnitPriceLabel}</th>
-                <th>{sectionBTotalPriceLabel}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quote.sections.sectionB.lineItems.map((row) => (
-                <tr key={row.id} className="keep-together">
-                  <td>
-                    <div className="proposal-line-item-media">
-                      {row.imageUrl ? (
-                        <div className="proposal-line-item-image-wrap">
-                          <img src={row.imageUrl} alt={row.itemName} className="proposal-line-item-image" />
-                        </div>
-                      ) : null}
-                      <div className="proposal-line-item-copy">
-                    <div className="proposal-cell-title">{row.itemName}</div>
-                    {([row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).length > 0) ? (
-                      <div className="proposal-cell-subtitle">
-                        {[row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • ")}
-                      </div>
-                    ) : null}
-                    {row.description && <div className="proposal-cell-note">{row.description}</div>}
-                    {supportingSpecLabel(row.specSheetLabel) ? <div className="proposal-cell-note">{supportingSpecLabel(row.specSheetLabel)}</div> : null}
-                      </div>
-                    </div>
-                  </td>
-                  <td>{row.quantity}</td>
-                  <td>{isLeaseQuote ? "Included in lease" : formatCurrency(row.unitPrice, currencyCode)}</td>
-                  <td>{isLeaseQuote ? formatCurrency(0, currencyCode) : formatCurrency(row.totalPrice, currencyCode)}</td>
+                <div className="proposal-section-summary-card keep-with-next">
+                  <div className="proposal-section-summary-label">Section summary</div>
+                  <div className="proposal-section-summary-value">{sectionBSummaryValue}</div>
+                  <div className="proposal-section-summary-copy">{sectionBSummaryCopy}</div>
+                </div>
+              </>
+            ) : (
+              <div className="proposal-section-heading proposal-section-heading-continuation keep-with-next">
+                {sectionBHeading.overline ? <div className="proposal-overline">{sectionBHeading.overline}</div> : null}
+                <h2 className="proposal-section-title">{sectionBHeading.title} continued</h2>
+              </div>
+            )}
+
+            <table className="proposal-table sample-table">
+              <thead>
+                <tr>
+                  <th>Equipment Description</th>
+                  <th>Qty</th>
+                  <th>{sectionBUnitPriceLabel}</th>
+                  <th>{sectionBTotalPriceLabel}</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="proposal-total-row">
-                <td colSpan={3}>{sectionBTotalLabel}</td>
-                <td>{sectionBTotalValue}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </section>
-      )}
+              </thead>
+              <tbody>
+                {equipmentRows.map((row) => (
+                  <tr key={row.id} className="keep-together">
+                    <td>
+                      <div className="proposal-line-item-media">
+                        {row.imageUrl ? (
+                          <div className="proposal-line-item-image-wrap">
+                            <img src={row.imageUrl} alt={row.itemName} className="proposal-line-item-image" />
+                          </div>
+                        ) : null}
+                        <div className="proposal-line-item-copy">
+                          <div className="proposal-cell-title">{row.itemName}</div>
+                          {([row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).length > 0) ? (
+                            <div className="proposal-cell-subtitle">
+                              {[row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • ")}
+                            </div>
+                          ) : null}
+                          {row.description && <div className="proposal-cell-note">{row.description}</div>}
+                          {supportingSpecLabel(row.specSheetLabel) ? <div className="proposal-cell-note">{supportingSpecLabel(row.specSheetLabel)}</div> : null}
+                        </div>
+                      </div>
+                    </td>
+                    <td>{row.quantity}</td>
+                    <td>{isLeaseQuote ? "Included in lease" : formatCurrency(row.unitPrice, currencyCode)}</td>
+                    <td>{isLeaseQuote ? formatCurrency(0, currencyCode) : formatCurrency(row.totalPrice, currencyCode)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              {isLastPage ? (
+                <tfoot>
+                  <tr className="proposal-total-row">
+                    <td colSpan={3}>{sectionBTotalLabel}</td>
+                    <td>{sectionBTotalValue}</td>
+                  </tr>
+                </tfoot>
+              ) : null}
+            </table>
+          </section>
+        );
+      })}
 
       {quote.sections.sectionC.enabled && contentPresence.hasSectionCContent && (
         <section className="proposal-page" data-page-label={fieldServicesPageLabel ?? "Page"}>
@@ -785,7 +805,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
         return (
           <section
             key={drawing.attachment.storageKey}
-            className="proposal-page proposal-spec-sheet-page"
+            className="proposal-page proposal-spec-sheet-page proposal-system-drawing-page"
             data-page-label={systemDrawingPageLabels[index] ?? "Page"}
           >
             <div className="proposal-header">
@@ -837,7 +857,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
         return (
           <section
             key={specSheet.attachment.storageKey}
-            className="proposal-page proposal-spec-sheet-page"
+            className="proposal-page proposal-spec-sheet-page proposal-spec-attachment-page"
             data-page-label={specSheetPageLabels[index] ?? "Page"}
           >
             <div className="proposal-header">
@@ -855,26 +875,6 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
             </div>
 
             <div className="proposal-copy proposal-copy-card proposal-spec-sheet-meta print-keep-block">
-              {index === 0 ? (
-                <div className="proposal-attachment-status-card">
-                  <p><strong>Attachment status</strong> {specSheetPreviews.length} supporting spec attachment{specSheetPreviews.length === 1 ? "" : "s"} referenced for proposal output.</p>
-                  <p>{specSheetPreviewNote}</p>
-                  {failedSpecSheetPreviews.length ? (
-                    <>
-                      <p><strong>Preview notes</strong></p>
-                      <ul className="proposal-bullets compact">
-                        {failedSpecSheetPreviews.map((entry) => (
-                          <li key={`failed-${entry.attachment.storageKey}`}>
-                            {entry.attachment.fileName} - {entry.outputItemLabel} - {entry.sourceLabel} - {entry.loadError ?? "Attachment preview unavailable."}
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  ) : (
-                    <p>All referenced supporting spec attachments resolved successfully.</p>
-                  )}
-                </div>
-              ) : null}
               <p><strong>Proposal section</strong> {sectionLabel}</p>
               <p><strong>Output item</strong> {specSheet.outputItemLabel}</p>
               <p><strong>Attachment source</strong> {specSheet.sourceLabel}</p>

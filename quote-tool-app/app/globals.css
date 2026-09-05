@@ -2995,6 +2995,10 @@ body {
   margin-bottom: 18px;
 }
 
+.proposal-section-heading-continuation {
+  margin-bottom: 12px;
+}
+
 .proposal-section-title {
   margin-top: 6px;
   font-size: 23px;
@@ -3995,6 +3999,14 @@ body {
 
   .proposal-spec-sheet-frame {
     box-shadow: none;
+  }
+
+  .proposal-spec-attachment-page .proposal-spec-sheet-frame {
+    display: none;
+  }
+
+  .proposal-spec-attachment-page .proposal-spec-sheet-meta {
+    margin-bottom: 0;
   }
 
   .print-keep-group {

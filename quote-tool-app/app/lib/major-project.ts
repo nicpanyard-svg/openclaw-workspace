@@ -161,28 +161,8 @@ const outputSpecAttachmentSectionOrder: Record<MajorProjectOutputSpecAttachment[
   sectionC: 2,
 };
 
-const outputSpecAttachmentSourceTypeOrder: Record<MajorProjectOutputSpecAttachment["sourceType"], number> = {
-  quote_line: 0,
-  bundle: 1,
-  component: 2,
-  simple_row: 3,
-};
-
-function compareOutputSpecAttachmentText(left: string, right: string) {
-  return left.localeCompare(right, undefined, { sensitivity: "base", numeric: true });
-}
-
 function compareMajorProjectOutputSpecAttachments(left: MajorProjectOutputSpecAttachment, right: MajorProjectOutputSpecAttachment) {
-  return (
-    outputSpecAttachmentSectionOrder[left.outputSection] - outputSpecAttachmentSectionOrder[right.outputSection]
-    || compareOutputSpecAttachmentText(left.outputItemLabel, right.outputItemLabel)
-    || compareOutputSpecAttachmentText(left.outputItemId, right.outputItemId)
-    || outputSpecAttachmentSourceTypeOrder[left.sourceType] - outputSpecAttachmentSourceTypeOrder[right.sourceType]
-    || compareOutputSpecAttachmentText(left.sourceLabel, right.sourceLabel)
-    || compareOutputSpecAttachmentText(left.sourceId, right.sourceId)
-    || compareOutputSpecAttachmentText(left.attachment.fileName, right.attachment.fileName)
-    || compareOutputSpecAttachmentText(left.attachment.storageKey, right.attachment.storageKey)
-  );
+  return outputSpecAttachmentSectionOrder[left.outputSection] - outputSpecAttachmentSectionOrder[right.outputSection];
 }
 
 function createDefaultSimpleRow(): MajorProjectSimpleRow {
