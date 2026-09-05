@@ -436,7 +436,7 @@ function getLongNumericIdentifier(value: string | null | undefined) {
   return match?.[1] ?? "";
 }
 
-function proposalIdentifierMatches(requested: string | null | undefined, candidate: string | null | undefined) {
+export function proposalIdentifierMatches(requested: string | null | undefined, candidate: string | null | undefined) {
   const normalizedRequested = normalizeProposalIdentifier(requested);
   const normalizedCandidate = normalizeProposalIdentifier(candidate);
   if (!normalizedRequested || !normalizedCandidate) return false;

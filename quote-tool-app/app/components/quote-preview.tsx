@@ -9,7 +9,7 @@ import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
-import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposal, getDefaultProposalStore, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { resolvePreferredQuote } from "@/app/lib/active-proposal";
 import {
   PROPOSAL_STORAGE_FALLBACK_KEY,
@@ -1909,16 +1909,26 @@ export default function QuotePreview() {
     const requestedCustomerProfile = requestedCustomerProfileId
       ? savedCustomerProfiles.find((profile) => profile.id === requestedCustomerProfileId) ?? null
       : null;
+    const requestedProposal = !forceNewDraft && requestedProposalId
+      ? getProposalById(store, requestedProposalId)
+      : null;
+    const storedActiveProposal = !forceNewDraft && activeProposalId
+      ? getProposalById(store, activeProposalId)
+      : null;
+    const savedQuoteProposalId = savedQuote?.internal?.savedProposalId ?? savedQuote?.internal?.quoteId ?? null;
+    const savedQuoteProposal = !forceNewDraft && savedQuoteProposalId
+      ? getProposalById(store, savedQuoteProposalId)
+      : null;
     const matchedProposal = forceNewDraft
       ? null
-      : getActiveProposal(store, requestedProposalId ?? activeProposalId ?? savedQuote?.internal?.savedProposalId ?? savedQuote?.internal?.quoteId ?? null);
+      : requestedProposal ?? savedQuoteProposal ?? (savedQuote ? null : storedActiveProposal);
     const resolvedQuote = forceNewDraft
       ? createBlankQuoteRecord()
-      : resolvePreferredQuote({
-        savedQuote,
-        activeProposal: matchedProposal,
-        fallbackQuote: createBlankQuoteRecord(),
-      }).quote;
+      : requestedProposal?.quote ?? savedQuote ?? resolvePreferredQuote({
+          savedQuote: null,
+          activeProposal: matchedProposal,
+          fallbackQuote: createBlankQuoteRecord(),
+        }).quote;
     const nextQuote = ensureMajorProjectState(cloneQuote(resolvedQuote));
 
     if (requestedCustomerProfile) {
@@ -1936,6 +1946,8 @@ export default function QuotePreview() {
       window.localStorage.removeItem(ACTIVE_PROPOSAL_ID_KEY);
     } else if (matchedProposal) {
       window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, matchedProposal.id);
+    } else if (savedQuote) {
+      window.localStorage.removeItem(ACTIVE_PROPOSAL_ID_KEY);
     }
 
     persistQuoteRecord(nextQuote);

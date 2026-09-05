@@ -4,10 +4,10 @@ import {
   PROPOSAL_STORE_KEY,
   createProposalFromQuote,
   deserializeProposalStore,
-  getActiveProposal,
   getProposalById,
   getDefaultProposalStore,
   mockUsers,
+  proposalIdentifierMatches,
   serializeProposalStore,
   statusToStageLabel,
   upsertProposal,
@@ -26,8 +26,24 @@ import { createBlankQuoteRecord } from "@/app/lib/quote-template";
 function quoteMatchesProposal(quote: QuoteRecord | null, proposal: SavedProposalRecord | null) {
   if (!quote || !proposal) return false;
 
-  const quoteProposalId = quote.internal?.savedProposalId ?? quote.internal?.quoteId ?? null;
-  return quoteProposalId === proposal.id;
+  return proposalIdentifierMatches(getQuoteProposalId(quote), proposal.id);
+}
+
+function getQuoteProposalId(quote: QuoteRecord | null) {
+  return quote?.internal?.savedProposalId ?? quote?.internal?.quoteId ?? null;
+}
+
+function quoteMatchesRequestedProposalId(quote: QuoteRecord | null, requestedProposalId: string | null) {
+  if (!quote || !requestedProposalId) return false;
+
+  const identifiers = [
+    quote.internal?.savedProposalId,
+    quote.internal?.quoteId,
+    quote.metadata?.proposalNumber,
+    quote.documentation?.proposalNumberLabel,
+  ];
+
+  return identifiers.some((identifier) => proposalIdentifierMatches(requestedProposalId, identifier));
 }
 
 export function resolvePreferredQuote(options: {
@@ -103,13 +119,11 @@ export function resolveActiveProposalQuote(preferredProposalId?: string | null):
   const requestedProposal = requestedProposalId
     ? getProposalById(store, requestedProposalId)
     : null;
-  const activeProposal = requestedProposal ?? getActiveProposal(store, activeId);
-  const missingRequestedProposal = Boolean(requestedProposalId && !activeProposal);
-  const resolvedId = activeProposal?.id ?? null;
-
-  if (resolvedId) {
-    window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, resolvedId);
-  }
+  const storedActiveProposal = activeId ? getProposalById(store, activeId) : null;
+  const savedQuoteProposal = savedQuote ? getProposalById(store, getQuoteProposalId(savedQuote)) : null;
+  const activeProposal = requestedProposal ?? savedQuoteProposal ?? (savedQuote ? null : storedActiveProposal);
+  const requestedQuoteMatchesSavedQuote = quoteMatchesRequestedProposalId(savedQuote, requestedProposalId);
+  const missingRequestedProposal = Boolean(requestedProposalId && !requestedProposal && !requestedQuoteMatchesSavedQuote);
 
   if (missingRequestedProposal) {
     return {
@@ -124,6 +138,7 @@ export function resolveActiveProposalQuote(preferredProposalId?: string | null):
 
   if (requestedProposal) {
     persistQuoteRecord(requestedProposal.quote);
+    window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, requestedProposal.id);
 
     return {
       quote: requestedProposal.quote,
@@ -135,6 +150,24 @@ export function resolveActiveProposalQuote(preferredProposalId?: string | null):
     };
   }
 
+  if (savedQuote) {
+    if (savedQuoteProposal) {
+      window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, savedQuoteProposal.id);
+    } else {
+      window.localStorage.removeItem(ACTIVE_PROPOSAL_ID_KEY);
+    }
+    persistQuoteRecord(savedQuote);
+
+    return {
+      quote: savedQuote,
+      usingSavedData: true,
+      requestedProposalId,
+      missingRequestedProposal: false,
+      activeProposalId: savedQuoteProposal?.id ?? getQuoteProposalId(savedQuote),
+      activeProposal,
+    };
+  }
+
   const { quote } = resolvePreferredQuote({
     savedQuote,
     activeProposal,
@@ -143,12 +176,18 @@ export function resolveActiveProposalQuote(preferredProposalId?: string | null):
 
   persistQuoteRecord(quote);
 
+  if (activeProposal) {
+    window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, activeProposal.id);
+  } else {
+    window.localStorage.removeItem(ACTIVE_PROPOSAL_ID_KEY);
+  }
+
   return {
     quote,
     usingSavedData: Boolean(activeProposal || savedQuote),
     requestedProposalId,
     missingRequestedProposal,
-    activeProposalId: resolvedId,
+    activeProposalId: activeProposal?.id ?? null,
     activeProposal,
   };
 }
