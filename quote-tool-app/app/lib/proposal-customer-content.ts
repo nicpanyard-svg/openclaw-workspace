@@ -115,7 +115,7 @@ export function getCustomerQuoteContent(quote: QuoteRecord) {
   const overageOptIn = quote.orderProcessing?.overageOptIn ?? "pending";
   if (hasOverages && overageOptIn === "pending") warnings.push("The overage election has not been confirmed.");
   if (overageOptIn === "yes" && services.length && !hasOverages) warnings.push("Opted-in overage pricing has not been specified.");
-  if (!fieldServicePricingConfirmed && fieldServices.some((row) => row.pricingStage === "budgetary")) warnings.push("Field service pricing includes an estimate.");
+  if (!fieldServicePricingConfirmed && fieldServices.some((row) => row.pricingStage === "budgetary")) warnings.push("Implementation and service pricing is budgetary and subject to confirmation based on final site count, configuration, and deployment requirements.");
 
   const title = customerCopy(quote.metadata.documentTitle)
     || (quote.metadata.workflowMode === "major_project" ? customerCopy(quote.majorProject.summary.projectName) : "")

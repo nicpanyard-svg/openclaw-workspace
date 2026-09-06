@@ -91,7 +91,29 @@ test("budgetary implementation and unresolved overages prevent order authorizati
   quote.sections.sectionC.lineItems = [{ id: "install", sourceType: "custom", description: "Installation", quantity: 1, unitPrice: 50, totalPrice: 50, pricingStage: "budgetary" }];
   const content = getCustomerQuoteContent(quote);
   assert.ok(content.warnings.includes("The overage election has not been confirmed."));
-  assert.ok(content.warnings.includes("Field service pricing includes an estimate."));
+  assert.ok(content.warnings.includes("Implementation and service pricing is budgetary and subject to confirmation based on final site count, configuration, and deployment requirements."));
+  assert.ok(!content.warnings.includes("Field service pricing includes an estimate."));
+  assert.equal(content.approvalReady, false);
+});
+
+test("budgetary pricing note follows included unconfirmed services in Quick and Major quotes", () => {
+  const note = "Implementation and service pricing is budgetary and subject to confirmation based on final site count, configuration, and deployment requirements.";
+  for (const workflowMode of ["quick_quote", "major_project"] as const) {
+    const quote = customerQuote();
+    quote.metadata.workflowMode = workflowMode;
+    quote.sections.sectionC.enabled = true;
+    quote.sections.sectionC.lineItems = [{ id: "implementation", sourceType: "custom", description: "AI implementation", quantity: 1, unitPrice: 100, totalPrice: 100, pricingStage: "budgetary" }];
+    const saved = deserializeQuoteRecord(serializeQuoteRecord(quote))!;
+    assert.ok(getCustomerQuoteContent(saved).warnings.includes(note));
+    saved.sections.sectionC.lineItems[0].pricingStage = "final";
+    assert.ok(!getCustomerQuoteContent(saved).warnings.includes(note));
+    saved.sections.sectionC.lineItems[0].pricingStage = "budgetary";
+    saved.sections.sectionC.lineItems[0].optional = true;
+    assert.ok(!getCustomerQuoteContent(saved).warnings.includes(note));
+    saved.sections.sectionC.lineItems[0].optional = false;
+    saved.sections.sectionC.enabled = false;
+    assert.ok(!getCustomerQuoteContent(saved).warnings.includes(note));
+  }
 });
 
 test("custom approval instructions survive while template customer-name filler is omitted", () => {
@@ -172,9 +194,10 @@ test("Major field service confirmation persists and becomes stale when scope or 
   quote.customerOutput = { ...normalizeCustomerOutput(quote.customerOutput), fieldServiceConfirmation: getFieldServiceConfirmationKey(quote) };
   const saved = deserializeQuoteRecord(serializeQuoteRecord(quote))!;
   assert.equal(getCustomerQuoteContent(saved).fieldServicePricingConfirmed, true);
-  assert.ok(!getCustomerQuoteContent(saved).warnings.includes("Field service pricing includes an estimate."));
+  assert.ok(!getCustomerQuoteContent(saved).warnings.includes("Implementation and service pricing is budgetary and subject to confirmation based on final site count, configuration, and deployment requirements."));
   saved.sections.sectionC.lineItems[0].totalPrice = 75;
   assert.equal(getCustomerQuoteContent(saved).fieldServicePricingConfirmed, false);
+  assert.ok(getCustomerQuoteContent(saved).warnings.includes("Implementation and service pricing is budgetary and subject to confirmation based on final site count, configuration, and deployment requirements."));
   saved.sections.sectionC.lineItems[0].totalPrice = 50;
   saved.sections.sectionC.lineItems[0].description = "Two-site installation";
   assert.equal(getCustomerQuoteContent(saved).fieldServicePricingConfirmed, false);
