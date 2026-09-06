@@ -9,6 +9,7 @@ import { getCombinedOneTimeTotal, getEquipmentTotal, getIncludedEquipmentRows, g
 import { customerCopy, getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
 import { getProposalAttachments } from "@/app/lib/proposal-attachments";
 import { getAnnualSubscriptionSummary } from "@/app/lib/quote-line-billing";
+import { getSoftwareServicesPresentation, isSoftwareLine, normalizeQuoteSoftware } from "@/app/lib/quote-software";
 import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import "./proposal-customer.css";
@@ -45,6 +46,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   const services = getIncludedSectionARows(quote);
   const equipment = getIncludedEquipmentRows(quote);
   const fieldServices = getIncludedServiceRows(quote);
+  const servicePresentation = getSoftwareServicesPresentation(fieldServices);
   const recurring = getRecurringMonthlyTotal(quote);
   const equipmentTotal = getEquipmentTotal(quote);
   const fieldTotal = getOptionalServicesTotal(quote);
@@ -141,11 +143,11 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
       {isLease && <p className="cp-muted">No separate upfront equipment purchase is charged.</p>}
     </Section>}
 
-    {fieldServices.length > 0 && <Section title="Implementation & field services">
+    {fieldServices.length > 0 && <Section title={servicePresentation.title}>
       {content.fieldServiceIntro && <p className="cp-preserve-lines">{content.fieldServiceIntro}</p>}
-      <table className="cp-table"><caption>Included implementation and field services</caption><colgroup><col className="cp-col-item" /><col className="cp-col-qty" /><col className="cp-col-price" /><col className="cp-col-price" /></colgroup><thead><tr><th>Service</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>
-        {fieldServices.map((row) => <tr key={row.id}><td><ItemCopy title={row.description} description={row.notes} />{row.pricingStage === "budgetary" && !content.fieldServicePricingConfirmed && <span className="cp-row-note">Estimated</span>}</td><td>{row.quantity}{row.unitLabel ? " " + row.unitLabel : ""}</td><td>{money(row.unitPrice, currency)}</td><td>{money(row.totalPrice, currency)}</td></tr>)}
-      </tbody><tfoot><tr><td colSpan={3}>One-time services total</td><td>{money(fieldTotal, currency)}</td></tr></tfoot></table>
+      <table className="cp-table"><caption>{servicePresentation.caption}</caption><colgroup><col className="cp-col-item" /><col className="cp-col-qty" /><col className="cp-col-price" /><col className="cp-col-price" /></colgroup><thead><tr><th>{servicePresentation.itemHeading}</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>
+        {fieldServices.map((row) => <tr key={row.id}><td><ItemCopy title={row.description} description={row.notes} />{isSoftwareLine(row) && <span className="cp-row-note">Software license</span>}{row.pricingStage === "budgetary" && !content.fieldServicePricingConfirmed && <span className="cp-row-note">Estimated</span>}</td><td>{row.quantity}{row.unitLabel ? " " + row.unitLabel : ""}</td><td>{money(row.unitPrice, currency)}</td><td>{money(row.totalPrice, currency)}</td></tr>)}
+      </tbody><tfoot><tr><td colSpan={3}>{servicePresentation.totalLabel}</td><td>{money(fieldTotal, currency)}</td></tr></tfoot></table>
     </Section>}
     {tax > 0 && <p className="cp-tax"><strong>Quoted sales tax:</strong> {money(tax, currency)} (included in one-time charges).</p>}
 
@@ -201,6 +203,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
 }
 
 export function ProposalDocument(props: ProposalDocumentProps) {
-  if (resolveQuoteOutputTemplateKey(props.quote) === "estimate_compact") return <IliosEstimateDocument quote={props.quote} />;
-  return <DetailedProposalDocument {...props} />;
+  const quote = normalizeQuoteSoftware(props.quote);
+  if (resolveQuoteOutputTemplateKey(quote) === "estimate_compact") return <IliosEstimateDocument quote={quote} />;
+  return <DetailedProposalDocument {...props} quote={quote} />;
 }

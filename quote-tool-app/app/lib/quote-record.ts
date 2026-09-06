@@ -136,6 +136,7 @@ export type EquipmentPricingRow = {
 };
 
 export type ServicePricingRow = {
+  lineType?: MajorProjectLineType;
   billing?: QuoteLineBilling;
   id: string;
   sourceType: "standard" | "custom";

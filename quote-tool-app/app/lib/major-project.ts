@@ -15,6 +15,7 @@ import type {
 import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spec-attachments";
 import { getLineBilling, isAnnualLine } from "./quote-line-billing";
 import { buildQuickQuoteComponents, preserveQuickQuoteOutput, sameQuickQuoteContent } from "./major-project-quick-quote";
+import { IOTEDGE_KINNECT_DESCRIPTION, IOTEDGE_KINNECT_LABEL, isIoTEdgeKinnect, normalizeQuoteSoftware, normalizeSoftwareComponent } from "./quote-software";
 
 export type MajorProjectServiceMix = "managed-network" | "starlink-pool" | "starlink-per-site" | "hybrid";
 export type MajorProjectValidationSeverity = "error" | "warning";
@@ -329,7 +330,7 @@ function normalizeComponent(component: Partial<MajorProjectComponent> | undefine
   const billing = usageBased ? { cadence: "monthly" as const, startsYear: 1 as const }
     : getLineBilling(component ?? defaults, component?.schedule === "recurring" ? "monthly" : "one_time");
 
-  return {
+  return normalizeSoftwareComponent({
     ...defaults,
     ...component,
     billing,
@@ -350,7 +351,7 @@ function normalizeComponent(component: Partial<MajorProjectComponent> | undefine
     vendorUnitCost,
     vendorExtendedCost: roundCurrency(vendorExtendedCost),
     importSource: normalizeSimpleRowImportSource(component?.importSource),
-  };
+  });
 }
 
 function normalizeBundle(bundle: Partial<MajorProjectBundle> | undefined, index: number): MajorProjectBundle {
@@ -360,6 +361,7 @@ function normalizeBundle(bundle: Partial<MajorProjectBundle> | undefined, index:
   return {
     ...defaults,
     ...bundle,
+    ...(isIoTEdgeKinnect(bundle?.customerFacingLabel) ? { customerFacingLabel: IOTEDGE_KINNECT_LABEL } : {}),
     id: bundle?.id ?? `major-bundle-${index + 1}`,
     optional: bundle?.optional === true,
     specSheetLabel: bundle?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
@@ -376,6 +378,7 @@ function normalizeCustomerQuoteLine(line: Partial<MajorProjectCustomerQuoteLine>
   return {
     ...defaults,
     ...line,
+    ...(isIoTEdgeKinnect(line?.label) ? { label: IOTEDGE_KINNECT_LABEL, description: line?.description?.trim() || IOTEDGE_KINNECT_DESCRIPTION } : {}),
     id: line?.id ?? `major-quote-line-${index + 1}`,
     lineItemNumber: normalizeLineItemNumber(line?.lineItemNumber, index, line?.label),
     optional: line?.optional === true,
@@ -1275,7 +1278,7 @@ export function ensureMajorProjectState(quote: QuoteRecord): QuoteRecord {
   const optionSource = quote.majorProject?.options?.length ? quote.majorProject.options : defaults.options;
   const options = optionSource.map((option, index) => buildMappedOptionFromQuickBuilder(normalizeOption(option, index)));
 
-  return {
+  return normalizeQuoteSoftware({
     ...quote,
     majorProject: {
       ...defaults,
@@ -1300,7 +1303,7 @@ export function ensureMajorProjectState(quote: QuoteRecord): QuoteRecord {
       builderMode: "advanced",
       activeOptionId: quote.majorProject?.activeOptionId ?? options[0]?.id ?? defaults.activeOptionId,
     },
-  };
+  });
 }
 
 export function convertMajorProjectQuickBuilderToMappedModel(quote: QuoteRecord): QuoteRecord {
@@ -1940,6 +1943,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       notes: component.notes || "Generated directly from the Major Project component list",
       specSheetLabel: component.specSheetLabel?.trim() || undefined,
       serviceCategory: component.lineType === "installation" ? "installation" as const : "custom" as const,
+      lineType: component.lineType,
       pricingStage: "budgetary" as const,
       sourceLabel: "Major Project component",
     }))
@@ -1956,6 +1960,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       notes: compact([line.description, buildQuoteLineIncludedSentence(line)]).join(" "),
       specSheetLabel: line.resolvedSpecSheetLabel,
       serviceCategory: "custom" as const,
+      lineType: line.revenueComponents.length > 0 && line.revenueComponents.every((component) => component.lineType === "software") ? "software" as const : undefined,
       pricingStage: "budgetary" as const,
       sourceLabel: "Major Project customer bundle",
     }))
@@ -2050,7 +2055,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   next.sections.sectionB.computed.equipmentTotal = next.sections.sectionB.enabled ? next.sections.sectionB.lineItems.filter((row) => !isMajorProjectOptional(row) && !isAnnualLine(row)).reduce((sum, row) => sum + row.totalPrice, 0) : 0;
   next.sections.sectionC.computed.serviceTotal = next.sections.sectionC.enabled ? next.sections.sectionC.lineItems.filter((row) => !isMajorProjectOptional(row) && !isAnnualLine(row)).reduce((sum, row) => sum + row.totalPrice, 0) : 0;
 
-  return next;
+  return normalizeQuoteSoftware(next);
 }
 
 function compact(values: Array<string | undefined | null>) {

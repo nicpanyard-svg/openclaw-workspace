@@ -1,5 +1,6 @@
 import type { QuoteCustomerOutput, QuoteRecord } from "./quote-record";
 import { getIncludedEquipmentRows, getIncludedSectionARows, getIncludedServiceRows } from "./proposal-commercial-summary";
+import { isSoftwareLine } from "./quote-software";
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -115,7 +116,8 @@ export function getCustomerQuoteContent(quote: QuoteRecord) {
   const overageOptIn = quote.orderProcessing?.overageOptIn ?? "pending";
   if (hasOverages && overageOptIn === "pending") warnings.push("The overage election has not been confirmed.");
   if (overageOptIn === "yes" && services.length && !hasOverages) warnings.push("Opted-in overage pricing has not been specified.");
-  if (!fieldServicePricingConfirmed && fieldServices.some((row) => row.pricingStage === "budgetary")) warnings.push("Implementation and service pricing is budgetary and subject to confirmation based on final site count, configuration, and deployment requirements.");
+  if (!fieldServicePricingConfirmed && fieldServices.some((row) => row.pricingStage === "budgetary" && !isSoftwareLine(row))) warnings.push("Implementation and service pricing is budgetary and subject to confirmation based on final site count, configuration, and deployment requirements.");
+  if (!fieldServicePricingConfirmed && fieldServices.some((row) => row.pricingStage === "budgetary" && isSoftwareLine(row))) warnings.push("Software pricing is budgetary and subject to confirmation of the final license scope and configuration.");
 
   const title = customerCopy(quote.metadata.documentTitle)
     || (quote.metadata.workflowMode === "major_project" ? customerCopy(quote.majorProject.summary.projectName) : "")

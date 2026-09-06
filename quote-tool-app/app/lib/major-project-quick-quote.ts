@@ -40,7 +40,7 @@ export function buildQuickQuoteComponents(quote: QuoteRecord): MajorProjectCompo
       const billing = getLineBilling(row, section === "sectionA" ? "monthly" : "one_time");
       const lineType = section === "sectionA"
         ? (row as PoolPricingRow).rowType === "support" ? "support" : "subscription"
-        : section === "sectionB" ? "hardware" : (row as ServicePricingRow).serviceCategory === "installation" ? "installation" : "service";
+        : section === "sectionB" ? "hardware" : (row as ServicePricingRow).lineType === "software" ? "software" : (row as ServicePricingRow).serviceCategory === "installation" ? "installation" : "service";
       components.push({
         id: uniqueId(row.id), quickQuoteSource: { section, rowId: row.id, usageBased: values.usageBased },
         internalName: values.label, notes: values.description,
