@@ -54,7 +54,7 @@ import {
 import { RAPIDQUOTE_DEPLOYMENT_BRANDING } from "@/app/lib/app-environment";
 import { ensureEnvironmentCustomerProfiles, ensureEnvironmentProposalStore } from "@/app/lib/environment-samples";
 import { normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
-import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState, getActiveMajorProjectOption, majorProjectLineTypeLabel } from "@/app/lib/major-project";
+import { applyMajorProjectToQuote, buildMajorProjectMetrics, convertQuickQuoteToMajorProject, ensureMajorProjectState, getActiveMajorProjectOption, majorProjectLineTypeLabel } from "@/app/lib/major-project";
 import {
   getCustomerFacingOneTimeTotal,
   getEquipmentTotal,
@@ -1881,17 +1881,14 @@ export default function QuotePreview() {
           activeProposal: matchedProposal,
           fallbackQuote: createBlankQuoteRecord(undefined, existingNumbers),
         }).quote;
-    const nextQuote = ensureMajorProjectState(cloneQuote(resolvedQuote));
+    let nextQuote = ensureMajorProjectState(cloneQuote(resolvedQuote));
 
     if (requestedCustomerProfile) {
       applyCustomerProfileToQuote(nextQuote, requestedCustomerProfile);
     }
 
     if (entryIntent === "major-project" || entryIntent === "major-project-select-customer") {
-      nextQuote.metadata.workflowMode = "major_project";
-      if (nextQuote.majorProject) {
-        nextQuote.majorProject.enabled = true;
-      }
+      nextQuote = convertQuickQuoteToMajorProject(nextQuote);
     }
 
     if (forceNewDraft) {
@@ -4753,7 +4750,7 @@ export default function QuotePreview() {
               <div className="rq-items-toolbar">
   <fieldset className="rq-mode-group"><legend className="sr-only">Quote mode</legend><div className="rq-segmented">
     <button type="button" aria-pressed={!isMajorProject} onClick={() => updateQuote((draft) => { draft.metadata.workflowMode = "quick_quote"; return draft; })}>Quick Quote</button>
-    <button type="button" aria-pressed={isMajorProject} onClick={() => updateMajorProjectQuote((draft) => { draft.metadata.workflowMode = "major_project"; if (draft.majorProject) draft.majorProject.enabled = true; return draft; })}>Major Quote</button>
+    <button type="button" aria-pressed={isMajorProject} onClick={() => { if (!isMajorProject) { updateQuote(convertQuickQuoteToMajorProject); setWorkflowNotice("Quick Quote data carried into Major Quote."); } }}>Major Quote</button>
   </div></fieldset>
   <button type="button" className="rq-button rq-button-quiet" onClick={() => setEditorTab("pricing")}>{isLeaseQuote ? `Lease / ${selectedLeaseTerm} months` : "Purchase"}<ChevronDown size={14} aria-hidden="true" /></button>
 </div>
@@ -5652,7 +5649,7 @@ return {
 
 <QuoteLineTable label="Major quote components" emptyMessage={activeMajorOptionComponents.length ? "No components match your search." : "No components added."} rows={filteredMajorProjectComponents.map((component) => {
                           const index = activeMajorOptionComponents.findIndex((entry) => entry.id === component.id);
-                          const componentRevenue = component.customerExtendedPrice;
+                          const componentRevenue = component.quickQuoteSource?.usageBased ? 0 : component.customerExtendedPrice;
                           const componentCost = component.vendorExtendedCost;
                           const componentGrossProfit = componentRevenue - componentCost;
                           const componentMargin = majorProjectMarginPercent(componentRevenue, componentCost);
@@ -5665,8 +5662,8 @@ return {
   description: <input aria-label={`Component ${index + 1} name`} value={component.internalName} onChange={(event) => updateActiveMajorComponent(component.id, (current) => ({ ...current, internalName: event.target.value }))} />,
   quantity: <input aria-label={`Component ${index + 1} quantity`} type="number" min="0" step="0.01" value={component.quantity} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const quantity = Math.max(parseNumber(event.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), vendorExtendedCost: Number((quantity * current.vendorUnitCost).toFixed(2)) }; })} />,
   rate: <input aria-label={`Component ${index + 1} unit price`} type="number" min="0" step="0.01" value={component.customerUnitPrice} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} />,
-  cadence: <QuoteBillingSelect label={`Component ${index + 1} billing`} billing={getLineBilling(component, component.schedule === "recurring" ? "monthly" : "one_time")} onChange={(billing) => updateActiveMajorComponent(component.id, (current) => ({ ...current, billing, schedule: billing.cadence === "monthly" ? "recurring" : "one_time" }))} />,
-  total: formatCurrency(componentRevenue, currencyCode),
+  cadence: component.quickQuoteSource?.usageBased ? `Per ${component.unit || "GB"}` : <QuoteBillingSelect label={`Component ${index + 1} billing`} billing={getLineBilling(component, component.schedule === "recurring" ? "monthly" : "one_time")} onChange={(billing) => updateActiveMajorComponent(component.id, (current) => ({ ...current, billing, schedule: billing.cadence === "monthly" ? "recurring" : "one_time" }))} />,
+  total: component.quickQuoteSource?.usageBased ? "Usage-based" : formatCurrency(componentRevenue, currencyCode),
   optional: component.optional === true, onOptionalChange: (checked) => updateActiveMajorComponent(component.id, (current) => ({ ...current, optional: checked })),
   actions: <RowActions rowNumber={index + 1} totalRows={activeMajorOptionComponents.length} onMoveUp={() => moveMajorProjectComponent(component.id, -1)} onMoveDown={() => moveMajorProjectComponent(component.id, 1)} onMoveTo={(position) => moveMajorProjectComponentToPosition(component.id, position)} onDuplicate={() => duplicateMajorProjectComponent(component.id)} onRemove={() => removeMajorProjectComponent(component.id)} />,
   details: <div className="rq-component-details">
@@ -5721,7 +5718,7 @@ return {
                                 ) : null}
                               </label>
                               <label className="builder-field compact"><span>Line type</span><select value={component.lineType} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const lineType = e.target.value as MajorProjectComponent["lineType"]; return { ...current, lineType, category: majorProjectLineTypeLabel(lineType) }; })}><option value="hardware">Hardware</option><option value="software">Software</option><option value="subscription">Subscription</option><option value="installation">Installation</option><option value="service">Service</option><option value="support">Support</option><option value="managed_service">Managed service</option><option value="optional_service">Optional service</option><option value="internal_labor">Internal labor</option><option value="shipping">Shipping</option><option value="tax">Tax</option><option value="other">Other</option></select></label>
-                              <label className="builder-field compact"><span>Billing</span><QuoteBillingSelect label={`Component ${index + 1} billing details`} billing={getLineBilling(component, component.schedule === "recurring" ? "monthly" : "one_time")} onChange={(billing) => updateActiveMajorComponent(component.id, (current) => ({ ...current, billing, schedule: billing.cadence === "monthly" ? "recurring" : "one_time" }))} /></label>
+                              <label className="builder-field compact"><span>Billing</span>{component.quickQuoteSource?.usageBased ? <input readOnly value={`Per ${component.unit || "GB"}`} /> : <QuoteBillingSelect label={`Component ${index + 1} billing details`} billing={getLineBilling(component, component.schedule === "recurring" ? "monthly" : "one_time")} onChange={(billing) => updateActiveMajorComponent(component.id, (current) => ({ ...current, billing, schedule: billing.cadence === "monthly" ? "recurring" : "one_time" }))} />}</label>
                               <label className="builder-field compact"><span>Bundle assignment</span><select value={component.bundleAssignmentId ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, bundleAssignmentId: e.target.value }))}><option value="">Unassigned</option>{bundleOptions.map((bundle) => <option key={bundle.id} value={bundle.id}>{bundle.label}</option>)}</select></label>
                             </div>
                             <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">

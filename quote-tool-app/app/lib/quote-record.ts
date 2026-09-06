@@ -373,6 +373,7 @@ export type MajorProjectCostBasis = "vendor_quote" | "msrp" | "estimate" | "inte
 export type MajorProjectResaleBasis = "fixed_fee" | "cost_plus" | "target_margin" | "pass_through" | "bundle" | "other";
 
 export type MajorProjectComponent = {
+  quickQuoteSource?: { section: "sectionA" | "sectionB" | "sectionC"; rowId: string; usageBased?: boolean };
   billing?: QuoteLineBilling;
   id: string;
   internalName: string;
@@ -523,6 +524,10 @@ export type MajorProjectVendorQuoteImport = {
 };
 
 export type MajorProjectOption = {
+  quickQuoteSource?: {
+    sections: QuoteRecord["sections"];
+    commercialMeta: QuoteCommercialMeta;
+  };
   id: string;
   label: string;
   description?: string;

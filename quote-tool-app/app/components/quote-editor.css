@@ -93,7 +93,7 @@ body:has(.rq-editor) .app-shell-brand-copy { display: none; }
 .rq-row-actions { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 0; }
 .rq-editor .rq-line-table__col-actions { width: 152px; }
 .rq-editor .rq-line-table__col-expansion { width: 34px; }
-.rq-editor .rq-line-table__col-cadence { width: 88px; }
+.rq-editor .rq-line-table__col-cadence { width: 160px; }
 .rq-editor .rq-line-table__col-optional { width: 82px; }
 .rq-editor .rq-line-table__col-rate { width: 94px; }
 .rq-editor .rq-line-table__action-list .rq-icon-button { min-width: 28px; width: 28px; min-height: 32px; height: 32px; padding: 0; }

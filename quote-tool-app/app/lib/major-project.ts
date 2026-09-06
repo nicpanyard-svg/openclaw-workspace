@@ -14,6 +14,7 @@ import type {
 } from "@/app/lib/quote-record";
 import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spec-attachments";
 import { getLineBilling, isAnnualLine } from "./quote-line-billing";
+import { buildQuickQuoteComponents, preserveQuickQuoteOutput, sameQuickQuoteContent } from "./major-project-quick-quote";
 
 export type MajorProjectServiceMix = "managed-network" | "starlink-pool" | "starlink-per-site" | "hybrid";
 export type MajorProjectValidationSeverity = "error" | "warning";
@@ -318,12 +319,15 @@ function resolveMajorProjectBuilderMode(option: MajorProjectOption | null | unde
 function normalizeComponent(component: Partial<MajorProjectComponent> | undefined, index: number): MajorProjectComponent {
   const defaults = createDefaultComponent();
   const lineType = component?.lineType ?? defaults.lineType;
-  const quantity = Math.max(Number(component?.quantity ?? defaults.quantity) || defaults.quantity, 0);
+  const rawQuantity = Number(component?.quantity ?? defaults.quantity);
+  const quantity = Number.isFinite(rawQuantity) ? Math.max(rawQuantity, 0) : defaults.quantity;
   const customerUnitPrice = Number(component?.customerUnitPrice ?? defaults.customerUnitPrice) || 0;
   const vendorUnitCost = Number(component?.vendorUnitCost ?? defaults.vendorUnitCost) || 0;
-  const customerExtendedPrice = component?.customerExtendedPrice ?? roundCurrency(quantity * customerUnitPrice);
+  const usageBased = component?.quickQuoteSource?.usageBased === true;
+  const customerExtendedPrice = usageBased ? 0 : component?.customerExtendedPrice ?? roundCurrency(quantity * customerUnitPrice);
   const vendorExtendedCost = component?.vendorExtendedCost ?? roundCurrency(quantity * vendorUnitCost);
-  const billing = getLineBilling(component ?? defaults, component?.schedule === "recurring" ? "monthly" : "one_time");
+  const billing = usageBased ? { cadence: "monthly" as const, startsYear: 1 as const }
+    : getLineBilling(component ?? defaults, component?.schedule === "recurring" ? "monthly" : "one_time");
 
   return {
     ...defaults,
@@ -525,6 +529,7 @@ function normalizeOption(option: Partial<MajorProjectOption> | undefined, index:
 
   return {
     id: option?.id ?? `major-option-${index + 1}`,
+    quickQuoteSource: option?.quickQuoteSource,
     label: option?.label ?? `Option ${index + 1}`,
     description: option?.description,
     siteCount: Number(option?.siteCount ?? 1) || 1,
@@ -1310,6 +1315,49 @@ export function convertMajorProjectQuickBuilderToMappedModel(quote: QuoteRecord)
   };
 }
 
+export function convertQuickQuoteToMajorProject(quote: QuoteRecord): QuoteRecord {
+  const next = ensureMajorProjectState(structuredClone(quote));
+  if (next.metadata.workflowMode === "major_project") return next;
+  const active = getActiveMajorProjectOption(next);
+  if (active?.components?.length && sameQuickQuoteContent(next, applyMajorProjectToQuote(next))) {
+    next.metadata.workflowMode = "major_project";
+    next.majorProject.enabled = true;
+    return next;
+  }
+
+  const hasExistingWork = next.majorProject.options.some((option) =>
+    option.components?.length || option.simpleRows?.length || option.bundles?.length || option.customerQuoteLines?.length || option.vendorQuotes?.length);
+  const usedIds = new Set(next.majorProject.options.map((option) => option.id));
+  let id = "quick-quote-import";
+  for (let suffix = 2; usedIds.has(id); suffix += 1) id = `quick-quote-import-${suffix}`;
+  const sectionA = next.sections.sectionA;
+  const rows = sectionA.mode === "pool" ? sectionA.poolRows : sectionA.perKitRows;
+  const terminalCount = next.orderProcessing?.terminals.length || rows.filter((row) => row.rowType === "terminal_fee" && !row.optional)
+    .reduce((total, row) => total + (row.quantity ?? 0), 0)
+    || (sectionA.mode === "per_kit" ? rows.filter((row) => row.rowType === "service" && !row.optional).reduce((total, row) => total + (row.quantity ?? 0), 0) : 1);
+  const siteCount = Math.max(terminalCount, 1);
+  const importNumber = next.majorProject.options.filter((candidate) => candidate.quickQuoteSource).length + 1;
+  const option = normalizeOption({
+    id, label: importNumber === 1 ? "From Quick Quote" : `From Quick Quote ${importNumber}`, siteCount, description: next.metadata.documentTitle,
+    components: buildQuickQuoteComponents(next), bundles: [], customerQuoteLines: [],
+    quickQuoteSource: { sections: structuredClone(next.sections), commercialMeta: structuredClone(next.commercial.meta) },
+  }, 0);
+  next.majorProject.options = hasExistingWork ? [...next.majorProject.options, option] : [option];
+  next.majorProject.activeOptionId = option.id;
+  next.majorProject.enabled = true;
+  next.majorProject.summary.projectName ||= next.metadata.documentTitle;
+  if (!hasExistingWork) next.majorProject.summary.paymentTerms = "";
+  next.majorProject.summary.versionLabel ||= next.metadata.revisionVersion;
+  next.majorProject.summary.billingStart ||= next.customerOutput?.billingStart ?? "";
+  Object.assign(next.majorProject.commercial, {
+    termMonths: sectionA.termMonths,
+    serviceMix: sectionA.mode === "pool" ? "starlink-pool" : "starlink-per-site",
+    siteCount, activeSites: siteCount,
+    terminalFeePerSite: 0, overageRatePerGb: 0,
+  });
+  return applyMajorProjectToQuote(next);
+}
+
 export function buildMajorProjectMetrics(quote: QuoteRecord): MajorProjectMetrics {
   const safeQuote = ensureMajorProjectState(quote);
   const state = safeQuote.majorProject;
@@ -1519,8 +1567,8 @@ export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): Ma
   const useDirectComponentPath = usesDirectComponentOutput(metrics);
   if (useDirectComponentPath) {
     for (const [index, component] of metrics.components.entries()) {
-      if (component.customerExtendedPrice <= 0) continue;
-      const outputSection = component.schedule === "recurring"
+      if (component.customerExtendedPrice <= 0 && !component.quickQuoteSource) continue;
+      const outputSection = component.schedule === "recurring" || (component.quickQuoteSource?.section === "sectionA" && isAnnualLine(component))
         ? "sectionA"
         : isDirectHardwareComponent(component)
           ? "sectionB"
@@ -1633,7 +1681,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   const next = JSON.parse(JSON.stringify(safeQuote)) as QuoteRecord;
 
   next.metadata.workflowMode = "major_project";
-  next.metadata.documentSubtitle = next.metadata.documentSubtitle || "Major Project Commercial Proposal";
+  if (!activeOption?.quickQuoteSource) next.metadata.documentSubtitle = next.metadata.documentSubtitle || "Major Project Commercial Proposal";
   const hasOptionalRecurringContent = metrics.components.some((component) => component.schedule === "recurring" && component.customerExtendedPrice > 0)
     || simpleRows.some((row) => (row.bucket === "mrr" || row.bucket === "other_vendor" || row.bucket === "support_recurring" || row.bucket === "other_recurring") && row.customerExtendedPrice > 0);
   const hasRecurringSectionContent = metrics.recurringRevenue > 0 || hasOptionalRecurringContent || state.commercial.terminalFeePerSite > 0 || state.commercial.overageRatePerGb > 0;
@@ -1995,11 +2043,12 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     next.commercial.costs.recurringOtherCost = 0;
   }
 
-  next.sections.sectionA.computed.monthlyRecurringTotal = next.sections.sectionA.mode === "pool"
-    ? next.sections.sectionA.poolRows.filter((row) => !isMajorProjectOptional(row)).reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0)
-    : next.sections.sectionA.perKitRows.filter((row) => !isMajorProjectOptional(row)).reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0);
-  next.sections.sectionB.computed.equipmentTotal = next.sections.sectionB.lineItems.filter((row) => !isMajorProjectOptional(row) && !isAnnualLine(row)).reduce((sum, row) => sum + row.totalPrice, 0);
-  next.sections.sectionC.computed.serviceTotal = next.sections.sectionC.lineItems.filter((row) => !isMajorProjectOptional(row) && !isAnnualLine(row)).reduce((sum, row) => sum + row.totalPrice, 0);
+  if (activeOption) preserveQuickQuoteOutput(next, activeOption, useDirectComponentPath);
+  const includedMonthlyRows = (next.sections.sectionA.mode === "pool" ? next.sections.sectionA.poolRows : next.sections.sectionA.perKitRows)
+    .filter((row) => !isMajorProjectOptional(row) && row.rowType !== "overage" && !isAnnualLine(row));
+  next.sections.sectionA.computed.monthlyRecurringTotal = next.sections.sectionA.enabled ? includedMonthlyRows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0) : 0;
+  next.sections.sectionB.computed.equipmentTotal = next.sections.sectionB.enabled ? next.sections.sectionB.lineItems.filter((row) => !isMajorProjectOptional(row) && !isAnnualLine(row)).reduce((sum, row) => sum + row.totalPrice, 0) : 0;
+  next.sections.sectionC.computed.serviceTotal = next.sections.sectionC.enabled ? next.sections.sectionC.lineItems.filter((row) => !isMajorProjectOptional(row) && !isAnnualLine(row)).reduce((sum, row) => sum + row.totalPrice, 0) : 0;
 
   return next;
 }
