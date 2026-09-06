@@ -23,6 +23,7 @@ import { assembleFinalProposalPdf } from "../app/lib/proposal-spec-pdf-assembly"
 import { deserializeQuoteRecord, serializeQuoteRecord } from "../app/lib/proposal-state";
 import type { MajorProjectComponent, MajorProjectSpecAttachment, QuoteRecord } from "../app/lib/quote-record";
 import { createBlankQuoteRecord } from "../app/lib/quote-template";
+import { getAnnualSubscriptionSummary } from "../app/lib/quote-line-billing";
 
 // Run from the repository with tsx. Only synthetic QA records are posted; no store is saved.
 const BASE_URL = new URL(process.env.PROPOSAL_QA_BASE_URL || "http://localhost:3017");
@@ -253,7 +254,22 @@ async function buildFixtures(): Promise<Fixture[]> {
     quote: normalize(longQuote), equipmentCount: 35, attachments: [shared, switching, drawing],
     expected: { recurring: 125, equipment: 18900, fieldServices: 50, equipmentLeaseMonthly: 0, monthly: 125, upfront: 18950, optionalMonthly: 10, optionalOneTime: 85 },
   };
-  return [purchase, lease, long];
+  const mixed = simpleQuote("QA-MIXED-BILLING-OUTPUT");
+  mixed.metadata.documentTitle = "QA - Mixed Vendor AI and Cloud Billing";
+  mixed.sections.sectionB.lineItems = [
+    ["CamLevel-Edge perpetual license", 3750, false], ["CamLevel site calibration and training", 1350, false],
+    ["CamFlood-Edge perpetual license", 3750, false], ["CamFlood site calibration and training", 1350, false],
+    ["OS Board", 1350, false], ["AXIS Camera Station Cloud Storage", 125, false],
+    ["CamLevel-Edge Serenity Plan", 375, true], ["CamFlood-Edge Serenity Plan", 375, true],
+  ].map(([label, rate, optional], index) => ({
+    id: `QA-VENDOR-${index}`, itemName: String(label), sourceType: "custom", quantity: index === 5 ? 2 : 1,
+    unitPrice: Number(rate), totalPrice: Number(rate) * (index === 5 ? 2 : 1), optional: Boolean(optional),
+    description: index < 4 ? "Perpetual license or setup, with the first year of Serenity included for each licensed application." : index > 5 ? "Annual application support after the included first year." : "Selected annual subscription.",
+  }));
+  const annual: Fixture = { quote: normalize(mixed), equipmentCount: 4, attachments: [], expected: {
+    recurring: 125, equipment: 10200, fieldServices: 0, equipmentLeaseMonthly: 0, monthly: 125, upfront: 10200, optionalMonthly: 10, optionalOneTime: 20,
+  } };
+  return [purchase, lease, long, annual];
 }
 
 async function extractText(blob: Blob): Promise<PdfPageText[]> {
@@ -369,9 +385,22 @@ function validateCommercial(fixture: Fixture, text: string, check: Check) {
     const optionText = scopedText(text, "Option Costs", "Available monthly options");
     assert.match(text, /Excluded from the included scope and all base totals/);
     checkRows(check, optionText, options.items.map((row) => ({
-      label: row.label, quantity: row.quantity, prices: [row.unitPrice!, row.amount], billing: row.cadence === "monthly" ? "Monthly" : "One-time",
+      label: row.label, quantity: row.quantity, prices: [row.unitPrice!, row.amount], billing: row.cadence === "annual" ? "Annual renewal from Year 2" : row.cadence === "monthly" ? "Monthly" : "One-time",
     })));
   });
+  if (getAnnualSubscriptionSummary(quote).items.length) {
+    check("annual amounts are separate from one-time and monthly charges", () => {
+      assert.match(text, /Year 1 prepaid annual subscriptions \$1,600\.00/);
+      assert.match(text, /Annual renewals from Year 2 \$1,600\.00/);
+      assert.match(text, /One-time \+ Year 1 annual charges: \$11,800\.00/);
+      assert.match(text, /Available annual subscription \/ renewal options \$750\.00/);
+      assert.equal(options.annualTotal, 750);
+    });
+    check("annual subscription unit rates and first-year charges", () => checkRows(check,
+      scopedText(text, "Annual subscriptions & renewals", "Included annual subscriptions"),
+      getAnnualSubscriptionSummary(quote).items.map((item) => ({ label: item.label, quantity: item.quantity, prices: [item.unitPrice!, item.firstYearAmount, item.annualAmount], billing: "Year 1 prepaid annual subscription" })),
+    ));
+  }
   return actual;
 }
 
@@ -480,7 +509,7 @@ async function main() {
   console.log(JSON.stringify({ fixtures: reports.length, checks: reports.reduce((sum, report) => sum + report.checks, 0), failures: failures.length, outputDirectory: OUTPUT_DIR }, null, 2));
 
   // Leave only this synthetic lease cached for the parent's read-only desktop/mobile review.
-  const lease = fixtures.find((fixture) => fixture.quote.metadata.proposalNumber === "QA-LEASE3-OUTPUT")!.quote;
+  const lease = fixtures.find((fixture) => fixture.quote.metadata.proposalNumber === "QA-MIXED-BILLING-OUTPUT")!.quote;
   const cachedAt = new Date();
   const token = await cacheProposalPdfQuote(lease, lease.internal.quoteId);
   const previewUrl = new URL("/proposal/print", BASE_URL);
@@ -489,7 +518,7 @@ async function main() {
   previewUrl.searchParams.set("proposalId", lease.internal.quoteId);
   const preview = await fetch(previewUrl, { signal: AbortSignal.timeout(30_000) });
   assert.ok(preview.ok, "Synthetic cached preview returned HTTP " + preview.status);
-  assert.ok((await preview.text()).includes("QA-LEASE3-OUTPUT"), "Cached preview did not render the synthetic lease");
+  assert.ok((await preview.text()).includes("QA-MIXED-BILLING-OUTPUT"), "Cached preview did not render the synthetic billing quote");
   console.log(JSON.stringify({ syntheticLeasePreviewUrl: previewUrl.href, cachedAt: cachedAt.toISOString(), expiresAt: new Date(cachedAt.getTime() + 600_000).toISOString() }, null, 2));
   process.exitCode = failures.length ? 1 : 0;
 }

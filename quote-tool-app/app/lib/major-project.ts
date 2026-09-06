@@ -13,6 +13,7 @@ import type {
   QuoteRecord,
 } from "@/app/lib/quote-record";
 import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spec-attachments";
+import { getLineBilling, isAnnualLine } from "./quote-line-billing";
 
 export type MajorProjectServiceMix = "managed-network" | "starlink-pool" | "starlink-per-site" | "hybrid";
 export type MajorProjectValidationSeverity = "error" | "warning";
@@ -35,7 +36,8 @@ export type MajorProjectValidationIssue = {
     | "component_unmapped_to_quote_line"
     | "component_duplicate_quote_line_coverage"
     | "bundle_not_presented"
-    | "missing_customer_quote_lines";
+    | "missing_customer_quote_lines"
+    | "mixed_annual_billing";
   severity: MajorProjectValidationSeverity;
   message: string;
   componentIds?: string[];
@@ -54,6 +56,8 @@ export type MajorProjectValidationSummary = {
 };
 
 export type MajorProjectBundleMetrics = MajorProjectBundle & {
+  annualRevenue: number;
+  annualCost: number;
   resolvedComponentIds: string[];
   oneTimeRevenue: number;
   recurringRevenue: number;
@@ -62,6 +66,8 @@ export type MajorProjectBundleMetrics = MajorProjectBundle & {
 };
 
 export type MajorProjectCustomerQuoteLineMetrics = MajorProjectCustomerQuoteLine & {
+  annualRevenue: number;
+  annualCost: number;
   resolvedBundleIds: string[];
   resolvedCostComponentIds: string[];
   resolvedRevenueComponentIds: string[];
@@ -76,6 +82,11 @@ export type MajorProjectCustomerQuoteLineMetrics = MajorProjectCustomerQuoteLine
 };
 
 export type MajorProjectMetrics = {
+  annualRevenue: number;
+  annualCost: number;
+  annualRenewalRevenue: number;
+  annualContractRevenue: number;
+  annualContractCost: number;
   termMonths: number;
   siteCount: number;
   components: MajorProjectComponent[];
@@ -85,6 +96,8 @@ export type MajorProjectMetrics = {
   vendorSummary: Array<{
     vendor: string;
     manufacturer?: string;
+    annualRevenue?: number;
+    annualCost?: number;
     oneTimeRevenue: number;
     recurringRevenue: number;
     oneTimeCost: number;
@@ -310,10 +323,13 @@ function normalizeComponent(component: Partial<MajorProjectComponent> | undefine
   const vendorUnitCost = Number(component?.vendorUnitCost ?? defaults.vendorUnitCost) || 0;
   const customerExtendedPrice = component?.customerExtendedPrice ?? roundCurrency(quantity * customerUnitPrice);
   const vendorExtendedCost = component?.vendorExtendedCost ?? roundCurrency(quantity * vendorUnitCost);
+  const billing = getLineBilling(component ?? defaults, component?.schedule === "recurring" ? "monthly" : "one_time");
 
   return {
     ...defaults,
     ...component,
+    billing,
+    schedule: billing.cadence === "monthly" ? "recurring" : "one_time",
     id: component?.id ?? `major-component-${index + 1}`,
     internalName: component?.internalName ?? defaults.internalName,
     optional: component?.optional === true,
@@ -369,20 +385,25 @@ function normalizeCustomerQuoteLine(line: Partial<MajorProjectCustomerQuoteLine>
 }
 
 function buildVendorSummary(components: MajorProjectComponent[]) {
-  const summaryMap = new Map<string, { vendor: string; manufacturer?: string; oneTimeRevenue: number; recurringRevenue: number; oneTimeCost: number; recurringCost: number }>();
+  const summaryMap = new Map<string, { vendor: string; manufacturer?: string; annualRevenue: number; annualCost: number; oneTimeRevenue: number; recurringRevenue: number; oneTimeCost: number; recurringCost: number }>();
 
   for (const component of components) {
     const key = `${component.vendor || "Unassigned vendor"}::${component.manufacturer || ""}`;
     const current = summaryMap.get(key) ?? {
       vendor: component.vendor || "Unassigned vendor",
       manufacturer: component.manufacturer || undefined,
+      annualRevenue: 0,
+      annualCost: 0,
       oneTimeRevenue: 0,
       recurringRevenue: 0,
       oneTimeCost: 0,
       recurringCost: 0,
     };
 
-    if (component.schedule === "recurring") {
+    if (isAnnualLine(component)) {
+      current.annualRevenue += component.customerExtendedPrice;
+      current.annualCost += component.vendorExtendedCost;
+    } else if (component.schedule === "recurring") {
       current.recurringRevenue += component.customerExtendedPrice;
       current.recurringCost += component.vendorExtendedCost;
     } else {
@@ -395,6 +416,8 @@ function buildVendorSummary(components: MajorProjectComponent[]) {
 
   return Array.from(summaryMap.values()).map((entry) => ({
     ...entry,
+    annualRevenue: roundCurrency(entry.annualRevenue),
+    annualCost: roundCurrency(entry.annualCost),
     oneTimeRevenue: roundCurrency(entry.oneTimeRevenue),
     recurringRevenue: roundCurrency(entry.recurringRevenue),
     oneTimeCost: roundCurrency(entry.oneTimeCost),
@@ -522,6 +545,7 @@ function normalizeOption(option: Partial<MajorProjectOption> | undefined, index:
 }
 
 function quickBuilderScheduleForRow(row: MajorProjectSimpleRow) {
+  if (isAnnualLine(row)) return "one_time" as const;
   return row.bucket === "hardware" || row.bucket === "install" ? "one_time" as const : "recurring" as const;
 }
 
@@ -556,6 +580,7 @@ function quickBuilderBundleCategoryForRow(row: MajorProjectSimpleRow) {
 }
 
 function quickBuilderPresentationCategoryForRow(row: MajorProjectSimpleRow): MajorProjectCustomerQuoteLine["presentationCategory"] {
+  if (isAnnualLine(row)) return "services";
   switch (row.bucket) {
     case "hardware":
       return "hardware";
@@ -603,6 +628,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
       vendorUnitCost: row.ourUnitCost,
       vendorExtendedCost: row.ourExtendedCost,
       schedule: quickBuilderScheduleForRow(row),
+      billing: getLineBilling(row, quickBuilderScheduleForRow(row) === "recurring" ? "monthly" : "one_time"),
       costBasis: "estimate",
       resaleBasis: "cost_plus",
       bundleAssignmentId: bundleId,
@@ -628,6 +654,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
       includedCostComponentIds: [componentId],
       includedRevenueComponentIds: [componentId],
       schedule: quickBuilderScheduleForRow(row),
+      billing: getLineBilling(row, quickBuilderScheduleForRow(row) === "recurring" ? "monthly" : "one_time"),
       category: quickBuilderBundleCategoryForRow(row),
     }, index);
   });
@@ -649,6 +676,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
       includedCostComponentIds: [componentId],
       includedRevenueComponentIds: [componentId],
       schedule: quickBuilderScheduleForRow(row),
+      billing: getLineBilling(row, quickBuilderScheduleForRow(row) === "recurring" ? "monthly" : "one_time"),
       presentationCategory: quickBuilderPresentationCategoryForRow(row),
     }, index);
   });
@@ -663,7 +691,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
 
 function sumComponents(components: MajorProjectComponent[], schedule: "one_time" | "recurring", value: "revenue" | "cost", predicate?: (component: MajorProjectComponent) => boolean) {
   return components.reduce((sum, component) => {
-    if (component.schedule !== schedule) return sum;
+    if (isAnnualLine(component) || component.schedule !== schedule) return sum;
     if (predicate && !predicate(component)) return sum;
     return sum + (value === "revenue" ? component.customerExtendedPrice : component.vendorExtendedCost);
   }, 0);
@@ -749,10 +777,15 @@ function inferComponentsForQuoteLine(line: MajorProjectCustomerQuoteLine, compon
 }
 
 function costOrRevenueTotal(components: MajorProjectComponent[], schedule: "one_time" | "recurring", value: "revenue" | "cost") {
-  return components.reduce((sum, component) => {
-    if (component.schedule !== schedule) return sum;
-    return sum + (value === "revenue" ? component.customerExtendedPrice : component.vendorExtendedCost);
-  }, 0);
+  return sumComponents(components, schedule, value);
+}
+
+function annualComponentTotal(components: MajorProjectComponent[], value: "revenue" | "cost", years?: number) {
+  return roundCurrency(components.reduce((sum, component) => {
+    if (!isAnnualLine(component)) return sum;
+    const payments = years === undefined ? 1 : Math.max(0, years - (getLineBilling(component).startsYear === 2 ? 1 : 0));
+    return sum + payments * (value === "revenue" ? component.customerExtendedPrice : component.vendorExtendedCost);
+  }, 0));
 }
 
 function resolveSpecSheetLabel(line: MajorProjectCustomerQuoteLine, bundlesById: Map<string, MajorProjectBundle>, bundleIds: string[]) {
@@ -772,7 +805,12 @@ function resolveSpecSheetLocation(line: MajorProjectCustomerQuoteLine, bundlesBy
 }
 
 function quoteLineIsOptional(line: MajorProjectCustomerQuoteLineMetrics, bundlesById: Map<string, MajorProjectBundle>) {
-  return isMajorProjectOptional(line) || line.resolvedBundleIds.some((bundleId) => isMajorProjectOptional(bundlesById.get(bundleId)));
+  return isMajorProjectOptional(line) || line.resolvedBundleIds.some((bundleId) => isMajorProjectOptional(bundlesById.get(bundleId)))
+    || (line.revenueComponents.length > 0 && line.revenueComponents.every(isMajorProjectOptional));
+}
+
+function annualQuoteLineQuantity(line: MajorProjectCustomerQuoteLineMetrics) {
+  return isAnnualLine(line) && line.revenueComponents.length === 1 ? line.revenueComponents[0].quantity : 1;
 }
 
 function usesDirectComponentOutput(metrics: Pick<MajorProjectMetrics, "hasThreeLayerModel" | "components" | "bundles" | "customerQuoteLines">) {
@@ -861,6 +899,8 @@ function buildMajorProjectPresentation(option: MajorProjectOption) {
 
     return {
       ...bundle,
+      annualRevenue: annualComponentTotal(revenueComponents.length ? revenueComponents : defaultComponents, "revenue"),
+      annualCost: annualComponentTotal(costComponents.length ? costComponents : defaultComponents, "cost"),
       resolvedComponentIds,
       oneTimeRevenue: roundCurrency(costOrRevenueTotal(revenueComponents.length ? revenueComponents : defaultComponents, "one_time", "revenue")),
       recurringRevenue: roundCurrency(costOrRevenueTotal(revenueComponents.length ? revenueComponents : defaultComponents, "recurring", "revenue")),
@@ -889,9 +929,17 @@ function buildMajorProjectPresentation(option: MajorProjectOption) {
     const fallbackRevenueComponents = !bundledRevenueComponents.length && !explicitRevenueComponents.length ? inferredComponents : [];
     const costComponents = dedupeComponents([...bundledCostComponents, ...explicitCostComponents, ...fallbackCostComponents]);
     const revenueComponents = dedupeComponents([...bundledRevenueComponents, ...explicitRevenueComponents, ...fallbackRevenueComponents]);
+    const pricedComponents = revenueComponents.filter((component) => component.customerExtendedPrice !== 0);
+    const annualBilling = pricedComponents.length && pricedComponents.every(isAnnualLine) ? getLineBilling(pricedComponents[0]) : undefined;
+    const sourceBilling = pricedComponents.length && pricedComponents.every((component) => !isAnnualLine(component))
+      ? getLineBilling(pricedComponents[0], pricedComponents[0].schedule === "recurring" ? "monthly" : "one_time") : undefined;
 
     return {
       ...line,
+      billing: annualBilling ? { ...annualBilling, unitLabel: pricedComponents.length > 1 ? "bundle" : annualBilling.unitLabel } : sourceBilling ?? line.billing,
+      presentationCategory: annualBilling && line.presentationCategory === "recurring" ? "services" : line.presentationCategory,
+      annualRevenue: annualComponentTotal(revenueComponents, "revenue"),
+      annualCost: annualComponentTotal(costComponents, "cost"),
       bundleIds: resolvedBundleIds,
       resolvedBundleIds,
       resolvedCostComponentIds: costComponents.map((component) => component.id),
@@ -919,6 +967,17 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
   const bundles = option.bundles ?? [];
   const quoteLines = presentation.quoteLinesWithMetrics;
   const issues: MajorProjectValidationIssue[] = [];
+  for (const line of quoteLines) {
+    const priced = line.revenueComponents.filter((component) => component.customerExtendedPrice !== 0);
+    const terms = new Set(priced.map((component) => {
+      const billing = getLineBilling(component, component.schedule === "recurring" ? "monthly" : "one_time");
+      return `${billing.cadence}:${billing.cadence === "annual" ? billing.startsYear : 1}`;
+    }));
+    if (priced.some(isAnnualLine) && terms.size > 1) issues.push({
+      code: "mixed_annual_billing", severity: "error", quoteLineIds: [line.id],
+      message: `${line.label}: separate annual subscriptions, deferred renewals, and other billing terms into distinct customer quote lines.`,
+    });
+  }
   const useDirectComponentPath = components.length > 0 && bundles.length === 0 && quoteLines.length === 0;
 
   const duplicateComponentIds = collectDuplicateIds(components);
@@ -1084,7 +1143,7 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
       componentToQuoteLineIds.set(componentId, [...(componentToQuoteLineIds.get(componentId) ?? []), quoteLine.id]);
     }
 
-    if (!coveredIds.length || (quoteLine.oneTimeRevenue + quoteLine.recurringRevenue + quoteLine.oneTimeCost + quoteLine.recurringCost) <= 0) {
+    if (!coveredIds.length || (quoteLine.annualRevenue + quoteLine.annualCost + quoteLine.oneTimeRevenue + quoteLine.recurringRevenue + quoteLine.oneTimeCost + quoteLine.recurringCost) <= 0) {
       issues.push({
         code: "quote_line_without_backing_economics",
         severity: "error",
@@ -1135,7 +1194,7 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
       .map((component) => component.id);
 
   const quoteLinesWithoutEconomics = quoteLines
-    .filter((quoteLine) => (quoteLine.oneTimeRevenue + quoteLine.recurringRevenue + quoteLine.oneTimeCost + quoteLine.recurringCost) <= 0)
+    .filter((quoteLine) => (quoteLine.annualRevenue + quoteLine.annualCost + quoteLine.oneTimeRevenue + quoteLine.recurringRevenue + quoteLine.oneTimeCost + quoteLine.recurringCost) <= 0)
     .map((quoteLine) => quoteLine.id);
 
   const errorCount = issues.filter((issue) => issue.severity === "error").length;
@@ -1315,13 +1374,27 @@ export function buildMajorProjectMetrics(quote: QuoteRecord): MajorProjectMetric
   const recurringContractCost = contractValueFromMrr(recurringCost, termMonths);
   const recurringContractGrossProfit = roundCurrency(recurringContractRevenue - recurringContractCost);
   const recurringContractGrossMarginPercent = recurringContractRevenue > 0 ? (recurringContractGrossProfit / recurringContractRevenue) * 100 : 0;
-  const totalContractRevenue = roundCurrency(recurringContractRevenue + oneTimeRevenue);
-  const totalContractCost = roundCurrency(recurringContractCost + oneTimeCost);
+  const annualComponents = includedComponents.filter((component) => {
+    const presenters = presentation.quoteLinesWithMetrics.filter((line) => line.resolvedRevenueComponentIds.includes(component.id));
+    return !presenters.length || presenters.some((line) => !line.optional && !line.resolvedBundleIds.some((id) => presentation.bundlesWithMetrics.find((bundle) => bundle.id === id)?.optional));
+  });
+  const annualRevenue = annualComponentTotal(annualComponents, "revenue", 1);
+  const annualCost = annualComponentTotal(annualComponents, "cost", 1);
+  const annualRenewalRevenue = annualComponentTotal(annualComponents, "revenue");
+  const annualContractRevenue = annualComponentTotal(annualComponents, "revenue", Math.ceil(termMonths / 12));
+  const annualContractCost = annualComponentTotal(annualComponents, "cost", Math.ceil(termMonths / 12));
+  const totalContractRevenue = roundCurrency(recurringContractRevenue + oneTimeRevenue + annualContractRevenue);
+  const totalContractCost = roundCurrency(recurringContractCost + oneTimeCost + annualContractCost);
   const totalContractGrossProfit = roundCurrency(totalContractRevenue - totalContractCost);
   const totalContractGrossMarginPercent = totalContractRevenue > 0 ? (totalContractGrossProfit / totalContractRevenue) * 100 : 0;
 
   return {
     termMonths,
+    annualRevenue,
+    annualCost,
+    annualRenewalRevenue,
+    annualContractRevenue,
+    annualContractCost,
     siteCount,
     components,
     simpleRows,
@@ -1494,7 +1567,7 @@ export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): Ma
     }
   }
 
-  for (const line of metrics.customerQuoteLines.filter((candidate) => candidate.presentationCategory === "hardware" && candidate.oneTimeRevenue > 0)) {
+  for (const line of metrics.customerQuoteLines.filter((candidate) => candidate.presentationCategory === "hardware" && candidate.oneTimeRevenue + candidate.annualRevenue > 0)) {
     pushAttachment(createOutputSpecAttachmentEntry({
       attachment: line.specSheetAttachment,
       sourceType: "quote_line",
@@ -1519,7 +1592,7 @@ export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): Ma
     }
   }
 
-  for (const line of metrics.customerQuoteLines.filter((candidate) => candidate.presentationCategory !== "hardware" && candidate.presentationCategory !== "recurring" && candidate.oneTimeRevenue > 0)) {
+  for (const line of metrics.customerQuoteLines.filter((candidate) => candidate.presentationCategory !== "hardware" && candidate.presentationCategory !== "recurring" && candidate.oneTimeRevenue + candidate.annualRevenue > 0)) {
     pushAttachment(createOutputSpecAttachmentEntry({
       attachment: line.specSheetAttachment,
       sourceType: "quote_line",
@@ -1619,6 +1692,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         rowType: "service" as const,
         description: directComponentDisplayLabel(component, index),
         optional: component.optional,
+        billing: component.billing,
         quantity: component.quantity,
         unitLabel: component.unit || "ea",
         unitPrice: component.customerUnitPrice,
@@ -1638,6 +1712,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         rowType: row.bucket === "support_recurring" ? "support" as const : "service" as const,
         description: row.label,
         optional: row.optional,
+        billing: row.billing,
         quantity: row.bucket === "support_recurring" ? null : row.quantity,
         unitLabel: row.bucket === "support_recurring" ? null : row.unit || "ea",
         unitPrice: row.customerUnitPrice,
@@ -1720,7 +1795,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     next.sections.sectionA.poolRows = [];
   }
 
-  const hardwareQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory === "hardware" && line.oneTimeRevenue > 0);
+  const hardwareQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory === "hardware" && line.oneTimeRevenue + line.annualRevenue > 0);
   const directHardwareComponents = useDirectComponentPath
     ? metrics.components.filter((component) => isDirectHardwareComponent(component) && component.customerExtendedPrice > 0)
     : [];
@@ -1739,6 +1814,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       sourceType: "custom" as const,
       itemName: directComponentDisplayLabel(component, index),
       optional: component.optional,
+      billing: component.billing,
       imageUrl: component.imageUrl,
       itemCategory: component.category || majorProjectLineTypeLabel(component.lineType),
       quantity: component.quantity,
@@ -1754,10 +1830,11 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       sourceType: "custom" as const,
       itemName: line.label,
       optional: quoteLineIsOptional(line, outputBundlesById),
+      billing: line.billing,
       itemCategory: line.resolvedBundleIds.length > 1 ? `${line.resolvedBundleIds.length} bundles` : "Bundle",
-      quantity: 1,
-      unitPrice: line.oneTimeRevenue,
-      totalPrice: line.oneTimeRevenue,
+      quantity: annualQuoteLineQuantity(line),
+      unitPrice: (line.oneTimeRevenue + line.annualRevenue) / (annualQuoteLineQuantity(line) || 1),
+      totalPrice: line.oneTimeRevenue + line.annualRevenue,
       description: compact([line.description, buildQuoteLineIncludedSentence(line)]).join(" "),
       specSheetLabel: line.resolvedSpecSheetLabel,
       sourceLabel: "Major Project customer bundle",
@@ -1767,6 +1844,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       sourceType: "custom" as const,
       itemName: row.label || row.description || "Equipment item",
       optional: row.optional,
+      billing: row.billing,
       imageUrl: row.imageUrl,
       itemCategory: "",
       quantity: row.quantity,
@@ -1787,7 +1865,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       sourceLabel: "Major Project model",
     }] : []));
 
-  const serviceQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory !== "hardware" && line.presentationCategory !== "recurring" && line.oneTimeRevenue > 0);
+  const serviceQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory !== "hardware" && line.presentationCategory !== "recurring" && line.oneTimeRevenue + line.annualRevenue > 0);
   const directServiceComponents = useDirectComponentPath
     ? metrics.components.filter((component) => isDirectServiceComponent(component) && component.customerExtendedPrice > 0)
     : [];
@@ -1806,6 +1884,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       sourceType: "custom" as const,
       description: directComponentDisplayLabel(component, index),
       optional: component.optional,
+      billing: component.billing,
       quantity: component.quantity,
       unitPrice: component.customerUnitPrice,
       totalPrice: component.customerExtendedPrice,
@@ -1822,9 +1901,10 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       sourceType: "custom" as const,
       description: line.label,
       optional: quoteLineIsOptional(line, outputBundlesById),
-      quantity: 1,
-      unitPrice: line.oneTimeRevenue,
-      totalPrice: line.oneTimeRevenue,
+      billing: line.billing,
+      quantity: annualQuoteLineQuantity(line),
+      unitPrice: (line.oneTimeRevenue + line.annualRevenue) / (annualQuoteLineQuantity(line) || 1),
+      totalPrice: line.oneTimeRevenue + line.annualRevenue,
       notes: compact([line.description, buildQuoteLineIncludedSentence(line)]).join(" "),
       specSheetLabel: line.resolvedSpecSheetLabel,
       serviceCategory: "custom" as const,
@@ -1837,6 +1917,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         sourceType: "custom" as const,
         description: row.label || row.description || "Service item",
         optional: row.optional,
+        billing: row.billing,
         quantity: row.quantity,
         unitPrice: row.customerUnitPrice,
         totalPrice: row.customerExtendedPrice,
@@ -1873,6 +1954,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         } : null,
       ]);
 
+  next.commercial.costs.annualSubscriptionCost = metrics.annualCost;
   next.commercial.meta.optionLabel = activeOption?.label ?? "Option 1";
   next.commercial.meta.comparisonGroup = state.summary.projectName || "Major Project";
   next.commercial.meta.notes = compact([
@@ -1916,8 +1998,8 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   next.sections.sectionA.computed.monthlyRecurringTotal = next.sections.sectionA.mode === "pool"
     ? next.sections.sectionA.poolRows.filter((row) => !isMajorProjectOptional(row)).reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0)
     : next.sections.sectionA.perKitRows.filter((row) => !isMajorProjectOptional(row)).reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0);
-  next.sections.sectionB.computed.equipmentTotal = next.sections.sectionB.lineItems.filter((row) => !isMajorProjectOptional(row)).reduce((sum, row) => sum + row.totalPrice, 0);
-  next.sections.sectionC.computed.serviceTotal = next.sections.sectionC.lineItems.filter((row) => !isMajorProjectOptional(row)).reduce((sum, row) => sum + row.totalPrice, 0);
+  next.sections.sectionB.computed.equipmentTotal = next.sections.sectionB.lineItems.filter((row) => !isMajorProjectOptional(row) && !isAnnualLine(row)).reduce((sum, row) => sum + row.totalPrice, 0);
+  next.sections.sectionC.computed.serviceTotal = next.sections.sectionC.lineItems.filter((row) => !isMajorProjectOptional(row) && !isAnnualLine(row)).reduce((sum, row) => sum + row.totalPrice, 0);
 
   return next;
 }

@@ -1,6 +1,7 @@
 import type { QuoteCommercialState, QuoteRecord } from "@/app/lib/quote-record";
 import { buildMajorProjectMetrics, ensureMajorProjectState } from "@/app/lib/major-project";
 import { isOptionalLineItem } from "@/app/lib/proposal-commercial-summary";
+import { getAnnualSubscriptionSummary, isAnnualLine } from "./quote-line-billing";
 
 export function createDefaultCommercialState(): QuoteCommercialState {
   return {
@@ -43,12 +44,12 @@ export function ensureCommercialState(quote: QuoteRecord): QuoteRecord {
 export function buildCommercialMetrics(quote: QuoteRecord) {
   const hydratedQuote = ensureCommercialState(ensureMajorProjectState(quote));
   const sectionARows = hydratedQuote.sections.sectionA.mode === "pool" ? hydratedQuote.sections.sectionA.poolRows : hydratedQuote.sections.sectionA.perKitRows;
-  const quickRecurringRevenue = Number(sectionARows.filter((row) => !isOptionalLineItem(row)).reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2));
+  const quickRecurringRevenue = Number(sectionARows.filter((row) => !isOptionalLineItem(row) && !isAnnualLine(row)).reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2));
   const quickOneTimeEquipmentRevenue = Number(
-    hydratedQuote.sections.sectionB.lineItems.filter((row) => !isOptionalLineItem(row)).reduce((sum, row) => sum + (row.totalPrice ?? 0), 0).toFixed(2),
+    hydratedQuote.sections.sectionB.lineItems.filter((row) => !isOptionalLineItem(row) && !isAnnualLine(row)).reduce((sum, row) => sum + (row.totalPrice ?? 0), 0).toFixed(2),
   );
   const quickOneTimeServicesRevenue = Number(
-    hydratedQuote.sections.sectionC.lineItems.filter((row) => !isOptionalLineItem(row)).reduce((sum, row) => sum + (row.totalPrice ?? 0), 0).toFixed(2),
+    hydratedQuote.sections.sectionC.lineItems.filter((row) => !isOptionalLineItem(row) && !isAnnualLine(row)).reduce((sum, row) => sum + (row.totalPrice ?? 0), 0).toFixed(2),
   );
 
   const majorProjectMetrics = buildMajorProjectMetrics(hydratedQuote);
@@ -61,6 +62,8 @@ export function buildCommercialMetrics(quote: QuoteRecord) {
   const oneTimeRevenue = Number((oneTimeEquipmentRevenue + oneTimeServicesRevenue).toFixed(2));
 
   const costs = hydratedQuote.commercial.costs;
+  const annualRevenue = useMajorProjectRevenue ? majorProjectMetrics.annualRevenue : getAnnualSubscriptionSummary(hydratedQuote).firstYearTotal;
+  const annualCost = costs.annualSubscriptionCost ?? 0;
   const recurringCost = Number((costs.recurringVendorCost + costs.recurringSupportCost + costs.recurringOtherCost).toFixed(2));
   const oneTimeCost = Number((costs.oneTimeEquipmentCost + costs.oneTimeLaborCost + costs.oneTimeOtherCost).toFixed(2));
 
@@ -68,10 +71,10 @@ export function buildCommercialMetrics(quote: QuoteRecord) {
   const oneTimeGrossProfit = Number((oneTimeRevenue - oneTimeCost).toFixed(2));
   const totalRevenue = useMajorProjectRevenue
     ? Number(majorProjectMetrics.totalContractRevenue.toFixed(2))
-    : Number((recurringRevenue + oneTimeRevenue).toFixed(2));
+    : Number((recurringRevenue + oneTimeRevenue + annualRevenue).toFixed(2));
   const totalCost = useMajorProjectRevenue
     ? Number(majorProjectMetrics.totalContractCost.toFixed(2))
-    : Number((recurringCost + oneTimeCost).toFixed(2));
+    : Number((recurringCost + oneTimeCost + annualCost).toFixed(2));
   const totalGrossProfit = useMajorProjectRevenue
     ? Number(majorProjectMetrics.totalContractGrossProfit.toFixed(2))
     : Number((totalRevenue - totalCost).toFixed(2));
@@ -79,6 +82,8 @@ export function buildCommercialMetrics(quote: QuoteRecord) {
   const safeMargin = (profit: number, revenue: number) => (revenue > 0 ? Number(((profit / revenue) * 100).toFixed(2)) : 0);
 
   return {
+    annualRevenue,
+    annualCost,
     recurringRevenue,
     recurringCost,
     recurringGrossProfit,

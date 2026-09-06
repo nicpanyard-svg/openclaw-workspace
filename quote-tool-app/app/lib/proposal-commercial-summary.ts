@@ -1,8 +1,9 @@
 import type { EquipmentPricingRow, LeaseTermMonths, PerKitPricingRow, PoolPricingRow, QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 import { hasExecutiveSummaryStructuredContent } from "@/app/lib/executive-summary";
+import { getAnnualSubscriptionItems, getAnnualSubscriptionSummary, isAnnualLine } from "./quote-line-billing";
 
 export type CommercialSummaryItemTone = "default" | "accent";
-export type OptionCostCadence = "monthly" | "one_time";
+export type OptionCostCadence = "monthly" | "one_time" | "annual";
 
 export type ProposalCommercialSummaryItem = {
   key: string;
@@ -22,6 +23,7 @@ export type ProposalOptionCostItem = {
   unitLabel?: string | null;
   unitPrice?: number;
   usageBased?: boolean;
+  startsYear?: 1 | 2;
   amount: number;
 };
 
@@ -29,6 +31,7 @@ export type ProposalOptionCostSummary = {
   items: ProposalOptionCostItem[];
   monthlyTotal: number;
   oneTimeTotal: number;
+  annualTotal: number;
 };
 
 function getSectionARows(sectionA: QuoteRecord["sections"]["sectionA"]) {
@@ -44,15 +47,15 @@ function getIncludedRows<T extends { optional?: boolean }>(rows: T[]) {
 }
 
 export function getIncludedSectionARows(quote: QuoteRecord) {
-  return quote.sections.sectionA.enabled ? getIncludedRows(getSectionARows(quote.sections.sectionA)) : [];
+  return quote.sections.sectionA.enabled ? getIncludedRows(getSectionARows(quote.sections.sectionA)).filter((row) => row.rowType === "overage" || !isAnnualLine(row)) : [];
 }
 
 export function getIncludedEquipmentRows(quote: QuoteRecord) {
-  return quote.sections.sectionB.enabled ? getIncludedRows(quote.sections.sectionB.lineItems) : [];
+  return quote.sections.sectionB.enabled ? getIncludedRows(quote.sections.sectionB.lineItems).filter((row) => !isAnnualLine(row)) : [];
 }
 
 export function getIncludedServiceRows(quote: QuoteRecord) {
-  return quote.sections.sectionC.enabled ? getIncludedRows(quote.sections.sectionC.lineItems) : [];
+  return quote.sections.sectionC.enabled ? getIncludedRows(quote.sections.sectionC.lineItems).filter((row) => !isAnnualLine(row)) : [];
 }
 
 export function hasSectionARows(rows: Array<PoolPricingRow | PerKitPricingRow>) {
@@ -92,6 +95,7 @@ export function getQuoteContentPresence(quote: QuoteRecord) {
     hasSectionAContent,
     hasSectionBContent,
     hasSectionCContent,
+    hasAnnualContent: getAnnualSubscriptionSummary(quote).items.length > 0,
     hasOptionCostsContent: getProposalOptionCostSummary(quote).items.length > 0,
     hasExecutiveSummaryContent: hasExecutiveSummaryContent(quote),
     hasCustomerVisibleCustomFieldData: hasCustomerVisibleCustomFieldData(quote),
@@ -125,7 +129,7 @@ export function getOptionalServicesTotal(quote: QuoteRecord) {
 export function getProposalOptionCostSummary(quote: QuoteRecord): ProposalOptionCostSummary {
   const sectionARows = quote.sections.sectionA.enabled ? getSectionARows(quote.sections.sectionA) : [];
   const monthlyItems: ProposalOptionCostItem[] = sectionARows
-    .filter((row) => isOptionalLineItem(row))
+    .filter((row) => isOptionalLineItem(row) && (row.rowType === "overage" || !isAnnualLine(row)))
     .map((row) => ({
       key: `section-a-${row.id}`,
       label: row.description,
@@ -140,7 +144,7 @@ export function getProposalOptionCostSummary(quote: QuoteRecord): ProposalOption
     .filter((item) => item.label.trim().length > 0 && Number.isFinite(item.amount));
 
   const equipmentItems: ProposalOptionCostItem[] = (quote.sections.sectionB.enabled ? quote.sections.sectionB.lineItems : [])
-    .filter((row) => isOptionalLineItem(row))
+    .filter((row) => isOptionalLineItem(row) && !isAnnualLine(row))
     .map((row) => {
       const totalPrice = Number((row.totalPrice ?? 0).toFixed(2));
       const isLeasedHardware = quote.metadata.quoteType === "lease";
@@ -164,7 +168,7 @@ export function getProposalOptionCostSummary(quote: QuoteRecord): ProposalOption
     .filter((item) => item.label.trim().length > 0 && Number.isFinite(item.amount));
 
   const serviceItems: ProposalOptionCostItem[] = (quote.sections.sectionC.enabled ? quote.sections.sectionC.lineItems : [])
-    .filter((row) => isOptionalLineItem(row))
+    .filter((row) => isOptionalLineItem(row) && !isAnnualLine(row))
     .map((row) => ({
       key: `section-c-${row.id}`,
       label: row.description,
@@ -178,17 +182,24 @@ export function getProposalOptionCostSummary(quote: QuoteRecord): ProposalOption
     }))
     .filter((item) => item.label.trim().length > 0 && Number.isFinite(item.amount));
 
-  const items = [...monthlyItems, ...equipmentItems, ...serviceItems].map((item) => ({
+  const annualItems: ProposalOptionCostItem[] = getAnnualSubscriptionItems(quote).filter((item) => item.optional).map((item) => ({
+    key: item.key, label: item.label, description: item.description, sourceSection: item.sourceSection,
+    cadence: "annual", categoryLabel: item.startsYear === 2 ? "Annual renewal option" : "Annual subscription option",
+    quantity: item.quantity, unitLabel: item.unitLabel, amount: item.annualAmount, startsYear: item.startsYear,
+  }));
+  const items = [...monthlyItems, ...equipmentItems, ...serviceItems, ...annualItems].map((item) => ({
     ...item,
     unitPrice: "usageBased" in item && item.usageBased ? item.amount : getOptionUnitPrice(item.amount, item.quantity),
   }));
   const monthlyTotal = Number(items.filter((item) => item.cadence === "monthly" && !("usageBased" in item && item.usageBased)).reduce((sum, item) => sum + item.amount, 0).toFixed(2));
   const oneTimeTotal = Number(items.filter((item) => item.cadence === "one_time").reduce((sum, item) => sum + item.amount, 0).toFixed(2));
+  const annualTotal = Number(items.filter((item) => item.cadence === "annual").reduce((sum, item) => sum + item.amount, 0).toFixed(2));
 
   return {
     items,
     monthlyTotal,
     oneTimeTotal,
+    annualTotal,
   };
 }
 
@@ -294,6 +305,7 @@ export function getLeaseMonthlyTotal(quote: QuoteRecord, recurringMonthlyTotal?:
 }
 
 export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalCommercialSummaryItem[] {
+  const annual = getAnnualSubscriptionSummary(quote);
   const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
   const equipmentTotal = getEquipmentTotal(quote);
   const optionalServicesTotal = getOptionalServicesTotal(quote);
@@ -306,6 +318,10 @@ export function buildProposalCommercialSummary(quote: QuoteRecord): ProposalComm
   const presence = getQuoteContentPresence(quote);
 
   const items: ProposalCommercialSummaryItem[] = [];
+  if (annual.items.length) {
+    items.push({ key: "annual-subscriptions", label: "Year 1 annual subscriptions", value: annual.firstYearTotal });
+    items.push({ key: "annual-renewals", label: "Annual renewals from Year 2", value: annual.renewalTotal });
+  }
 
   if (presence.hasSectionAContent && recurringMonthlyTotal > 0 && !isLease) {
     items.push({

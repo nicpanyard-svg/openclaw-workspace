@@ -1,4 +1,6 @@
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
+import { getAnnualSubscriptionItems } from "./quote-line-billing";
+import { buildAnnualProposalWorkbook } from "./proposal-annual-workbook";
 import { buildExecutiveSummaryWorkbookText } from "@/app/lib/executive-summary";
 import type { MajorProjectCustomerQuoteLineMetrics } from "@/app/lib/major-project";
 import { buildMajorProjectMetrics, majorProjectLineTypeLabel } from "@/app/lib/major-project";
@@ -1742,6 +1744,7 @@ function buildNotesSheet(workbook: Workbook, model: ApprovalWorkbookModel, rollu
 }
 
 export async function buildProposalApprovalWorkbook(quote: QuoteRecord) {
+  if (getAnnualSubscriptionItems(quote).length) return buildAnnualProposalWorkbook(quote);
   const model = buildWorkbookModel(quote);
   const selectedBranding = getQuoteBranding(quote);
   const exceljs = await import("exceljs");

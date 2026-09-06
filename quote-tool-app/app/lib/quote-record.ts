@@ -8,6 +8,12 @@ export type QuoteType = "purchase" | "lease";
 export type LeaseTermMonths = 3 | 6 | 9 | 12 | 24 | 36;
 export type QuoteWorkflowMode = "quick_quote" | "major_project";
 
+export type QuoteLineBilling = {
+  cadence: "one_time" | "monthly" | "annual";
+  startsYear?: 1 | 2;
+  unitLabel?: string;
+};
+
 export type QuoteStructuredTextBlockType = "heading" | "paragraph" | "bullet_list" | "numbered_list";
 
 export type QuoteStructuredTextBlock = {
@@ -80,6 +86,7 @@ export type QuoteSectionState = {
 };
 
 export type PoolPricingRow = {
+  billing?: QuoteLineBilling;
   id: string;
   rowType: "service" | "overage" | "terminal_fee" | "support";
   description: string;
@@ -95,6 +102,7 @@ export type PoolPricingRow = {
 };
 
 export type PerKitPricingRow = {
+  billing?: QuoteLineBilling;
   id: string;
   rowType: "service" | "terminal_fee" | "support";
   description: string;
@@ -110,6 +118,7 @@ export type PerKitPricingRow = {
 };
 
 export type EquipmentPricingRow = {
+  billing?: QuoteLineBilling;
   id: string;
   sourceType: "standard" | "custom";
   itemName: string;
@@ -127,6 +136,7 @@ export type EquipmentPricingRow = {
 };
 
 export type ServicePricingRow = {
+  billing?: QuoteLineBilling;
   id: string;
   sourceType: "standard" | "custom";
   description: string;
@@ -239,6 +249,7 @@ export type QuoteInternalMeta = {
 };
 
 export type QuoteCommercialCostInputs = {
+  annualSubscriptionCost?: number;
   oneTimeEquipmentCost: number;
   oneTimeLaborCost: number;
   oneTimeOtherCost: number;
@@ -362,6 +373,7 @@ export type MajorProjectCostBasis = "vendor_quote" | "msrp" | "estimate" | "inte
 export type MajorProjectResaleBasis = "fixed_fee" | "cost_plus" | "target_margin" | "pass_through" | "bundle" | "other";
 
 export type MajorProjectComponent = {
+  billing?: QuoteLineBilling;
   id: string;
   internalName: string;
   customerFacingLabel?: string;
@@ -392,6 +404,7 @@ export type MajorProjectComponent = {
 };
 
 export type MajorProjectBundle = {
+  billing?: QuoteLineBilling;
   id: string;
   internalName: string;
   customerFacingLabel: string;
@@ -408,6 +421,7 @@ export type MajorProjectBundle = {
 };
 
 export type MajorProjectCustomerQuoteLine = {
+  billing?: QuoteLineBilling;
   id: string;
   lineItemNumber?: number;
   label: string;
@@ -424,6 +438,8 @@ export type MajorProjectCustomerQuoteLine = {
 };
 
 export type MajorProjectVendorSummary = {
+  annualRevenue?: number;
+  annualCost?: number;
   vendor: string;
   manufacturer?: string;
   oneTimeRevenue: number;
@@ -444,6 +460,7 @@ export type MajorProjectSimpleRowImportSource = {
 };
 
 export type MajorProjectSimpleRow = {
+  billing?: QuoteLineBilling;
   id: string;
   label: string;
   optional?: boolean;

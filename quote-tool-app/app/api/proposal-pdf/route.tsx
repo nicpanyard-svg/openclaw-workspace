@@ -5,6 +5,7 @@ import {
 } from "@/app/lib/proposal-pdf-cache";
 import { renderHtmlPdf } from "@/app/lib/proposal-html-pdf";
 import { buildProposalPdfContentDisposition } from "@/app/lib/proposal-file-name";
+import { buildMajorProjectMetrics } from "@/app/lib/major-project";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import {
   PROPOSAL_STORAGE_FALLBACK_KEY,
@@ -28,6 +29,11 @@ export async function POST(request: Request) {
     const quoteProposalId = quote.internal?.savedProposalId ?? quote.internal?.quoteId ?? null;
     if (proposalId && quoteProposalId && proposalId !== quoteProposalId) {
       return NextResponse.json({ error: "Requested proposal does not match the export payload." }, { status: 400 });
+    }
+
+    if (quote.metadata.workflowMode === "major_project" && quote.majorProject?.enabled) {
+      const billingIssues = buildMajorProjectMetrics(quote).validation.issues.filter((issue) => issue.code === "mixed_annual_billing");
+      if (billingIssues.length) return NextResponse.json({ error: billingIssues.map((issue) => issue.message).join(" ") }, { status: 400 });
     }
 
     const requestUrl = new URL(request.url);

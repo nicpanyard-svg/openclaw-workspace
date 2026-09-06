@@ -1,5 +1,6 @@
 import {
   getEquipmentTotal,
+  getCustomerFacingOneTimeTotal,
   getIncludedEquipmentRows,
   getIncludedSectionARows,
   getIncludedServiceRows,
@@ -10,6 +11,7 @@ import {
 } from "@/app/lib/proposal-commercial-summary";
 import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
 import type { QuoteRecord } from "@/app/lib/quote-record";
+import { getAnnualSubscriptionSummary } from "./quote-line-billing";
 
 export type EstimateTemplateLineItem = {
   id: string;
@@ -24,6 +26,9 @@ export type EstimateTemplateLineItem = {
 };
 
 export type EstimateTemplateModel = {
+  monthlyTotal: number;
+  annual: ReturnType<typeof getAnnualSubscriptionSummary>;
+  optionCostAnnualTotal: number;
   companyLabel: string;
   companyLegalName: string;
   logoSrc: string;
@@ -143,8 +148,10 @@ export function buildEstimateTemplateModel(quote: QuoteRecord): EstimateTemplate
 
   const branding = getQuoteBranding(quote);
   const optionCostSummary = getProposalOptionCostSummary(quote);
-  const subtotal = getRecurringMonthlyTotal(quote) + getEquipmentTotal(quote) + getOptionalServicesTotal(quote);
   const salesTaxAmount = quote.metadata.salesTaxAmount ?? 0;
+  const annual = getAnnualSubscriptionSummary(quote);
+  const subtotal = annual.items.length ? getCustomerFacingOneTimeTotal(quote) - salesTaxAmount + annual.firstYearTotal
+    : getRecurringMonthlyTotal(quote) + getEquipmentTotal(quote) + getOptionalServicesTotal(quote);
   const providerLines = cleanLines([
     quote.inet.name || branding.provider.name,
     quote.inet.contactName,
@@ -154,6 +161,9 @@ export function buildEstimateTemplateModel(quote: QuoteRecord): EstimateTemplate
   ]);
 
   return {
+    annual,
+    monthlyTotal: getRecurringMonthlyTotal(quote),
+    optionCostAnnualTotal: optionCostSummary.annualTotal,
     companyLabel: branding.shortName,
     companyLegalName: branding.legalName,
     logoSrc: branding.logoSrc,

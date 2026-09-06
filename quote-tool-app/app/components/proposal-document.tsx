@@ -8,6 +8,7 @@ import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
 import { getCombinedOneTimeTotal, getEquipmentTotal, getIncludedEquipmentRows, getIncludedSectionARows, getIncludedServiceRows, getLeasePricingSummary, getOptionalServicesTotal, getProposalOptionCostSummary, getQuotedSalesTax, getRecurringMonthlyTotal } from "@/app/lib/proposal-commercial-summary";
 import { customerCopy, getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
 import { getProposalAttachments } from "@/app/lib/proposal-attachments";
+import { getAnnualSubscriptionSummary } from "@/app/lib/quote-line-billing";
 import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import "./proposal-customer.css";
@@ -48,6 +49,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   const equipmentTotal = getEquipmentTotal(quote);
   const fieldTotal = getOptionalServicesTotal(quote);
   const upfront = getCombinedOneTimeTotal(quote);
+  const annual = getAnnualSubscriptionSummary(quote);
   const lease = getLeasePricingSummary(quote);
   const isLease = quote.metadata.quoteType === "lease";
   const monthly = isLease ? lease.leaseMonthly : recurring;
@@ -85,9 +87,17 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
     <div className="cp-title"><p>Prepared for {quote.customer.name}</p><h1>{content.title}</h1>{content.subtitle && <p>{content.subtitle}</p>}</div>
 
     <div className="cp-commercial">
-      <div><span>Total monthly payment</span><strong>{monthlyConfirmed ? money(monthly, currency) : "Pending agreement"}</strong><small>{isLease ? lease.termMonths + "-month equipment lease" : services.length ? "Recurring services" : "No recurring charges quoted"}</small></div>
+      <div><span>Total monthly payment</span><strong>{monthlyConfirmed ? money(monthly, currency) : "Pending agreement"}</strong><small>{isLease ? lease.termMonths + "-month equipment lease" : services.length ? "Recurring services" : annual.items.length ? "No monthly charges quoted" : "No recurring charges quoted"}</small></div>
       <div><span>One-time charges</span><strong>{money(upfront, currency)}</strong><small>{tax > 0 ? "Includes quoted sales tax" : "Quoted equipment and services"}</small></div>
+      {annual.items.length > 0 && <>
+        <div><span>Year 1 prepaid annual subscriptions</span><strong>{money(annual.firstYearTotal, currency)}</strong><small>Billed annually, separate from one-time charges</small></div>
+        <div><span>Annual renewals from Year 2</span><strong>{money(annual.renewalTotal, currency)} / yr</strong><small>Included subscriptions only; excludes options</small></div>
+      </>}
     </div>
+    {annual.items.length > 0 && <div className="cp-annual-summary">
+      <p><strong>One-time + Year 1 annual charges: {money(upfront + annual.firstYearTotal, currency)}.</strong> Monthly payments and options are separate.</p>
+      {monthlyConfirmed && <p>Year 1 recurring monthly equivalent: {money(monthly + annual.monthlyEquivalent, currency)}. Annual subscriptions are billed annually, not monthly.</p>}
+    </div>}
     {isLease && monthlyConfirmed && <p className="cp-payment-breakdown">Equipment lease {money(lease.hardwareMonthly, currency)}/month + recurring services {money(recurring, currency)}/month.</p>}
 
     <div className="cp-parties">
@@ -139,11 +149,18 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
     </Section>}
     {tax > 0 && <p className="cp-tax"><strong>Quoted sales tax:</strong> {money(tax, currency)} (included in one-time charges).</p>}
 
+    {annual.items.length > 0 && <Section title="Annual subscriptions & renewals" className="cp-annual-subscriptions">
+      <table className="cp-table cp-annual-table"><caption>Included annual subscriptions and renewal costs</caption><colgroup><col style={{ width: "42%" }} /><col style={{ width: "8%" }} /><col style={{ width: "16%" }} /><col style={{ width: "17%" }} /><col style={{ width: "17%" }} /></colgroup><thead><tr><th>Subscription</th><th>Qty</th><th>Annual unit rate</th><th>Year 1 charge</th><th>Annual renewal</th></tr></thead><tbody>
+        {annual.items.map((item) => <tr key={item.key}><td><ItemCopy title={item.label} description={item.description} /><span className="cp-row-note">{item.startsYear === 2 ? "First year included; paid renewals from Year 2" : "Year 1 prepaid annual subscription"}. Rate per {item.unitLabel}.</span></td><td>{item.quantity ?? "-"}</td><td>{item.unitPrice == null ? "-" : money(item.unitPrice, currency, 4)} / yr</td><td>{money(item.firstYearAmount, currency)}</td><td>{money(item.annualAmount, currency)} / yr</td></tr>)}
+      </tbody><tfoot><tr><td colSpan={3}>Included annual subscriptions</td><td>{money(annual.firstYearTotal, currency)}</td><td>{money(annual.renewalTotal, currency)} / yr</td></tr></tfoot></table>
+      <p className="cp-muted">Renewal amounts are based on the quoted annual rates. Optional renewals are listed separately under Option Costs.</p>
+    </Section>}
+
     {options.items.length > 0 && <Section title="Option Costs" className="cp-options">
       <p className="cp-muted">Available options only. Excluded from the included scope and all base totals.</p>
       <table className="cp-table cp-option-table"><caption>Available options excluded from base pricing</caption><colgroup><col className="cp-col-ref" /><col className="cp-col-option" /><col className="cp-col-qty" /><col className="cp-col-price" /><col className="cp-col-price" /></colgroup><thead><tr><th>Ref</th><th>Available option</th><th>Qty</th><th>Unit price</th><th>Option total</th></tr></thead><tbody>
-        {options.items.map((item, index) => <tr key={item.key}><td>{"O" + (index + 1)}</td><td><ItemCopy title={item.label} description={item.description} /><span className="cp-row-note">{item.usageBased ? "Usage-based" : item.cadence === "monthly" ? "Monthly" : "One-time"}</span></td><td>{item.usageBased ? "-" : item.quantity ?? "-"}</td><td>{item.unitPrice == null ? "-" : money(item.unitPrice, currency, 4)}{item.usageBased ? " / " + (item.unitLabel || "unit") : item.cadence === "monthly" && item.unitPrice != null ? " / mo" : ""}</td><td>{item.usageBased ? "Usage-based" : money(item.amount, currency)}{!item.usageBased && item.cadence === "monthly" ? " / mo" : ""}</td></tr>)}
-      </tbody><tfoot><tr><td colSpan={4}>Available monthly options</td><td>{money(options.monthlyTotal, currency)} / mo</td></tr><tr><td colSpan={4}>Available one-time options</td><td>{money(options.oneTimeTotal, currency)}</td></tr></tfoot></table>
+        {options.items.map((item, index) => <tr key={item.key}><td>{"O" + (index + 1)}</td><td><ItemCopy title={item.label} description={item.description} /><span className="cp-row-note">{item.usageBased ? "Usage-based" : item.cadence === "monthly" ? "Monthly" : item.cadence === "annual" ? (item.startsYear === 2 ? "Annual renewal from Year 2; first year included" : "Annual subscription") + ". Rate per " + (item.unitLabel || "subscription") + "." : "One-time"}</span></td><td>{item.usageBased ? "-" : item.quantity ?? "-"}</td><td>{item.unitPrice == null ? "-" : money(item.unitPrice, currency, 4)}{item.usageBased ? " / " + (item.unitLabel || "unit") : item.cadence === "monthly" && item.unitPrice != null ? " / mo" : item.cadence === "annual" ? " / yr" : ""}</td><td>{item.usageBased ? "Usage-based" : money(item.amount, currency)}{!item.usageBased && item.cadence === "monthly" ? " / mo" : item.cadence === "annual" ? " / yr" : ""}</td></tr>)}
+      </tbody><tfoot><tr><td colSpan={4}>Available monthly options</td><td>{money(options.monthlyTotal, currency)} / mo</td></tr><tr><td colSpan={4}>Available one-time options</td><td>{money(options.oneTimeTotal, currency)}</td></tr>{options.items.some((item) => item.cadence === "annual") && <tr><td colSpan={4}>Available annual subscription / renewal options</td><td>{money(options.annualTotal, currency)} / yr</td></tr>}</tfoot></table>
     </Section>}
 
     <Section title="Commercial terms" className="cp-terms">
@@ -165,6 +182,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
     <section className="cp-acceptance">
       <h2>{content.approvalReady ? "Quote acceptance" : "Commercial details to confirm"}</h2>
       <div className="cp-accepted-totals"><div><span>Included monthly payment</span><strong>{monthlyConfirmed ? money(monthly, currency) : "Pending agreement"}</strong></div><div><span>Included one-time charges</span><strong>{money(upfront, currency)}</strong></div></div>
+      {annual.items.length > 0 && <><div className="cp-accepted-totals"><div><span>Included Year 1 annual subscriptions</span><strong>{money(annual.firstYearTotal, currency)}</strong></div><div><span>Included annual renewals from Year 2</span><strong>{money(annual.renewalTotal, currency)} / yr</strong></div></div><p><strong>One-time + Year 1 annual charges: {money(upfront + annual.firstYearTotal, currency)}.</strong> Monthly payments are separate.</p></>}
       {options.items.length > 0 && <p>All items under Option Costs are excluded from these totals and from this acceptance. A revised quote is required to include chosen options.</p>}
       {content.approvalReady ? <>
         <p>Acceptance applies to the included scope, pricing, and applicable terms in this proposal.</p>

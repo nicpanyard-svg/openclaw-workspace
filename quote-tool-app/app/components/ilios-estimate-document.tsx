@@ -92,6 +92,14 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
           </table>
         </div>
 
+        {model.annual.items.length > 0 && <section className="cp-section">
+          <h2>Annual subscriptions &amp; renewals</h2>
+          <table className="cp-table"><thead><tr><th>Subscription</th><th>Quantity</th><th>Year 1 prepaid</th><th>Annual renewal</th></tr></thead><tbody>
+            {model.annual.items.map((item) => <tr key={item.key}><td>{item.label}<div>{item.startsYear === 2 ? "First year included; renewal from Year 2" : "Prepaid annual subscription"}</div></td><td>{item.quantity} {item.unitLabel}</td><td>{formatCurrency(item.firstYearAmount, quote.metadata.currencyCode || "USD")}</td><td>{formatCurrency(item.annualAmount, quote.metadata.currencyCode || "USD")} / yr</td></tr>)}
+          </tbody></table>
+          <p>Year 1 annual subscriptions: {formatCurrency(model.annual.firstYearTotal, quote.metadata.currencyCode || "USD")}. Renewals from Year 2: {formatCurrency(model.annual.renewalTotal, quote.metadata.currencyCode || "USD")} / year. Billed annually, not monthly; optional renewals excluded.</p>
+        </section>}
+
         {model.optionCostItems.length > 0 ? (
           <div className="mt-8 overflow-hidden rounded-[24px] border border-[#d5e0e7]">
             <div className="border-b border-[#d5e0e7] bg-[#f8fbfc] px-5 py-4">
@@ -114,9 +122,9 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
                       {item.label}
                       {item.description ? <div className="mt-1 font-normal text-[#526573]">{item.description}</div> : null}
                     </td>
-                    <td className="px-4 py-3 align-top text-[#526573]">{item.categoryLabel}</td>
+                    <td className="px-4 py-3 align-top text-[#526573]">{item.categoryLabel}{item.cadence === "annual" && <div>{item.startsYear === 2 ? "Annual renewal from Year 2; first year included" : "Annual prepaid"}</div>}</td>
                     <td className="px-4 py-3 align-top text-[#526573]">{item.quantity ?? "—"}{item.unitLabel ? ` ${item.unitLabel}` : ""}</td>
-                    <td className="px-4 py-3 align-top font-semibold text-[#1f2d3a]">{item.usageBased ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / ${item.unitLabel || "unit"} (usage-based)` : item.cadence === "monthly" ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / mo` : formatCurrency(item.amount, quote.metadata.currencyCode || "USD")}</td>
+                    <td className="px-4 py-3 align-top font-semibold text-[#1f2d3a]">{item.usageBased ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / ${item.unitLabel || "unit"} (usage-based)` : item.cadence === "monthly" ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / mo` : item.cadence === "annual" ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / yr` : formatCurrency(item.amount, quote.metadata.currencyCode || "USD")}</td>
                   </tr>
                 ))}
               </tbody>
@@ -124,6 +132,7 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
             <div className="grid gap-3 border-t border-[#d5e0e7] bg-[#f8fbfc] px-5 py-4 md:grid-cols-2">
               {model.optionCostMonthlyTotal > 0 ? <div className="flex items-center justify-between gap-4"><span className="text-[#526573]">Monthly option total</span><strong className="text-[#1f2d3a]">{formatCurrency(model.optionCostMonthlyTotal, quote.metadata.currencyCode || "USD")} / mo</strong></div> : null}
               {model.optionCostOneTimeTotal > 0 ? <div className="flex items-center justify-between gap-4"><span className="text-[#526573]">One-time option total</span><strong className="text-[#1f2d3a]">{formatCurrency(model.optionCostOneTimeTotal, quote.metadata.currencyCode || "USD")}</strong></div> : null}
+              {model.optionCostAnnualTotal !== 0 && <div className="flex items-center justify-between gap-4"><span>Annual renewal options</span><strong>{formatCurrency(model.optionCostAnnualTotal, quote.metadata.currencyCode || "USD")} / yr</strong></div>}
             </div>
           </div>
         ) : null}
@@ -148,10 +157,11 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
 
           <div className="rounded-[24px] border border-[#d5e0e7] bg-[#f8fbfc] px-5 py-5">
             <div className="space-y-3 text-[14px] text-[#3f5666]">
+              {model.annual.items.length > 0 && <div className="flex items-center justify-between gap-4"><span>Monthly services (separate)</span><strong>{formatCurrency(model.monthlyTotal, quote.metadata.currencyCode || "USD")} / mo</strong></div>}
               <div className="flex items-center justify-between gap-4"><span>Subtotal</span><strong className="text-[#1f2d3a]">{formatCurrency(model.subtotal, quote.metadata.currencyCode || "USD")}</strong></div>
               <div className="flex items-center justify-between gap-4"><span>Sales tax</span><strong className="text-[#1f2d3a]">{formatCurrency(model.salesTaxAmount, quote.metadata.currencyCode || "USD")}</strong></div>
               <div className="h-px bg-[#d5e0e7]" />
-              <div className="flex items-center justify-between gap-4 text-[18px] font-semibold text-[#1f2d3a]"><span>Total</span><strong>{formatCurrency(model.total, quote.metadata.currencyCode || "USD")}</strong></div>
+              <div className="flex items-center justify-between gap-4 text-[18px] font-semibold text-[#1f2d3a]"><span>{model.annual.items.length ? "One-time + Year 1 annual total" : "Total"}</span><strong>{formatCurrency(model.total, quote.metadata.currencyCode || "USD")}</strong></div>
             </div>
           </div>
         </div>

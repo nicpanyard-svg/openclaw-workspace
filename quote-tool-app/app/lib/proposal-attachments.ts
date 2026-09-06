@@ -1,10 +1,12 @@
 import {
   ensureMajorProjectState,
+  buildMajorProjectMetrics,
   getActiveMajorProjectOption,
   resolveMajorProjectOutputSpecAttachments,
   type MajorProjectOutputSpecAttachment,
 } from "@/app/lib/major-project";
 import type { MajorProjectOption, MajorProjectSpecAttachment, QuoteRecord } from "@/app/lib/quote-record";
+import { isAnnualLine } from "./quote-line-billing";
 
 export type ProposalAttachment = {
   id: `A${number}`;
@@ -30,9 +32,10 @@ function resolveItemAssociations(quote: QuoteRecord): MajorProjectOutputSpecAtta
   // The resolver deduplicates globally. Resolve each output item independently
   // to retain shared-file labels without changing its source/association rules.
   if (option.customerQuoteLines?.length) {
-    const firstRecurring = option.customerQuoteLines.find((line) => line.presentationCategory === "recurring");
+    const resolvedLines = buildMajorProjectMetrics(quote).customerQuoteLines;
+    const firstRecurring = resolvedLines.find((line) => line.presentationCategory === "recurring");
     return option.customerQuoteLines.flatMap((line) => {
-      if (line.presentationCategory === "recurring" && line !== firstRecurring) return [];
+      if (resolvedLines.find((resolved) => resolved.id === line.id)?.presentationCategory === "recurring" && line.id !== firstRecurring?.id) return [];
       return resolveOption({ ...option, customerQuoteLines: [line] });
     });
   }
@@ -74,8 +77,9 @@ export function getProposalAttachments(quote: QuoteRecord): ProposalAttachment[]
     .filter((entry) => quote.sections[entry.outputSection].enabled)
     .sort((left, right) => {
       const optionOrder = Number(optionalRows[left.outputSection].has(left.outputItemId)) - Number(optionalRows[right.outputSection].has(right.outputItemId));
+      const annualOrder = Number(rows[left.outputSection].some((row) => row.id === left.outputItemId && isAnnualLine(row))) - Number(rows[right.outputSection].some((row) => row.id === right.outputItemId && isAnnualLine(row)));
       const sectionOrder = sections.indexOf(left.outputSection) - sections.indexOf(right.outputSection);
-      return optionOrder || sectionOrder || (rowOrder[left.outputSection].get(left.outputItemId) ?? Number.MAX_SAFE_INTEGER)
+      return optionOrder || annualOrder || sectionOrder || (rowOrder[left.outputSection].get(left.outputItemId) ?? Number.MAX_SAFE_INTEGER)
         - (rowOrder[right.outputSection].get(right.outputItemId) ?? Number.MAX_SAFE_INTEGER);
     });
 

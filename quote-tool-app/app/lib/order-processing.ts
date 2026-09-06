@@ -10,6 +10,7 @@ import {
   getProposalOptionCostSummary,
   getRecurringMonthlyTotal,
 } from "./proposal-commercial-summary";
+import { getAnnualSubscriptionSummary } from "./quote-line-billing";
 import type {
   EquipmentPricingRow,
   QuoteOrderProcessing,
@@ -165,6 +166,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
   const isLease = quote.metadata.quoteType === "lease";
   const leaseMonthly = quote.sections.sectionB.enabled ? getLeaseMonthlyTotal(quote, recurringTotal, equipmentTotal) : recurringTotal;
   const options = getProposalOptionCostSummary(quote);
+  const annual = getAnnualSubscriptionSummary(quote);
   const output = [
     ...(summary.missingFields.length ? [`DRAFT - missing details (${summary.missingFields.length})`, `Missing details: ${summary.missingFields.join("; ")}`, ""] : []),
     "Internal order-processing handoff",
@@ -226,10 +228,16 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     `Customer one-time total: ${money(getCombinedOneTimeTotal(quote, equipmentTotal, servicesTotal))}`,
     "",
     "Optional items (excluded from order totals; require separate selection):",
-    ...options.items.map((item) => `- [${item.key}] ${item.label}: ${money(item.amount)} (${item.usageBased ? `usage-based per ${item.unitLabel || "unit"}` : item.cadence === "monthly" ? "monthly" : "one-time"})`),
+    ...options.items.map((item) => `- [${item.key}] ${item.label}: ${money(item.amount)} (${item.usageBased ? `usage-based per ${item.unitLabel || "unit"}` : item.cadence === "annual" ? `annual${item.startsYear === 2 ? "; from Year 2, first year included" : " prepaid"}` : item.cadence === "monthly" ? "monthly" : "one-time"})`),
     ...(!options.items.length ? ["None"] : []),
     `Excluded optional monthly total: ${money(options.monthlyTotal)}`,
     `Excluded optional one-time total: ${money(options.oneTimeTotal)}`,
+    `Excluded optional annual total: ${money(options.annualTotal)}/year`,
+    "",
+    "Included annual subscriptions / renewals:",
+    ...annual.items.map((item) => `- [${item.key}] ${item.label} | Qty: ${item.quantity ?? "Not specified"} ${item.unitLabel} | Annual unit rate: ${money(item.unitPrice ?? item.annualAmount)} | Year 1: ${money(item.firstYearAmount)} | Renewal: ${money(item.annualAmount)}/year | ${item.startsYear === 2 ? "First year included; renewal starts Year 2" : "Year 1 prepaid annual subscription"}`),
+    `Year 1 prepaid annual subscriptions: ${money(annual.firstYearTotal)}`,
+    `Annual renewals from Year 2: ${money(annual.renewalTotal)}/year`,
     "",
     `Order notes: ${provided(details.notes)}`,
     `Missing fields: ${summary.missingFields.join("; ") || "None"}`,

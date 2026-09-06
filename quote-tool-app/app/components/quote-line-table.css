@@ -35,7 +35,7 @@
 .rq-line-table__col-expansion { width: 40px; }
 .rq-line-table__col-quantity { width: 64px; }
 .rq-line-table__col-rate { width: 104px; }
-.rq-line-table__col-cadence { width: 100px; }
+.rq-line-table__col-cadence { width: 160px; }
 .rq-line-table__col-optional { width: 102px; }
 .rq-line-table__col-total { width: 112px; }
 .rq-line-table__col-actions { width: 84px; }
@@ -329,7 +329,7 @@
 }
 
 /* Match the mobile layout when this reusable table sits in a narrow panel. */
-@container rq-line-table (max-width: 700px) {
+@container rq-line-table (max-width: 800px) {
   .rq-line-table,
   .rq-line-table > tbody,
   .rq-line-table__caption {

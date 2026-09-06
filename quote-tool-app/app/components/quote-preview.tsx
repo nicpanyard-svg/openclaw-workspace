@@ -4,6 +4,8 @@
 
 import { AlertCircle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calculator, Check, ChevronDown, ClipboardCheck, Copy, Download, Eye, Files, List, MoreHorizontal, Plus, Save, Trash2, UserRound, X } from "lucide-react";
 import { QuoteLineTable } from "@/app/components/quote-line-table";
+import { QuoteBillingSelect } from "@/app/components/quote-billing-select";
+import { getAnnualSubscriptionSummary, getLineBilling, isAnnualLine } from "@/app/lib/quote-line-billing";
 import { OrderProcessingPanel } from "@/app/components/order-processing-panel";
 import { CustomerOutputSettings } from "@/app/components/customer-output-settings";
 import { getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
@@ -1934,6 +1936,7 @@ export default function QuotePreview() {
   const equipmentTotal = useMemo(() => getEquipmentTotal(quote), [quote]);
   const sectionCTotal = useMemo(() => getOptionalServicesTotal(quote), [quote]);
   const optionCostSummary = useMemo(() => getProposalOptionCostSummary(quote), [quote]);
+  const annualSummary = useMemo(() => getAnnualSubscriptionSummary(quote), [quote]);
   const customerFacingOneTimeTotal = useMemo(() => getCustomerFacingOneTimeTotal(quote, equipmentTotal, sectionCTotal), [equipmentTotal, quote, sectionCTotal]);
 
   const selectedLeaseTerm = quote.metadata.leaseTermMonths ?? 12;
@@ -2117,21 +2120,21 @@ export default function QuotePreview() {
     }
   }, [shouldForceMajorProjectBomColumnMapping, selectedMajorProjectBomSheet?.name]);
   const majorProjectVendorMarginCards = useMemo(() => majorProjectMetrics.vendorSummary.map((vendor) => {
-    const revenue = vendor.oneTimeRevenue + vendor.recurringRevenue;
-    const cost = vendor.oneTimeCost + vendor.recurringCost;
+    const revenue = vendor.oneTimeRevenue + vendor.recurringRevenue + (vendor.annualRevenue ?? 0);
+    const cost = vendor.oneTimeCost + vendor.recurringCost + (vendor.annualCost ?? 0);
     return {
       key: `${vendor.vendor}-${vendor.manufacturer ?? ""}`,
       label: vendor.vendor || "Unassigned vendor",
-      note: vendor.manufacturer || "Vendor bucket",
+      note: vendor.annualRevenue ? `Annual revenue ${formatCurrency(vendor.annualRevenue, currencyCode)} / yr; other periods separate` : vendor.manufacturer || "Vendor bucket",
       revenue,
       cost,
       grossProfit: revenue - cost,
       grossMarginPercent: majorProjectMarginPercent(revenue, cost),
     };
-  }).sort((a, b) => b.revenue - a.revenue), [majorProjectMetrics.vendorSummary]);
+  }).sort((a, b) => b.revenue - a.revenue), [majorProjectMetrics.vendorSummary, currencyCode]);
   const majorProjectBundleMarginCards = useMemo(() => majorProjectMetrics.bundles.map((bundle) => {
-    const revenue = bundle.oneTimeRevenue + bundle.recurringRevenue;
-    const cost = bundle.oneTimeCost + bundle.recurringCost;
+    const revenue = bundle.oneTimeRevenue + bundle.recurringRevenue + bundle.annualRevenue;
+    const cost = bundle.oneTimeCost + bundle.recurringCost + bundle.annualCost;
     return {
       key: bundle.id,
       label: bundle.internalName || bundle.customerFacingLabel || bundle.id,
@@ -2143,8 +2146,8 @@ export default function QuotePreview() {
     };
   }).sort((a, b) => b.revenue - a.revenue), [majorProjectMetrics.bundles]);
   const majorProjectQuoteLineMarginCards = useMemo(() => majorProjectMetrics.customerQuoteLines.map((line) => {
-    const revenue = line.oneTimeRevenue + line.recurringRevenue;
-    const cost = line.oneTimeCost + line.recurringCost;
+    const revenue = line.oneTimeRevenue + line.recurringRevenue + line.annualRevenue;
+    const cost = line.oneTimeCost + line.recurringCost + line.annualCost;
     return {
       key: line.id,
       label: line.label || line.id,
@@ -2180,7 +2183,7 @@ export default function QuotePreview() {
     }
     if (majorProjectUsesDirectComponentPath) {
       return activeMajorOptionComponents.reduce((summary, component) => {
-        if (component.optional) return summary;
+        if (component.optional || isAnnualLine(component)) return summary;
         const revenue = component.customerExtendedPrice;
         if (component.schedule === "recurring") summary.recurring += revenue;
         else if (isMajorProjectHardwareComponent(component)) summary.hardware += revenue;
@@ -2389,16 +2392,16 @@ export default function QuotePreview() {
     if (!customerEntryComplete) {
       items.push("Select or complete the customer before reviewing this quote.");
     }
-    if (!contentPresence.hasSectionAContent && !contentPresence.hasSectionBContent && !contentPresence.hasSectionCContent && !contentPresence.hasOptionCostsContent) {
+    if (!contentPresence.hasSectionAContent && !contentPresence.hasSectionBContent && !contentPresence.hasSectionCContent && !contentPresence.hasOptionCostsContent && !contentPresence.hasAnnualContent) {
       items.push("Add at least one quote item.");
     }
     if (quote.executiveSummary.enabled && !contentPresence.hasExecutiveSummaryContent) {
       items.push("Executive Summary is enabled but still has no customer-facing content.");
     }
-    if (quote.sections.sectionB.enabled && !contentPresence.hasSectionBContent && !optionCostSummary.items.some((item) => item.sourceSection === "sectionB")) {
+    if (quote.sections.sectionB.enabled && !contentPresence.hasSectionBContent && !quote.sections.sectionB.lineItems.some(isAnnualLine) && !optionCostSummary.items.some((item) => item.sourceSection === "sectionB")) {
       items.push("Hardware output is enabled but there are no live hardware rows yet.");
     }
-    if (quote.sections.sectionC.enabled && !contentPresence.hasSectionCContent && !optionCostSummary.items.some((item) => item.sourceSection === "sectionC")) {
+    if (quote.sections.sectionC.enabled && !contentPresence.hasSectionCContent && !quote.sections.sectionC.lineItems.some(isAnnualLine) && !optionCostSummary.items.some((item) => item.sourceSection === "sectionC")) {
       items.push("Install / site services are enabled but there are no live service rows yet.");
     }
     if (quote.warranty.enabled && !quote.warranty.manufacturerReference.trim() && !quote.warranty.coverageNote.trim()) {
@@ -2419,6 +2422,7 @@ export default function QuotePreview() {
     quote,
     contentPresence.hasExecutiveSummaryContent,
     contentPresence.hasSectionAContent,
+    contentPresence.hasAnnualContent,
     contentPresence.hasOptionCostsContent,
     customerEntryComplete,
     optionCostSummary.items,
@@ -4766,7 +4770,7 @@ export default function QuotePreview() {
     description: <input aria-label={`Service ${index + 1} description`} value={row.description} onChange={(event) => updateActiveSectionARow(row.id, "description", event.target.value)} />,
     quantity: <input aria-label={`Service ${index + 1} quantity`} type="number" min="0" value={row.quantity ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "quantity", event.target.value)} />,
     rate: <input aria-label={`Service ${index + 1} rate`} type="number" min="0" step="0.01" value={row.monthlyRate ?? row.unitPrice ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "monthlyRate", event.target.value)} />,
-    cadence: row.rowType === "support" ? "Included" : row.rowType === "overage" ? "Per GB" : "Monthly",
+    cadence: row.rowType === "support" ? "Included" : row.rowType === "overage" ? "Per GB" : <QuoteBillingSelect label={`Service ${index + 1} billing`} billing={getLineBilling(row, "monthly")} cadences={["monthly", "annual"]} onChange={(billing) => updateQuote((draft) => { const rows = draft.sections.sectionA.mode === "pool" ? draft.sections.sectionA.poolRows : draft.sections.sectionA.perKitRows; const target = rows.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />,
     total: row.rowType === "support" ? "Included" : formatCurrency(row.totalMonthlyRate ?? row.monthlyRate ?? 0, currencyCode),
     optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateActiveSectionARow(row.id, "optional", checked),
     actions: <RowActions totalRows={activeSectionARows.length} rowNumber={index + 1} onMoveUp={() => moveActiveSectionARow(row.id, -1)} onMoveDown={() => moveActiveSectionARow(row.id, 1)} onMoveTo={(position) => moveActiveSectionAToPosition(row.id, position)} onDuplicate={() => duplicateActiveSectionARow(row.id)} onRemove={() => removeActiveSectionARow(row.id)} />,
@@ -4785,7 +4789,7 @@ export default function QuotePreview() {
     description: <div className="rq-item-name">{row.imageUrl && <img src={row.imageUrl} alt="" width={32} height={32} />}<input aria-label={`Hardware ${index + 1} name`} value={row.itemName} onChange={(event) => updateEquipmentRow(row.id, "itemName", event.target.value)} /></div>,
     quantity: <input aria-label={`Hardware ${index + 1} quantity`} type="number" min="0" value={row.quantity} onChange={(event) => updateEquipmentRow(row.id, "quantity", event.target.value)} />,
     rate: <input aria-label={`Hardware ${index + 1} unit price`} type="number" min="0" step="0.01" value={row.unitPrice} onChange={(event) => updateEquipmentRow(row.id, "unitPrice", event.target.value)} />,
-    cadence: isLeaseQuote ? "Lease basis" : "One-time", total: formatCurrency(row.totalPrice, currencyCode),
+    cadence: <QuoteBillingSelect label={`Hardware ${index + 1} billing`} billing={getLineBilling(row)} cadences={["one_time", "annual"]} onChange={(billing) => updateQuote((draft) => { const target = draft.sections.sectionB.lineItems.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />, total: formatCurrency(row.totalPrice, currencyCode),
     optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateEquipmentRow(row.id, "optional", checked),
     actions: <RowActions totalRows={quote.sections.sectionB.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveEquipmentRow(row.id, -1)} onMoveDown={() => moveEquipmentRow(row.id, 1)} onMoveTo={(position) => moveEquipmentRowToPosition(row.id, position)} onDuplicate={() => duplicateEquipmentRow(row.id)} onRemove={() => removeEquipmentRow(row.id)} />,
     details: <div className="rq-detail-fields">
@@ -4841,7 +4845,7 @@ export default function QuotePreview() {
     description: <input aria-label={`Field service ${index + 1} description`} value={row.description} onChange={(event) => updateServiceRow(row.id, "description", event.target.value)} />,
     quantity: <input aria-label={`Field service ${index + 1} quantity`} type="number" min="0" value={row.quantity} onChange={(event) => updateServiceRow(row.id, "quantity", event.target.value)} />,
     rate: <input aria-label={`Field service ${index + 1} unit price`} type="number" min="0" step="0.01" value={row.unitPrice} onChange={(event) => updateServiceRow(row.id, "unitPrice", event.target.value)} />,
-    cadence: "One-time", total: formatCurrency(row.totalPrice, currencyCode),
+    cadence: <QuoteBillingSelect label={`Field service ${index + 1} billing`} billing={getLineBilling(row)} cadences={["one_time", "annual"]} onChange={(billing) => updateQuote((draft) => { const target = draft.sections.sectionC.lineItems.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />, total: formatCurrency(row.totalPrice, currencyCode),
     optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateServiceRow(row.id, "optional", checked),
     actions: <RowActions totalRows={quote.sections.sectionC.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(position) => moveServiceRowToPosition(row.id, position)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} />,
     details: <div className="rq-detail-fields"><label className="builder-field"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(event) => updateServiceRow(row.id, "pricingStage", event.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label><label className="builder-field"><span>Notes</span><textarea rows={2} value={row.notes ?? ""} onChange={(event) => updateServiceRow(row.id, "notes", event.target.value)} /></label></div>,
@@ -5661,7 +5665,7 @@ return {
   description: <input aria-label={`Component ${index + 1} name`} value={component.internalName} onChange={(event) => updateActiveMajorComponent(component.id, (current) => ({ ...current, internalName: event.target.value }))} />,
   quantity: <input aria-label={`Component ${index + 1} quantity`} type="number" min="0" step="0.01" value={component.quantity} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const quantity = Math.max(parseNumber(event.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), vendorExtendedCost: Number((quantity * current.vendorUnitCost).toFixed(2)) }; })} />,
   rate: <input aria-label={`Component ${index + 1} unit price`} type="number" min="0" step="0.01" value={component.customerUnitPrice} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} />,
-  cadence: <select aria-label={`Component ${index + 1} billing`} value={component.schedule} onChange={(event) => updateActiveMajorComponent(component.id, (current) => ({ ...current, schedule: event.target.value as MajorProjectComponent["schedule"] }))}><option value="one_time">One-time</option><option value="recurring">Monthly</option></select>,
+  cadence: <QuoteBillingSelect label={`Component ${index + 1} billing`} billing={getLineBilling(component, component.schedule === "recurring" ? "monthly" : "one_time")} onChange={(billing) => updateActiveMajorComponent(component.id, (current) => ({ ...current, billing, schedule: billing.cadence === "monthly" ? "recurring" : "one_time" }))} />,
   total: formatCurrency(componentRevenue, currencyCode),
   optional: component.optional === true, onOptionalChange: (checked) => updateActiveMajorComponent(component.id, (current) => ({ ...current, optional: checked })),
   actions: <RowActions rowNumber={index + 1} totalRows={activeMajorOptionComponents.length} onMoveUp={() => moveMajorProjectComponent(component.id, -1)} onMoveDown={() => moveMajorProjectComponent(component.id, 1)} onMoveTo={(position) => moveMajorProjectComponentToPosition(component.id, position)} onDuplicate={() => duplicateMajorProjectComponent(component.id)} onRemove={() => removeMajorProjectComponent(component.id)} />,
@@ -5717,7 +5721,7 @@ return {
                                 ) : null}
                               </label>
                               <label className="builder-field compact"><span>Line type</span><select value={component.lineType} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const lineType = e.target.value as MajorProjectComponent["lineType"]; return { ...current, lineType, category: majorProjectLineTypeLabel(lineType) }; })}><option value="hardware">Hardware</option><option value="software">Software</option><option value="subscription">Subscription</option><option value="installation">Installation</option><option value="service">Service</option><option value="support">Support</option><option value="managed_service">Managed service</option><option value="optional_service">Optional service</option><option value="internal_labor">Internal labor</option><option value="shipping">Shipping</option><option value="tax">Tax</option><option value="other">Other</option></select></label>
-                              <label className="builder-field compact"><span>Schedule</span><select value={component.schedule} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, schedule: e.target.value as MajorProjectComponent["schedule"] }))}><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
+                              <label className="builder-field compact"><span>Billing</span><QuoteBillingSelect label={`Component ${index + 1} billing details`} billing={getLineBilling(component, component.schedule === "recurring" ? "monthly" : "one_time")} onChange={(billing) => updateActiveMajorComponent(component.id, (current) => ({ ...current, billing, schedule: billing.cadence === "monthly" ? "recurring" : "one_time" }))} /></label>
                               <label className="builder-field compact"><span>Bundle assignment</span><select value={component.bundleAssignmentId ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, bundleAssignmentId: e.target.value }))}><option value="">Unassigned</option>{bundleOptions.map((bundle) => <option key={bundle.id} value={bundle.id}>{bundle.label}</option>)}</select></label>
                             </div>
                             <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
@@ -5910,6 +5914,7 @@ return {
                           <div className="major-project-preview-handoff-card"><span>Section A / MRR</span><strong>{formatCurrency(majorProjectPreviewCategorySummary.recurring, currencyCode)}</strong></div>
                           <div className="major-project-preview-handoff-card"><span>Section B / hardware</span><strong>{formatCurrency(majorProjectPreviewCategorySummary.hardware, currencyCode)}</strong></div>
                           <div className="major-project-preview-handoff-card"><span>Section C / services</span><strong>{formatCurrency(majorProjectPreviewCategorySummary.services, currencyCode)}</strong></div>
+                          {majorProjectMetrics.annualRenewalRevenue !== 0 && <div className="major-project-preview-handoff-card"><span>Annual subscriptions / Year 1</span><strong>{formatCurrency(majorProjectMetrics.annualRevenue, currencyCode)}</strong></div>}
                         </div>
 
                         {activeMajorOptionQuoteLines.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No customer quote lines yet. That is fine if this option should flow directly from components; add quote lines when you want a curated presentation layer.</div> : filteredMajorProjectQuoteLines.length === 0 ? <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No customer quote lines match that search right now.</div> : filteredMajorProjectQuoteLines.map((line) => {
@@ -6034,6 +6039,7 @@ return {
                         <CommercialMetricCard label="Recurring month driver" value={`${majorProjectTermMonths} months`} detail="Used for internal contract math" />
                         <CommercialMetricCard label="Recurring MRR" value={formatCurrency(majorProjectMetrics.recurringRevenue, currencyCode)} detail="Visible customer monthly revenue" tone="accent" />
                         <CommercialMetricCard label="One-time revenue" value={formatCurrency(majorProjectMetrics.oneTimeRevenue, currencyCode)} detail="Hardware plus services" />
+                        {majorProjectMetrics.annualRenewalRevenue !== 0 && <CommercialMetricCard label="Annual subscriptions" value={formatCurrency(majorProjectMetrics.annualRevenue, currencyCode)} detail={`Year 1 prepaid; renewal ${formatCurrency(majorProjectMetrics.annualRenewalRevenue, currencyCode)} / year`} />}
                         <CommercialMetricCard label="Recurring contract value" value={formatCurrency(majorProjectMetrics.recurringContractRevenue, currencyCode)} detail="MRR x month driver" tone="success" />
                         <CommercialMetricCard label="Total contract value" value={formatCurrency(majorProjectMetrics.totalContractRevenue, currencyCode)} detail="Recurring plus one-time value" tone="success" />
                         <CommercialMetricCard label="Total contract cost" value={formatCurrency(majorProjectMetrics.totalContractCost, currencyCode)} detail="Internal cost to deliver" />
@@ -6422,6 +6428,7 @@ return {
   <button type="button" className="rq-mobile-totals-toggle" aria-expanded={showMobileTotals} aria-controls="rq-price-breakdown" onClick={() => setShowMobileTotals(!showMobileTotals)}>Price breakdown{optionCostSummary.items.length > 0 ? ` and ${optionCostSummary.items.length} option${optionCostSummary.items.length === 1 ? "" : "s"}` : ""}<ChevronDown size={16} aria-hidden="true" /></button>
   <div className="rq-totals-details" id="rq-price-breakdown">
   <dl className="rq-total-breakdown">
+    {annualSummary.items.length > 0 && <><div><dt>Year 1 annual subscriptions</dt><dd>{formatCurrency(annualSummary.firstYearTotal, currencyCode)}</dd></div><div><dt>Annual renewal / Year 2</dt><dd>{formatCurrency(annualSummary.renewalTotal, currencyCode)} / yr</dd></div></>}
     {isLeaseQuote && <div><dt>Equipment lease / month</dt><dd>{hasActiveDataAgreement ? formatCurrency(leaseEquipmentMonthly, currencyCode) : "Pending"}</dd></div>}
     <div><dt>Services / month</dt><dd>{formatCurrency(recurringMonthlyTotal, currencyCode)}</dd></div>
     <div className="rq-total-divider"><dt>One-time charges</dt><dd>{formatCurrency(customerFacingOneTimeTotal, currencyCode)}</dd></div>
@@ -6429,7 +6436,7 @@ return {
   {optionCostSummary.items.length > 0 && <div className="rq-option-summary">
     <h3>Option Costs <span>{optionCostSummary.items.length}</span></h3>
     <p>Not included in base totals</p>
-    <dl className="rq-total-breakdown"><div><dt>Monthly options</dt><dd>{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)}</dd></div><div><dt>One-time options</dt><dd>{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</dd></div></dl>
+    <dl className="rq-total-breakdown"><div><dt>Monthly options</dt><dd>{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)}</dd></div><div><dt>One-time options</dt><dd>{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</dd></div>{optionCostSummary.items.some((item) => item.cadence === "annual") && <div><dt>Annual renewal options</dt><dd>{formatCurrency(optionCostSummary.annualTotal, currencyCode)} / yr</dd></div>}</dl>
   </div>}
   <button type="button" className={`rq-review-link ${editorNeedsAttention.length ? "rq-needs-review" : ""}`} onClick={() => setEditorTab("review")} disabled={!customerEntryComplete}>{editorNeedsAttention.length ? <AlertCircle size={16} aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}{editorNeedsAttention.length ? `${editorNeedsAttention.length} item${editorNeedsAttention.length === 1 ? "" : "s"} to review` : "Ready for review"}<ArrowRight size={16} aria-hidden="true" /></button>
   </div>
