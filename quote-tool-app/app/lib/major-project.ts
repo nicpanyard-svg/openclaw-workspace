@@ -16,6 +16,7 @@ import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spe
 import { getLineBilling, isAnnualLine } from "./quote-line-billing";
 import { buildQuickQuoteComponents, preserveQuickQuoteOutput, sameQuickQuoteContent } from "./major-project-quick-quote";
 import { IOTEDGE_KINNECT_DESCRIPTION, IOTEDGE_KINNECT_LABEL, isIoTEdgeKinnect, normalizeQuoteSoftware, normalizeSoftwareComponent } from "./quote-software";
+import { normalizeQuoteItemWording } from "./quote-item-wording";
 
 export type MajorProjectServiceMix = "managed-network" | "starlink-pool" | "starlink-per-site" | "hybrid";
 export type MajorProjectValidationSeverity = "error" | "warning";
@@ -1278,7 +1279,7 @@ export function ensureMajorProjectState(quote: QuoteRecord): QuoteRecord {
   const optionSource = quote.majorProject?.options?.length ? quote.majorProject.options : defaults.options;
   const options = optionSource.map((option, index) => buildMappedOptionFromQuickBuilder(normalizeOption(option, index)));
 
-  return normalizeQuoteSoftware({
+  return normalizeQuoteItemWording(normalizeQuoteSoftware({
     ...quote,
     majorProject: {
       ...defaults,
@@ -1303,7 +1304,7 @@ export function ensureMajorProjectState(quote: QuoteRecord): QuoteRecord {
       builderMode: "advanced",
       activeOptionId: quote.majorProject?.activeOptionId ?? options[0]?.id ?? defaults.activeOptionId,
     },
-  });
+  }));
 }
 
 export function convertMajorProjectQuickBuilderToMappedModel(quote: QuoteRecord): QuoteRecord {

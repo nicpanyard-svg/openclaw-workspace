@@ -9,6 +9,7 @@ import { AUTH_STORAGE_KEY, USER_DIRECTORY_STORAGE_KEY, buildSession } from "../a
 import { PROPOSAL_STORAGE_KEY, PROPOSAL_STORAGE_FALLBACK_KEY } from "../app/lib/proposal-state";
 import { createBlankQuoteRecord } from "../app/lib/quote-template";
 import { IOTEDGE_KINNECT_LABEL } from "../app/lib/quote-software";
+import { AXIS_LOCAL_STORAGE_LABEL } from "../app/lib/quote-item-wording";
 
 // Isolated, synthetic local session. Exercise legacy data without pre-normalizing it.
 async function main() {
@@ -24,7 +25,10 @@ async function main() {
   quote.customer.name = "QA River Operations";
   quote.sections.sectionA.enabled = false;
   quote.sections.sectionB.enabled = true;
-  quote.sections.sectionB.lineItems = [{ id: "gateway", sourceType: "custom", itemName: "Cellular Modem and LoRaWAN Gateway - RAD SecFlow-1p", quantity: 1, unitPrice: 1525.70, totalPrice: 1525.70 }];
+  quote.sections.sectionB.lineItems = [
+    { id: "gateway", sourceType: "custom", itemName: "Cellular Modem and LoRaWAN Gateway - RAD Secflow-1p", quantity: 1, unitPrice: 1525.70, totalPrice: 1525.70 },
+    { id: "storage", sourceType: "custom", itemName: "1 TB SD Memory Card", description: "IP 67 enclosure with poll mount", quantity: 1, unitPrice: 125, totalPrice: 125 },
+  ];
   quote.sections.sectionC.enabled = true;
   quote.sections.sectionC.lineItems = [
     { id: "software", sourceType: "custom", description: "LoRaWAN EDGE Software: IoTEDGE Kinnect from RAD", quantity: 1, unitPrice: 408, totalPrice: 408, unitLabel: "ea", pricingStage: "budgetary" },
@@ -52,7 +56,9 @@ async function main() {
       assert.ok(text.includes("One software instance/license per configured gateway, as quoted."));
       assert.ok(text.includes("$408.00"));
       assert.ok(text.includes("$3,408.00"));
-      assert.ok(text.includes("$4,933.70"));
+      assert.ok(text.includes("$5,058.70"));
+      for (const label of [AXIS_LOCAL_STORAGE_LABEL, "RAD SecFlow-1p", "IP67 enclosure with pole mount"]) assert.ok(text.includes(label), "Preview missing " + label);
+      assert.doesNotMatch(text, /IP 67|RAD Secflow-1p|poll mount|1 TB SD Memory Card/);
       assert.ok(!text.includes("LoRaWAN EDGE Software: IoTEDGE Kinnect from RAD"));
       const rows = await page.$$eval(".cp-table tbody tr", (elements) => elements.map((row) => ({ text: row.textContent || "", notes: Array.from(row.querySelectorAll(".cp-row-note")).map((element) => element.textContent) })));
       assert.ok(rows.find((row) => row.text.includes("IoTEDGE Kinnect"))?.notes.includes("Software license"));
@@ -87,10 +93,11 @@ async function main() {
         await writeFile(path.join(output, `pdf-page-${index}.png`), canvas.toBuffer("image/png"));
       }
     }
-    for (const expected of [IOTEDGE_KINNECT_LABEL, "Software license", "$408.00", "$3,408.00", "$4,933.70", "One software instance/license per configured gateway, as quoted."]) assert.ok(pdfText.includes(expected), "PDF missing " + expected);
+    for (const expected of [IOTEDGE_KINNECT_LABEL, AXIS_LOCAL_STORAGE_LABEL, "RAD SecFlow-1p", "IP67 enclosure with pole mount", "Software license", "$408.00", "$125.00", "$3,408.00", "$5,058.70", "One software instance/license per configured gateway, as quoted."]) assert.ok(pdfText.includes(expected), "PDF missing " + expected);
+    assert.doesNotMatch(pdfText, /IP 67|RAD Secflow-1p|poll mount|1 TB SD Memory Card/);
     assert.ok(!pdfText.includes("LoRaWAN EDGE Software: IoTEDGE Kinnect from RAD"));
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ result: "PASS", pdfPages: pdf.numPages, software: 408, installation: 3000, total: 4933.70, screenshots: output }, null, 2));
+    console.log(JSON.stringify({ result: "PASS", pdfPages: pdf.numPages, software: 408, storage: 125, installation: 3000, total: 5058.70, screenshots: output }, null, 2));
     await pdf.destroy();
   } finally { await browser.close(); }
 }

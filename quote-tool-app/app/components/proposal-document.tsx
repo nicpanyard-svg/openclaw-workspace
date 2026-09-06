@@ -10,6 +10,7 @@ import { customerCopy, getCustomerQuoteContent } from "@/app/lib/proposal-custom
 import { getProposalAttachments } from "@/app/lib/proposal-attachments";
 import { getAnnualSubscriptionSummary } from "@/app/lib/quote-line-billing";
 import { getSoftwareServicesPresentation, isSoftwareLine, normalizeQuoteSoftware } from "@/app/lib/quote-software";
+import { normalizeQuoteItemWording } from "@/app/lib/quote-item-wording";
 import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import "./proposal-customer.css";
@@ -203,7 +204,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
 }
 
 export function ProposalDocument(props: ProposalDocumentProps) {
-  const quote = normalizeQuoteSoftware(props.quote);
+  const quote = normalizeQuoteItemWording(normalizeQuoteSoftware(props.quote));
   if (resolveQuoteOutputTemplateKey(quote) === "estimate_compact") return <IliosEstimateDocument quote={quote} />;
   return <DetailedProposalDocument {...props} quote={quote} />;
 }
