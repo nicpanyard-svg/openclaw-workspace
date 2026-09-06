@@ -2,11 +2,13 @@ import { degrees, PDFDict, PDFDocument, PDFFont, PDFName, PDFPage, StandardFonts
 import { getMajorProjectSpecAttachmentFile } from "@/app/lib/major-project-spec-attachments";
 import { getProposalAttachments, type ProposalAttachment } from "@/app/lib/proposal-attachments";
 import type { QuoteRecord } from "@/app/lib/quote-record";
+import { convertProposalImageToPng } from "@/app/lib/proposal-image-conversion";
 
 export type ProposalAttachmentLoader = (storageKey: string) => Promise<Blob | undefined>;
 
 export type ProposalPdfAssemblyOptions = {
   loadAttachment?: ProposalAttachmentLoader;
+  convertImageToPng?: (image: Blob) => Promise<Blob>;
   proposalId?: string;
 };
 
@@ -109,12 +111,14 @@ async function appendImage(target: PDFDocument, bytes: Uint8Array, format: "png"
   attachmentHeader(page, entry, font, 1, 1);
 }
 
-function attachmentFormat(entry: ProposalAttachment, blob: Blob): "pdf" | "png" | "jpeg" | undefined {
+function attachmentFormat(entry: ProposalAttachment, blob: Blob): "pdf" | "png" | "jpeg" | "webp" | "gif" | undefined {
   const mime = (entry.attachment.mimeType || blob.type).toLowerCase().split(";")[0].trim();
   const name = entry.attachment.fileName.toLowerCase();
   if (mime === "application/pdf" || name.endsWith(".pdf")) return "pdf";
   if (mime === "image/png" || name.endsWith(".png")) return "png";
   if (mime === "image/jpeg" || /\.jpe?g$/.test(name)) return "jpeg";
+  if (mime === "image/webp" || name.endsWith(".webp")) return "webp";
+  if (mime === "image/gif" || name.endsWith(".gif")) return "gif";
   return undefined;
 }
 
@@ -163,13 +167,17 @@ export async function assembleFinalProposalPdf(
     else if (!result.value) reason = "missing file; reattach it and retry";
     else {
       const format = attachmentFormat(entry, result.value);
-      if (!format) reason = "unsupported file format; attach PDF, PNG, or JPEG (convert GIF/WebP first)";
+      if (!format) reason = "unsupported file format; attach PDF, PNG, JPEG, WebP, or GIF";
       else {
         try {
           if (format === "pdf") await appendPdf(document, result.value, entry, font);
+          else if (format === "webp" || format === "gif") {
+            const png = await (options.convertImageToPng ?? convertProposalImageToPng)(result.value);
+            await appendImage(document, new Uint8Array(await png.arrayBuffer()), "png", entry, font);
+          }
           else await appendImage(document, new Uint8Array(await result.value.arrayBuffer()), format, entry, font);
         } catch (error) {
-          reason = error instanceof Error && error.message.startsWith("unsupported") ? error.message : "corrupt or unreadable file; replace it and retry";
+          reason = error instanceof Error && /^(unsupported|image conversion)/.test(error.message) ? error.message : "corrupt or unreadable file; replace it and retry";
         }
       }
     }

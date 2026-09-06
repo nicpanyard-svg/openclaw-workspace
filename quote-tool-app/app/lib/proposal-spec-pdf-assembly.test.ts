@@ -122,13 +122,14 @@ test("no attachments still finalizes all numbers without touching base page size
   });
 });
 
-test("loads every unique assigned file and reports all missing, unsupported, corrupt, and inaccessible names together", async () => {
+test("loads every unique assigned file and reports all missing, corrupt, and inaccessible names together", async () => {
   const attachments = [file("missing"), file("bad-pdf"), file("bad-png", "image/png", "bad.png"), file("bad-jpeg", "image/jpeg", "bad.jpg"),
     file("webp", "image/webp", "diagram.webp"), file("gif", "image/gif", "diagram.gif"), file("denied"), file("valid")];
   const quote = drawingQuote([...attachments, attachments[0]]);
   const valid = await makePdf(["VALID"]);
   const calls: string[] = [];
   await assert.rejects(assembleFinalProposalPdf(await makePdf(["BASE"]), quote, {
+    convertImageToPng: async () => { throw new Error("Invalid image"); },
     loadAttachment: async (key) => {
       calls.push(key);
       if (key === "missing") return undefined;
@@ -141,13 +142,43 @@ test("loads every unique assigned file and reports all missing, unsupported, cor
     assert.deepEqual(error.failures.map((failure) => failure.fileName), attachments.slice(0, -1).map((attachment) => attachment.fileName));
     assert.deepEqual(error.failures.map((failure) => failure.id), ["A1", "A2", "A3", "A4", "A5", "A6", "A7"]);
     assert.match(error.failures[0].reason, /missing/);
-    for (const index of [1, 2, 3]) assert.match(error.failures[index].reason, /corrupt/);
-    for (const index of [4, 5]) assert.match(error.failures[index].reason, /unsupported.*convert GIF\/WebP/);
+    for (const index of [1, 2, 3, 4, 5]) assert.match(error.failures[index].reason, /corrupt/);
     assert.match(error.failures[6].reason, /could not be loaded/);
     attachments.slice(0, -1).forEach((attachment) => assert.ok(error.message.includes(attachment.fileName)));
     return true;
   });
   assert.deepEqual(calls, attachments.map((attachment) => attachment.storageKey));
+});
+
+for (const [name, mime] of [["drawing.webp", "image/webp"], ["drawing.WEBP", "application/octet-stream"], ["drawing", "image/webp"], ["drawing.gif", "image/gif"]]) {
+  test(`converts ${name} (${mime}) once and appends it without changing the stored attachment`, async () => {
+    const attachment = file("converted", mime, name);
+    const quote = drawingQuote([attachment, attachment]);
+    const before = structuredClone(quote);
+    const source = new Blob(["source image bytes"], { type: mime });
+    const canvas = createCanvas(120, 60);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#17a054";
+    ctx.fillRect(0, 0, 120, 60);
+    const png = new Blob([new Uint8Array(canvas.toBuffer("image/png"))], { type: "image/png" });
+    let conversions = 0;
+    const result = await assembleFinalProposalPdf(await makePdf(["BASE"]), quote, {
+      loadAttachment: async () => source,
+      convertImageToPng: async (blob) => { assert.equal(blob, source); conversions++; return png; },
+    });
+    assert.equal(conversions, 1);
+    assert.deepEqual(quote, before);
+    const pages = await textPages(result);
+    assert.equal(pages.length, 2);
+    assert.ok(pages[1].some((item) => item.text.includes(name)));
+    assert.ok(pages[1].some((item) => item.text === "Page 2 of 2"));
+  });
+}
+
+test("unsupported non-image files still block export instead of disappearing", async () => {
+  await assert.rejects(assembleFinalProposalPdf(await makePdf(["BASE"]), drawingQuote([file("unsupported", "text/plain", "notes.txt")]), {
+    loadAttachment: async () => new Blob(["notes"]),
+  }), /notes.txt: unsupported file format/);
 });
 
 test("an entirely missing appendix rejects instead of returning a commercial-only PDF", async () => {
