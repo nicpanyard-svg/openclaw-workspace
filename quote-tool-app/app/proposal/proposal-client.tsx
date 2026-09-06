@@ -9,6 +9,7 @@ import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
 import { buildProposalPdfPreviewPath } from "@/app/lib/proposal-navigation";
 import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
+import { buildProposalPdfFileName } from "@/app/lib/proposal-file-name";
 import { buildProposalApprovalWorkbook } from "@/app/lib/proposal-xlsx-export";
 
 export function ProposalClient({ requestedProposalId = null }: { requestedProposalId?: string | null }) {
@@ -90,8 +91,7 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = objectUrl;
-      const name = quote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-") || "proposal";
-      link.download = name + ".pdf";
+      link.download = buildProposalPdfFileName(quote);
       document.body.appendChild(link);
       link.click();
       link.remove();

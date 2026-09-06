@@ -175,7 +175,7 @@ export function createProposalFromQuote(params: {
   const currentUser = params.currentUser ?? mockUsers[0];
   const owner = params.owner ?? currentUser;
   const now = new Date().toISOString();
-  const id = params.quote.internal?.quoteId || `proposal_${Date.now()}`;
+  const id = params.quote.internal?.quoteId || `proposal_${crypto.randomUUID()}`;
 
   return {
     id,
@@ -232,19 +232,20 @@ export function createProposalCopy(params: {
   proposal: SavedProposalRecord;
   owner?: ProposalOwner;
   currentUser?: ProposalOwner;
+  existingNumbers?: Iterable<string>;
 }): SavedProposalRecord {
   const currentUser = params.currentUser ?? mockUsers[0];
   const owner = params.owner ?? params.proposal.owner ?? currentUser;
   const now = new Date().toISOString();
   const sourceQuote = JSON.parse(JSON.stringify(params.proposal.quote)) as QuoteRecord;
   const sourceTitle = params.proposal.quote.metadata.documentTitle?.trim() || params.proposal.quote.customer.name?.trim() || "Proposal";
-  const id = `proposal_${Date.now()}`;
+  const id = `proposal_${crypto.randomUUID()}`;
   const proposalDate = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
-  const proposalNumber = generateQuoteNumber(new Date());
+  const proposalNumber = generateQuoteNumber([sourceQuote.metadata.proposalNumber, ...(params.existingNumbers ?? [])]);
 
   return {
     id,

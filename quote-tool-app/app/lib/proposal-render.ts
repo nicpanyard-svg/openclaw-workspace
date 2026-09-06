@@ -48,7 +48,4 @@ export async function cleanupCachedProposalPdfQuote(token?: string | null) {
   await fs.rm(buildCachePath(token), { force: true });
 }
 
-export function buildProposalPdfFileName(quote: QuoteRecord) {
-  const safeProposalNumber = quote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
-  return `${safeProposalNumber}.pdf`;
-}
+export { buildProposalPdfFileName } from "./proposal-file-name";

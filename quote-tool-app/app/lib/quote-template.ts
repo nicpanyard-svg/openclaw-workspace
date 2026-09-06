@@ -12,21 +12,28 @@ function deepClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-export function generateQuoteNumber(now: Date = new Date()) {
-  return `RCT-${now.getTime()}`;
+export function generateQuoteNumber(existingNumbers: Iterable<string> = []) {
+  const used = new Set([...existingNumbers].map((number) => number.trim().toUpperCase()));
+  const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  for (let attempt = 0; attempt < 16; attempt++) {
+    const bytes = crypto.getRandomValues(new Uint8Array(8));
+    const code = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+    const number = `RQ-${code.slice(0, 4)}-${code.slice(4)}`;
+    if (!used.has(number)) return number;
+  }
+  throw new Error("Unable to assign an unused quote number. Please try again.");
 }
 
-export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): QuoteRecord {
+export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord, existingNumbers: Iterable<string> = []): QuoteRecord {
   const quote = deepClone(base);
   const now = new Date();
-  const stamp = now.getTime();
   const proposalDate = now.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
 
-  quote.metadata.proposalNumber = generateQuoteNumber(now);
+  quote.metadata.proposalNumber = generateQuoteNumber(existingNumbers);
   quote.metadata.proposalDate = proposalDate;
   quote.metadata.revisionVersion = "1.0";
   quote.metadata.companyKey = RAPIDQUOTE_DEPLOYMENT_KEY;
@@ -93,7 +100,7 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
 
   quote.customFields = [];
   quote.governance = createQuoteGovernanceState({
-    quoteId: `quote_${stamp}`,
+    quoteId: `quote_${crypto.randomUUID()}`,
   });
 
   quote.revisionHistory = [

@@ -18,6 +18,7 @@ import {
 } from "../app/lib/proposal-commercial-summary";
 import { getCustomerQuoteContent } from "../app/lib/proposal-customer-content";
 import { cacheProposalPdfQuote } from "../app/lib/proposal-pdf-cache";
+import { buildProposalPdfContentDisposition } from "../app/lib/proposal-file-name";
 import { assembleFinalProposalPdf } from "../app/lib/proposal-spec-pdf-assembly";
 import { deserializeQuoteRecord, serializeQuoteRecord } from "../app/lib/proposal-state";
 import type { MajorProjectComponent, MajorProjectSpecAttachment, QuoteRecord } from "../app/lib/quote-record";
@@ -394,6 +395,7 @@ async function verifyFixture(fixture: Fixture) {
     });
     assert.ok(response.ok, "Renderer returned HTTP " + response.status + ": " + (response.ok ? "" : (await response.text()).slice(0, 2000)));
     assert.match(response.headers.get("content-type") ?? "", /application\/pdf/i);
+    assert.equal(response.headers.get("content-disposition"), buildProposalPdfContentDisposition(fixture.quote));
     const basePdf = await response.blob();
     const loadedKeys: string[] = [];
     const finalPdf = await assembleFinalProposalPdf(basePdf, fixture.quote, {

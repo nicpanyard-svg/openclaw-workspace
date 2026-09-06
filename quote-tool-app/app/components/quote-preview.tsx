@@ -9,6 +9,7 @@ import { CustomerOutputSettings } from "@/app/components/customer-output-setting
 import { getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
 import { buildOrderProcessingText } from "@/app/lib/order-processing";
 import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
+import { buildProposalPdfFileName } from "@/app/lib/proposal-file-name";
 import "./quote-editor.css";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
@@ -1788,7 +1789,7 @@ export default function QuotePreview() {
   const [lastSavedQuote, setLastSavedQuote] = useState<QuoteRecord | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [showMobileTotals, setShowMobileTotals] = useState(false);
-  const [quote, setQuote] = useState<QuoteRecord>(createBlankQuoteRecord());
+  const [quote, setQuote] = useState<QuoteRecord>(() => createBlankQuoteRecord());
   const [activeProposal, setActiveProposal] = useState<SavedProposalRecord | null>(null);
   const [customerProfiles, setCustomerProfiles] = useState<SavedCustomerProfile[]>([]);
   const [selectedCustomerProfileId, setSelectedCustomerProfileId] = useState("");
@@ -1797,7 +1798,7 @@ export default function QuotePreview() {
   const [equipmentSearch, setEquipmentSearch] = useState("");
   const [equipmentCategoryFilter, setEquipmentCategoryFilter] = useState("All");
   const [customEquipmentDraft, setCustomEquipmentDraft] = useState<EquipmentDraft>(emptyEquipmentDraft);
-  const [customSectionFields, setCustomSectionFields] = useState<CustomSectionField[]>(createBlankQuoteRecord().customFields ?? []);
+  const [customSectionFields, setCustomSectionFields] = useState<CustomSectionField[]>([]);
   const [dataQuickAddValue, setDataQuickAddValue] = useState("1");
   const [dataQuickAddUnit, setDataQuickAddUnit] = useState<DataQuickAddUnit>("TB");
   const [majorProjectEditorTab, setMajorProjectEditorTab] = useState<MajorProjectEditorTab>("components");
@@ -1869,12 +1870,14 @@ export default function QuotePreview() {
     const matchedProposal = forceNewDraft
       ? null
       : requestedProposal ?? savedQuoteProposal ?? (savedQuote ? null : storedActiveProposal);
+    const existingNumbers = store.proposals.map((proposal) => proposal.quote.metadata.proposalNumber);
+    if (savedQuote) existingNumbers.push(savedQuote.metadata.proposalNumber);
     const resolvedQuote = forceNewDraft
-      ? createBlankQuoteRecord()
+      ? createBlankQuoteRecord(undefined, existingNumbers)
       : requestedProposal?.quote ?? savedQuote ?? resolvePreferredQuote({
           savedQuote: null,
           activeProposal: matchedProposal,
-          fallbackQuote: createBlankQuoteRecord(),
+          fallbackQuote: createBlankQuoteRecord(undefined, existingNumbers),
         }).quote;
     const nextQuote = ensureMajorProjectState(cloneQuote(resolvedQuote));
 
@@ -4444,9 +4447,8 @@ export default function QuotePreview() {
       const blob = await assembleFinalProposalPdf(await response.blob(), savedQuote, { proposalId: savedQuote.metadata.proposalNumber });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const name = savedQuote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
       link.href = url;
-      link.download = `${name}.pdf`;
+      link.download = buildProposalPdfFileName(savedQuote);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -4479,6 +4481,7 @@ export default function QuotePreview() {
       proposal: persisted.proposal,
       owner: persisted.proposal.owner,
       currentUser: persisted.store.currentUser,
+      existingNumbers: persisted.store.proposals.map((proposal) => proposal.quote.metadata.proposalNumber),
     });
     const nextStore = upsertProposal(persisted.store, copiedProposal);
 

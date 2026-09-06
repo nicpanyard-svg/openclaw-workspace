@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import {
-  buildProposalPdfFileName,
   cacheProposalPdfQuote,
   cleanupCachedProposalPdfQuote,
 } from "@/app/lib/proposal-pdf-cache";
 import { renderHtmlPdf } from "@/app/lib/proposal-html-pdf";
+import { buildProposalPdfContentDisposition } from "@/app/lib/proposal-file-name";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import {
   PROPOSAL_STORAGE_FALLBACK_KEY,
@@ -47,13 +47,11 @@ export async function POST(request: Request) {
           },
         },
       );
-      const fileName = buildProposalPdfFileName(quote);
-
       return new NextResponse(Buffer.from(pdf), {
         status: 200,
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${fileName}"`,
+          "Content-Disposition": buildProposalPdfContentDisposition(quote),
           "Cache-Control": "no-store",
         },
       });

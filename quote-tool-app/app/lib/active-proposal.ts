@@ -171,7 +171,7 @@ export function resolveActiveProposalQuote(preferredProposalId?: string | null):
   const { quote } = resolvePreferredQuote({
     savedQuote,
     activeProposal,
-    fallbackQuote: createBlankQuoteRecord(),
+    fallbackQuote: createBlankQuoteRecord(undefined, store.proposals.map((proposal) => proposal.quote.metadata.proposalNumber)),
   });
 
   persistQuoteRecord(quote);

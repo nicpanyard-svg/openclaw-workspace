@@ -357,6 +357,7 @@ export function ProposalWorkspace() {
       proposal,
       owner: proposal.owner,
       currentUser: store.currentUser,
+      existingNumbers: store.proposals.map((saved) => saved.quote.metadata.proposalNumber),
     });
     const nextStore = upsertProposal(store, copiedProposal);
 
@@ -726,6 +727,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
       proposal,
       owner: proposal.owner,
       currentUser: savedStore.currentUser,
+      existingNumbers: savedStore.proposals.map((saved) => saved.quote.metadata.proposalNumber),
     });
     const nextStore = upsertProposal(savedStore, copiedProposal);
 
