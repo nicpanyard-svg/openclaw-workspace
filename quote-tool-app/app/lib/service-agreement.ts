@@ -152,6 +152,7 @@ export function createServiceRowFromAgreementCategory(
     id: `c_sla_${category.key}_${Date.now()}`,
     sourceType: "custom",
     description: category.label,
+    optional: false,
     quantity: 1,
     unitPrice,
     totalPrice: unitPrice,

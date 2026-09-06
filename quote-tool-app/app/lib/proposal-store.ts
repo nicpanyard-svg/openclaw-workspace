@@ -1,6 +1,7 @@
 import { deserializeQuoteRecord } from "@/app/lib/proposal-state";
 import type { QuoteRecord, QuoteStatus } from "@/app/lib/quote-record";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
+import { getEquipmentTotal, getOptionalServicesTotal, getRecurringMonthlyTotal } from "@/app/lib/proposal-commercial-summary";
 import { createCopiedQuoteGovernanceState, normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { generateQuoteNumber } from "@/app/lib/quote-template";
 import { RAPIDQUOTE_DEPLOYMENT_KEY, scopeStorageKey } from "@/app/lib/app-environment";
@@ -132,12 +133,9 @@ export function isOpenQuoteStatus(status: QuoteStatus) {
 }
 
 export function computeQuoteTotals(quote: QuoteRecord) {
-  const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
-  const totalMonthly = Number(sectionARows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2));
-  const equipmentTotal = Number(
-    quote.sections.sectionB.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? row.quantity * row.unitPrice), 0).toFixed(2),
-  );
-  const optionalServicesTotal = Number(quote.sections.sectionC.lineItems.reduce((sum, row) => sum + row.totalPrice, 0).toFixed(2));
+  const totalMonthly = getRecurringMonthlyTotal(quote);
+  const equipmentTotal = getEquipmentTotal(quote);
+  const optionalServicesTotal = getOptionalServicesTotal(quote);
 
   return {
     totalMonthly,

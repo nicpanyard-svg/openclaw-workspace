@@ -2,6 +2,7 @@ import type { EquipmentPricingRow, LeaseTermMonths, PerKitPricingRow, PoolPricin
 import { hasExecutiveSummaryStructuredContent } from "@/app/lib/executive-summary";
 
 export type CommercialSummaryItemTone = "default" | "accent";
+export type OptionCostCadence = "monthly" | "one_time";
 
 export type ProposalCommercialSummaryItem = {
   key: string;
@@ -10,8 +11,46 @@ export type ProposalCommercialSummaryItem = {
   tone?: CommercialSummaryItemTone;
 };
 
+export type ProposalOptionCostItem = {
+  key: string;
+  label: string;
+  description?: string;
+  sourceSection: "sectionA" | "sectionB" | "sectionC";
+  categoryLabel: string;
+  cadence: OptionCostCadence;
+  quantity?: number | null;
+  unitLabel?: string | null;
+  amount: number;
+};
+
+export type ProposalOptionCostSummary = {
+  items: ProposalOptionCostItem[];
+  monthlyTotal: number;
+  oneTimeTotal: number;
+};
+
 function getSectionARows(sectionA: QuoteRecord["sections"]["sectionA"]) {
   return sectionA.mode === "pool" ? sectionA.poolRows : sectionA.perKitRows;
+}
+
+export function isOptionalLineItem(row?: { optional?: boolean } | null) {
+  return row?.optional === true;
+}
+
+function getIncludedRows<T extends { optional?: boolean }>(rows: T[]) {
+  return rows.filter((row) => !isOptionalLineItem(row));
+}
+
+export function getIncludedSectionARows(quote: QuoteRecord) {
+  return getIncludedRows(getSectionARows(quote.sections.sectionA));
+}
+
+export function getIncludedEquipmentRows(quote: QuoteRecord) {
+  return getIncludedRows(quote.sections.sectionB.lineItems);
+}
+
+export function getIncludedServiceRows(quote: QuoteRecord) {
+  return getIncludedRows(quote.sections.sectionC.lineItems);
 }
 
 export function hasSectionARows(rows: Array<PoolPricingRow | PerKitPricingRow>) {
@@ -44,14 +83,15 @@ export function hasCustomerVisibleCustomFieldData(quote: QuoteRecord) {
 
 export function getQuoteContentPresence(quote: QuoteRecord) {
   const sectionARows = getSectionARows(quote.sections.sectionA);
-  const hasSectionAContent = hasSectionARows(sectionARows);
-  const hasSectionBContent = hasEquipmentRows(quote.sections.sectionB.lineItems);
-  const hasSectionCContent = hasServiceRows(quote.sections.sectionC.lineItems);
+  const hasSectionAContent = hasSectionARows(getIncludedRows(sectionARows));
+  const hasSectionBContent = hasEquipmentRows(getIncludedRows(quote.sections.sectionB.lineItems));
+  const hasSectionCContent = hasServiceRows(getIncludedRows(quote.sections.sectionC.lineItems));
 
   return {
     hasSectionAContent,
     hasSectionBContent,
     hasSectionCContent,
+    hasOptionCostsContent: getProposalOptionCostSummary(quote).items.length > 0,
     hasExecutiveSummaryContent: hasExecutiveSummaryContent(quote),
     hasCustomerVisibleCustomFieldData: hasCustomerVisibleCustomFieldData(quote),
   };
@@ -60,6 +100,7 @@ export function getQuoteContentPresence(quote: QuoteRecord) {
 export function getRecurringMonthlyTotal(quote: QuoteRecord) {
   return Number(
     getSectionARows(quote.sections.sectionA)
+      .filter((row) => !isOptionalLineItem(row))
       .reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0)
       .toFixed(2),
   );
@@ -68,6 +109,7 @@ export function getRecurringMonthlyTotal(quote: QuoteRecord) {
 export function getEquipmentTotal(quote: QuoteRecord) {
   return Number(
     quote.sections.sectionB.lineItems
+      .filter((row) => !isOptionalLineItem(row))
       .reduce((sum, row) => sum + (row.totalPrice ?? 0), 0)
       .toFixed(2),
   );
@@ -76,9 +118,76 @@ export function getEquipmentTotal(quote: QuoteRecord) {
 export function getOptionalServicesTotal(quote: QuoteRecord) {
   return Number(
     quote.sections.sectionC.lineItems
+      .filter((row) => !isOptionalLineItem(row))
       .reduce((sum, row) => sum + (row.totalPrice ?? 0), 0)
       .toFixed(2),
   );
+}
+
+export function getProposalOptionCostSummary(quote: QuoteRecord): ProposalOptionCostSummary {
+  const sectionARows = quote.sections.sectionA.enabled ? getSectionARows(quote.sections.sectionA) : [];
+  const monthlyItems: ProposalOptionCostItem[] = sectionARows
+    .filter((row) => isOptionalLineItem(row))
+    .map((row) => ({
+      key: `section-a-${row.id}`,
+      label: row.description,
+      sourceSection: "sectionA" as const,
+      categoryLabel: "Monthly recurring",
+      cadence: "monthly" as const,
+      quantity: row.quantity,
+      unitLabel: row.unitLabel,
+      amount: Number((row.totalMonthlyRate ?? row.monthlyRate ?? row.unitPrice ?? 0).toFixed(2)),
+    }))
+    .filter((item) => item.label.trim().length > 0 && item.amount > 0);
+
+  const equipmentItems: ProposalOptionCostItem[] = (quote.sections.sectionB.enabled ? quote.sections.sectionB.lineItems : [])
+    .filter((row) => isOptionalLineItem(row))
+    .map((row) => {
+      const totalPrice = Number((row.totalPrice ?? 0).toFixed(2));
+      const isLeasedHardware = quote.metadata.quoteType === "lease";
+      const termMonths = quote.metadata.leaseTermMonths ?? 12;
+      const amount = isLeasedHardware
+        ? Number((applyMarginToCost(totalPrice, quote.metadata.leaseMarginPercent ?? 35) / termMonths).toFixed(2))
+        : totalPrice;
+
+      return {
+        key: `section-b-${row.id}`,
+        label: row.itemName,
+        description: row.description,
+        sourceSection: "sectionB" as const,
+        categoryLabel: isLeasedHardware ? "Optional leased equipment" : "One-time equipment",
+        cadence: isLeasedHardware ? "monthly" as const : "one_time" as const,
+        quantity: row.quantity,
+        unitLabel: "ea",
+        amount,
+      };
+    })
+    .filter((item) => item.label.trim().length > 0 && item.amount > 0);
+
+  const serviceItems: ProposalOptionCostItem[] = (quote.sections.sectionC.enabled ? quote.sections.sectionC.lineItems : [])
+    .filter((row) => isOptionalLineItem(row))
+    .map((row) => ({
+      key: `section-c-${row.id}`,
+      label: row.description,
+      description: row.notes,
+      sourceSection: "sectionC" as const,
+      categoryLabel: "Field services",
+      cadence: "one_time" as const,
+      quantity: row.quantity,
+      unitLabel: row.unitLabel,
+      amount: Number((row.totalPrice ?? 0).toFixed(2)),
+    }))
+    .filter((item) => item.label.trim().length > 0 && item.amount > 0);
+
+  const items = [...monthlyItems, ...equipmentItems, ...serviceItems];
+  const monthlyTotal = Number(items.filter((item) => item.cadence === "monthly").reduce((sum, item) => sum + item.amount, 0).toFixed(2));
+  const oneTimeTotal = Number(items.filter((item) => item.cadence === "one_time").reduce((sum, item) => sum + item.amount, 0).toFixed(2));
+
+  return {
+    items,
+    monthlyTotal,
+    oneTimeTotal,
+  };
 }
 
 export function isLeaseQuote(quote: QuoteRecord) {

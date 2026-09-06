@@ -31,6 +31,7 @@ function getSpecPlaceholderStartPageIndex(quote: QuoteRecord) {
     + (quote.sections.sectionA.enabled && contentPresence.hasSectionAContent ? 1 : 0)
     + equipmentPageCount
     + (quote.sections.sectionC.enabled && contentPresence.hasSectionCContent ? 1 : 0)
+    + (contentPresence.hasOptionCostsContent ? 1 : 0)
     + systemDrawingCount
   );
 }

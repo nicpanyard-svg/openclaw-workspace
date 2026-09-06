@@ -169,6 +169,7 @@ function createDefaultSimpleRow(): MajorProjectSimpleRow {
   return {
     id: "major-simple-row-1",
     label: "",
+    optional: false,
     imageUrl: undefined,
     description: "",
     specSheetLabel: "",
@@ -189,6 +190,7 @@ function createDefaultComponent(): MajorProjectComponent {
     id: "major-component-1",
     internalName: "",
     customerFacingLabel: "",
+    optional: false,
     imageUrl: undefined,
     specSheetLabel: "",
     specSheetLocation: "",
@@ -219,6 +221,7 @@ function createDefaultBundle(): MajorProjectBundle {
     id: "major-bundle-1",
     internalName: "Base solution bundle",
     customerFacingLabel: "Integrated solution bundle",
+    optional: false,
     description: "",
     specSheetLabel: "",
     specSheetLocation: "",
@@ -236,6 +239,7 @@ function createDefaultCustomerQuoteLine(): MajorProjectCustomerQuoteLine {
     id: "major-quote-line-1",
     lineItemNumber: 1,
     label: "Integrated solution package",
+    optional: false,
     description: "",
     specSheetLabel: "",
     specSheetLocation: "",
@@ -264,6 +268,10 @@ function uniqueIds(ids: Array<string | undefined | null>) {
 
 function roundCurrency(value: number) {
   return Number(value.toFixed(2));
+}
+
+function isMajorProjectOptional(item?: { optional?: boolean } | null) {
+  return item?.optional === true;
 }
 
 function normalizeText(value: unknown) {
@@ -308,6 +316,7 @@ function normalizeComponent(component: Partial<MajorProjectComponent> | undefine
     ...component,
     id: component?.id ?? `major-component-${index + 1}`,
     internalName: component?.internalName ?? defaults.internalName,
+    optional: component?.optional === true,
     imageUrl: component?.imageUrl?.trim() || undefined,
     specSheetLabel: component?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
     specSheetLocation: component?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
@@ -332,6 +341,7 @@ function normalizeBundle(bundle: Partial<MajorProjectBundle> | undefined, index:
     ...defaults,
     ...bundle,
     id: bundle?.id ?? `major-bundle-${index + 1}`,
+    optional: bundle?.optional === true,
     specSheetLabel: bundle?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
     specSheetLocation: bundle?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
     specSheetAttachment: normalizeMajorProjectSpecAttachment(bundle?.specSheetAttachment),
@@ -348,6 +358,7 @@ function normalizeCustomerQuoteLine(line: Partial<MajorProjectCustomerQuoteLine>
     ...line,
     id: line?.id ?? `major-quote-line-${index + 1}`,
     lineItemNumber: normalizeLineItemNumber(line?.lineItemNumber, index, line?.label),
+    optional: line?.optional === true,
     specSheetLabel: line?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
     specSheetLocation: line?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
     specSheetAttachment: normalizeMajorProjectSpecAttachment(line?.specSheetAttachment),
@@ -404,6 +415,7 @@ function normalizeSimpleRow(row: Partial<MajorProjectSimpleRow> | undefined, ind
     ...row,
     id: row?.id ?? `major-simple-row-${index + 1}`,
     label: row?.label ?? defaults.label,
+    optional: row?.optional === true,
     imageUrl: row?.imageUrl?.trim() || undefined,
     specSheetLabel: row?.specSheetLabel?.trim() ?? defaults.specSheetLabel,
     specSheetLocation: row?.specSheetLocation?.trim() ?? defaults.specSheetLocation,
@@ -505,7 +517,7 @@ function normalizeOption(option: Partial<MajorProjectOption> | undefined, index:
     components,
     bundles,
     customerQuoteLines,
-    vendorSummary: buildVendorSummary(components),
+    vendorSummary: buildVendorSummary(components.filter((component) => !isMajorProjectOptional(component))),
   };
 }
 
@@ -576,6 +588,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
       id: `quick-builder-component-${row.id}`,
       internalName: label,
       customerFacingLabel: row.label?.trim() || label,
+      optional: row.optional,
       imageUrl: row.imageUrl,
       specSheetLabel: row.specSheetLabel,
       specSheetLocation: row.specSheetLocation,
@@ -606,6 +619,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
       id: `quick-builder-bundle-${row.id}`,
       internalName: label,
       customerFacingLabel: row.label?.trim() || label,
+      optional: row.optional,
       description: row.description,
       specSheetLabel: row.specSheetLabel,
       specSheetLocation: row.specSheetLocation,
@@ -626,6 +640,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
     return normalizeCustomerQuoteLine({
       id: `quick-builder-quote-line-${row.id}`,
       label,
+      optional: row.optional,
       description: row.description,
       specSheetLabel: row.specSheetLabel,
       specSheetLocation: row.specSheetLocation,
@@ -754,6 +769,10 @@ function resolveSpecSheetLocation(line: MajorProjectCustomerQuoteLine, bundlesBy
 
   const inheritedLocations = uniqueIds(bundleIds.map((bundleId) => bundlesById.get(bundleId)?.specSheetLocation ?? ""));
   return inheritedLocations.length ? inheritedLocations.join(" | ") : undefined;
+}
+
+function quoteLineIsOptional(line: MajorProjectCustomerQuoteLineMetrics, bundlesById: Map<string, MajorProjectBundle>) {
+  return isMajorProjectOptional(line) || line.resolvedBundleIds.some((bundleId) => isMajorProjectOptional(bundlesById.get(bundleId)));
 }
 
 function usesDirectComponentOutput(metrics: Pick<MajorProjectMetrics, "hasThreeLayerModel" | "components" | "bundles" | "customerQuoteLines">) {
@@ -1238,6 +1257,8 @@ export function buildMajorProjectMetrics(quote: QuoteRecord): MajorProjectMetric
   const activeOption = getActiveMajorProjectOption(safeQuote);
   const components = activeOption?.components ?? [];
   const simpleRows = activeOption?.simpleRows ?? [];
+  const includedComponents = components.filter((component) => !isMajorProjectOptional(component));
+  const includedSimpleRows = simpleRows.filter((row) => !isMajorProjectOptional(row));
   const builderMode = resolveMajorProjectBuilderMode(activeOption, state.builderMode);
   const usingAdvancedBuilder = builderMode === "advanced";
   const hasThreeLayerModel = usingAdvancedBuilder && components.length > 0;
@@ -1255,40 +1276,40 @@ export function buildMajorProjectMetrics(quote: QuoteRecord): MajorProjectMetric
   const termMonths = resolveMajorProjectTermMonths(state.commercial.termMonths);
   const siteCount = Math.max(activeOption?.siteCount ?? state.commercial.siteCount, 0);
   const recurringRevenue = hasThreeLayerModel
-    ? roundCurrency(sumComponents(components, "recurring", "revenue"))
+    ? roundCurrency(sumComponents(includedComponents, "recurring", "revenue"))
     : hasSimpleRowModel
-      ? roundCurrency(sumSimpleRows(simpleRows, "revenue", (row) => row.bucket === "mrr" || row.bucket === "other_vendor" || row.bucket === "support_recurring" || row.bucket === "other_recurring"))
+      ? roundCurrency(sumSimpleRows(includedSimpleRows, "revenue", (row) => row.bucket === "mrr" || row.bucket === "other_vendor" || row.bucket === "support_recurring" || row.bucket === "other_recurring"))
       : 0;
   const oneTimeRevenue = hasThreeLayerModel
-    ? roundCurrency(sumComponents(components, "one_time", "revenue"))
+    ? roundCurrency(sumComponents(includedComponents, "one_time", "revenue"))
     : hasSimpleRowModel
-      ? roundCurrency(sumSimpleRows(simpleRows, "revenue", (row) => row.bucket === "hardware" || row.bucket === "install"))
+      ? roundCurrency(sumSimpleRows(includedSimpleRows, "revenue", (row) => row.bucket === "hardware" || row.bucket === "install"))
       : 0;
   const recurringCost = hasThreeLayerModel
-    ? roundCurrency(sumComponents(components, "recurring", "cost"))
+    ? roundCurrency(sumComponents(includedComponents, "recurring", "cost"))
     : hasSimpleRowModel
-      ? roundCurrency(sumSimpleRows(simpleRows, "cost", (row) => row.bucket === "mrr" || row.bucket === "other_vendor" || row.bucket === "support_recurring" || row.bucket === "other_recurring"))
+      ? roundCurrency(sumSimpleRows(includedSimpleRows, "cost", (row) => row.bucket === "mrr" || row.bucket === "other_vendor" || row.bucket === "support_recurring" || row.bucket === "other_recurring"))
       : 0;
   const oneTimeCost = hasThreeLayerModel
-    ? roundCurrency(sumComponents(components, "one_time", "cost"))
+    ? roundCurrency(sumComponents(includedComponents, "one_time", "cost"))
     : hasSimpleRowModel
-      ? roundCurrency(sumSimpleRows(simpleRows, "cost", (row) => row.bucket === "hardware" || row.bucket === "install"))
+      ? roundCurrency(sumSimpleRows(includedSimpleRows, "cost", (row) => row.bucket === "hardware" || row.bucket === "install"))
       : 0;
   const hardwareRevenue = hasThreeLayerModel
-    ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "hardware"))
+    ? roundCurrency(sumComponents(includedComponents, "one_time", "revenue", (component) => component.lineType === "hardware"))
     : hasSimpleRowModel
-      ? roundCurrency(sumSimpleRows(simpleRows, "revenue", (row) => row.bucket === "hardware"))
+      ? roundCurrency(sumSimpleRows(includedSimpleRows, "revenue", (row) => row.bucket === "hardware"))
       : 0;
   const installRevenue = hasThreeLayerModel
-    ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "installation" || component.lineType === "internal_labor"))
+    ? roundCurrency(sumComponents(includedComponents, "one_time", "revenue", (component) => component.lineType === "installation" || component.lineType === "internal_labor"))
     : hasSimpleRowModel
-      ? roundCurrency(sumSimpleRows(simpleRows, "revenue", (row) => row.bucket === "install"))
+      ? roundCurrency(sumSimpleRows(includedSimpleRows, "revenue", (row) => row.bucket === "install"))
       : 0;
   const otherOneTimeRevenue = hasThreeLayerModel
     ? roundCurrency(oneTimeRevenue - hardwareRevenue - installRevenue)
     : 0;
   const optionalServicesRevenue = hasThreeLayerModel
-    ? roundCurrency(sumComponents(components, "one_time", "revenue", (component) => component.lineType === "optional_service"))
+    ? roundCurrency(sumComponents(includedComponents, "one_time", "revenue", (component) => component.lineType === "optional_service"))
     : 0;
   const recurringContractRevenue = contractValueFromMrr(recurringRevenue, termMonths);
   const recurringContractCost = contractValueFromMrr(recurringCost, termMonths);
@@ -1533,13 +1554,16 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   const metrics = buildMajorProjectMetrics(safeQuote);
   const siteCount = metrics.siteCount;
   const simpleRows = activeOption?.simpleRows ?? [];
+  const outputBundlesById = new Map<string, MajorProjectBundle>(metrics.bundles.map((bundle) => [bundle.id, bundle]));
   const monthDriverLabel = formatMajorProjectMonthDriver(state.commercial.termMonths);
   const useDirectComponentPath = usesDirectComponentOutput(metrics);
   const next = JSON.parse(JSON.stringify(safeQuote)) as QuoteRecord;
 
   next.metadata.workflowMode = "major_project";
   next.metadata.documentSubtitle = next.metadata.documentSubtitle || "Major Project Commercial Proposal";
-  const hasRecurringSectionContent = metrics.recurringRevenue > 0 || state.commercial.terminalFeePerSite > 0 || state.commercial.overageRatePerGb > 0;
+  const hasOptionalRecurringContent = metrics.components.some((component) => component.schedule === "recurring" && component.customerExtendedPrice > 0)
+    || simpleRows.some((row) => (row.bucket === "mrr" || row.bucket === "other_vendor" || row.bucket === "support_recurring" || row.bucket === "other_recurring") && row.customerExtendedPrice > 0);
+  const hasRecurringSectionContent = metrics.recurringRevenue > 0 || hasOptionalRecurringContent || state.commercial.terminalFeePerSite > 0 || state.commercial.overageRatePerGb > 0;
   next.sections.sectionA.enabled = hasRecurringSectionContent;
   next.sections.sectionA.builderLabel = "Major project MRR structure";
   next.sections.sectionA.title = state.summary.projectName
@@ -1567,7 +1591,9 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     ?? "Major Project";
 
   const recurringDescription = `MRR - ${recurringDisplayLabel}${activeOption?.label ? ` (${activeOption.label})` : ""}`;
-  const recurringSpecSheetLabel = metrics.customerQuoteLines.find((line) => line.presentationCategory === "recurring")?.resolvedSpecSheetLabel;
+  const recurringQuoteLine = metrics.customerQuoteLines.find((line) => line.presentationCategory === "recurring");
+  const recurringSpecSheetLabel = recurringQuoteLine?.resolvedSpecSheetLabel;
+  const recurringOutputOptional = recurringQuoteLine ? quoteLineIsOptional(recurringQuoteLine, outputBundlesById) : false;
   const supportIncludedText = compact([
     `${siteCount} site${siteCount === 1 ? "" : "s"} under commercial management`,
     state.summary.paymentTerms ? `Payment terms: ${state.summary.paymentTerms}` : "",
@@ -1592,6 +1618,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         id: component.id,
         rowType: "service" as const,
         description: directComponentDisplayLabel(component, index),
+        optional: component.optional,
         quantity: component.quantity,
         unitLabel: component.unit || "ea",
         unitPrice: component.customerUnitPrice,
@@ -1610,6 +1637,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         id: row.id,
         rowType: row.bucket === "support_recurring" ? "support" as const : "service" as const,
         description: row.label,
+        optional: row.optional,
         quantity: row.bucket === "support_recurring" ? null : row.quantity,
         unitLabel: row.bucket === "support_recurring" ? null : row.unit || "ea",
         unitPrice: row.customerUnitPrice,
@@ -1627,6 +1655,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     id: "major_recurring",
     rowType: "service" as const,
     description: recurringDescription,
+    optional: recurringOutputOptional,
     quantity: siteCount,
     unitLabel: "site",
     unitPrice: siteCount > 0 ? roundCurrency(metrics.recurringRevenue / siteCount) : 0,
@@ -1695,7 +1724,8 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   const directHardwareComponents = useDirectComponentPath
     ? metrics.components.filter((component) => isDirectHardwareComponent(component) && component.customerExtendedPrice > 0)
     : [];
-  next.sections.sectionB.enabled = directHardwareComponents.length > 0 || hardwareQuoteLines.length > 0 || (!metrics.hasThreeLayerModel && metrics.hardwareRevenue > 0);
+  const simpleHardwareRows = activeOption?.simpleRows?.filter((row) => row.bucket === "hardware") ?? [];
+  next.sections.sectionB.enabled = directHardwareComponents.length > 0 || hardwareQuoteLines.length > 0 || simpleHardwareRows.length > 0 || (!metrics.hasThreeLayerModel && metrics.hardwareRevenue > 0);
   next.sections.sectionB.builderLabel = "Major project hardware";
   next.sections.sectionB.title = state.commercial.equipmentLabel;
   next.sections.sectionB.introText = useDirectComponentPath
@@ -1708,6 +1738,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       id: component.id,
       sourceType: "custom" as const,
       itemName: directComponentDisplayLabel(component, index),
+      optional: component.optional,
       imageUrl: component.imageUrl,
       itemCategory: component.category || majorProjectLineTypeLabel(component.lineType),
       quantity: component.quantity,
@@ -1722,6 +1753,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       id: line.id,
       sourceType: "custom" as const,
       itemName: line.label,
+      optional: quoteLineIsOptional(line, outputBundlesById),
       itemCategory: line.resolvedBundleIds.length > 1 ? `${line.resolvedBundleIds.length} bundles` : "Bundle",
       quantity: 1,
       unitPrice: line.oneTimeRevenue,
@@ -1730,10 +1762,11 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       specSheetLabel: line.resolvedSpecSheetLabel,
       sourceLabel: "Major Project customer bundle",
     }))
-    : (activeOption?.simpleRows?.filter((row) => row.bucket === "hardware").map((row) => ({
+    : (simpleHardwareRows.map((row) => ({
       id: row.id,
       sourceType: "custom" as const,
       itemName: row.label || row.description || "Equipment item",
+      optional: row.optional,
       imageUrl: row.imageUrl,
       itemCategory: "",
       quantity: row.quantity,
@@ -1759,7 +1792,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     ? metrics.components.filter((component) => isDirectServiceComponent(component) && component.customerExtendedPrice > 0)
     : [];
   const simpleServiceRows = activeOption?.simpleRows?.filter((row) => row.bucket === "install") ?? [];
-  next.sections.sectionC.enabled = directServiceComponents.length > 0 || serviceQuoteLines.length > 0 || (!metrics.hasThreeLayerModel && (metrics.installRevenue > 0 || metrics.otherOneTimeRevenue > 0 || metrics.optionalServicesRevenue > 0));
+  next.sections.sectionC.enabled = directServiceComponents.length > 0 || serviceQuoteLines.length > 0 || simpleServiceRows.length > 0 || (!metrics.hasThreeLayerModel && (metrics.installRevenue > 0 || metrics.otherOneTimeRevenue > 0 || metrics.optionalServicesRevenue > 0));
   next.sections.sectionC.builderLabel = "Major project services";
   next.sections.sectionC.title = "Major project field services";
   next.sections.sectionC.introText = useDirectComponentPath
@@ -1772,6 +1805,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       id: component.id,
       sourceType: "custom" as const,
       description: directComponentDisplayLabel(component, index),
+      optional: component.optional,
       quantity: component.quantity,
       unitPrice: component.customerUnitPrice,
       totalPrice: component.customerExtendedPrice,
@@ -1787,6 +1821,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       id: line.id,
       sourceType: "custom" as const,
       description: line.label,
+      optional: quoteLineIsOptional(line, outputBundlesById),
       quantity: 1,
       unitPrice: line.oneTimeRevenue,
       totalPrice: line.oneTimeRevenue,
@@ -1801,6 +1836,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         id: row.id,
         sourceType: "custom" as const,
         description: row.label || row.description || "Service item",
+        optional: row.optional,
         quantity: row.quantity,
         unitPrice: row.customerUnitPrice,
         totalPrice: row.customerExtendedPrice,
@@ -1848,7 +1884,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   ]).join(" ");
 
   if (metrics.hasThreeLayerModel) {
-    const components = metrics.components;
+    const components = metrics.components.filter((component) => !isMajorProjectOptional(component));
     next.commercial.costs.oneTimeEquipmentCost = roundCurrency(sumComponents(components, "one_time", "cost", (component) => component.lineType === "hardware"));
     next.commercial.costs.oneTimeLaborCost = roundCurrency(sumComponents(components, "one_time", "cost", (component) => component.lineType === "installation" || component.lineType === "internal_labor" || component.lineType === "service" || component.lineType === "support" || component.lineType === "managed_service" || component.lineType === "optional_service"));
     next.commercial.costs.oneTimeOtherCost = roundCurrency(metrics.oneTimeCost - next.commercial.costs.oneTimeEquipmentCost - next.commercial.costs.oneTimeLaborCost);
@@ -1856,11 +1892,12 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     next.commercial.costs.recurringSupportCost = roundCurrency(sumComponents(components, "recurring", "cost", (component) => component.lineType === "support" || component.lineType === "managed_service"));
     next.commercial.costs.recurringOtherCost = roundCurrency(metrics.recurringCost - next.commercial.costs.recurringVendorCost - next.commercial.costs.recurringSupportCost);
   } else if (metrics.usingSimpleBuilder) {
-    const hardwareCost = roundCurrency(sumSimpleRows(simpleRows, "cost", (row) => row.bucket === "hardware"));
-    const installCost = roundCurrency(sumSimpleRows(simpleRows, "cost", (row) => row.bucket === "install"));
-    const recurringVendorCost = roundCurrency(sumSimpleRows(simpleRows, "cost", (row) => row.bucket === "mrr" || row.bucket === "other_vendor"));
-    const recurringSupportCost = roundCurrency(sumSimpleRows(simpleRows, "cost", (row) => row.bucket === "support_recurring"));
-    const recurringOtherCost = roundCurrency(sumSimpleRows(simpleRows, "cost", (row) => row.bucket === "other_recurring"));
+    const includedSimpleRows = simpleRows.filter((row) => !isMajorProjectOptional(row));
+    const hardwareCost = roundCurrency(sumSimpleRows(includedSimpleRows, "cost", (row) => row.bucket === "hardware"));
+    const installCost = roundCurrency(sumSimpleRows(includedSimpleRows, "cost", (row) => row.bucket === "install"));
+    const recurringVendorCost = roundCurrency(sumSimpleRows(includedSimpleRows, "cost", (row) => row.bucket === "mrr" || row.bucket === "other_vendor"));
+    const recurringSupportCost = roundCurrency(sumSimpleRows(includedSimpleRows, "cost", (row) => row.bucket === "support_recurring"));
+    const recurringOtherCost = roundCurrency(sumSimpleRows(includedSimpleRows, "cost", (row) => row.bucket === "other_recurring"));
     next.commercial.costs.oneTimeEquipmentCost = hardwareCost;
     next.commercial.costs.oneTimeLaborCost = installCost;
     next.commercial.costs.oneTimeOtherCost = 0;
@@ -1877,10 +1914,10 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   }
 
   next.sections.sectionA.computed.monthlyRecurringTotal = next.sections.sectionA.mode === "pool"
-    ? next.sections.sectionA.poolRows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0)
-    : next.sections.sectionA.perKitRows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0);
-  next.sections.sectionB.computed.equipmentTotal = next.sections.sectionB.lineItems.reduce((sum, row) => sum + row.totalPrice, 0);
-  next.sections.sectionC.computed.serviceTotal = next.sections.sectionC.lineItems.reduce((sum, row) => sum + row.totalPrice, 0);
+    ? next.sections.sectionA.poolRows.filter((row) => !isMajorProjectOptional(row)).reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0)
+    : next.sections.sectionA.perKitRows.filter((row) => !isMajorProjectOptional(row)).reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0);
+  next.sections.sectionB.computed.equipmentTotal = next.sections.sectionB.lineItems.filter((row) => !isMajorProjectOptional(row)).reduce((sum, row) => sum + row.totalPrice, 0);
+  next.sections.sectionC.computed.serviceTotal = next.sections.sectionC.lineItems.filter((row) => !isMajorProjectOptional(row)).reduce((sum, row) => sum + row.totalPrice, 0);
 
   return next;
 }

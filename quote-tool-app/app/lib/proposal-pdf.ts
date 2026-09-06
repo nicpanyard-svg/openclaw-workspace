@@ -3,11 +3,16 @@ import {
   buildProposalCommercialSummary,
   getCombinedOneTimeTotal,
   getEquipmentTotal,
+  getIncludedEquipmentRows,
+  getIncludedSectionARows,
+  getIncludedServiceRows,
   getLeasePricingSummary,
   getLeaseMonthlyTotal,
   getOptionalServicesTotal,
+  getProposalOptionCostSummary,
   getQuoteContentPresence,
   getRecurringMonthlyTotal,
+  type ProposalOptionCostItem,
 } from "@/app/lib/proposal-commercial-summary";
 import type {
   LeaseTermMonths,
@@ -66,6 +71,9 @@ export type ProposalPdfViewModel = {
   sectionCIntro: string;
   serviceRows: ServicePricingRow[];
   serviceTotal: number;
+  optionCostRows: ProposalOptionCostItem[];
+  optionCostMonthlyTotal: number;
+  optionCostOneTimeTotal: number;
   quoteType: QuoteRecord["metadata"]["quoteType"];
   leaseMonthly: number;
   leaseTermMonths: LeaseTermMonths;
@@ -95,13 +103,11 @@ function cleanLines(lines: Array<string | null | undefined>) {
   return lines.map((line) => (line ?? "").trim()).filter(Boolean);
 }
 
-function getSectionARows(sectionA: QuoteRecord["sections"]["sectionA"]) {
-  return sectionA.mode === "pool" ? sectionA.poolRows : sectionA.perKitRows;
-}
-
-
 export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewModel {
-  const sectionARows = getSectionARows(quote.sections.sectionA);
+  const sectionARows = getIncludedSectionARows(quote);
+  const equipmentRows = getIncludedEquipmentRows(quote);
+  const serviceRows = getIncludedServiceRows(quote);
+  const optionCostSummary = getProposalOptionCostSummary(quote);
   const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
   const equipmentTotal = getEquipmentTotal(quote);
   const serviceTotal = getOptionalServicesTotal(quote);
@@ -180,14 +186,17 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     sectionBIntro: isLeaseQuote
       ? "The equipment below is included in the lease structure and is not billed as a separate upfront equipment purchase."
       : quote.sections.sectionB.introText || "The prices below reflect one-time hardware and accessory charges.",
-    equipmentRows: quote.sections.sectionB.lineItems,
+    equipmentRows,
     equipmentTotal,
     sectionCEnabled: quote.sections.sectionC.enabled && contentPresence.hasSectionCContent,
     sectionCTitle: quote.sections.sectionC.title,
     sectionCIntro:
       quote.sections.sectionC.introText || "Field services can be included as budgetary or final pricing.",
-    serviceRows: quote.sections.sectionC.lineItems,
+    serviceRows,
     serviceTotal,
+    optionCostRows: optionCostSummary.items,
+    optionCostMonthlyTotal: optionCostSummary.monthlyTotal,
+    optionCostOneTimeTotal: optionCostSummary.oneTimeTotal,
     quoteType: quote.metadata.quoteType,
     leaseMonthly,
     leaseTermMonths: leasePricing.termMonths,

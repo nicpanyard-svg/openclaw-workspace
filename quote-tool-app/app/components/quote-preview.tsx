@@ -47,7 +47,15 @@ import { RAPIDQUOTE_DEPLOYMENT_BRANDING } from "@/app/lib/app-environment";
 import { ensureEnvironmentCustomerProfiles, ensureEnvironmentProposalStore } from "@/app/lib/environment-samples";
 import { normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState, getActiveMajorProjectOption, majorProjectLineTypeLabel } from "@/app/lib/major-project";
-import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
+import {
+  getCustomerFacingOneTimeTotal,
+  getEquipmentTotal,
+  getOptionalServicesTotal,
+  getProposalOptionCostSummary,
+  getQuoteContentPresence,
+  getRecurringMonthlyTotal,
+  isOptionalLineItem,
+} from "@/app/lib/proposal-commercial-summary";
 import { getQuoteBranding } from "@/app/lib/quote-branding";
 import {
   createDefaultServiceAgreementProfile,
@@ -1005,15 +1013,17 @@ function buildExecutiveSummaryDraft(quote: QuoteRecord) {
   const customerName = quote.customer.name || quote.metadata.customerShortName || "the customer";
   const pricingModel = quote.sections.sectionA.mode === "pool" ? "pooled service" : "per-kit service";
   const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
-  const connectivityLabel = deriveConnectivityLabel(sectionARows);
-  const serviceUnits = countSectionAUnits(sectionARows);
-  const equipmentRows = quote.sections.sectionB.lineItems;
+  const includedSectionARows = sectionARows.filter((row) => !isOptionalLineItem(row));
+  const connectivityLabel = deriveConnectivityLabel(includedSectionARows);
+  const serviceUnits = countSectionAUnits(includedSectionARows);
+  const equipmentRows = quote.sections.sectionB.lineItems.filter((row) => !isOptionalLineItem(row));
   const equipmentUnits = equipmentRows.reduce((sum, row) => sum + row.quantity, 0);
-  const optionalServices = quote.sections.sectionC.enabled ? quote.sections.sectionC.lineItems : [];
-  const optionalServiceLabels = compactList(optionalServices.map((row) => row.description));
+  const fieldServices = quote.sections.sectionC.enabled ? quote.sections.sectionC.lineItems.filter((row) => !isOptionalLineItem(row)) : [];
+  const fieldServiceLabels = compactList(fieldServices.map((row) => row.description));
+  const optionCostLabels = compactList(getProposalOptionCostSummary(quote).items.map((row) => row.label));
   const equipmentLabels = compactList(equipmentRows.map((row) => `${row.quantity}x ${row.itemName}`));
   const recurringDescriptions = compactList(
-    sectionARows
+    includedSectionARows
       .filter((row) => row.rowType !== "support")
       .map((row) => row.description),
   );
@@ -1029,9 +1039,12 @@ function buildExecutiveSummaryDraft(quote: QuoteRecord) {
     equipmentLabels.length
       ? `Hardware scope includes ${equipmentUnits} total item${equipmentUnits === 1 ? "" : "s"}, including ${equipmentLabels.slice(0, 4).join(", ")}${equipmentLabels.length > 4 ? ", and other selected equipment" : ""}.`
       : undefined,
-    optionalServiceLabels.length
-      ? `Optional services currently include ${optionalServiceLabels.join(", ")}.`
-      : `Optional services are ${quote.sections.sectionC.enabled ? "available to add as needed" : "not included in the current draft"}.`,
+    fieldServiceLabels.length
+      ? `Field services currently include ${fieldServiceLabels.join(", ")}.`
+      : undefined,
+    optionCostLabels.length
+      ? `Available option costs include ${optionCostLabels.join(", ")}.`
+      : undefined,
     `The summary is intended as a practical starting point and can be edited before sharing the final proposal with ${customerName}.`,
   ];
 
@@ -1080,6 +1093,7 @@ function createEquipmentRowFromCatalog(catalogId: string): EquipmentPricingRow |
     id: `b_${catalogId}_${Date.now()}`,
     sourceType: "standard",
     itemName: item.label,
+    optional: false,
     imageUrl: item.imageUrl,
     itemCategory: item.category,
     terminalType: item.terminalType,
@@ -1101,6 +1115,7 @@ function createSectionARowFromCatalog(catalogId: string, mode: "pool" | "per_kit
       id: `a_${catalogId}_${Date.now()}`,
       rowType: "support",
       description: item.label,
+      optional: false,
       includedText: item.description ? [item.description] : ["iNet customer support and portal access included."],
       sourceLabel: item.source,
     };
@@ -1111,6 +1126,7 @@ function createSectionARowFromCatalog(catalogId: string, mode: "pool" | "per_kit
       id: `a_${catalogId}_${Date.now()}`,
       rowType: "overage",
       description: item.label,
+      optional: false,
       quantity: 1,
       unitLabel: item.unitLabel ?? "GB",
       unitPrice: item.defaultUnitPrice,
@@ -1125,6 +1141,7 @@ function createSectionARowFromCatalog(catalogId: string, mode: "pool" | "per_kit
       id: `a_${catalogId}_${Date.now()}`,
       rowType: "terminal_fee",
       description: item.label,
+      optional: false,
       quantity: 1,
       unitLabel: item.unitLabel ?? "kit",
       unitPrice: item.defaultUnitPrice,
@@ -1145,6 +1162,7 @@ function createSectionARowFromCatalog(catalogId: string, mode: "pool" | "per_kit
     id: `a_${catalogId}_${Date.now()}`,
     rowType: "service",
     description: item.label,
+    optional: false,
     quantity: 1,
     unitLabel: item.unitLabel ?? (mode === "pool" ? "pool" : "block"),
     unitPrice: item.defaultUnitPrice,
@@ -1185,6 +1203,15 @@ function SectionToggle({ label, enabled, onChange }: { label: string; enabled: b
   return (
     <label className="inline-flex items-center gap-3 rounded-full border border-[#d7dde4] bg-white px-4 py-2 text-[14px] font-medium text-[#24303b]">
       <input type="checkbox" checked={enabled} onChange={(event) => onChange(event.target.checked)} />
+      {label}
+    </label>
+  );
+}
+
+function OptionalLineToggle({ checked, label = "Optional line", onChange }: { checked: boolean; label?: string; onChange: (next: boolean) => void }) {
+  return (
+    <label className="inline-flex items-center gap-2 rounded-full border border-[#d7dde4] bg-white px-3 py-2 text-[12px] font-semibold text-[#394554]">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       {label}
     </label>
   );
@@ -1436,6 +1463,7 @@ function createMajorProjectComponentDraft(index: number, bundleId = ""): MajorPr
     id: `major-component-${Date.now()}-${index}`,
     internalName: `Component ${index}`,
     customerFacingLabel: "",
+    optional: false,
     imageUrl: undefined,
     specSheetLabel: "",
     specSheetLocation: "",
@@ -1470,6 +1498,7 @@ function createMajorProjectBundleDraft(index: number): MajorProjectBundle {
     id: `major-bundle-${Date.now()}-${index}`,
     internalName: `Bundle ${index}`,
     customerFacingLabel: `Customer bundle ${index}`,
+    optional: false,
     description: "",
     specSheetLabel: "",
     specSheetLocation: "",
@@ -1487,6 +1516,7 @@ function createMajorProjectQuoteLineDraft(index: number): MajorProjectCustomerQu
     id: `major-quote-line-${Date.now()}-${index}`,
     lineItemNumber: index,
     label: `Quote line ${index}`,
+    optional: false,
     description: "",
     specSheetLabel: "",
     specSheetLocation: "",
@@ -1503,6 +1533,7 @@ function createMajorProjectSimpleRowDraft(index: number): MajorProjectSimpleRow 
   return {
     id: `major-simple-row-${Date.now()}-${index}`,
     label: `Line item ${index}`,
+    optional: false,
     description: "",
     specSheetLabel: "",
     specSheetLocation: "",
@@ -1979,10 +2010,11 @@ export default function QuotePreview() {
   const activeMajorOption = getActiveMajorProjectOption(ensureMajorProjectState(quote));
   const activeSectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
 
-  const recurringMonthlyTotal = useMemo(() => Number(activeSectionARows.reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2)), [activeSectionARows]);
-  const equipmentTotal = useMemo(() => Number(quote.sections.sectionB.lineItems.reduce((sum, row) => sum + (row.totalPrice ?? row.quantity * row.unitPrice), 0).toFixed(2)), [quote.sections.sectionB.lineItems]);
-  const sectionCTotal = useMemo(() => Number(quote.sections.sectionC.lineItems.reduce((sum, row) => sum + row.totalPrice, 0).toFixed(2)), [quote.sections.sectionC.lineItems]);
-  const customerFacingOneTimeTotal = useMemo(() => Number(((isLeaseQuote ? 0 : equipmentTotal) + sectionCTotal).toFixed(2)), [equipmentTotal, isLeaseQuote, sectionCTotal]);
+  const recurringMonthlyTotal = useMemo(() => getRecurringMonthlyTotal(quote), [quote]);
+  const equipmentTotal = useMemo(() => getEquipmentTotal(quote), [quote]);
+  const sectionCTotal = useMemo(() => getOptionalServicesTotal(quote), [quote]);
+  const optionCostSummary = useMemo(() => getProposalOptionCostSummary(quote), [quote]);
+  const customerFacingOneTimeTotal = useMemo(() => getCustomerFacingOneTimeTotal(quote, equipmentTotal, sectionCTotal), [equipmentTotal, quote, sectionCTotal]);
 
   const selectedLeaseTerm = quote.metadata.leaseTermMonths ?? 12;
   const hasActiveDataAgreement = quote.metadata.hasActiveDataAgreement ?? false;
@@ -2212,6 +2244,7 @@ export default function QuotePreview() {
   }).sort((a, b) => b.revenue - a.revenue), [majorProjectMetrics.customerQuoteLines]);
   const majorProjectSimpleBucketSummary = useMemo(() => {
     return activeMajorOptionSimpleRows.reduce((summary, row) => {
+      if (row.optional) return summary;
       const current = summary[row.bucket] ?? { revenue: 0, cost: 0 };
       current.revenue += row.customerExtendedPrice;
       current.cost += row.ourExtendedCost;
@@ -2224,6 +2257,7 @@ export default function QuotePreview() {
     && activeMajorOptionBundles.length === 0
     && activeMajorOptionQuoteLines.length === 0;
   const majorProjectPreviewCategorySummary = useMemo(() => {
+    const optionalBundleIds = new Set(activeMajorOptionBundles.filter((bundle) => bundle.optional).map((bundle) => bundle.id));
     if (majorProjectMetrics.builderMode === "simple") {
       return {
         recurring: majorProjectMetrics.recurringRevenue,
@@ -2233,6 +2267,7 @@ export default function QuotePreview() {
     }
     if (majorProjectUsesDirectComponentPath) {
       return activeMajorOptionComponents.reduce((summary, component) => {
+        if (component.optional) return summary;
         const revenue = component.customerExtendedPrice;
         if (component.schedule === "recurring") summary.recurring += revenue;
         else if (isMajorProjectHardwareComponent(component)) summary.hardware += revenue;
@@ -2241,6 +2276,7 @@ export default function QuotePreview() {
       }, { recurring: 0, hardware: 0, services: 0 });
     }
     return majorProjectMetrics.customerQuoteLines.reduce((summary, line) => {
+      if (line.optional || line.resolvedBundleIds.some((bundleId) => optionalBundleIds.has(bundleId))) return summary;
       const bucket = line.presentationCategory ?? "other";
       const revenue = line.oneTimeRevenue + line.recurringRevenue;
       if (bucket === "recurring") summary.recurring += revenue;
@@ -2248,7 +2284,7 @@ export default function QuotePreview() {
       else summary.services += revenue;
       return summary;
     }, { recurring: 0, hardware: 0, services: 0 });
-  }, [activeMajorOptionComponents, majorProjectMetrics.builderMode, majorProjectMetrics.customerQuoteLines, majorProjectMetrics.hardwareRevenue, majorProjectMetrics.installRevenue, majorProjectMetrics.otherOneTimeRevenue, majorProjectMetrics.recurringRevenue, majorProjectUsesDirectComponentPath]);
+  }, [activeMajorOptionBundles, activeMajorOptionComponents, majorProjectMetrics.builderMode, majorProjectMetrics.customerQuoteLines, majorProjectMetrics.hardwareRevenue, majorProjectMetrics.installRevenue, majorProjectMetrics.otherOneTimeRevenue, majorProjectMetrics.recurringRevenue, majorProjectUsesDirectComponentPath]);
   const importedMajorProjectComponents = useMemo(
     () => activeMajorOptionComponents.filter((component) => (component.notes ?? "").startsWith(MAJOR_PROJECT_BOM_IMPORT_SOURCE_PREFIX)),
     [activeMajorOptionComponents],
@@ -4051,22 +4087,24 @@ export default function QuotePreview() {
     });
   };
 
-  const updateActiveSectionARow = (rowId: string, field: string, value: string) => {
+  const updateActiveSectionARow = (rowId: string, field: string, value: string | boolean) => {
     updateQuote((draft) => {
       const rows = draft.sections.sectionA.mode === "pool" ? draft.sections.sectionA.poolRows : draft.sections.sectionA.perKitRows;
       const index = rows.findIndex((row) => row.id === rowId);
       if (index === -1) return draft;
       const row = { ...rows[index] } as PoolPricingRow | PerKitPricingRow;
 
-      if (field === "description") row.description = value;
-      if (field === "quantity") row.quantity = value === "" ? null : parseNumber(value);
+      if (field === "optional") row.optional = Boolean(value);
+      const textValue = String(value);
+      if (field === "description") row.description = textValue;
+      if (field === "quantity") row.quantity = textValue === "" ? null : parseNumber(textValue);
       if (field === "unitPrice" || field === "monthlyRate") {
-        const parsed = value === "" ? 0 : parseNumber(value);
+        const parsed = textValue === "" ? 0 : parseNumber(textValue);
         row.unitPrice = parsed;
         row.monthlyRate = parsed;
       }
-      if (field === "unitLabel") row.unitLabel = value;
-      if (field === "includedText") row.includedText = value.split("\n").filter(Boolean);
+      if (field === "unitLabel") row.unitLabel = textValue;
+      if (field === "includedText") row.includedText = textValue.split("\n").filter(Boolean);
 
       rows[index] = computeSectionARow(row);
       return draft;
@@ -4103,6 +4141,7 @@ export default function QuotePreview() {
             id: rowId,
             rowType: "service",
             description: `${labelAmount} pooled data allowance`,
+            optional: false,
             quantity: 1,
             unitLabel: "pool",
             unitPrice: monthlyRate,
@@ -4117,6 +4156,7 @@ export default function QuotePreview() {
             id: rowId,
             rowType: "service",
             description: `${labelAmount} data block`,
+            optional: false,
             quantity: 1,
             unitLabel: "block",
             unitPrice: monthlyRate,
@@ -4188,6 +4228,7 @@ export default function QuotePreview() {
           id: `b_custom_${Date.now()}`,
           sourceType: "custom",
           itemName: customEquipmentDraft.itemName || "Custom equipment item",
+          optional: false,
           imageUrl: customEquipmentDraft.imageUrl.trim() || undefined,
           itemCategory: customEquipmentDraft.itemCategory || "Custom",
           terminalType: customEquipmentDraft.terminalType || undefined,
@@ -4204,19 +4245,21 @@ export default function QuotePreview() {
     setCustomEquipmentDraft(emptyEquipmentDraft);
   };
 
-  const updateEquipmentRow = (rowId: string, field: string, value: string) => updateQuote((draft) => {
+  const updateEquipmentRow = (rowId: string, field: string, value: string | boolean) => updateQuote((draft) => {
     const index = draft.sections.sectionB.lineItems.findIndex((row) => row.id === rowId);
     if (index === -1) return draft;
     const row = { ...draft.sections.sectionB.lineItems[index] };
-    if (field === "itemName") row.itemName = value;
-    if (field === "imageUrl") row.imageUrl = value.trim() || undefined;
-    if (field === "itemCategory") row.itemCategory = value;
-    if (field === "terminalType") row.terminalType = value;
-    if (field === "partNumber") row.partNumber = value;
-    if (field === "quantity") row.quantity = Math.max(parseNumber(value), 0);
-    if (field === "unitPrice") row.unitPrice = Math.max(parseNumber(value), 0);
-    if (field === "description") row.description = value;
-    if (field === "sourceLabel") row.sourceLabel = value;
+    if (field === "optional") row.optional = Boolean(value);
+    const textValue = String(value);
+    if (field === "itemName") row.itemName = textValue;
+    if (field === "imageUrl") row.imageUrl = textValue.trim() || undefined;
+    if (field === "itemCategory") row.itemCategory = textValue;
+    if (field === "terminalType") row.terminalType = textValue;
+    if (field === "partNumber") row.partNumber = textValue;
+    if (field === "quantity") row.quantity = Math.max(parseNumber(textValue), 0);
+    if (field === "unitPrice") row.unitPrice = Math.max(parseNumber(textValue), 0);
+    if (field === "description") row.description = textValue;
+    if (field === "sourceLabel") row.sourceLabel = textValue;
     draft.sections.sectionB.lineItems[index] = computeEquipmentRow(row);
     return draft;
   });
@@ -4245,15 +4288,17 @@ export default function QuotePreview() {
     return draft;
   });
 
-  const updateServiceRow = (rowId: string, field: string, value: string) => updateQuote((draft) => {
+  const updateServiceRow = (rowId: string, field: string, value: string | boolean) => updateQuote((draft) => {
     const index = draft.sections.sectionC.lineItems.findIndex((row) => row.id === rowId);
     if (index === -1) return draft;
     const row = { ...draft.sections.sectionC.lineItems[index] };
-    if (field === "description") row.description = value;
-    if (field === "quantity") row.quantity = Math.max(parseNumber(value), 0);
-    if (field === "unitPrice") row.unitPrice = Math.max(parseNumber(value), 0);
-    if (field === "notes") row.notes = value;
-    if (field === "pricingStage") row.pricingStage = value as ServiceStage;
+    if (field === "optional") row.optional = Boolean(value);
+    const textValue = String(value);
+    if (field === "description") row.description = textValue;
+    if (field === "quantity") row.quantity = Math.max(parseNumber(textValue), 0);
+    if (field === "unitPrice") row.unitPrice = Math.max(parseNumber(textValue), 0);
+    if (field === "notes") row.notes = textValue;
+    if (field === "pricingStage") row.pricingStage = textValue as ServiceStage;
     draft.sections.sectionC.lineItems[index] = computeServiceRow(row);
     return draft;
   });
@@ -4264,6 +4309,7 @@ export default function QuotePreview() {
         id: `c_${Date.now()}`,
         sourceType: "custom",
         description: "Optional service line",
+        optional: false,
         quantity: 1,
         unitPrice: 0,
         totalPrice: 0,
@@ -4285,6 +4331,7 @@ export default function QuotePreview() {
           id: `c_${presetKey}_${Date.now()}`,
           sourceType: "standard",
           description: preset.label,
+          optional: false,
           quantity: 1,
           unitPrice: preset.unitPrice,
           totalPrice: preset.unitPrice,
@@ -4560,7 +4607,7 @@ export default function QuotePreview() {
                 <div className="builder-stat-note">{isLeaseQuote ? "Hardware selected for the lease pricing basis." : "Hardware and one-time scope ready for review."}</div>
               </div>
               <div className="proposal-editor-metric-card">
-                <div className="builder-stat-label">Optional services</div>
+                <div className="builder-stat-label">Field services</div>
                 <div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
                 <div className="builder-stat-note">Inspection, install, and service totals.</div>
               </div>
@@ -5798,20 +5845,24 @@ export default function QuotePreview() {
                                       <div className="mt-1 text-[18px] font-semibold text-[#16202b]">{row.label}</div>
                                       <div className="major-project-chip-row mt-2">
                                         <span className="major-project-chip">{majorProjectBucketLabel(row.bucket)}</span>
+                                        {row.optional ? <span className="major-project-chip">Option cost</span> : null}
                                         <span className="major-project-chip">{row.quantity} {row.unit || "ea"}</span>
                                         {row.importSource ? <span className="major-project-chip">Vendor quote: {row.importSource.vendorName || row.importSource.fileName}</span> : null}
                                         {row.importSource?.rowNumber ? <span className="major-project-chip">Source row {row.importSource.rowNumber}</span> : null}
                                       </div>
                                     </div>
-                                    <RowActions
-                                      totalRows={activeMajorOptionSimpleRows.length}
-                                      rowNumber={index + 1}
-                                      onMoveUp={() => moveMajorProjectSimpleRow(row.id, -1)}
-                                      onMoveDown={() => moveMajorProjectSimpleRow(row.id, 1)}
-                                      onMoveTo={(targetPosition) => moveMajorProjectSimpleRowToPosition(row.id, targetPosition)}
-                                      onDuplicate={() => duplicateMajorProjectSimpleRow(row.id)}
-                                      onRemove={() => removeMajorProjectSimpleRow(row.id)}
-                                    />
+                                    <div className="flex flex-wrap items-center justify-end gap-2">
+                                      <OptionalLineToggle checked={row.optional === true} label="Option cost" onChange={(checked) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, optional: checked }))} />
+                                      <RowActions
+                                        totalRows={activeMajorOptionSimpleRows.length}
+                                        rowNumber={index + 1}
+                                        onMoveUp={() => moveMajorProjectSimpleRow(row.id, -1)}
+                                        onMoveDown={() => moveMajorProjectSimpleRow(row.id, 1)}
+                                        onMoveTo={(targetPosition) => moveMajorProjectSimpleRowToPosition(row.id, targetPosition)}
+                                        onDuplicate={() => duplicateMajorProjectSimpleRow(row.id)}
+                                        onRemove={() => removeMajorProjectSimpleRow(row.id)}
+                                      />
+                                    </div>
                                   </div>
                                   {row.bucket === "hardware" ? (
                                     <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
@@ -5954,6 +6005,7 @@ export default function QuotePreview() {
                                 <div className="mt-1 text-[18px] font-semibold text-[#16202b]">{component.internalName || `Component ${index + 1}`}</div>
                                 <div className="major-project-chip-row mt-2">
                                   <span className="major-project-chip">{component.schedule === "recurring" ? "Recurring" : "One-time"}</span>
+                                  {component.optional ? <span className="major-project-chip">Option cost</span> : null}
                                   <span className="major-project-chip">{component.vendor || "No vendor"}</span>
                                   <span className="major-project-chip">{assignedBundleLabel}</span>
                                   {component.importSource ? <span className="major-project-chip">Vendor quote: {component.importSource.vendorName || component.importSource.fileName}</span> : null}
@@ -5963,6 +6015,7 @@ export default function QuotePreview() {
                               </div>
                               <div className="flex max-w-full flex-col items-stretch gap-2">
                                 <div className="flex flex-wrap justify-end gap-2">
+                                  <OptionalLineToggle checked={component.optional === true} label="Option cost" onChange={(checked) => updateActiveMajorComponent(component.id, (current) => ({ ...current, optional: checked }))} />
                                   {majorProjectComponentBundleDraft ? (
                                     <label className="inline-flex items-center gap-2 rounded-full border border-[#d7dde4] bg-white px-3 py-2 text-[12px] font-semibold text-[#24303b]">
                                       <input
@@ -6131,9 +6184,10 @@ export default function QuotePreview() {
                           return (
                             <div key={bundle.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
                               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Bundle {index + 1}</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{bundle.internalName}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{bundle.schedule ?? "mixed"}</span><span className="major-project-chip">{bundle.customerFacingLabel || "No customer label"}</span><span className="major-project-chip">{bundleMetrics?.resolvedComponentIds.length ?? 0} mapped</span></div>{bundle.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{bundle.description}</div> : null}</div>
+                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Bundle {index + 1}</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{bundle.internalName}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{bundle.schedule ?? "mixed"}</span>{bundle.optional ? <span className="major-project-chip">Option cost</span> : null}<span className="major-project-chip">{bundle.customerFacingLabel || "No customer label"}</span><span className="major-project-chip">{bundleMetrics?.resolvedComponentIds.length ?? 0} mapped</span></div>{bundle.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{bundle.description}</div> : null}</div>
                                 <div className="flex max-w-full flex-col items-stretch gap-2">
                                   <div className="flex flex-wrap justify-end gap-2">
+                                    <OptionalLineToggle checked={bundle.optional === true} label="Option cost" onChange={(checked) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, optional: checked }))} />
                                     <button type="button" className="pill-button" onClick={() => addMajorProjectComponent(bundle.id)}>Add component into bundle</button>
                                   </div>
                                   <RowActions
@@ -6239,16 +6293,19 @@ export default function QuotePreview() {
                           return (
                             <div key={line.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
                               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Customer quote line {index + 1}</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{line.label}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{line.presentationCategory ?? "other"}</span><span className="major-project-chip">{line.schedule ?? "mixed"}</span><span className="major-project-chip">{metrics?.resolvedBundleIds.length ?? 0} bundle feeds</span></div>{line.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{line.description}</div> : null}</div>
-                                <RowActions
-                                  rowNumber={index + 1}
-                                  totalRows={activeMajorOptionQuoteLines.length}
-                                  onMoveUp={() => moveMajorProjectQuoteLine(line.id, -1)}
-                                  onMoveDown={() => moveMajorProjectQuoteLine(line.id, 1)}
-                                  onMoveTo={(targetPosition) => moveMajorProjectQuoteLineToPosition(line.id, targetPosition)}
-                                  onDuplicate={() => duplicateMajorProjectQuoteLine(line.id)}
-                                  onRemove={() => removeMajorProjectQuoteLine(line.id)}
-                                />
+                                <div><div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Customer quote line {index + 1}</div><div className="mt-1 text-[18px] font-semibold text-[#16202b]">{line.label}</div><div className="major-project-chip-row mt-2"><span className="major-project-chip">{line.presentationCategory ?? "other"}</span>{line.optional ? <span className="major-project-chip">Option cost</span> : null}<span className="major-project-chip">{line.schedule ?? "mixed"}</span><span className="major-project-chip">{metrics?.resolvedBundleIds.length ?? 0} bundle feeds</span></div>{line.description ? <div className="mt-2 text-[13px] leading-[1.5] text-[#5d6772]">{line.description}</div> : null}</div>
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                  <OptionalLineToggle checked={line.optional === true} label="Option cost" onChange={(checked) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, optional: checked }))} />
+                                  <RowActions
+                                    rowNumber={index + 1}
+                                    totalRows={activeMajorOptionQuoteLines.length}
+                                    onMoveUp={() => moveMajorProjectQuoteLine(line.id, -1)}
+                                    onMoveDown={() => moveMajorProjectQuoteLine(line.id, 1)}
+                                    onMoveTo={(targetPosition) => moveMajorProjectQuoteLineToPosition(line.id, targetPosition)}
+                                    onDuplicate={() => duplicateMajorProjectQuoteLine(line.id)}
+                                    onRemove={() => removeMajorProjectQuoteLine(line.id)}
+                                  />
+                                </div>
                               </div>
                               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
                                 <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Quote line label</span><input value={line.label} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, label: e.target.value }))} /></label>
@@ -6555,7 +6612,10 @@ export default function QuotePreview() {
                     <div key={row.id} className="line-editor-card">
                       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                         <div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Section A row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">{row.rowType === "support" ? "Support and portal access" : "Monthly service line"}</div></div>
-                        <RowActions totalRows={activeSectionARows.length} rowNumber={index + 1} onMoveUp={() => moveActiveSectionARow(row.id, -1)} onMoveDown={() => moveActiveSectionARow(row.id, 1)} onMoveTo={(targetPosition) => moveActiveSectionAToPosition(row.id, targetPosition)} onDuplicate={() => duplicateActiveSectionARow(row.id)} onRemove={() => removeActiveSectionARow(row.id)} />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <OptionalLineToggle checked={isOptionalLineItem(row)} onChange={(checked) => updateActiveSectionARow(row.id, "optional", checked)} />
+                          <RowActions totalRows={activeSectionARows.length} rowNumber={index + 1} onMoveUp={() => moveActiveSectionARow(row.id, -1)} onMoveDown={() => moveActiveSectionARow(row.id, 1)} onMoveTo={(targetPosition) => moveActiveSectionAToPosition(row.id, targetPosition)} onDuplicate={() => duplicateActiveSectionARow(row.id)} onRemove={() => removeActiveSectionARow(row.id)} />
+                        </div>
                       </div>
                       <div className="grid gap-3 lg:grid-cols-[2fr_.8fr_.8fr_1fr]">
                         <label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateActiveSectionARow(row.id, "description", e.target.value)} /></label>
@@ -6613,7 +6673,7 @@ export default function QuotePreview() {
                   </div>
                 </div>
 
-                <div className="mt-5 space-y-3">{quote.sections.sectionB.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Hardware row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">{row.sourceType === "standard" ? "Recommended line" : "Custom line"}</div></div><RowActions totalRows={quote.sections.sectionB.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveEquipmentRow(row.id, -1)} onMoveDown={() => moveEquipmentRow(row.id, 1)} onMoveTo={(targetPosition) => moveEquipmentRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateEquipmentRow(row.id)} onRemove={() => removeEquipmentRow(row.id)} /></div><div className="grid gap-4 lg:grid-cols-[160px_minmax(0,1fr)]"><div className="rounded-[18px] border border-[#dce3ea] bg-[#f8fbfd] p-3">{row.imageUrl ? <img src={row.imageUrl} alt={row.itemName} className="h-[132px] w-full rounded-[12px] bg-white object-contain" /> : <div className="flex h-[132px] items-center justify-center rounded-[12px] border border-dashed border-[#d8e1e8] bg-white px-3 text-center text-[12px] text-[#7a8794]">Add an image URL to show a normalized hardware preview.</div>}</div><div><div className="grid gap-3 lg:grid-cols-[1.7fr_1fr_.7fr_.8fr]"><label className="builder-field compact"><span>Item</span><input value={row.itemName} onChange={(e) => updateEquipmentRow(row.id, "itemName", e.target.value)} /></label><label className="builder-field compact"><span>Category</span><input value={row.itemCategory ?? ""} onChange={(e) => updateEquipmentRow(row.id, "itemCategory", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateEquipmentRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit Price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateEquipmentRow(row.id, "unitPrice", e.target.value)} /></label></div><div className="mt-3 grid gap-3 lg:grid-cols-3"><label className="builder-field compact"><span>Image URL</span><input value={row.imageUrl ?? ""} onChange={(e) => updateEquipmentRow(row.id, "imageUrl", e.target.value)} placeholder="https://..." /></label><label className="builder-field compact"><span>Terminal Type</span><input value={row.terminalType ?? ""} onChange={(e) => updateEquipmentRow(row.id, "terminalType", e.target.value)} /></label><label className="builder-field compact"><span>Part #</span><input value={row.partNumber ?? ""} onChange={(e) => updateEquipmentRow(row.id, "partNumber", e.target.value)} /></label></div><div className="mt-3 grid gap-3 lg:grid-cols-2"><label className="builder-field compact"><span>Reference</span><input value={row.sourceLabel ?? ""} onChange={(e) => updateEquipmentRow(row.id, "sourceLabel", e.target.value)} /></label><label className="builder-field compact"><span>Description / Notes</span><input value={row.description ?? ""} onChange={(e) => updateEquipmentRow(row.id, "description", e.target.value)} /></label></div><div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.sourceType === "custom" ? "Custom hardware line" : "Recommended hardware line"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div></div></div>)}</div>
+                <div className="mt-5 space-y-3">{quote.sections.sectionB.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Hardware row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">{row.sourceType === "standard" ? "Recommended line" : "Custom line"}</div></div><div className="flex flex-wrap items-center gap-2"><OptionalLineToggle checked={isOptionalLineItem(row)} onChange={(checked) => updateEquipmentRow(row.id, "optional", checked)} /><RowActions totalRows={quote.sections.sectionB.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveEquipmentRow(row.id, -1)} onMoveDown={() => moveEquipmentRow(row.id, 1)} onMoveTo={(targetPosition) => moveEquipmentRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateEquipmentRow(row.id)} onRemove={() => removeEquipmentRow(row.id)} /></div></div><div className="grid gap-4 lg:grid-cols-[160px_minmax(0,1fr)]"><div className="rounded-[18px] border border-[#dce3ea] bg-[#f8fbfd] p-3">{row.imageUrl ? <img src={row.imageUrl} alt={row.itemName} className="h-[132px] w-full rounded-[12px] bg-white object-contain" /> : <div className="flex h-[132px] items-center justify-center rounded-[12px] border border-dashed border-[#d8e1e8] bg-white px-3 text-center text-[12px] text-[#7a8794]">Add an image URL to show a normalized hardware preview.</div>}</div><div><div className="grid gap-3 lg:grid-cols-[1.7fr_1fr_.7fr_.8fr]"><label className="builder-field compact"><span>Item</span><input value={row.itemName} onChange={(e) => updateEquipmentRow(row.id, "itemName", e.target.value)} /></label><label className="builder-field compact"><span>Category</span><input value={row.itemCategory ?? ""} onChange={(e) => updateEquipmentRow(row.id, "itemCategory", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateEquipmentRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit Price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateEquipmentRow(row.id, "unitPrice", e.target.value)} /></label></div><div className="mt-3 grid gap-3 lg:grid-cols-3"><label className="builder-field compact"><span>Image URL</span><input value={row.imageUrl ?? ""} onChange={(e) => updateEquipmentRow(row.id, "imageUrl", e.target.value)} placeholder="https://..." /></label><label className="builder-field compact"><span>Terminal Type</span><input value={row.terminalType ?? ""} onChange={(e) => updateEquipmentRow(row.id, "terminalType", e.target.value)} /></label><label className="builder-field compact"><span>Part #</span><input value={row.partNumber ?? ""} onChange={(e) => updateEquipmentRow(row.id, "partNumber", e.target.value)} /></label></div><div className="mt-3 grid gap-3 lg:grid-cols-2"><label className="builder-field compact"><span>Reference</span><input value={row.sourceLabel ?? ""} onChange={(e) => updateEquipmentRow(row.id, "sourceLabel", e.target.value)} /></label><label className="builder-field compact"><span>Description / Notes</span><input value={row.description ?? ""} onChange={(e) => updateEquipmentRow(row.id, "description", e.target.value)} /></label></div><div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.sourceType === "custom" ? "Custom hardware line" : "Recommended hardware line"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div></div></div>)}</div>
               </section>
             )}
 
@@ -6706,7 +6766,7 @@ export default function QuotePreview() {
                   ) : null}
                 </div>
 
-                <div className="mt-5 space-y-3">{quote.sections.sectionC.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Service row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">Optional field service</div></div><RowActions totalRows={quote.sections.sectionC.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(targetPosition) => moveServiceRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} /></div><div className="grid gap-3 lg:grid-cols-[2fr_.7fr_.8fr_1fr]"><label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateServiceRow(row.id, "description", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateServiceRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateServiceRow(row.id, "unitPrice", e.target.value)} /></label><label className="builder-field compact"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(e) => updateServiceRow(row.id, "pricingStage", e.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label></div><label className="builder-field compact mt-3"><span>Notes</span><input value={row.notes ?? ""} onChange={(e) => updateServiceRow(row.id, "notes", e.target.value)} /></label><div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.serviceCategory === "site_inspection" ? "Site inspection" : row.serviceCategory === "installation" ? "Installation" : "Custom service"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div>)}</div>
+                <div className="mt-5 space-y-3">{quote.sections.sectionC.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Service row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">{isOptionalLineItem(row) ? "Option cost service" : "Field service"}</div></div><div className="flex flex-wrap items-center gap-2"><OptionalLineToggle checked={isOptionalLineItem(row)} onChange={(checked) => updateServiceRow(row.id, "optional", checked)} /><RowActions totalRows={quote.sections.sectionC.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(targetPosition) => moveServiceRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} /></div></div><div className="grid gap-3 lg:grid-cols-[2fr_.7fr_.8fr_1fr]"><label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateServiceRow(row.id, "description", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateServiceRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateServiceRow(row.id, "unitPrice", e.target.value)} /></label><label className="builder-field compact"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(e) => updateServiceRow(row.id, "pricingStage", e.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label></div><label className="builder-field compact mt-3"><span>Notes</span><input value={row.notes ?? ""} onChange={(e) => updateServiceRow(row.id, "notes", e.target.value)} /></label><div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.serviceCategory === "site_inspection" ? "Site inspection" : row.serviceCategory === "installation" ? "Installation" : "Custom service"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div>)}</div>
               </section>
             )}
             </>
@@ -6780,7 +6840,8 @@ export default function QuotePreview() {
                   <div className="summary-subvalue">{isMajorProject ? `Imported BOM and vendor quote defaults seed customer pricing from vendor cost at ${DEFAULT_IMPORTED_MARGIN_PERCENT}% margin unless you override it.` : "Recommended defaults plus any edits you made in this proposal."}</div>
                   <div className="commercial-metric-grid mt-3">
                     <CommercialMetricCard label={isMajorProject ? "Recurring MRR" : "Recurring monthly"} value={formatCurrency(recurringMonthlyTotal, currencyCode)} detail={isMajorProject ? `${majorProjectTermMonths}-month driver on internal contract math` : "Current monthly recurring total"} tone="accent" />
-                    <CommercialMetricCard label="Customer one-time total" value={formatCurrency(customerFacingOneTimeTotal, currencyCode)} detail={isLeaseQuote ? "Leased hardware excluded; optional services only" : "Hardware and optional services combined"} />
+                    <CommercialMetricCard label="Customer one-time total" value={formatCurrency(customerFacingOneTimeTotal, currencyCode)} detail={isLeaseQuote ? "Leased hardware excluded; field services only" : "Hardware and field services combined"} />
+                    <CommercialMetricCard label="Option costs" value={formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)} detail={`${formatCurrency(optionCostSummary.monthlyTotal, currencyCode)} monthly option${optionCostSummary.monthlyTotal === 1 ? "" : "s"} • ${optionCostSummary.items.length} line${optionCostSummary.items.length === 1 ? "" : "s"}`} />
                     <CommercialMetricCard label={isMajorProject ? "Contract GP" : "Gross profit"} value={formatCurrency(commercialMetrics.totalGrossProfit, currencyCode)} detail={isMajorProject ? "Internal full-contract profit" : "Current internal proposal profit"} tone={commercialMetrics.totalGrossProfit >= 0 ? "success" : "warn"} />
                     <CommercialMetricCard label={isMajorProject ? "Contract margin" : "Gross margin"} value={formatPercent(commercialMetrics.totalGrossMarginPercent)} detail={`Recurring margin ${formatPercent(commercialMetrics.recurringGrossMarginPercent)}`} tone={commercialMetrics.totalGrossMarginPercent >= 25 ? "success" : commercialMetrics.totalGrossMarginPercent > 0 ? "accent" : "warn"} />
                   </div>
@@ -6821,7 +6882,7 @@ export default function QuotePreview() {
                 <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{isMajorProject ? "MRR schedule" : quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{isMajorProject ? `Month driver: ${quote.sections.sectionA.termMonths} months • generated from ${activeMajorOption?.label ?? "active major option"}` : `${activeSectionARows.length} row(s) ready for the proposal`}</div></div>
                 <div className="summary-block"><div className="summary-label">Section B output</div><div className="summary-value">{contentPresence.hasSectionBContent ? `${quote.sections.sectionB.lineItems.length} hardware row(s)` : "No hardware added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionBContent ? (suggestedAccessories.length > 0 ? `${suggestedAccessories.length} accessory suggestion(s) available` : "All suggested accessories are already added") : "Add equipment only when this quote actually needs one-time hardware."}</div></div>
                 <div className="summary-block"><div className="summary-label">Section C output</div><div className="summary-value">{contentPresence.hasSectionCContent ? quote.sections.sectionC.title : "No field services added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionCContent ? `${quote.sections.sectionC.lineItems.length} service row(s) • ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "budgetary").length} budgetary / ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "final").length} final` : "Field services stay out of the proposal until live rows exist."}</div></div>
-                <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>{isMajorProject ? "MRR" : "Recurring monthly"}</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>{contentPresence.hasSectionBContent && !isLeaseQuote && <div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>}{contentPresence.hasSectionCContent && <div className="flex justify-between gap-3"><span>Optional services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>}{quote.metadata.quoteType === "lease" && <div className="brand-text-emphasis flex justify-between gap-3"><span>Blended lease monthly</span><strong>{hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}</strong></div>}</div></div>
+                <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>{isMajorProject ? "MRR" : "Recurring monthly"}</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>{contentPresence.hasSectionBContent && !isLeaseQuote && <div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>}{contentPresence.hasSectionCContent && <div className="flex justify-between gap-3"><span>Field services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>}{optionCostSummary.items.length > 0 && <div className="flex justify-between gap-3"><span>Option costs</span><strong>{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</strong></div>}{optionCostSummary.monthlyTotal > 0 && <div className="flex justify-between gap-3"><span>Monthly options</span><strong>{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)}</strong></div>}{quote.metadata.quoteType === "lease" && <div className="brand-text-emphasis flex justify-between gap-3"><span>Blended lease monthly</span><strong>{hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}</strong></div>}</div></div>
                 <div className="summary-block">
                   <div className="summary-label">Review handoff</div>
                   <div className="summary-value">Save here. Export from Preview.</div>

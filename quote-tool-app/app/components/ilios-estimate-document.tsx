@@ -92,6 +92,42 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
           </table>
         </div>
 
+        {model.optionCostItems.length > 0 ? (
+          <div className="mt-8 overflow-hidden rounded-[24px] border border-[#d5e0e7]">
+            <div className="border-b border-[#d5e0e7] bg-[#f8fbfc] px-5 py-4">
+              <div className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#6d8292]">Option Costs</div>
+              <p className="mt-1 text-[13px] leading-[1.6] text-[#526573]">These options are not included in the base estimate total unless selected.</p>
+            </div>
+            <table className="min-w-full border-collapse text-left text-[13px]">
+              <thead className="bg-[#3388AA] text-white">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Option</th>
+                  <th className="px-4 py-3 font-semibold">Type</th>
+                  <th className="px-4 py-3 font-semibold">Qty</th>
+                  <th className="px-4 py-3 font-semibold">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {model.optionCostItems.map((item, index) => (
+                  <tr key={item.key} className={index % 2 === 0 ? "bg-white" : "bg-[#f8fbfc]"}>
+                    <td className="px-4 py-3 align-top font-medium text-[#1f2d3a]">
+                      {item.label}
+                      {item.description ? <div className="mt-1 font-normal text-[#526573]">{item.description}</div> : null}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[#526573]">{item.categoryLabel}</td>
+                    <td className="px-4 py-3 align-top text-[#526573]">{item.quantity ?? "—"}{item.unitLabel ? ` ${item.unitLabel}` : ""}</td>
+                    <td className="px-4 py-3 align-top font-semibold text-[#1f2d3a]">{item.cadence === "monthly" ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / mo` : formatCurrency(item.amount, quote.metadata.currencyCode || "USD")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="grid gap-3 border-t border-[#d5e0e7] bg-[#f8fbfc] px-5 py-4 md:grid-cols-2">
+              {model.optionCostMonthlyTotal > 0 ? <div className="flex items-center justify-between gap-4"><span className="text-[#526573]">Monthly option total</span><strong className="text-[#1f2d3a]">{formatCurrency(model.optionCostMonthlyTotal, quote.metadata.currencyCode || "USD")} / mo</strong></div> : null}
+              {model.optionCostOneTimeTotal > 0 ? <div className="flex items-center justify-between gap-4"><span className="text-[#526573]">One-time option total</span><strong className="text-[#1f2d3a]">{formatCurrency(model.optionCostOneTimeTotal, quote.metadata.currencyCode || "USD")}</strong></div> : null}
+            </div>
+          </div>
+        ) : null}
+
         <div className="mt-8 grid gap-6 md:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-5">
             {model.noteParagraphs.length ? (

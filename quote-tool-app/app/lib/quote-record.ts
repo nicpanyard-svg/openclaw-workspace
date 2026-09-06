@@ -83,6 +83,7 @@ export type PoolPricingRow = {
   id: string;
   rowType: "service" | "overage" | "terminal_fee" | "support";
   description: string;
+  optional?: boolean;
   quantity?: number | null;
   unitLabel?: string | null;
   unitPrice?: number | null;
@@ -97,6 +98,7 @@ export type PerKitPricingRow = {
   id: string;
   rowType: "service" | "terminal_fee" | "support";
   description: string;
+  optional?: boolean;
   quantity?: number | null;
   unitLabel?: string | null;
   unitPrice?: number | null;
@@ -111,6 +113,7 @@ export type EquipmentPricingRow = {
   id: string;
   sourceType: "standard" | "custom";
   itemName: string;
+  optional?: boolean;
   imageUrl?: string;
   itemCategory?: string;
   terminalType?: string;
@@ -127,6 +130,7 @@ export type ServicePricingRow = {
   id: string;
   sourceType: "standard" | "custom";
   description: string;
+  optional?: boolean;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -361,6 +365,7 @@ export type MajorProjectComponent = {
   id: string;
   internalName: string;
   customerFacingLabel?: string;
+  optional?: boolean;
   imageUrl?: string;
   specSheetLabel?: string;
   specSheetLocation?: string;
@@ -390,6 +395,7 @@ export type MajorProjectBundle = {
   id: string;
   internalName: string;
   customerFacingLabel: string;
+  optional?: boolean;
   description?: string;
   specSheetLabel?: string;
   specSheetLocation?: string;
@@ -405,6 +411,7 @@ export type MajorProjectCustomerQuoteLine = {
   id: string;
   lineItemNumber?: number;
   label: string;
+  optional?: boolean;
   description?: string;
   specSheetLabel?: string;
   specSheetLocation?: string;
@@ -439,6 +446,7 @@ export type MajorProjectSimpleRowImportSource = {
 export type MajorProjectSimpleRow = {
   id: string;
   label: string;
+  optional?: boolean;
   imageUrl?: string;
   description?: string;
   specSheetLabel?: string;

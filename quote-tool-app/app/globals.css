@@ -3068,6 +3068,10 @@ body {
   margin-top: 12px;
 }
 
+.proposal-option-costs-totals {
+  margin-bottom: 18px;
+}
+
 .proposal-lease-pricing-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

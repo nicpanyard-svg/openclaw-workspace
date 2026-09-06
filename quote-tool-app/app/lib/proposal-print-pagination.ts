@@ -1,5 +1,5 @@
 import type { EquipmentPricingRow, QuoteRecord } from "@/app/lib/quote-record";
-import { getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
+import { getIncludedEquipmentRows, getQuoteContentPresence } from "@/app/lib/proposal-commercial-summary";
 
 const EQUIPMENT_FIRST_PAGE_ROW_LIMIT = 5;
 const EQUIPMENT_CONTINUATION_PAGE_ROW_LIMIT = 7;
@@ -37,6 +37,5 @@ export function getEquipmentProposalPageCount(quote: QuoteRecord) {
     return 0;
   }
 
-  return chunkEquipmentRowsForProposalPages(quote.sections.sectionB.lineItems).length;
+  return chunkEquipmentRowsForProposalPages(getIncludedEquipmentRows(quote)).length;
 }
-

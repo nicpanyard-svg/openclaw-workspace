@@ -1311,6 +1311,81 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
         </Page>
       ) : null}
 
+      {model.optionCostRows.length > 0 ? (
+        <Page size="LETTER" style={styles.page}>
+          <View style={styles.pageFrame} fixed />
+
+          <View style={styles.headerBar}>
+            <Text style={styles.headerBarText}>Option costs</Text>
+            <Text style={styles.headerBarText}>Proposal #{model.proposalNumber}</Text>
+          </View>
+
+          <View style={styles.sectionHeading}>
+            <Text style={styles.sectionBadge}>Options</Text>
+            <Text style={styles.overline}>Optional add-ons</Text>
+            <Text style={styles.sectionTitle}>Option Costs</Text>
+            <Text style={styles.introText}>The items below are available options and are not included in the base proposed totals unless selected.</Text>
+          </View>
+
+          <View style={styles.closingTotals}>
+            {model.optionCostMonthlyTotal > 0 ? (
+              <View style={styles.grandTotalCard}>
+                <Text style={styles.summaryLabel}>Monthly options</Text>
+                <Text style={styles.grandTotalValue}>{formatCurrency(model.optionCostMonthlyTotal, model.currencyCode)}</Text>
+              </View>
+            ) : null}
+            {model.optionCostOneTimeTotal > 0 ? (
+              <View style={styles.grandTotalCard}>
+                <Text style={styles.summaryLabel}>One-time options</Text>
+                <Text style={styles.grandTotalValue}>{formatCurrency(model.optionCostOneTimeTotal, model.currencyCode)}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.table}>
+            <TableRow style={styles.tableHead}>
+              <Cell style={styles.colWide}><Text style={styles.th}>Option Description</Text></Cell>
+              <Cell style={styles.colMid}><Text style={styles.th}>Type</Text></Cell>
+              <Cell style={styles.colNarrow}><Text style={styles.th}>Qty</Text></Cell>
+              <Cell style={styles.colMid}><Text style={styles.th}>Option Cost</Text></Cell>
+            </TableRow>
+
+            {model.optionCostRows.map((row, index) => (
+              <TableRow key={row.key} style={index % 2 === 1 ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow}>
+                <Cell style={styles.colWide}>
+                  <View style={styles.td}>
+                    <Text style={styles.tdStrong}>{row.label}</Text>
+                    {row.description ? <Text style={styles.tdNote}>{row.description}</Text> : null}
+                  </View>
+                </Cell>
+                <Cell style={styles.colMid}><Text style={styles.td}>{row.categoryLabel}</Text></Cell>
+                <Cell style={styles.colNarrow}><Text style={styles.td}>{row.quantity ?? "—"}{row.unitLabel ? ` ${row.unitLabel}` : ""}</Text></Cell>
+                <Cell style={styles.colMid}>
+                  <Text style={styles.td}>{row.cadence === "monthly" ? `${formatCurrency(row.amount, model.currencyCode)} / mo` : formatCurrency(row.amount, model.currencyCode)}</Text>
+                </Cell>
+              </TableRow>
+            ))}
+
+            {model.optionCostMonthlyTotal > 0 ? (
+              <TableRow style={styles.totalRow}>
+                <Cell style={styles.colWide}><Text style={styles.td}>Monthly option total</Text></Cell>
+                <Cell style={styles.colMid} />
+                <Cell style={styles.colNarrow} />
+                <Cell style={styles.colMid}><Text style={styles.td}>{formatCurrency(model.optionCostMonthlyTotal, model.currencyCode)} / mo</Text></Cell>
+              </TableRow>
+            ) : null}
+            {model.optionCostOneTimeTotal > 0 ? (
+              <TableRow style={styles.totalRow}>
+                <Cell style={styles.colWide}><Text style={styles.td}>One-time option total</Text></Cell>
+                <Cell style={styles.colMid} />
+                <Cell style={styles.colNarrow} />
+                <Cell style={styles.colMid}><Text style={styles.td}>{formatCurrency(model.optionCostOneTimeTotal, model.currencyCode)}</Text></Cell>
+              </TableRow>
+            ) : null}
+          </View>
+        </Page>
+      ) : null}
+
       <Page size="LETTER" style={styles.page}>
         <View style={styles.pageFrame} fixed />
 
@@ -1401,6 +1476,18 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
             <View style={[styles.grandTotalCard, { borderColor: "#f0cbcb", backgroundColor: "#fff8f8" }]}>
               <Text style={styles.summaryLabel}>Monthly total</Text>
               <Text style={styles.grandTotalValue}>{formatCurrency(model.leaseMonthly, model.currencyCode)}</Text>
+            </View>
+          ) : null}
+          {model.optionCostMonthlyTotal > 0 ? (
+            <View style={styles.grandTotalCard}>
+              <Text style={styles.summaryLabel}>Monthly option costs</Text>
+              <Text style={styles.grandTotalValue}>{formatCurrency(model.optionCostMonthlyTotal, model.currencyCode)}</Text>
+            </View>
+          ) : null}
+          {model.optionCostOneTimeTotal > 0 ? (
+            <View style={styles.grandTotalCard}>
+              <Text style={styles.summaryLabel}>One-time option costs</Text>
+              <Text style={styles.grandTotalValue}>{formatCurrency(model.optionCostOneTimeTotal, model.currencyCode)}</Text>
             </View>
           ) : null}
         </View>

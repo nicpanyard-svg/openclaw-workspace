@@ -2,6 +2,7 @@ import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import { buildExecutiveSummaryWorkbookText } from "@/app/lib/executive-summary";
 import type { MajorProjectCustomerQuoteLineMetrics } from "@/app/lib/major-project";
 import { buildMajorProjectMetrics, majorProjectLineTypeLabel } from "@/app/lib/major-project";
+import { getProposalOptionCostSummary, isOptionalLineItem } from "@/app/lib/proposal-commercial-summary";
 import { getQuoteBranding } from "@/app/lib/quote-branding";
 import type {
   MajorProjectComponent,
@@ -173,9 +174,29 @@ function allocateCostsByRevenue<T extends { revenue: number }>(items: T[], total
   });
 }
 
+function buildOptionCostWorkbookLines(quote: QuoteRecord) {
+  return getProposalOptionCostSummary(quote).items.map((row) => {
+    const schedule = row.cadence === "monthly" ? "Recurring option" : "One-time option";
+    return {
+      item: row.label || "Option cost",
+      description: row.description || row.categoryLabel,
+      category: row.categoryLabel,
+      schedule,
+      quantity: normalizeQuantity(row.quantity),
+      unit: row.unitLabel ?? "",
+      customerPricing: roundCurrency(row.amount),
+      ourCost: 0,
+      grossProfit: roundCurrency(row.amount),
+      grossMarginPercent: row.amount > 0 ? 100 : 0,
+      notes: "Customer option cost; excluded from base proposal totals.",
+    } satisfies ApprovalWorkbookLine;
+  });
+}
+
 function buildQuickQuoteLines(quote: QuoteRecord, model: ApprovalWorkbookModel) {
   const recurringRows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
   const recurringPricedRows = recurringRows
+    .filter((row) => !isOptionalLineItem(row))
     .filter((row) => (row.totalMonthlyRate ?? 0) > 0 || (row.monthlyRate ?? 0) > 0)
     .map((row) => ({
       item: row.description || "Recurring item",
@@ -190,7 +211,7 @@ function buildQuickQuoteLines(quote: QuoteRecord, model: ApprovalWorkbookModel) 
 
   const recurringCosts = allocateCostsByRevenue(recurringPricedRows, model.recurringCost);
 
-  const equipmentRows = quote.sections.sectionB.lineItems.map((row) => ({
+  const equipmentRows = quote.sections.sectionB.lineItems.filter((row) => !isOptionalLineItem(row)).map((row) => ({
     item: row.itemName || "Equipment item",
     description: compact([row.description, row.partNumber, row.terminalType]).join(" | "),
     category: row.itemCategory || "Equipment",
@@ -201,7 +222,7 @@ function buildQuickQuoteLines(quote: QuoteRecord, model: ApprovalWorkbookModel) 
     notes: compact([row.sourceLabel, "Cost allocated from one-time summary."]).join(" | "),
   }));
 
-  const serviceRows = quote.sections.sectionC.lineItems.map((row) => ({
+  const serviceRows = quote.sections.sectionC.lineItems.filter((row) => !isOptionalLineItem(row)).map((row) => ({
     item: row.description || "Service item",
     description: row.notes || row.description,
     category: row.serviceCategory === "site_inspection" ? "Site inspection" : row.serviceCategory === "installation" ? "Installation" : "Service",
@@ -250,11 +271,12 @@ function buildQuickQuoteLines(quote: QuoteRecord, model: ApprovalWorkbookModel) 
         notes: row.notes,
       } satisfies ApprovalWorkbookLine;
     }),
+    ...buildOptionCostWorkbookLines(quote),
   ];
 }
 
 function buildAdvancedMajorProjectLines(components: MajorProjectComponent[]) {
-  return components.map((component) => {
+  return components.filter((component) => !component.optional).map((component) => {
     const grossProfit = roundCurrency(component.customerExtendedPrice - component.vendorExtendedCost);
     return {
       item: component.customerFacingLabel?.trim() || component.internalName || "Component",
@@ -301,7 +323,7 @@ function bucketLabel(bucket: MajorProjectSimpleRow["bucket"]) {
 }
 
 function buildSimpleMajorProjectLines(rows: MajorProjectSimpleRow[]) {
-  return rows.map((row) => {
+  return rows.filter((row) => !row.optional).map((row) => {
     const grossProfit = roundCurrency(row.customerExtendedPrice - row.ourExtendedCost);
     return {
       item: row.label || "Project row",
@@ -349,9 +371,12 @@ function buildWorkbookModel(quote: QuoteRecord): ApprovalWorkbookModel {
   ]).join("\n\n");
 
   const lines = quote.metadata.workflowMode === "major_project" && quote.majorProject?.enabled
-    ? (majorProjectMetrics.hasThreeLayerModel
-      ? buildAdvancedMajorProjectLines(majorProjectMetrics.components)
-      : buildSimpleMajorProjectLines(majorProjectMetrics.simpleRows))
+    ? [
+      ...(majorProjectMetrics.hasThreeLayerModel
+        ? buildAdvancedMajorProjectLines(majorProjectMetrics.components)
+        : buildSimpleMajorProjectLines(majorProjectMetrics.simpleRows)),
+      ...buildOptionCostWorkbookLines(quote),
+    ]
     : buildQuickQuoteLines(quote, {
       fileNameBase: "",
       quoteDate: "",

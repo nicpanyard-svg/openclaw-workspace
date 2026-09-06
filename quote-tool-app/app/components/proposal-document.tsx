@@ -7,9 +7,13 @@ import {
   buildProposalCommercialSummary,
   getCombinedOneTimeTotal,
   getEquipmentTotal,
+  getIncludedEquipmentRows,
+  getIncludedSectionARows,
+  getIncludedServiceRows,
   getLeasePricingSummary,
   getLeaseMonthlyTotal,
   getOptionalServicesTotal,
+  getProposalOptionCostSummary,
   getQuoteContentPresence,
   getRecurringMonthlyTotal,
 } from "@/app/lib/proposal-commercial-summary";
@@ -122,10 +126,13 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   const [systemDrawingPreviewsReady, setSystemDrawingPreviewsReady] = useState(false);
   const [specSheetPreviewsReady, setSpecSheetPreviewsReady] = useState(false);
   const currencyCode = quote.metadata.currencyCode || "USD";
-  const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
+  const sectionARows = getIncludedSectionARows(quote);
+  const sectionBRows = getIncludedEquipmentRows(quote);
+  const sectionCRows = getIncludedServiceRows(quote);
   const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
   const equipmentTotal = getEquipmentTotal(quote);
   const sectionCTotal = getOptionalServicesTotal(quote);
+  const optionCostSummary = getProposalOptionCostSummary(quote);
   const leasePricing = getLeasePricingSummary(quote, recurringMonthlyTotal, equipmentTotal);
   const isLeaseQuote = quote.metadata.quoteType === "lease";
   const leaseMonthly = isLeaseQuote
@@ -152,7 +159,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   );
   const contentPresence = getQuoteContentPresence(quote);
   const equipmentRowPages = quote.sections.sectionB.enabled && contentPresence.hasSectionBContent
-    ? chunkEquipmentRowsForProposalPages(quote.sections.sectionB.lineItems)
+    ? chunkEquipmentRowsForProposalPages(sectionBRows)
     : [];
   const commercialSummaryItems = buildProposalCommercialSummary(quote);
   const customerFacingOneTimeTotal = getCombinedOneTimeTotal(
@@ -326,6 +333,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   const recurringServicesPageLabel = quote.sections.sectionA.enabled && contentPresence.hasSectionAContent ? `Page ${printPageNumber++}` : null;
   const equipmentPageLabels = equipmentRowPages.map(() => `Page ${printPageNumber++}`);
   const fieldServicesPageLabel = quote.sections.sectionC.enabled && contentPresence.hasSectionCContent ? `Page ${printPageNumber++}` : null;
+  const optionCostsPageLabel = optionCostSummary.items.length > 0 ? `Page ${printPageNumber++}` : null;
   const systemDrawingPageLabels = systemDrawingPreviews.map(() => `Page ${printPageNumber++}`);
   const specSheetPageLabels = specSheetPreviews.map(() => `Page ${printPageNumber++}`);
   const termsPageLabel = `Page ${printPageNumber++}`;
@@ -773,7 +781,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
               </tr>
             </thead>
             <tbody>
-              {quote.sections.sectionC.lineItems.map((row) => (
+              {sectionCRows.map((row) => (
                 <tr key={row.id} className="keep-together">
                   <td>
                     <div className="proposal-cell-title">{row.description}</div>
@@ -792,6 +800,77 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
                 <td colSpan={3}>Field services total</td>
                 <td>{formatCurrency(sectionCTotal, currencyCode)}</td>
               </tr>
+            </tfoot>
+          </table>
+        </section>
+      )}
+
+      {optionCostSummary.items.length > 0 && (
+        <section className="proposal-page" data-page-label={optionCostsPageLabel ?? "Page"}>
+          <div className="proposal-header">
+            <span>Option costs</span>
+            <span>Proposal #{quote.metadata.proposalNumber}</span>
+          </div>
+
+          <div className="proposal-section-heading keep-with-next">
+            <div className="section-heading-badge">Options</div>
+            <div className="proposal-overline">Optional add-ons</div>
+            <h2 className="proposal-section-title">Option Costs</h2>
+            <p className="proposal-intro">
+              The items below are available options and are not included in the base proposed totals unless selected.
+            </p>
+          </div>
+
+          <div className="proposal-grand-totals proposal-option-costs-totals print-keep-group">
+            {optionCostSummary.monthlyTotal > 0 ? (
+              <div className="grand-total-card print-keep-block">
+                <div className="grand-total-label">Monthly options</div>
+                <div className="grand-total-value">{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)}</div>
+              </div>
+            ) : null}
+            {optionCostSummary.oneTimeTotal > 0 ? (
+              <div className="grand-total-card print-keep-block">
+                <div className="grand-total-label">One-time options</div>
+                <div className="grand-total-value">{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</div>
+              </div>
+            ) : null}
+          </div>
+
+          <table className="proposal-table sample-table">
+            <thead>
+              <tr>
+                <th>Option Description</th>
+                <th>Type</th>
+                <th>Qty</th>
+                <th>Option Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              {optionCostSummary.items.map((item) => (
+                <tr key={item.key} className="keep-together">
+                  <td>
+                    <div className="proposal-cell-title">{item.label}</div>
+                    {item.description ? <div className="proposal-cell-note">{item.description}</div> : null}
+                  </td>
+                  <td>{item.categoryLabel}</td>
+                  <td>{item.quantity ?? "—"}{item.unitLabel ? ` ${item.unitLabel}` : ""}</td>
+                  <td>{item.cadence === "monthly" ? `${formatCurrency(item.amount, currencyCode)} / mo` : formatCurrency(item.amount, currencyCode)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              {optionCostSummary.monthlyTotal > 0 ? (
+                <tr className="proposal-total-row">
+                  <td colSpan={3}>Monthly option total</td>
+                  <td>{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)} / mo</td>
+                </tr>
+              ) : null}
+              {optionCostSummary.oneTimeTotal > 0 ? (
+                <tr className="proposal-total-row">
+                  <td colSpan={3}>One-time option total</td>
+                  <td>{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</td>
+                </tr>
+              ) : null}
             </tfoot>
           </table>
         </section>
@@ -1000,6 +1079,18 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
             <div className="grand-total-card accent-card print-keep-block">
               <div className="grand-total-label">Monthly total</div>
               <div className="grand-total-value">{formatCurrency(leaseMonthly, currencyCode)}</div>
+            </div>
+          )}
+          {optionCostSummary.monthlyTotal > 0 && (
+            <div className="grand-total-card print-keep-block">
+              <div className="grand-total-label">Monthly option costs</div>
+              <div className="grand-total-value">{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)}</div>
+            </div>
+          )}
+          {optionCostSummary.oneTimeTotal > 0 && (
+            <div className="grand-total-card print-keep-block">
+              <div className="grand-total-label">One-time option costs</div>
+              <div className="grand-total-value">{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</div>
             </div>
           )}
         </div>

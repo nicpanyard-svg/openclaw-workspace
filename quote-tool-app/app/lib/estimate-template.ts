@@ -1,4 +1,13 @@
-import { getEquipmentTotal, getOptionalServicesTotal, getRecurringMonthlyTotal } from "@/app/lib/proposal-commercial-summary";
+import {
+  getEquipmentTotal,
+  getIncludedEquipmentRows,
+  getIncludedSectionARows,
+  getIncludedServiceRows,
+  getOptionalServicesTotal,
+  getProposalOptionCostSummary,
+  getRecurringMonthlyTotal,
+  type ProposalOptionCostItem,
+} from "@/app/lib/proposal-commercial-summary";
 import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 
@@ -28,6 +37,9 @@ export type EstimateTemplateModel = {
   providerLines: string[];
   providerPreparedBy: string;
   lineItems: EstimateTemplateLineItem[];
+  optionCostItems: ProposalOptionCostItem[];
+  optionCostMonthlyTotal: number;
+  optionCostOneTimeTotal: number;
   subtotal: number;
   salesTaxAmount: number;
   total: number;
@@ -68,7 +80,7 @@ function buildEstimateLineItems(quote: QuoteRecord): EstimateTemplateLineItem[] 
   const lineItems: EstimateTemplateLineItem[] = [];
   let sequence = 1;
 
-  const sectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
+  const sectionARows = getIncludedSectionARows(quote);
   if (quote.sections.sectionA.enabled) {
     sectionARows.forEach((row) => {
       const amount = row.totalMonthlyRate ?? row.monthlyRate ?? row.unitPrice ?? 0;
@@ -90,7 +102,7 @@ function buildEstimateLineItems(quote: QuoteRecord): EstimateTemplateLineItem[] 
   }
 
   if (quote.sections.sectionB.enabled) {
-    quote.sections.sectionB.lineItems.forEach((row) => {
+    getIncludedEquipmentRows(quote).forEach((row) => {
       lineItems.push({
         id: row.id,
         sequence: sequence++,
@@ -106,7 +118,7 @@ function buildEstimateLineItems(quote: QuoteRecord): EstimateTemplateLineItem[] 
   }
 
   if (quote.sections.sectionC.enabled) {
-    quote.sections.sectionC.lineItems.forEach((row) => {
+    getIncludedServiceRows(quote).forEach((row) => {
       lineItems.push({
         id: row.id,
         sequence: sequence++,
@@ -130,6 +142,7 @@ export function buildEstimateTemplateModel(quote: QuoteRecord): EstimateTemplate
   }
 
   const branding = getQuoteBranding(quote);
+  const optionCostSummary = getProposalOptionCostSummary(quote);
   const subtotal = getRecurringMonthlyTotal(quote) + getEquipmentTotal(quote) + getOptionalServicesTotal(quote);
   const salesTaxAmount = quote.metadata.salesTaxAmount ?? 0;
   const providerLines = cleanLines([
@@ -158,6 +171,9 @@ export function buildEstimateTemplateModel(quote: QuoteRecord): EstimateTemplate
     providerLines,
     providerPreparedBy: quote.inet.contactName || branding.provider.contactName,
     lineItems: buildEstimateLineItems(quote),
+    optionCostItems: optionCostSummary.items,
+    optionCostMonthlyTotal: optionCostSummary.monthlyTotal,
+    optionCostOneTimeTotal: optionCostSummary.oneTimeTotal,
     subtotal,
     salesTaxAmount,
     total: subtotal + salesTaxAmount,
