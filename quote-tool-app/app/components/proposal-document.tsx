@@ -1,13 +1,13 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { IliosEstimateDocument } from "@/app/components/ilios-estimate-document";
+import { ProposalAttachmentPreview } from "@/app/components/proposal-attachment-preview";
 import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
 import { getCombinedOneTimeTotal, getEquipmentTotal, getIncludedEquipmentRows, getIncludedSectionARows, getIncludedServiceRows, getLeasePricingSummary, getOptionalServicesTotal, getProposalOptionCostSummary, getQuotedSalesTax, getRecurringMonthlyTotal } from "@/app/lib/proposal-commercial-summary";
 import { customerCopy, getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
 import { getProposalAttachments } from "@/app/lib/proposal-attachments";
-import { getMajorProjectSpecAttachmentFile, isMajorProjectSpecAttachmentPdf } from "@/app/lib/major-project-spec-attachments";
 import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import "./proposal-customer.css";
@@ -35,30 +35,6 @@ function ItemCopy({ title, description, image }: { title: string; description?: 
 
 function Section({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
   return <section className={"cp-section " + className}><h2>{title}</h2>{children}</section>;
-}
-
-function AppendixPreview({ entry }: { entry: ReturnType<typeof getProposalAttachments>[number] }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    getMajorProjectSpecAttachmentFile(entry.attachment.storageKey).then((blob) => {
-      if (cancelled) return;
-      if (!blob) { setUnavailable(true); return; }
-      objectUrl = URL.createObjectURL(blob);
-      setUrl(objectUrl);
-    }).catch(() => { if (!cancelled) setUnavailable(true); });
-    return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [entry.attachment.storageKey]);
-  return <details className="cp-attachment-preview no-print">
-    <summary>{entry.id + " / " + entry.label}</summary>
-    {unavailable ? <p role="alert">Assigned file is unavailable: {entry.attachment.fileName}. PDF download requires this file to be reattached or removed.</p> : url
-      ? isMajorProjectSpecAttachmentPdf(entry.attachment.fileName, entry.attachment.mimeType)
-        ? <iframe src={url} title={entry.label} />
-        : <img src={url} alt={entry.label} />
-      : <p>Loading attachment...</p>}
-  </details>;
 }
 
 function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentProps) {
@@ -200,7 +176,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
     {attachments.length > 0 && <Section title="Technical appendix" className="cp-appendix-index">
       <table className="cp-table cp-appendix-table"><caption>Technical appendix index</caption><thead><tr><th>Ref</th><th>Quoted item / scope</th><th>Document</th></tr></thead><tbody>{attachments.map((entry) => <tr key={entry.id}><td>{entry.id}</td><td>{entry.itemLabels.join("; ")}</td><td>{entry.label}<span className="cp-row-note">{entry.kind === "drawing" ? "System drawing" : "Supporting document"}</span></td></tr>)}</tbody></table>
       <p className="cp-muted">Supporting documentation follows this index in reference order. Included scope and pricing are defined by the commercial schedules above.</p>
-      {attachments.map((entry) => <AppendixPreview key={entry.attachment.storageKey} entry={entry} />)}
+      {attachments.map((entry) => <ProposalAttachmentPreview key={entry.attachment.storageKey} entry={entry} />)}
     </Section>}
     <footer className="cp-screen-footer no-print">{branding.legalName} / {quote.metadata.proposalNumber}</footer>
   </main>;
