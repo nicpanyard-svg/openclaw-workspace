@@ -36,6 +36,7 @@ const authoringPatterns = [
   /^contract math is driven by/i,
   /^customer-facing quote lines are presentation only/i,
   /^MRR structure based on/i,
+  /^Recurring Starlink-related pricing and one-time integration pricing may be governed by different commercial assumptions inside the same proposal\.?$/i,
   /internal cost.*(?:margin|revenue)/i,
   /^(manufacturer warranty coverage, exclusions, and any registration requirements should be confirmed)/i,
 ];

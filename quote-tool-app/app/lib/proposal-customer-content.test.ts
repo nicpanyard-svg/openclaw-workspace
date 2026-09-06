@@ -3,6 +3,7 @@ import test from "node:test";
 import { customerCopy, getCustomerQuoteContent, getFieldServiceConfirmationKey, normalizeCustomerOutput } from "./proposal-customer-content";
 import { deserializeQuoteRecord, serializeQuoteRecord } from "./proposal-state";
 import { createBlankQuoteRecord } from "./quote-template";
+import { buildTermsFromPackage } from "./terms-packages";
 
 function customerQuote() {
   const quote = createBlankQuoteRecord();
@@ -129,6 +130,25 @@ test("a hardware payment condition mentioning Starlink is not removed without su
   quote.sections.sectionA.enabled = false;
   quote.terms.pricingTerms = ["Payment for Starlink hardware is due before shipment."];
   assert.deepEqual(getCustomerQuoteContent(quote).pricingTerms, quote.terms.pricingTerms);
+});
+
+test("saved AI/cloud quotes omit the stock Starlink integration sentence without changing their other terms", () => {
+  const quote = customerQuote();
+  const carryover = "Recurring Starlink-related pricing and one-time integration pricing may be governed by different commercial assumptions inside the same proposal.";
+  quote.sections.sectionA.enabled = false;
+  quote.terms.pricingTerms = [carryover, "Payment is due within 30 days.", "Annual subscription renewals are billed separately."];
+  const original = JSON.stringify(quote);
+  assert.deepEqual(getCustomerQuoteContent(quote).pricingTerms, quote.terms.pricingTerms.slice(1));
+  assert.equal(JSON.stringify(quote), original);
+  const saved = deserializeQuoteRecord(serializeQuoteRecord(quote))!;
+  assert.deepEqual(getCustomerQuoteContent(saved).pricingTerms, quote.terms.pricingTerms.slice(1));
+  assert.equal(customerCopy(`Payment is due within 30 days. ${carryover} Annual subscriptions renew at the quoted rate.`), "Payment is due within 30 days.\nAnnual subscriptions renew at the quoted rate.");
+});
+
+test("new combined terms no longer insert internal commercial-assumption boilerplate", () => {
+  const terms = buildTermsFromPackage("starlink_plus_integration");
+  assert.ok(!terms.pricingTerms.some((line) => line.includes("commercial assumptions inside the same proposal")));
+  assert.ok(terms.pricingTerms.includes("Pricing excludes taxes, tariffs, and out-of-scope civil works unless explicitly included."));
 });
 
 test("service terms and scope text also flag contradictory commitments", () => {

@@ -62,7 +62,6 @@ export const TERMS_PACKAGES: QuoteTermsPackageDefinition[] = [
       ],
       pricingTermsTitle: "Combined Commercial Terms",
       pricingTerms: [
-        "Recurring Starlink-related pricing and one-time integration pricing may be governed by different commercial assumptions inside the same proposal.",
         "This quote is valid for 30 days from the proposal creation date unless stated otherwise.",
         "Pricing excludes taxes, tariffs, and out-of-scope civil works unless explicitly included.",
         "Replace placeholder integration language with approved final terms before customer release when required.",
