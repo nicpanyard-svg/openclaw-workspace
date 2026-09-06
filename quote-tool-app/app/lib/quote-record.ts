@@ -609,6 +609,19 @@ export type MajorProjectState = {
   activeOptionId: string;
 };
 
+export type QuoteOrderProcessing = {
+  terminals: string[];
+  terminalsStatus: "pending" | "listed" | "not_applicable";
+  shippingRequired: "pending" | "yes" | "no";
+  shippingContactPhone: string;
+  overageOptIn: "pending" | "yes" | "no" | "not_applicable";
+  dataPlanDetails: string;
+  monitoringSupportDetails: string;
+  terminalAccessFeeDetails: string;
+  miscellaneousChargesNotes: string;
+  notes: string;
+};
+
 export type QuoteRecord = {
   metadata: QuoteMetadata;
   governance?: QuoteGovernanceState;
@@ -624,6 +637,7 @@ export type QuoteRecord = {
   billTo: AddressBlock;
   shipTo: AddressBlock;
   shippingSameAsBillTo: boolean;
+  orderProcessing?: QuoteOrderProcessing;
   executiveSummary: QuoteTextBlock;
   customFields?: QuoteCustomField[];
   sections: {

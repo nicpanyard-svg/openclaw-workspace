@@ -2,10 +2,14 @@
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import Image from "next/image";
+import { AlertCircle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calculator, Check, ChevronDown, ClipboardCheck, Copy, Download, Eye, Files, List, MoreHorizontal, Plus, Save, Trash2, UserRound, X } from "lucide-react";
+import { QuoteLineTable } from "@/app/components/quote-line-table";
+import { OrderProcessingPanel } from "@/app/components/order-processing-panel";
+import { buildOrderProcessingText } from "@/app/lib/order-processing";
+import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
+import "./quote-editor.css";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
-import { ProductLogo } from "@/app/components/product-logo";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
@@ -18,7 +22,6 @@ import {
   persistQuoteRecord,
 } from "@/app/lib/proposal-state";
 import { equipmentCatalog, sectionACatalog } from "@/app/lib/catalog";
-import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import {
   buildExecutiveSummaryRenderBlocks,
   createExecutiveSummaryBlock,
@@ -1172,33 +1175,6 @@ function createSectionARowFromCatalog(catalogId: string, mode: "pool" | "per_kit
   };
 }
 
-function ToggleCard({
-  label,
-  description,
-  active,
-  onClick,
-}: {
-  label: string;
-  description: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-[18px] border px-4 py-4 text-left transition ${
-        active
-          ? "toggle-card-active"
-          : "border-[#d8dde3] bg-white hover:border-[#c3ccd6]"
-      }`}
-    >
-      <div className="text-[15px] font-semibold text-[#16202b]">{label}</div>
-      <div className="mt-1 text-[13px] leading-[1.45] text-[#5d6772]">{description}</div>
-    </button>
-  );
-}
-
 function SectionToggle({ label, enabled, onChange }: { label: string; enabled: boolean; onChange: (next: boolean) => void }) {
   return (
     <label className="inline-flex items-center gap-3 rounded-full border border-[#d7dde4] bg-white px-4 py-2 text-[14px] font-medium text-[#24303b]">
@@ -1210,30 +1186,10 @@ function SectionToggle({ label, enabled, onChange }: { label: string; enabled: b
 
 function OptionalLineToggle({ checked, label = "Optional line", onChange }: { checked: boolean; label?: string; onChange: (next: boolean) => void }) {
   return (
-    <label className="inline-flex items-center gap-2 rounded-full border border-[#d7dde4] bg-white px-3 py-2 text-[12px] font-semibold text-[#394554]">
+    <label className="rq-checkbox">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       {label}
     </label>
-  );
-}
-
-function ActionButton({
-  children,
-  variant = "default",
-  onClick,
-  className = "",
-}: {
-  children: React.ReactNode;
-  variant?: "default" | "danger";
-  onClick: () => void;
-  className?: string;
-}) {
-  const baseClass = variant === "danger" ? "danger-button" : "pill-button";
-
-  return (
-    <button type="button" className={`${baseClass} ${className}`.trim()} onClick={onClick}>
-      {children}
-    </button>
   );
 }
 
@@ -1283,21 +1239,15 @@ function RowActions({
   onRemove: () => void;
 }) {
   const [targetRow, setTargetRow] = useState(String(rowNumber));
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <ActionButton onClick={onMoveUp}>Up</ActionButton>
-      <ActionButton onClick={onMoveDown}>Down</ActionButton>
-      <label className="builder-inline-select min-w-[104px]">
-        <span>Move to</span>
-        <input value={targetRow} onChange={(e) => setTargetRow(e.target.value)} />
-      </label>
-      <ActionButton onClick={() => onMoveTo(parseNumber(targetRow) || rowNumber)}>Go</ActionButton>
-      <ActionButton onClick={onDuplicate}>Duplicate</ActionButton>
-      <ActionButton variant="danger" onClick={onRemove}>Remove</ActionButton>
-      <span className="text-[12px] text-[#7a8793]">Row {rowNumber} of {totalRows}</span>
-    </div>
-  );
+  const [showMove, setShowMove] = useState(false);
+  return <div className="rq-row-actions">
+    <button type="button" className="rq-icon-button" aria-label={`Move row ${rowNumber} up`} data-tooltip="Move up" onClick={onMoveUp} disabled={rowNumber <= 1}><ArrowUp size={15} aria-hidden="true" /></button>
+    <button type="button" className="rq-icon-button" aria-label={`Move row ${rowNumber} down`} data-tooltip="Move down" onClick={onMoveDown} disabled={rowNumber >= totalRows}><ArrowDown size={15} aria-hidden="true" /></button>
+    <button type="button" className="rq-icon-button" aria-label={`Duplicate row ${rowNumber}`} data-tooltip="Duplicate" onClick={onDuplicate}><Copy size={15} aria-hidden="true" /></button>
+    <button type="button" className="rq-icon-button rq-icon-danger" aria-label={`Remove row ${rowNumber}`} data-tooltip="Remove" onClick={onRemove}><Trash2 size={15} aria-hidden="true" /></button>
+    <button type="button" className="rq-icon-button" aria-label={`Move row ${rowNumber} to position`} aria-expanded={showMove} data-tooltip="Move to position" onClick={() => { setTargetRow(String(rowNumber)); setShowMove(!showMove); }}><MoreHorizontal size={15} aria-hidden="true" /></button>
+    {showMove && <div className="rq-move-control"><label>Position<input type="number" min="1" max={totalRows} value={targetRow} onChange={(event) => setTargetRow(event.target.value)} /></label><button type="button" className="rq-icon-button" aria-label="Apply row position" onClick={() => { onMoveTo(Math.min(totalRows, Math.max(1, parseNumber(targetRow) || rowNumber))); setShowMove(false); }}><Check size={15} aria-hidden="true" /></button></div>}
+  </div>;
 }
 
 const accessoryMap: Record<string, string[]> = {
@@ -1783,63 +1733,23 @@ function MajorProjectSystemDrawingsField({
 }
 
 function MajorProjectStepCard({
-  step,
-  title,
-  summary,
-  detail,
-  status,
-  count,
-  optional = false,
-  onOpen,
-  children,
+  title, count, status, children,
 }: {
   step: string;
   title: string;
+  count: number;
+  status: MajorProjectStepStatus;
   summary: string;
   detail: string;
-  status: MajorProjectStepStatus;
-  count: number;
   optional?: boolean;
-  onOpen?: () => void;
-  children?: ReactNode;
+  onOpen: () => void;
+  children: ReactNode;
 }) {
-  const isCurrent = status === "current";
-  const isLocked = status === "locked";
-  const toneClass = isCurrent
-    ? "major-project-step-card-current"
-    : isLocked
-      ? "major-project-step-card-locked"
-      : "major-project-step-card-complete";
-  const statusLabel = isCurrent ? "Now" : isLocked ? "Locked" : optional ? "Optional" : "Done";
-  const actionLabel = isLocked ? "Finish earlier step first" : optional ? "Open optional step" : "View step";
-
-  return (
-    <section className={`major-project-step-card ${toneClass}`}>
-      <div className="major-project-step-card-head">
-        <div>
-          <div className="major-project-step-label-row">
-            <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Step {step}</div>
-            {optional ? <span className="major-project-step-optional">Optional</span> : null}
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <h4 className="text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">{title}</h4>
-            <span className={`major-project-step-badge ${isCurrent ? "major-project-step-badge-current" : isLocked ? "major-project-step-badge-locked" : "major-project-step-badge-complete"}`}>
-              {statusLabel}
-            </span>
-            <span className="major-project-step-count">{count} item{count === 1 ? "" : "s"}</span>
-          </div>
-          <p className="mt-2 text-[13px] text-[#44515d]">{summary}</p>
-          <p className="mt-1 text-[12px] leading-[1.55] text-[#708090]">{detail}</p>
-        </div>
-        {!isCurrent ? (
-          <button type="button" className="pill-button self-start" onClick={onOpen} disabled={isLocked}>
-            {actionLabel}
-          </button>
-        ) : null}
-      </div>
-      {isCurrent ? <div className="mt-4">{children}</div> : null}
-    </section>
-  );
+  if (status !== "current") return null;
+  return <section className="rq-major-section">
+    <div className="rq-section-heading"><h2>{title}</h2><span>{count} {count === 1 ? "item" : "items"}</span></div>
+    {children}
+  </section>;
 }
 
 function WorkflowSummaryStat({
@@ -1872,6 +1782,10 @@ export default function QuotePreview() {
   const { user } = useAuth();
   const router = useRouter();
   const [isHydrated, setIsHydrated] = useState(false);
+  const [editorTab, setEditorTab] = useState<"customer" | "items" | "pricing" | "documents" | "review">("items");
+  const [lastSavedQuote, setLastSavedQuote] = useState<QuoteRecord | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [showMobileTotals, setShowMobileTotals] = useState(false);
   const [quote, setQuote] = useState<QuoteRecord>(createBlankQuoteRecord());
   const [activeProposal, setActiveProposal] = useState<SavedProposalRecord | null>(null);
   const [customerProfiles, setCustomerProfiles] = useState<SavedCustomerProfile[]>([]);
@@ -1985,6 +1899,7 @@ export default function QuotePreview() {
 
     setActiveProposal(matchedProposal);
     setQuote(nextQuote);
+    setLastSavedQuote(nextQuote);
     setCustomSectionFields(nextQuote.customFields ?? []);
     setCustomerProfiles(savedCustomerProfiles);
     setSelectedCustomerProfileId(requestedCustomerProfile?.id ?? nextQuote.internal.savedCustomerProfileId ?? "");
@@ -2030,11 +1945,6 @@ export default function QuotePreview() {
     return applyMarginToCost(leaseHardwareCost, leaseMarginPercent);
   }, [leaseHardwareCost, leaseMarginPercent, quote.metadata.quoteType]);
 
-  const leaseMarginAmount = useMemo(() => {
-    if (quote.metadata.quoteType !== "lease") return 0;
-    return Number((leaseEquipmentBase - leaseHardwareCost).toFixed(2));
-  }, [leaseEquipmentBase, leaseHardwareCost, quote.metadata.quoteType]);
-
   const leaseEquipmentMonthly = useMemo(() => {
     if (quote.metadata.quoteType !== "lease") return 0;
     return Number((leaseEquipmentBase / selectedLeaseTerm).toFixed(2));
@@ -2046,11 +1956,9 @@ export default function QuotePreview() {
     return Number((recurringMonthlyTotal + leaseEquipmentMonthly).toFixed(2));
   }, [hasActiveDataAgreement, leaseEquipmentMonthly, quote.metadata.quoteType, recurringMonthlyTotal]);
 
-  const commercialMetrics = useMemo(() => buildCommercialMetrics(quote), [quote]);
   const majorProjectMetrics = useMemo(() => buildMajorProjectMetrics(quote), [quote]);
   const majorProjectTermMonths = useMemo(() => majorProjectContractMonths(majorProjectMetrics.termMonths), [majorProjectMetrics.termMonths]);
   const executiveSummaryEditorBlocks = useMemo(() => normalizeExecutiveSummaryBlocks(quote.executiveSummary), [quote.executiveSummary]);
-  const executiveSummaryRenderBlocks = useMemo(() => buildExecutiveSummaryRenderBlocks(quote.executiveSummary), [quote.executiveSummary]);
   const majorProjectHasBlockingErrors = isMajorProject && majorProjectMetrics.validation.errorCount > 0;
   const majorProjectBlockingIssues = useMemo(
     () => majorProjectMetrics.validation.issues.filter((issue) => issue.severity === "error"),
@@ -2454,7 +2362,6 @@ export default function QuotePreview() {
     quote.customer.contactPhone,
   ]).join(" • ");
   const customerServiceAddress = compactList(quote.customer.addressLines).join(", ");
-  const builderLocked = !customerEntryComplete;
   const governanceState = useMemo(
     () => normalizeQuoteGovernanceState({
       metadata: quote.metadata,
@@ -2463,26 +2370,6 @@ export default function QuotePreview() {
     }),
     [quote.governance, quote.internal, quote.metadata],
   );
-  const latestRevisionEntry = useMemo(
-    () => quote.revisionHistory.at(-1) ?? null,
-    [quote.revisionHistory],
-  );
-  const latestProposalActivity = useMemo(
-    () => activeProposal?.activity?.at(-1) ?? null,
-    [activeProposal?.activity],
-  );
-  const quoteLastTouchedLabel = useMemo(
-    () => formatAttachmentUpdatedAt(activeProposal?.updatedAt ?? quote.metadata.lastTouchedAt ?? ""),
-    [activeProposal?.updatedAt, quote.metadata.lastTouchedAt],
-  );
-  const proposalHeroSummary = compactList([
-    customerEntryComplete ? quote.customer.name : "Finish customer intake",
-    quote.metadata.proposalNumber,
-    `Revision ${governanceState.revisionLabel}`,
-  ]).join(" • ");
-  const proposalHeroActionCopy = builderLocked
-    ? "Finish customer intake first so Save, Preview, PDF, and workbook export can unlock."
-    : "Save in the builder, then use Preview Proposal for the customer-facing document plus PDF and Approval Workbook exports.";
   const firstImportedMajorProjectCost = useMemo(
     () => importedMajorProjectComponents.find((component) => component.vendorUnitCost > 0)?.vendorUnitCost,
     [importedMajorProjectComponents],
@@ -2494,13 +2381,19 @@ export default function QuotePreview() {
   const editorNeedsAttention = useMemo(() => {
     const items: string[] = [];
 
+    if (!customerEntryComplete) {
+      items.push("Select or complete the customer before reviewing this quote.");
+    }
+    if (!contentPresence.hasSectionAContent && !contentPresence.hasSectionBContent && !contentPresence.hasSectionCContent && !contentPresence.hasOptionCostsContent) {
+      items.push("Add at least one quote item.");
+    }
     if (quote.executiveSummary.enabled && !contentPresence.hasExecutiveSummaryContent) {
       items.push("Executive Summary is enabled but still has no customer-facing content.");
     }
-    if (quote.sections.sectionB.enabled && !contentPresence.hasSectionBContent) {
+    if (quote.sections.sectionB.enabled && !contentPresence.hasSectionBContent && !optionCostSummary.items.some((item) => item.sourceSection === "sectionB")) {
       items.push("Hardware output is enabled but there are no live hardware rows yet.");
     }
-    if (quote.sections.sectionC.enabled && !contentPresence.hasSectionCContent) {
+    if (quote.sections.sectionC.enabled && !contentPresence.hasSectionCContent && !optionCostSummary.items.some((item) => item.sourceSection === "sectionC")) {
       items.push("Install / site services are enabled but there are no live service rows yet.");
     }
     if (quote.warranty.enabled && !quote.warranty.manufacturerReference.trim() && !quote.warranty.coverageNote.trim()) {
@@ -2519,6 +2412,10 @@ export default function QuotePreview() {
     return items;
   }, [
     contentPresence.hasExecutiveSummaryContent,
+    contentPresence.hasSectionAContent,
+    contentPresence.hasOptionCostsContent,
+    customerEntryComplete,
+    optionCostSummary.items,
     contentPresence.hasSectionBContent,
     contentPresence.hasSectionCContent,
     hasActiveDataAgreement,
@@ -2533,41 +2430,6 @@ export default function QuotePreview() {
     quote.warranty.enabled,
     quote.warranty.manufacturerReference,
   ]);
-  const outputReadiness = useMemo(() => {
-    if (!customerEntryComplete) {
-      return [
-        { label: "Preview Proposal", state: "Locked", detail: "Finish customer intake to unlock the customer-facing preview." },
-        { label: "PDF preview", state: "Locked", detail: "PDF export opens from Preview Proposal after the draft is ready." },
-        { label: "Approval workbook", state: "Locked", detail: "Workbook export stays on hold until the quote can be saved and previewed." },
-      ];
-    }
-
-    const previewBlocked = majorProjectHasBlockingErrors;
-    return [
-      {
-        label: "Preview Proposal",
-        state: previewBlocked ? "Blocked" : "Ready",
-        detail: previewBlocked
-          ? `${majorProjectMetrics.validation.errorCount} Major Project validation issue${majorProjectMetrics.validation.errorCount === 1 ? "" : "s"} still need cleanup.`
-          : "Customer-facing proposal is ready to open from this draft.",
-      },
-      {
-        label: "PDF preview",
-        state: previewBlocked ? "Blocked" : "Ready",
-        detail: previewBlocked
-          ? "PDF stays blocked until the same preview blockers are cleared."
-          : "PDF output uses the same proposal route as Preview Proposal.",
-      },
-      {
-        label: "Approval workbook",
-        state: previewBlocked ? "Needs fixes" : "Ready",
-        detail: previewBlocked
-          ? "Workbook export should wait until pricing and validation blockers are resolved."
-          : "Approval workbook exports from Preview Proposal with the current quote math.",
-      },
-    ];
-  }, [customerEntryComplete, majorProjectHasBlockingErrors, majorProjectMetrics.validation.errorCount]);
-
   const updateMajorProjectQuote = (updater: (draft: QuoteRecord) => QuoteRecord) => {
     updateQuote((current) => applyMajorProjectToQuote(updater(ensureMajorProjectState(current))));
   };
@@ -4308,7 +4170,7 @@ export default function QuotePreview() {
       computeServiceRow({
         id: `c_${Date.now()}`,
         sourceType: "custom",
-        description: "Optional service line",
+        description: "Field service",
         optional: false,
         quantity: 1,
         unitPrice: 0,
@@ -4530,6 +4392,7 @@ export default function QuotePreview() {
 
     setActiveProposal(updatedProposal);
     setQuote(nextQuote);
+    setLastSavedQuote(nextQuote);
     const savedMessage = statusChanged
       ? `Draft saved. Quote is now ${statusToStageLabel(nextQuote.metadata.status)} on revision ${governanceState.revisionLabel}.`
       : `Draft saved for ${nextQuote.metadata.proposalNumber} on revision ${governanceState.revisionLabel}.`;
@@ -4540,6 +4403,57 @@ export default function QuotePreview() {
     );
 
     return { proposal: updatedProposal, store: nextStore };
+  };
+
+  const handleDownloadOrderSummary = () => {
+    try {
+      const saved = persistProposalState();
+      if (!saved) return;
+      const source = saved.proposal.quote;
+      const url = URL.createObjectURL(new Blob([buildOrderProcessingText(source)], { type: "text/plain;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      const name = source.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-") || "proposal";
+      link.download = `${name}-order-summary.txt`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      setWorkflowNotice("Internal order summary downloaded.");
+    } catch (error) {
+      setWorkflowNotice(error instanceof Error ? error.message : "Order summary export failed.");
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (isDownloadingPdf || majorProjectHasBlockingErrors) return;
+    setIsDownloadingPdf(true);
+    try {
+      const saved = persistProposalState();
+      if (!saved) return;
+      const { quote: savedQuote, id: proposalId } = saved.proposal;
+      const response = await fetch("/api/proposal-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quote: savedQuote, proposalId }),
+      });
+      if (!response.ok) throw new Error("Unable to generate PDF. Please try again.");
+      const blob = await assembleFinalProposalPdf(await response.blob(), savedQuote);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const name = savedQuote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
+      link.href = url;
+      link.download = `${name}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      setWorkflowNotice(`PDF downloaded for ${savedQuote.metadata.proposalNumber}.`);
+    } catch (error) {
+      setWorkflowNotice(error instanceof Error ? error.message : "PDF export failed.");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const handlePreviewProposal = () => {
@@ -4571,184 +4485,41 @@ export default function QuotePreview() {
     persistQuoteRecord(copiedProposal.quote);
     setActiveProposal(copiedProposal);
     setQuote(copiedProposal.quote);
+    setLastSavedQuote(copiedProposal.quote);
     setWorkflowNotice(`Created ${copiedProposal.quote.metadata.proposalNumber} as a new draft copy on revision ${copiedProposal.quote.governance?.revisionLabel || copiedProposal.quote.metadata.revisionVersion || "1.0"}. Review status, pricing, and customer-facing output before sending.`);
   };
 
+  const visibleEditorTab = customerEntryComplete ? editorTab : "customer";
+  const hasUnsavedChanges = lastSavedQuote !== quote;
+
   return isHydrated ? (
-    <main className="proposal-editor-shell min-h-screen px-4 py-6 text-[#232a31] md:px-6 md:py-8">
-      <div className="proposal-editor-container mx-auto max-w-[1380px] space-y-6">
-        <section className="proposal-editor-hero">
-          <div className="proposal-editor-hero-grid">
-            <div className="proposal-editor-brand">
-              <div className="proposal-editor-logo-shell">
-                <ProductLogo width={168} height={48} className="workspace-brand-logo product-logo workspace-logo-inline shrink-0" priority />
-              </div>
-              <div className="proposal-editor-headline">
-                <div className="builder-eyebrow proposal-editor-kicker">{isMajorProject ? "Major Project workspace" : "Quick Quote workspace"}</div>
-                <h1 className="proposal-editor-title">{quote.metadata.documentTitle || "Proposal Editor"}</h1>
-                <p className="proposal-editor-subtitle">Build, review, and release the quote from one workspace without losing track of pricing, status, or customer-facing output.</p>
-                <div className="proposal-editor-meta-row">
-                  <span className="proposal-editor-meta-chip">{proposalHeroSummary}</span>
-                  <span className="proposal-editor-meta-chip proposal-editor-meta-chip-strong">{statusToStageLabel(quote.metadata.status)}</span>
-                  {quoteLastTouchedLabel ? <span className="proposal-editor-meta-chip">Saved {quoteLastTouchedLabel}</span> : null}
-                </div>
-              </div>
-            </div>
-
-            <div className="proposal-editor-metric-grid">
-              <div className="proposal-editor-metric-card">
-                <div className="builder-stat-label">Recurring monthly</div>
-                <div className="builder-stat-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
-                <div className="builder-stat-note">Section A is driving the live recurring view.</div>
-              </div>
-              <div className="proposal-editor-metric-card">
-                <div className="builder-stat-label">{isLeaseQuote ? "Leased equipment" : "One-time equipment"}</div>
-                <div className="builder-stat-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
-                <div className="builder-stat-note">{isLeaseQuote ? "Hardware selected for the lease pricing basis." : "Hardware and one-time scope ready for review."}</div>
-              </div>
-              <div className="proposal-editor-metric-card">
-                <div className="builder-stat-label">Field services</div>
-                <div className="builder-stat-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
-                <div className="builder-stat-note">Inspection, install, and service totals.</div>
-              </div>
-              <div className="proposal-editor-metric-card proposal-editor-metric-card-accent">
-                <div className="builder-stat-label">Quote status</div>
-                <div className="builder-stat-value">{statusToStageLabel(quote.metadata.status)}</div>
-                <div className="builder-stat-note">Revision {governanceState.revisionLabel} • {isMajorProject ? "Mapped Builder" : "Quick Quote"}.</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="proposal-editor-actionbar">
-            <div className="proposal-editor-actioncopy">
-              <div className="proposal-editor-actiontitle">Work in the builder. Export from Preview.</div>
-              <div className="proposal-editor-actiontext">{proposalHeroActionCopy}</div>
-            </div>
-            <div className="proposal-editor-actionbuttons">
-              <button type="button" className="pill-button" onClick={persistProposalState} disabled={!customerEntryComplete}>Save Draft</button>
-              <button type="button" className="pill-button" onClick={copyProposalFromBuilder} disabled={!customerEntryComplete}>Copy Proposal</button>
-              <button type="button" className="pill-button pill-button-active" onClick={handlePreviewProposal} disabled={!customerEntryComplete}>
-                Preview Proposal
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#fbfcfe] px-4 py-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Terms package</div>
-                <div className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal terms and conditions package</div>
-                <div className="mt-2 text-[13px] text-[#60707f]">Choose the legal/commercial terms set that should flow into the proposal output. Placeholder packages are supported until final legal text is ready.</div>
-              </div>
-              <label className="builder-field compact min-w-[260px]">
-                <span>Applied package</span>
-                <select value={quote.terms.selectedPackageKey ?? "starlink_only"} onChange={(e) => applyTermsPackage(e.target.value as (typeof TERMS_PACKAGES)[number]["key"])}>
-                  {TERMS_PACKAGES.map((entry) => <option key={entry.key} value={entry.key}>{entry.label}</option>)}
-                </select>
-              </label>
-            </div>
-            <div className="mt-3 rounded-[14px] border border-[#e3e8ee] bg-white px-3 py-3 text-[13px] text-[#435160]">
-              {TERMS_PACKAGES.find((entry) => entry.key === (quote.terms.selectedPackageKey ?? "starlink_only"))?.description ?? TERMS_PACKAGES[0].description}
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#fbfcfe] px-4 py-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Warranty handling</div>
-                <div className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">Quote-level warranty reference</div>
-                <div className="mt-2 text-[13px] text-[#60707f]">
-                  Capture the manufacturer warranty reference and any quote-specific handling notes that should flow into the proposal. This keeps warranty language flexible by quote instead of assuming one standard block.
-                </div>
-              </div>
-              <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]">
-                <input
-                  type="checkbox"
-                  checked={quote.warranty.enabled}
-                  onChange={(e) => updateQuote((draft) => {
-                    draft.warranty.enabled = e.target.checked;
-                    return draft;
-                  })}
-                />
-                Include in proposal
-              </label>
-            </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <label className="builder-field compact md:col-span-2">
-                <span>Section heading</span>
-                <input
-                  value={quote.warranty.heading}
-                  onChange={(e) => updateQuote((draft) => {
-                    draft.warranty.heading = e.target.value;
-                    return draft;
-                  })}
-                />
-              </label>
-              <label className="builder-field compact md:col-span-2">
-                <span>Manufacturer / source reference</span>
-                <input
-                  value={quote.warranty.manufacturerReference}
-                  onChange={(e) => updateQuote((draft) => {
-                    draft.warranty.manufacturerReference = e.target.value;
-                    return draft;
-                  })}
-                  placeholder="Quoted hardware follows the applicable manufacturer warranty coverage"
-                />
-              </label>
-              <label className="builder-field compact md:col-span-2">
-                <span>Coverage note</span>
-                <textarea
-                  rows={3}
-                  value={quote.warranty.coverageNote}
-                  onChange={(e) => updateQuote((draft) => {
-                    draft.warranty.coverageNote = e.target.value;
-                    return draft;
-                  })}
-                  placeholder="Note any quote-specific coverage limits, registration requirements, or manufacturer exceptions"
-                />
-              </label>
-              <label className="builder-field compact md:col-span-2">
-                <span>Claim / handling note</span>
-                <textarea
-                  rows={3}
-                  value={quote.warranty.claimNote ?? ""}
-                  onChange={(e) => updateQuote((draft) => {
-                    draft.warranty.claimNote = e.target.value;
-                    return draft;
-                  })}
-                  placeholder="Explain how warranty claims, labor, shipping, or exclusions should be handled for this quote"
-                />
-              </label>
-            </div>
-            <div className="mt-3 rounded-[14px] border border-[#e3e8ee] bg-white px-3 py-3 text-[13px] text-[#435160]">
-              {quote.warranty.enabled
-                ? `Proposal output will include ${quote.warranty.heading.toLowerCase()} with the manufacturer reference and any quote-specific coverage notes entered here.`
-                : "Warranty guidance is saved on the quote but hidden from the customer-facing proposal until you enable it."}
-            </div>
-          </div>
-
-          {(workflowNotice || majorProjectHasBlockingErrors) && (
-            <div className={`mt-4 rounded-[18px] border px-4 py-3 text-[13px] ${majorProjectHasBlockingErrors ? "border-[#e7b7b7] bg-[#fff4f4] text-[#8d1f1f]" : "border-[#d8e0e8] bg-[#f7fafc] text-[#435160]"}`}>
-              <div>
-                {workflowNotice ?? `Major Project preview is blocked until ${majorProjectMetrics.validation.errorCount} validation error${majorProjectMetrics.validation.errorCount === 1 ? " is" : "s are"} fixed.`}
-              </div>
-              {majorProjectHasBlockingErrors && majorProjectBlockingIssues.length > 0 ? (
-                <div className="mt-3 rounded-[14px] border border-[#efc1c1] bg-white/70 px-3 py-3 text-[#7f1d1d]">
-                  <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8f2424]">Blocking validation issues</div>
-                  <ul className="mt-2 list-disc space-y-1 pl-5">
-                    {majorProjectBlockingIssues.map((issue, index) => (
-                      <li key={`${issue.code}-${index}`}>{issue.message}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          )}
-        </section>
-
-        <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
-          <div className="space-y-6">
-            <section className="builder-panel">
+    <main className="rq-editor">
+      <header className="rq-editor-header">
+        <div className="rq-editor-identity">
+          <button type="button" className="rq-icon-button" aria-label="Back to quotes" data-tooltip="Back to quotes" onClick={() => router.push("/workspace")}><ArrowLeft size={18} aria-hidden="true" /></button>
+          <div><h1>{quote.customer.name || "New quote"}</h1><div className="rq-editor-meta"><span>{quote.metadata.proposalNumber}</span><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span><span role="status" className={hasUnsavedChanges ? "rq-unsaved" : "rq-saved"}>{hasUnsavedChanges ? "Unsaved changes" : "Saved"}</span></div></div>
+        </div>
+        <div className="rq-editor-actions">
+          <button type="button" className="rq-button" onClick={persistProposalState} disabled={!customerEntryComplete}><Save size={16} aria-hidden="true" /><span>Save</span></button>
+          <button type="button" className="rq-button" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" /><span>Preview</span></button>
+          <button type="button" className="rq-button rq-button-primary" onClick={() => void handleDownloadPdf()} disabled={!customerEntryComplete || majorProjectHasBlockingErrors || isDownloadingPdf}><Download size={16} aria-hidden="true" /><span>{isDownloadingPdf ? "Generating..." : "Download PDF"}</span></button>
+        </div>
+      </header>
+      <div className="rq-editor-container">
+        <nav className="rq-editor-nav" aria-label="Quote sections">
+          {([
+            { key: "customer", label: "Customer", icon: UserRound },
+            { key: "items", label: "Line Items", icon: List },
+            { key: "pricing", label: "Pricing", icon: Calculator },
+            { key: "documents", label: "Documents", icon: Files },
+            { key: "review", label: "Review", icon: ClipboardCheck },
+          ] as const).map(({ key, label, icon: Icon }) => <button key={key} id={`rq-nav-${key}`} type="button" aria-current={visibleEditorTab === key ? "page" : undefined} disabled={!customerEntryComplete && key !== "customer"} onClick={() => setEditorTab(key)}><Icon size={16} aria-hidden="true" />{label}</button>)}
+        </nav>
+        {workflowNotice && <div className="rq-notice" role="status"><span>{workflowNotice}</span><button type="button" className="rq-icon-button" aria-label="Dismiss notice" onClick={() => setWorkflowNotice(null)}><X size={16} aria-hidden="true" /></button></div>}
+        <div className="rq-editor-grid">
+          <div className="rq-editor-main">
+            <div hidden={visibleEditorTab !== "customer"} aria-labelledby="rq-nav-customer">
+                          <section className="builder-panel">
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Step 1</div><h2 className="builder-title">Customer entry</h2></div></div>
 
               {customerEntryMode === "start" ? (
@@ -4809,7 +4580,7 @@ export default function QuotePreview() {
                   {selectedCustomerProfile ? (
                       <div className="customer-entry-insight-grid mt-4">
                         <div className="customer-entry-insight-card"><strong>Main contact</strong><span>{selectedCustomerProfile.mainContactName || "Not set"}</span><p>{selectedCustomerProfile.mainContactEmail || "No email"}<br />{selectedCustomerProfile.mainContactPhone || "No phone"}</p></div>
-                        <div className="customer-entry-insight-card"><strong>Primary / default address</strong><span>{selectedCustomerProfile.primaryAddress.companyName || selectedCustomerProfile.companyName}</span><p>{selectedCustomerProfile.primaryAddress.lines.join(", ") || "No primary address"}</p></div>
+                        <div className="customer-entry-insight-card"><strong>Service address</strong><span>{selectedCustomerProfile.primaryAddress.companyName || selectedCustomerProfile.companyName}</span><p>{selectedCustomerProfile.primaryAddress.lines.join(", ") || "No primary address"}</p></div>
                         <div className="customer-entry-insight-card"><strong>Billing / shipping defaults</strong><span>{selectedCustomerProfile.shippingSameAsBillTo ? "Shipping matches billing" : "Separate shipping saved"}</span><p>{selectedCustomerProfile.shippingSameAsBillTo ? "Billing address will also be used for shipping." : selectedCustomerProfile.shippingAddress.lines.join(", ") || "No shipping address"}<br />Owner default: {selectedCustomerProfile.defaultOwnerName || "Not set"}</p></div>
                         <div className="customer-entry-insight-card"><strong>Service pricing agreement</strong><span>{selectedCustomerServiceAgreement.agreementLabel || "No SLA name set"}</span><p>{hasSelectedCustomerServiceAgreement ? `${selectedCustomerServiceAgreement.categories.filter((category) => category.rateBasis !== "na").length} priced category defaults` : "No SLA pricing defaults saved yet"}</p></div>
                       </div>
@@ -4852,7 +4623,7 @@ export default function QuotePreview() {
                   {customerEntryMode === "review" ? (
                       <div className="customer-entry-insight-grid mt-4">
                         <div className="customer-entry-insight-card"><strong>Contact</strong><span>{quote.customer.contactName || customerHeadline}</span><p>{customerSubline || "No contact details yet"}</p></div>
-                        <div className="customer-entry-insight-card"><strong>Primary / default address</strong><span>{quote.customer.addressLines[0] || "No primary address yet"}</span><p>{customerServiceAddress || "No primary address yet"}</p></div>
+                        <div className="customer-entry-insight-card"><strong>Service address</strong><span>{quote.customer.addressLines[0] || "No primary address yet"}</span><p>{customerServiceAddress || "No primary address yet"}</p></div>
                         <div className="customer-entry-insight-card"><strong>Saved profile</strong><span>{selectedCustomerProfile ? selectedCustomerProfile.companyName : "Not linked yet"}</span><p>{selectedCustomerProfileId ? "Auto-update available on save" : "Save this customer when ready"}</p></div>
                         <div className="customer-entry-insight-card"><strong>SLA defaults</strong><span>{quoteServiceAgreementProfile.agreementLabel || "No service agreement linked"}</span><p>{activeServiceAgreementCategories.length ? `${activeServiceAgreementCategories.length} active pricing categories ready` : "No customer pricing defaults applied yet"}</p></div>
                       </div>
@@ -4872,7 +4643,7 @@ export default function QuotePreview() {
 
 
                       <div className="mt-4 rounded-[20px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
-                        <div className="builder-eyebrow">Primary / default address</div>
+                        <h3>Service address</h3>
                         <div className="grid gap-3 md:grid-cols-2">
                           <label className="builder-field compact md:col-span-2"><span>Address line 1</span><input value={quote.customer.addressLines[0] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[0] = e.target.value; return draft; })} /></label>
                           <label className="builder-field compact md:col-span-2"><span>Address line 2</span><input value={quote.customer.addressLines[1] ?? ""} onChange={(e) => updateQuote((draft) => { draft.customer.addressLines[1] = e.target.value; return draft; })} /></label>
@@ -4965,237 +4736,205 @@ export default function QuotePreview() {
               ) : null}
             </section>
 
-            {builderLocked ? (
-              <section className="builder-panel">
-                <div className="builder-panel-header"><div><div className="builder-eyebrow">Step 2 locked</div><h2 className="builder-title">Finish customer intake first</h2></div></div>
-                <div className="rounded-[22px] border border-dashed border-[#d7dde4] bg-[#fbfcfe] p-5 text-[14px] leading-[1.6] text-[#51606d]">
-                  Select or create a customer to unlock quote setup, pricing, preview, and PDF output.
-                </div>
-              </section>
-            ) : (
-            <>
-            <section className="builder-panel">
-              <div className="builder-panel-header"><div><div className="builder-eyebrow">Quote setup</div><h2 className="builder-title">Quote details</h2></div></div>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]">
-                  <span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Quote number</span>
-                  <strong className="mt-1 block text-[16px] text-[#16202b]">{quote.metadata.proposalNumber}</strong>
-                  <span className="mt-1 block">Assigned automatically for new quotes and preserved on saved drafts.</span>
-                </div>
-                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]">
-                  <span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Environment</span>
-                  <strong className="mt-1 block text-[16px] text-[#16202b]">{RAPIDQUOTE_DEPLOYMENT_BRANDING.label}</strong>
-                  <span className="mt-1 block">This deployment is locked to {RAPIDQUOTE_DEPLOYMENT_BRANDING.legalName}. Quotes here do not switch between companies.</span>
-                </div>
-                <label className="builder-field"><span>Proposal date</span><input value={quote.metadata.proposalDate} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalDate = e.target.value; draft.documentation.proposalDateLabel = e.target.value; return draft; })} /></label>
-                <label className="builder-field"><span>Proposal title</span><input value={quote.metadata.documentTitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentTitle = e.target.value; draft.documentation.proposalTitle = e.target.value; return draft; })} /></label>
-                <label className="builder-field"><span>Status</span><select value={quote.metadata.status} onChange={(e) => updateQuote((draft) => { draft.metadata.status = e.target.value as QuoteRecord["metadata"]["status"]; draft.internal.quoteStatus = e.target.value as QuoteRecord["metadata"]["status"]; return draft; })}>{QUOTE_STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
-              </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <label className="builder-field"><span>Proposal owner</span><select value={quote.metadata.ownerUserId ?? activeProposal?.owner.id ?? mockUsers[0].id} onChange={(e) => updateQuote((draft) => { const owner = mockUsers.find((user) => user.id === e.target.value) ?? mockUsers[0]; draft.metadata.ownerUserId = owner.id; draft.metadata.ownerName = owner.name; draft.internal.workspaceOwnerId = owner.id; draft.internal.workspaceOwnerName = owner.name; draft.internal.crmOwnerLabel = owner.name; return draft; })}>{mockUsers.map((user) => <option key={user.id} value={user.id}>{user.name} — {user.role}</option>)}</select></label>
-                <label className="builder-field"><span>Owner display name</span><input value={quote.metadata.ownerName ?? activeProposal?.owner.name ?? ""} onChange={(e) => updateQuote((draft) => { draft.metadata.ownerName = e.target.value; draft.internal.workspaceOwnerName = e.target.value; draft.internal.crmOwnerLabel = e.target.value; return draft; })} /></label>
-                <label className="builder-field"><span>Account name</span><input value={quote.metadata.accountName ?? quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.metadata.accountName = e.target.value; return draft; })} /></label>
-              </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-2">
-                <label className="builder-field"><span>Proposal subtitle</span><input value={quote.metadata.documentSubtitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentSubtitle = e.target.value; return draft; })} /></label>
-                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]"><span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Customer on this draft</span><strong className="mt-1 block text-[16px] text-[#16202b]">{customerHeadline}</strong><span className="mt-1 block">{customerSubline || "Use Customer entry above to edit customer details."}</span></div>
-              </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-2">
-                <label className="builder-field"><span>Expiration date</span><input value={quote.metadata.expirationDate ?? ""} onChange={(e) => updateQuote((draft) => { draft.metadata.expirationDate = e.target.value; return draft; })} /></label>
-                <label className="builder-field"><span>Sales tax amount</span><input type="number" min="0" step="0.01" value={quote.metadata.salesTaxAmount ?? 0} onChange={(e) => updateQuote((draft) => { draft.metadata.salesTaxAmount = Number(e.target.value || 0); return draft; })} /></label>
-              </div>
-
-              <details className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]">
-                <summary className="cursor-pointer list-none font-semibold text-[#16202b]">Internal record details</summary>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-[14px] bg-white px-4 py-3">
-                    <span className="block text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Internal proposal ID</span>
-                    <strong className="mt-1 block text-[#16202b]">{activeProposal?.id ?? quote.internal.savedProposalId ?? quote.internal.quoteId}</strong>
+              {customerEntryComplete && <button type="button" className="rq-button rq-button-primary" onClick={() => setEditorTab("items")}>Line items<ArrowRight size={16} aria-hidden="true" /></button>}
+            </div>
+            <div hidden={visibleEditorTab !== "items"} aria-labelledby="rq-nav-items">
+              <div className="rq-items-toolbar">
+  <fieldset className="rq-mode-group"><legend className="sr-only">Quote mode</legend><div className="rq-segmented">
+    <button type="button" aria-pressed={!isMajorProject} onClick={() => updateQuote((draft) => { draft.metadata.workflowMode = "quick_quote"; return draft; })}>Quick Quote</button>
+    <button type="button" aria-pressed={isMajorProject} onClick={() => updateMajorProjectQuote((draft) => { draft.metadata.workflowMode = "major_project"; if (draft.majorProject) draft.majorProject.enabled = true; return draft; })}>Major Quote</button>
+  </div></fieldset>
+  <button type="button" className="rq-button rq-button-quiet" onClick={() => setEditorTab("pricing")}>{isLeaseQuote ? `Lease / ${selectedLeaseTerm} months` : "Purchase"}<ChevronDown size={14} aria-hidden="true" /></button>
+</div>
+{!isMajorProject && <div className="rq-section-switches" aria-label="Included sections">
+  <SectionToggle label="Monthly services" enabled={quote.sections.sectionA.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionA.enabled = next; return draft; })} />
+  <SectionToggle label="Hardware" enabled={quote.sections.sectionB.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionB.enabled = next; return draft; })} />
+  <SectionToggle label="Field services" enabled={quote.sections.sectionC.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionC.enabled = next; return draft; })} />
+</div>}
+              {!isMajorProject && quote.sections.sectionA.enabled && <section className="builder-panel">
+  <div className="rq-section-heading"><h2>Monthly services</h2><div className="rq-segmented" aria-label="Service pricing mode">{(["pool", "per_kit"] as const).map((mode) => <button key={mode} type="button" aria-pressed={quote.sections.sectionA.mode === mode} onClick={() => updateQuote((draft) => { draft.sections.sectionA.mode = mode; return draft; })}>{mode === "pool" ? "Pool" : "Per kit"}</button>)}</div></div>
+  <div className="rq-add-row"><label className="builder-field"><span className="sr-only">Add monthly service</span><select defaultValue="" onChange={(event) => { if (event.target.value) { addSectionARowFromCatalog(event.target.value); event.target.value = ""; } }}><option value="">Add monthly service...</option>{filteredSectionACatalog.map((item) => <option key={item.id} value={item.id}>{item.label} / {formatCurrency(item.defaultUnitPrice, currencyCode)}</option>)}</select></label></div>
+  <QuoteLineTable label="Monthly service line items" rows={activeSectionARows.map((row, index) => ({
+    id: row.id, accessibleName: row.description || `Service ${index + 1}`,
+    description: <input aria-label={`Service ${index + 1} description`} value={row.description} onChange={(event) => updateActiveSectionARow(row.id, "description", event.target.value)} />,
+    quantity: <input aria-label={`Service ${index + 1} quantity`} type="number" min="0" value={row.quantity ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "quantity", event.target.value)} />,
+    rate: <input aria-label={`Service ${index + 1} rate`} type="number" min="0" step="0.01" value={row.monthlyRate ?? row.unitPrice ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "monthlyRate", event.target.value)} />,
+    cadence: row.rowType === "support" ? "Included" : row.rowType === "overage" ? "Per GB" : "Monthly",
+    total: row.rowType === "support" ? "Included" : formatCurrency(row.totalMonthlyRate ?? row.monthlyRate ?? 0, currencyCode),
+    optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateActiveSectionARow(row.id, "optional", checked),
+    actions: <RowActions totalRows={activeSectionARows.length} rowNumber={index + 1} onMoveUp={() => moveActiveSectionARow(row.id, -1)} onMoveDown={() => moveActiveSectionARow(row.id, 1)} onMoveTo={(position) => moveActiveSectionAToPosition(row.id, position)} onDuplicate={() => duplicateActiveSectionARow(row.id)} onRemove={() => removeActiveSectionARow(row.id)} />,
+    details: <div className="rq-detail-fields"><label className="builder-field"><span>Unit label</span><input value={row.unitLabel ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "unitLabel", event.target.value)} /></label>{row.rowType === "support" && <label className="builder-field"><span>Support details</span><textarea rows={3} value={(row.includedText ?? []).join("\n")} onChange={(event) => updateActiveSectionARow(row.id, "includedText", event.target.value)} /></label>}</div>,
+  }))} />
+  <details className="rq-disclosure"><summary>Custom data and section details</summary>
+    <div className="rq-detail-fields"><label className="builder-field"><span>Data amount</span><input type="number" min="0" step="0.1" value={dataQuickAddValue} onChange={(event) => setDataQuickAddValue(event.target.value)} /></label><label className="builder-field"><span>Data unit</span><select value={dataQuickAddUnit} onChange={(event) => setDataQuickAddUnit(event.target.value as DataQuickAddUnit)}><option value="GB">GB</option><option value="TB">TB</option></select></label><button type="button" className="rq-button" onClick={() => addCustomDataRow()}><Plus size={16} aria-hidden="true" />Add data</button></div>
+    <div className="rq-detail-fields"><label className="builder-field"><span>Section title</span><input value={quote.sections.sectionA.title} onChange={(event) => updateQuote((draft) => { draft.sections.sectionA.title = event.target.value; return draft; })} /></label><label className="builder-field"><span>Service term (months)</span><input type="number" min="1" value={quote.sections.sectionA.termMonths} onChange={(event) => updateQuote((draft) => { draft.sections.sectionA.termMonths = parseNumber(event.target.value); return draft; })} /></label></div>
+    <label className="builder-field"><span>Section introduction</span><textarea rows={2} value={quote.sections.sectionA.introText ?? ""} onChange={(event) => updateQuote((draft) => { draft.sections.sectionA.introText = event.target.value; return draft; })} /></label>
+  </details>
+</section>}
+{!isMajorProject && quote.sections.sectionB.enabled && <section className="builder-panel">
+  <div className="rq-section-heading"><h2>Hardware</h2><span>{quote.sections.sectionB.lineItems.length} items</span></div>
+  <QuoteLineTable label="Hardware line items" rows={quote.sections.sectionB.lineItems.map((row, index) => ({
+    id: row.id, accessibleName: row.itemName || `Hardware ${index + 1}`,
+    description: <div className="rq-item-name">{row.imageUrl && <img src={row.imageUrl} alt="" width={32} height={32} />}<input aria-label={`Hardware ${index + 1} name`} value={row.itemName} onChange={(event) => updateEquipmentRow(row.id, "itemName", event.target.value)} /></div>,
+    quantity: <input aria-label={`Hardware ${index + 1} quantity`} type="number" min="0" value={row.quantity} onChange={(event) => updateEquipmentRow(row.id, "quantity", event.target.value)} />,
+    rate: <input aria-label={`Hardware ${index + 1} unit price`} type="number" min="0" step="0.01" value={row.unitPrice} onChange={(event) => updateEquipmentRow(row.id, "unitPrice", event.target.value)} />,
+    cadence: isLeaseQuote ? "Lease basis" : "One-time", total: formatCurrency(row.totalPrice, currencyCode),
+    optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateEquipmentRow(row.id, "optional", checked),
+    actions: <RowActions totalRows={quote.sections.sectionB.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveEquipmentRow(row.id, -1)} onMoveDown={() => moveEquipmentRow(row.id, 1)} onMoveTo={(position) => moveEquipmentRowToPosition(row.id, position)} onDuplicate={() => duplicateEquipmentRow(row.id)} onRemove={() => removeEquipmentRow(row.id)} />,
+    details: <div className="rq-detail-fields">
+      <label className="builder-field"><span>Category</span><input value={row.itemCategory ?? ""} onChange={(event) => updateEquipmentRow(row.id, "itemCategory", event.target.value)} /></label>
+      <label className="builder-field"><span>Part number</span><input value={row.partNumber ?? ""} onChange={(event) => updateEquipmentRow(row.id, "partNumber", event.target.value)} /></label>
+      <label className="builder-field"><span>Terminal type</span><input value={row.terminalType ?? ""} onChange={(event) => updateEquipmentRow(row.id, "terminalType", event.target.value)} /></label>
+      <label className="builder-field"><span>Reference</span><input value={row.sourceLabel ?? ""} onChange={(event) => updateEquipmentRow(row.id, "sourceLabel", event.target.value)} /></label>
+      <label className="builder-field"><span>Image URL</span><input value={row.imageUrl ?? ""} onChange={(event) => updateEquipmentRow(row.id, "imageUrl", event.target.value)} /></label>
+      <label className="builder-field"><span>Description / notes</span><textarea rows={2} value={row.description ?? ""} onChange={(event) => updateEquipmentRow(row.id, "description", event.target.value)} /></label>
+    </div>,
+  }))} />
+  <details className="rq-disclosure rq-hardware-picker"><summary>Add hardware</summary>                {suggestedAccessories.length > 0 && (
+                  <div className="mt-4 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                    <div className="builder-eyebrow">Smart suggestions</div>
+                    <h3 className="mt-1 text-[18px] font-semibold text-[#16202b]">Accessory suggestions based on selected Starlink device</h3>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      {suggestedAccessories.map(({ terminalType, item }) => (
+                        <div key={item.id} className="rounded-[18px] border border-[#d9e0e7] bg-white p-4">
+                          <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">For {terminalType}</div>
+                          <div className="mt-1 text-[16px] font-semibold text-[#16202b]">{item.label}</div>
+                          <div className="mt-1 text-[13px] text-[#60707f]">{item.description}</div>
+                          <button type="button" className="mt-3 pill-button pill-button-active" onClick={() => addEquipmentRow(item.id)}>Add suggested accessory</button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="rounded-[14px] bg-white px-4 py-3">
-                    <span className="block text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Account ID</span>
-                    <strong className="mt-1 block text-[#16202b]">{quote.metadata.accountId?.trim() || "Not set"}</strong>
-                    <span className="mt-1 block">Hidden from the normal quoting surface and kept read-only here.</span>
+                )}
+
+                <div className="mt-5 grid gap-4 xl:grid-cols-[1.3fr_.9fr]">
+                  <div className="rounded-[24px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="builder-eyebrow">Recommended items</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Hardware picker</h3></div><div className="text-[13px] text-[#66717d]">{filteredEquipmentCatalog.length} match(es)</div></div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_.8fr]"><label className="builder-field compact"><span>Search Hardware</span><input placeholder="router, mini, mount, cable..." value={equipmentSearch} onChange={(e) => setEquipmentSearch(e.target.value)} /></label><label className="builder-field compact"><span>Category</span><select value={equipmentCategoryFilter} onChange={(e) => setEquipmentCategoryFilter(e.target.value)}>{equipmentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label></div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">{filteredEquipmentCatalog.map((item) => <div key={item.id} className="rounded-[20px] border border-[#d9e0e7] bg-white p-4 shadow-[0_8px_20px_rgba(31,42,52,0.05)]"><div className="flex items-start justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{item.category}</div><h4 className="mt-1 text-[16px] font-semibold text-[#16202b]">{item.label}</h4></div></div><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">{item.description ?? "Recommended equipment item."}</p><div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[#66717d]">{item.terminalType && <span className="rounded-full bg-[#f6f8fb] px-3 py-1">Type: {item.terminalType}</span>}<span className="rounded-full bg-[#f6f8fb] px-3 py-1">Recommended</span></div><button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={() => addEquipmentRow(item.id)}>Add to Hardware Rows</button></div>)}</div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-[24px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                      <div className="builder-eyebrow">Custom item</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Manual Hardware Row</h3>
+                      <div className="mt-4 grid gap-3 md:grid-cols-2"><label className="builder-field compact"><span>Item name</span><input value={customEquipmentDraft.itemName} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, itemName: e.target.value }))} /></label><label className="builder-field compact"><span>Image URL</span><input value={customEquipmentDraft.imageUrl} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, imageUrl: e.target.value }))} placeholder="https://..." /></label><label className="builder-field compact"><span>Category</span><input value={customEquipmentDraft.itemCategory} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, itemCategory: e.target.value }))} /></label><label className="builder-field compact"><span>Terminal type</span><input value={customEquipmentDraft.terminalType} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, terminalType: e.target.value }))} /></label><label className="builder-field compact"><span>Part #</span><input value={customEquipmentDraft.partNumber} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, partNumber: e.target.value }))} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={customEquipmentDraft.quantity} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, quantity: e.target.value }))} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={customEquipmentDraft.unitPrice} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, unitPrice: e.target.value }))} /></label></div>
+                      <label className="builder-field compact mt-3"><span>Description / notes</span><textarea rows={3} value={customEquipmentDraft.description} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, description: e.target.value }))} /></label>
+                      <button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={addCustomEquipmentRow}>Add Custom Hardware Row</button>
+                    </div>
                   </div>
                 </div>
-              </details>
 
-              <details className="mt-5 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
-                <summary className="cursor-pointer list-none">
-                  <div className="builder-eyebrow">Prepared by</div>
-                  <div className="mt-1 text-[18px] font-semibold text-[#16202b]">{selectedBranding.label} contact and sender details</div>
-                </summary>
-                <div className="mt-4 space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
-                  <div className="flex items-start gap-3">
-                    <img src={selectedBranding.logoSrc} alt={selectedBranding.logoAlt} className="workspace-logo-inline h-auto max-h-[34px] w-auto object-contain" />
+</details>
+  <details className="rq-disclosure"><summary>Section note</summary><label className="builder-field"><span className="sr-only">Hardware section note</span><textarea rows={2} value={quote.sections.sectionB.introText ?? ""} onChange={(event) => updateQuote((draft) => { draft.sections.sectionB.introText = event.target.value; return draft; })} /></label></details>
+</section>}
+{!isMajorProject && quote.sections.sectionC.enabled && <section className="builder-panel">
+  <div className="rq-section-heading"><h2>Field services</h2><button type="button" className="rq-button" onClick={addServiceRow}><Plus size={16} aria-hidden="true" />Add service</button></div>
+  <QuoteLineTable label="Field service line items" rows={quote.sections.sectionC.lineItems.map((row, index) => ({
+    id: row.id, accessibleName: row.description || `Field service ${index + 1}`,
+    description: <input aria-label={`Field service ${index + 1} description`} value={row.description} onChange={(event) => updateServiceRow(row.id, "description", event.target.value)} />,
+    quantity: <input aria-label={`Field service ${index + 1} quantity`} type="number" min="0" value={row.quantity} onChange={(event) => updateServiceRow(row.id, "quantity", event.target.value)} />,
+    rate: <input aria-label={`Field service ${index + 1} unit price`} type="number" min="0" step="0.01" value={row.unitPrice} onChange={(event) => updateServiceRow(row.id, "unitPrice", event.target.value)} />,
+    cadence: "One-time", total: formatCurrency(row.totalPrice, currencyCode),
+    optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateServiceRow(row.id, "optional", checked),
+    actions: <RowActions totalRows={quote.sections.sectionC.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(position) => moveServiceRowToPosition(row.id, position)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} />,
+    details: <div className="rq-detail-fields"><label className="builder-field"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(event) => updateServiceRow(row.id, "pricingStage", event.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label><label className="builder-field"><span>Notes</span><textarea rows={2} value={row.notes ?? ""} onChange={(event) => updateServiceRow(row.id, "notes", event.target.value)} /></label></div>,
+  }))} />
+  <details className="rq-disclosure"><summary>Service presets and agreement</summary>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="builder-field"><span>Section title</span><input value={quote.sections.sectionC.title} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.title = e.target.value; draft.sections.sectionC.builderLabel = e.target.value; return draft; })} /></label>
+                  <label className="builder-field"><span>Section intro / note</span><textarea rows={3} value={quote.sections.sectionC.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.introText = e.target.value; return draft; })} /></label>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{servicePresetTemplates.map((preset) => <button key={preset.key} type="button" className="pill-button" onClick={() => addPresetServiceRow(preset.key)}>{preset.label}</button>)}</div>
+
+                <div className="mt-5 rounded-[20px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
-                      <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{selectedBranding.shortName}</div>
-                      <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Sales contact</div>
+                      <div className="builder-eyebrow">Service agreement defaults</div>
+                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">
+                        {quoteServiceAgreementProfile.agreementLabel || "Customer SLA pricing profile"}
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-[1.55] text-[#60707f]">
+                        Keep SLA pricing defaults with the install and site service workflow, then add the categories you need into Section C.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className="pill-button" onClick={() => void handleExportServiceAgreement()}>
+                        Export SLA Document
+                      </button>
+                      {selectedCustomerProfile && hasSelectedCustomerServiceAgreement ? (
+                        <button type="button" className="pill-button" onClick={applyCustomerServiceAgreementDefaults}>
+                          Refresh from customer defaults
+                        </button>
+                      ) : null}
                     </div>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <label className="builder-field compact"><span>Prepared by</span><input value={quote.inet.contactName} onChange={(e) => updateQuote((draft) => { draft.inet.contactName = e.target.value; return draft; })} /></label>
-                    <label className="builder-field compact"><span>Sales team name</span><input value={quote.inet.name} onChange={(e) => updateQuote((draft) => { draft.inet.name = e.target.value; return draft; })} /></label>
-                    <label className="builder-field compact"><span>Sales phone</span><input value={quote.inet.contactPhone} onChange={(e) => updateQuote((draft) => { draft.inet.contactPhone = e.target.value; return draft; })} /></label>
-                    <label className="builder-field compact"><span>Sales email</span><input value={quote.inet.contactEmail} onChange={(e) => updateQuote((draft) => { draft.inet.contactEmail = e.target.value; return draft; })} /></label>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Agreement</strong>{quoteServiceAgreementProfile.agreementLabel || "No SLA name set"}<br />{quote.serviceAgreement.sourceCustomerProfileName || quote.customer.name || "Not linked to a saved customer"}</div>
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Attachment</strong>{quoteServiceAgreementProfile.sourceDocument?.fileName || "No source document reference"}<br />{quoteServiceAgreementProfile.sourceDocument?.note || quoteServiceAgreementProfile.sourceDocument?.fileUrl || "Signed/source PDF can be referenced here"}</div>
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Accepted dates</strong>{quoteServiceAgreementProfile.signedDate || "No signed date"}<br />{quoteServiceAgreementProfile.acceptedDate || "No accepted date"}</div>
+                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Ready categories</strong>{activeServiceAgreementCategories.length} pricing default{activeServiceAgreementCategories.length === 1 ? "" : "s"}<br />{quote.serviceAgreement.lastAppliedAt ? "Applied to this quote" : "Quote-level profile ready to use"}</div>
                   </div>
-                </div>
-              </details>
 
-              <div className="mt-5 rounded-[22px] border border-[#d9e2ea] bg-[#f8fbfd] p-4 md:p-5">
-                <div className="builder-eyebrow">Workflow mode</div>
-                <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Quote path</h3>
-                <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                  Keep Major Project visible here: switch modes at any time, or launch a new draft directly into the structured project workflow from the Start page or workspace.
-                </p>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <ToggleCard
-                    label="Quick Quote"
-                    description="Best for Starlink/LTE service, router, install materials, and simple install or site-inspection rows."
-                    active={!isMajorProject}
-                    onClick={() => updateQuote((draft) => { draft.metadata.workflowMode = "quick_quote"; return draft; })}
-                  />
-                  <ToggleCard
-                    label="Major Project"
-                    description="Best for structured projects. Build from internal components, group into bundles, then choose the customer-facing quote lines."
-                    active={isMajorProject}
-                    onClick={() => updateMajorProjectQuote((draft) => { draft.metadata.workflowMode = "major_project"; if (draft.majorProject) draft.majorProject.enabled = true; return draft; })}
-                  />
-                </div>
-              </div>
-
-
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {([
-                  { key: "purchase", label: "Purchase quote", description: "Show one-time hardware separately from recurring service pricing." },
-                  { key: "lease", label: "Lease quote", description: "Blend hardware into a term-based monthly view without losing line items." },
-                ] as { key: QuoteType; label: string; description: string }[]).map((option) => (
-                  <ToggleCard
-                    key={option.key}
-                    label={option.label}
-                    description={option.description}
-                    active={quote.metadata.quoteType === option.key}
-                    onClick={() => updateQuote((draft) => {
-                      draft.metadata.quoteType = option.key;
-                      if (option.key === "lease") {
-                        draft.metadata.leaseTermMonths = draft.metadata.leaseTermMonths ?? 12;
-                        draft.metadata.hasActiveDataAgreement = draft.metadata.hasActiveDataAgreement ?? false;
-                      }
-                      return draft;
-                    })}
-                  />
-                ))}
-              </div>
-
-              {quote.metadata.quoteType === "lease" && (
-                <div className="brand-soft-shell mt-5 rounded-[22px] p-4 md:p-5">
-                  <div className="builder-eyebrow">Lease calculator</div>
-                  <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Lease pricing builder</h3>
-                  <p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">
-                    Lease pricing is gated by an active data agreement. Set the target hardware margin, then RapidQuote solves the lease hardware revenue and spreads it across the selected term.
-                  </p>
-
-                  <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
-                    <div className="space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
-                      <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]">
-                        <input
-                          type="checkbox"
-                          checked={hasActiveDataAgreement}
-                          onChange={(e) => updateQuote((draft) => {
-                            draft.metadata.hasActiveDataAgreement = e.target.checked;
-                            return draft;
-                          })}
-                        />
-                        Active data agreement is in place
-                      </label>
-
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <label className="builder-field compact">
-                          <span>Lease term</span>
-                          <select
-                            value={selectedLeaseTerm}
-                            onChange={(e) => updateQuote((draft) => {
-                              draft.metadata.leaseTermMonths = Number(e.target.value) as LeaseTermMonths;
-                              return draft;
-                            })}
-                          >
-                            <option value={3}>3 months</option>
-                            <option value={6}>6 months</option>
-                            <option value={9}>9 months</option>
-                            <option value={12}>12 months</option>
-                            <option value={24}>24 months</option>
-                            <option value={36}>36 months</option>
-                          </select>
-                        </label>
-
-                        <label className="builder-field compact">
-                          <span>Target hardware margin %</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max="95"
-                            step="0.01"
-                            value={leaseMarginPercent}
-                            onChange={(e) => updateQuote((draft) => {
-                              draft.metadata.leaseMarginPercent = Math.min(Math.max(parseNumber(e.target.value), 0), 95);
-                              return draft;
-                            })}
-                          />
-                        </label>
-                      </div>
-
-                      <div className={`rounded-[18px] border px-4 py-3 text-[13px] leading-[1.5] ${hasActiveDataAgreement ? "border-[#d9e7dd] bg-[#f5fbf6] text-[#365444]" : "border-[#f0d1d1] bg-[#fff1f1] text-[#7d4b4b]"}`}>
-                        {hasActiveDataAgreement
-                          ? `Lease pricing is active. The monthly lease total below includes ${leaseMarginPercent}% target hardware margin spread across the selected term.`
-                          : "Lease pricing is locked until an active data agreement is confirmed. Turn this on to enable the lease monthly number."}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
-                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Selected hardware total</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>
-                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Hardware cost basis</span><strong>{formatCurrency(leaseHardwareCost, currencyCode)}</strong></div>
-                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Target hardware margin</span><strong>{formatPercent(leaseMarginPercent)}</strong></div>
-                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Required hardware revenue</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
-                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Hardware gross profit</span><strong>{formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>
-                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Selected term</span><strong>{selectedLeaseTerm} months</strong></div>
-                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Hardware per month</span><strong>{formatCurrency(leaseEquipmentMonthly, currencyCode)}</strong></div>
-                      <div className="flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>Recurring monthly service</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>
-                      <div className="rounded-[16px] border border-[#e8edf2] bg-[#fafcfd] px-4 py-3 text-[13px] text-[#5d6874]">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Calculation breakdown</div>
-                        <div className="mt-2 space-y-2">
-                          <div className="flex items-center justify-between gap-3"><span>1. Hardware cost basis</span><strong>{formatCurrency(leaseHardwareCost, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>2. Divide by (1 - {formatPercent(leaseMarginPercent)})</span><strong>{formatCurrency(leaseEquipmentBase, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>3. Hardware gross profit</span><strong>{formatCurrency(leaseMarginAmount, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>4. Divide by term ({selectedLeaseTerm})</span><strong>{formatCurrency(leaseEquipmentMonthly, currencyCode)}</strong></div>
-                          <div className="flex items-center justify-between gap-3"><span>5. Add recurring monthly service</span><strong>+ {formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>
-                        </div>
-                      </div>
-                      <div className="border-t border-[#e8edf2] pt-3">
-                        <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Lease monthly</div>
-                        <div className={`mt-1 text-[28px] font-semibold tracking-[-0.03em] ${hasActiveDataAgreement ? "brand-text-emphasis" : "text-[#7f8a96]"}`}>
-                          {hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}
-                        </div>
-                        <div className="mt-1 text-[13px] text-[#60707f]">
-                          {hasActiveDataAgreement
-                            ? `Formula: ${formatCurrency(leaseHardwareCost, currencyCode)} divided by (1 - ${formatPercent(leaseMarginPercent)}) = ${formatCurrency(leaseEquipmentBase, currencyCode)}; then ${formatCurrency(leaseEquipmentBase, currencyCode)} divided by ${selectedLeaseTerm} = ${formatCurrency(leaseEquipmentMonthly, currencyCode)}; then + ${formatCurrency(recurringMonthlyTotal, currencyCode)} recurring monthly service.`
-                            : "This lease calculator stays disabled until the active data agreement box is checked."}
-                        </div>
-                      </div>
-                    </div>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <label className="builder-field compact xl:col-span-2"><span>Agreement name</span><input value={quoteServiceAgreementProfile.agreementLabel} onChange={(e) => updateAgreementProfileField("agreementLabel", e.target.value)} placeholder="Customer service pricing agreement" /></label>
+                    <label className="builder-field compact"><span>Signed date</span><input type="date" value={quoteServiceAgreementProfile.signedDate ?? ""} onChange={(e) => updateAgreementProfileField("signedDate", e.target.value)} /></label>
+                    <label className="builder-field compact"><span>Accepted date</span><input type="date" value={quoteServiceAgreementProfile.acceptedDate ?? ""} onChange={(e) => updateAgreementProfileField("acceptedDate", e.target.value)} /></label>
                   </div>
-                </div>
-              )}
 
-              {isMajorProject && majorProjectState && (
+                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <label className="builder-field compact"><span>SLA PDF / file name</span><input value={quoteServiceAgreementProfile.sourceDocument?.fileName ?? ""} onChange={(e) => updateAgreementAttachmentField("fileName", e.target.value)} placeholder="signed-service-agreement.pdf" /></label>
+                    <label className="builder-field compact"><span>Document reference / URL</span><input value={quoteServiceAgreementProfile.sourceDocument?.fileUrl ?? ""} onChange={(e) => updateAgreementAttachmentField("fileUrl", e.target.value)} placeholder="Internal link or storage reference" /></label>
+                    <label className="builder-field compact"><span>Attachment note</span><input value={quoteServiceAgreementProfile.sourceDocument?.note ?? ""} onChange={(e) => updateAgreementAttachmentField("note", e.target.value)} placeholder="Where the signed PDF lives" /></label>
+                  </div>
+
+                  <label className="builder-field compact mt-4"><span>Agreement notes</span><textarea rows={3} value={quoteServiceAgreementProfile.notes ?? ""} onChange={(e) => updateAgreementProfileField("notes", e.target.value)} placeholder="Internal guidance or exceptions for using this customer's service pricing defaults" /></label>
+
+                  <div className="mt-4 space-y-3">
+                    {quoteServiceAgreementProfile.categories.map((category) => (
+                      <div key={category.key} className={`rounded-[18px] border p-4 ${serviceAgreementCategoryTone(category.rateBasis)}`}>
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <div className="text-[16px] font-semibold text-[#16202b]">{category.label}</div>
+                            <div className="mt-1 text-[12px] font-medium uppercase tracking-[0.14em] text-[#7a8793]">{serviceAgreementRateBasisLabel(category.rateBasis)}</div>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-3 lg:min-w-[620px]">
+                            <label className="builder-field compact"><span>Rate basis</span><select value={category.rateBasis} onChange={(e) => updateAgreementCategoryField(category.key, "rateBasis", e.target.value)}><option value="na">N/A</option><option value="standard">Standard</option><option value="non_standard">Non-standard</option></select></label>
+                            <label className="builder-field compact"><span>Labor rate</span><input type="number" step="0.01" value={category.laborRate ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "laborRate", e.target.value)} placeholder="0.00" /></label>
+                            <label className="builder-field compact"><span>Mileage rate</span><input type="number" step="0.01" value={category.mileageRate ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "mileageRate", e.target.value)} placeholder="0.00" /></label>
+                          </div>
+                        </div>
+                        <label className="builder-field compact mt-3"><span>Notes</span><input value={category.notes ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "notes", e.target.value)} placeholder="Scope note, exception, or dispatch guidance" /></label>
+                        {category.rateBasis !== "na" ? (
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#51606d]">
+                            <div>
+                              Labor {category.laborRate !== null ? formatCurrency(category.laborRate, currencyCode) : "Not set"} • Mileage {category.mileageRate !== null ? formatCurrency(category.mileageRate, currencyCode) : "Not set"}
+                            </div>
+                            <button type="button" className="pill-button pill-button-active" onClick={() => addAgreementCategoryToSectionC(category)}>
+                              Add to Section C
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+
+                  {!activeServiceAgreementCategories.length ? (
+                    <div className="mt-4 rounded-[18px] border border-dashed border-[#d9e0e7] bg-white p-4 text-[13px] leading-[1.55] text-[#5d6772]">
+                      No active SLA pricing defaults are loaded on this quote yet. Turn on the categories you need here, or keep using manual service rows.
+                    </div>
+                  ) : null}
+                </div>
+
+</details>
+</section>}
+                            {isMajorProject && majorProjectState && (
                 <div id="major-project-workflow" className="major-project-workspace">
                   <div className="major-project-shell-header">
                     <div className="major-project-shell-copy">
                       <div className="builder-eyebrow">Major Project mode</div>
-                      <h3 className="mt-1 text-[24px] font-semibold tracking-[-0.03em] text-[#16202b]">Build the project once. Package it only when you need to.</h3>
+                      <h3 className="mt-1 text-[24px] font-semibold tracking-[-0.03em] text-[#16202b]">Project items</h3>
                       <p className="mt-2 text-[13px] leading-[1.6] text-[#60707f]">
                         Components are the main work area. Bundles and customer quote lines stay available when you want a curated presentation layer, but they should not slow down the core quoting path.
                       </p>
@@ -5203,36 +4942,6 @@ export default function QuotePreview() {
                     <div className="major-project-shell-actions">
                       <button type="button" className="pill-button" onClick={addMajorProjectOption}>Add option</button>
                       <button type="button" className="pill-button" onClick={removeActiveMajorOption} disabled={(majorProjectState.options?.length ?? 0) <= 1}>Remove option</button>
-                    </div>
-                  </div>
-
-                  <div className="major-project-overview-grid">
-                    <div className="major-project-overview-primary">
-                      <div className="major-project-overview-kicker">Recommended path</div>
-                      <h4>Start in Components, then stop there if direct output is enough.</h4>
-                      <p>
-                        RapidQuote keeps Major Project on the mapped builder. Review imported items, confirm cost and sell logic, then flow them straight into proposal output unless the customer really needs extra packaging.
-                      </p>
-                      <div className="major-project-chip-row">
-                        <span className="major-project-chip">{majorProjectUsesDirectComponentPath ? "Direct component output active" : "Structured output path available"}</span>
-                        <span className="major-project-chip">{majorProjectMetrics.validation.errorCount} validation blocker{majorProjectMetrics.validation.errorCount === 1 ? "" : "s"}</span>
-                        <span className="major-project-chip">{majorProjectState.commercial.termMonths} month term</span>
-                      </div>
-                    </div>
-                    <div className="major-project-overview-stat">
-                      <span>Mapped components</span>
-                      <strong>{activeMajorOptionComponents.length}</strong>
-                      <p>Internal items currently staged for pricing, specs, and output.</p>
-                    </div>
-                    <div className="major-project-overview-stat">
-                      <span>Sites in scope</span>
-                      <strong>{activeMajorOption?.siteCount ?? 0}</strong>
-                      <p>Project footprint tied to the active option and workbook imports.</p>
-                    </div>
-                    <div className="major-project-overview-stat">
-                      <span>Workflow state</span>
-                      <strong>{majorProjectMetrics.validation.errorCount === 0 ? "Ready" : "Needs review"}</strong>
-                      <p>{majorProjectMetrics.validation.errorCount === 0 ? "Preview and export are unblocked once commercial review is complete." : `${majorProjectMetrics.validation.errorCount} blocking validation item${majorProjectMetrics.validation.errorCount === 1 ? "" : "s"} still need cleanup.`}</p>
                     </div>
                   </div>
 
@@ -5266,7 +4975,7 @@ export default function QuotePreview() {
                     </button>
                   </div>
 
-                  <div className="major-project-shell-panel">
+                  <details className="rq-disclosure rq-project-setup"><summary>Project settings, drawings and BOM import</summary>
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                       <label className="builder-field compact"><span>Project name</span><input value={majorProjectState.summary.projectName} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.projectName = e.target.value; return draft; })} /></label>
                       <label className="builder-field compact"><span>Active option</span><select value={majorProjectState.activeOptionId} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.activeOptionId = e.target.value; return draft; })}>{majorProjectState.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
@@ -5571,35 +5280,10 @@ export default function QuotePreview() {
                       ) : null}
                     </div>
 
-                  </div>
+                  </details>
 
                     <div className="major-project-builder-shell">
-                    <div className="major-project-panel-intro">
-                      <div>
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="text-[14px] font-semibold text-[#16202b]">Mapped Builder</div>
-                            <div className="mt-1 text-[12px] text-[#627181]">Major Project now uses the mapped builder only. Start with components, then add optional bundles and customer quote lines when you need them.</div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="rounded-full border border-[#d7e0e8] bg-[#f8fbfd] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">
-                              Single workflow
-                            </span>
-                            <span
-                              aria-hidden="true"
-                              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#d7e0e8] bg-[#f8fbfd] text-[16px] text-[#435262] transition-transform group-open:rotate-180"
-                            >
-                              ▾
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-3 rounded-[16px] border border-[#ead7da] bg-white px-4 py-3 text-[13px] text-[#5d6772]">
-                        Existing Major Project options are normalized into mapped components automatically, so this workflow stays focused on the structured builder.
-                      </div>
-                    </div>
-
-                    {renderMajorProjectVendorQuoteIntake()}
+                    <details className="rq-disclosure"><summary>Import vendor quote</summary>{renderMajorProjectVendorQuoteIntake()}</details>
 
                       {majorProjectState.builderMode !== "advanced" ? (
                       <div className="space-y-4">
@@ -5828,43 +5512,21 @@ export default function QuotePreview() {
                           </details>
                         ) : null}
 
-                        {activeMajorOptionSimpleRows.length === 0 ? (
-                          <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No rows yet. Add the first Major Project row to start building pricing, cost, and margin directly.</div>
-                        ) : (
-                          <div className="space-y-3">
-                            {activeMajorOptionSimpleRows.map((row, index) => {
+<QuoteLineTable label="Major quote line items" rows={activeMajorOptionSimpleRows.map((row, index) => {
                               const rowRevenue = row.customerExtendedPrice;
                               const rowCost = row.ourExtendedCost;
                               const rowGrossProfit = rowRevenue - rowCost;
                               const rowMargin = majorProjectMarginPercent(rowRevenue, rowCost);
-                              return (
-                                <div key={row.id} className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                                    <div>
-                                      <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Major Project row {index + 1}</div>
-                                      <div className="mt-1 text-[18px] font-semibold text-[#16202b]">{row.label}</div>
-                                      <div className="major-project-chip-row mt-2">
-                                        <span className="major-project-chip">{majorProjectBucketLabel(row.bucket)}</span>
-                                        {row.optional ? <span className="major-project-chip">Option cost</span> : null}
-                                        <span className="major-project-chip">{row.quantity} {row.unit || "ea"}</span>
-                                        {row.importSource ? <span className="major-project-chip">Vendor quote: {row.importSource.vendorName || row.importSource.fileName}</span> : null}
-                                        {row.importSource?.rowNumber ? <span className="major-project-chip">Source row {row.importSource.rowNumber}</span> : null}
-                                      </div>
-                                    </div>
-                                    <div className="flex flex-wrap items-center justify-end gap-2">
-                                      <OptionalLineToggle checked={row.optional === true} label="Option cost" onChange={(checked) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, optional: checked }))} />
-                                      <RowActions
-                                        totalRows={activeMajorOptionSimpleRows.length}
-                                        rowNumber={index + 1}
-                                        onMoveUp={() => moveMajorProjectSimpleRow(row.id, -1)}
-                                        onMoveDown={() => moveMajorProjectSimpleRow(row.id, 1)}
-                                        onMoveTo={(targetPosition) => moveMajorProjectSimpleRowToPosition(row.id, targetPosition)}
-                                        onDuplicate={() => duplicateMajorProjectSimpleRow(row.id)}
-                                        onRemove={() => removeMajorProjectSimpleRow(row.id)}
-                                      />
-                                    </div>
-                                  </div>
-                                  {row.bucket === "hardware" ? (
+
+return {
+  id: row.id, accessibleName: row.label || `Item ${index + 1}`,
+  description: <input aria-label={`Major item ${index + 1} name`} value={row.label} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, label: event.target.value }))} />,
+  quantity: <input aria-label={`Major item ${index + 1} quantity`} type="number" min="0" step="0.01" value={row.quantity} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => { const quantity = Math.max(parseNumber(event.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), ourExtendedCost: Number((quantity * current.ourUnitCost).toFixed(2)) }; })} />,
+  rate: <input aria-label={`Major item ${index + 1} unit price`} type="number" min="0" step="0.01" value={row.customerUnitPrice} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} />,
+  cadence: row.bucket === "hardware" || row.bucket === "install" ? "One-time" : "Monthly",
+  total: formatCurrency(rowRevenue, currencyCode), optional: row.optional === true, onOptionalChange: (checked) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, optional: checked })),
+  actions: <RowActions totalRows={activeMajorOptionSimpleRows.length} rowNumber={index + 1} onMoveUp={() => moveMajorProjectSimpleRow(row.id, -1)} onMoveDown={() => moveMajorProjectSimpleRow(row.id, 1)} onMoveTo={(position) => moveMajorProjectSimpleRowToPosition(row.id, position)} onDuplicate={() => duplicateMajorProjectSimpleRow(row.id)} onRemove={() => removeMajorProjectSimpleRow(row.id)} />,
+  details: <div className="rq-component-details">                                  {row.bucket === "hardware" ? (
                                     <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
                                       <NormalizedHardwarePreviewCard
                                         imageUrl={row.imageUrl}
@@ -5913,11 +5575,8 @@ export default function QuotePreview() {
                                     <CommercialMetricCard label="Margin" value={formatPercent(rowMargin)} detail="Current row margin" tone={rowMargin >= 25 ? "success" : rowMargin > 0 ? "accent" : "warn"} />
                                     <CommercialMetricCard label="Proposal section" value={row.bucket === "hardware" ? "Section B" : row.bucket === "install" ? "Section C" : "Section A"} detail="Where this item lands downstream" />
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
+</div>,
+};})} />
                       </div>
                       ) : null}
 
@@ -5934,10 +5593,7 @@ export default function QuotePreview() {
                     >
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e8edf2] bg-[#fafcfd] p-4 text-[13px] text-[#5e6975]">
-                          <div>
-                            <strong className="text-[#16202b]">Components are the foundation for this workflow.</strong>
-                            <div className="mt-1">Set pricing, cost, schedule, and supporting specs here first. Leave items unassigned when they should flow straight to output.</div>
-                          </div>
+
                           <button type="button" className="pill-button pill-button-active" onClick={() => addMajorProjectComponent()}>Add component</button>
                         </div>
                         {majorProjectComponentBundleDraft ? (
@@ -5984,11 +5640,7 @@ export default function QuotePreview() {
                           <div className="major-project-toolbar-stat"><strong>{activeMajorOptionComponents.length}</strong><span>total</span></div>
                         </div>
 
-                        {activeMajorOptionComponents.length === 0 ? (
-                          <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No components yet. Add the first component so there is real pricing behind the project.</div>
-                        ) : filteredMajorProjectComponents.length === 0 ? (
-                          <div className="rounded-[18px] border border-dashed border-[#d9e0e7] bg-[#fbfcfe] p-5 text-[14px] text-[#5d6772]">No components match the current filter. Clear the search or schedule filter to see everything again.</div>
-                        ) : filteredMajorProjectComponents.map((component) => {
+<QuoteLineTable label="Major quote components" emptyMessage={activeMajorOptionComponents.length ? "No components match your search." : "No components added."} rows={filteredMajorProjectComponents.map((component) => {
                           const index = activeMajorOptionComponents.findIndex((entry) => entry.id === component.id);
                           const componentRevenue = component.customerExtendedPrice;
                           const componentCost = component.vendorExtendedCost;
@@ -5997,52 +5649,21 @@ export default function QuotePreview() {
                           const assignedBundleLabel = bundleOptions.find((bundle) => bundle.id === component.bundleAssignmentId)?.label ?? "Unassigned";
                           const isSelectedForBundle = majorProjectComponentBundleDraft?.selectedComponentIds.includes(component.id) ?? false;
                           const isBundleSource = majorProjectComponentBundleDraft?.sourceComponentId === component.id;
-                          return (
-                          <div key={component.id} className={`rounded-[18px] border bg-[#fbfcfe] p-4 ${isSelectedForBundle ? "border-[#c75b5b] bg-[#fff8f8]" : "border-[#dde3e8]"}`}>
-                            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Component {index + 1}</div>
-                                <div className="mt-1 text-[18px] font-semibold text-[#16202b]">{component.internalName || `Component ${index + 1}`}</div>
-                                <div className="major-project-chip-row mt-2">
-                                  <span className="major-project-chip">{component.schedule === "recurring" ? "Recurring" : "One-time"}</span>
-                                  {component.optional ? <span className="major-project-chip">Option cost</span> : null}
-                                  <span className="major-project-chip">{component.vendor || "No vendor"}</span>
-                                  <span className="major-project-chip">{assignedBundleLabel}</span>
-                                  {component.importSource ? <span className="major-project-chip">Vendor quote: {component.importSource.vendorName || component.importSource.fileName}</span> : null}
-                                  {component.importSource?.rowNumber ? <span className="major-project-chip">Source row {component.importSource.rowNumber}</span> : null}
-                                  {isBundleSource ? <span className="major-project-chip">Bundle anchor</span> : null}
-                                </div>
-                              </div>
-                              <div className="flex max-w-full flex-col items-stretch gap-2">
-                                <div className="flex flex-wrap justify-end gap-2">
-                                  <OptionalLineToggle checked={component.optional === true} label="Option cost" onChange={(checked) => updateActiveMajorComponent(component.id, (current) => ({ ...current, optional: checked }))} />
-                                  {majorProjectComponentBundleDraft ? (
-                                    <label className="inline-flex items-center gap-2 rounded-full border border-[#d7dde4] bg-white px-3 py-2 text-[12px] font-semibold text-[#24303b]">
-                                      <input
-                                        type="checkbox"
-                                        checked={isSelectedForBundle}
-                                        onChange={() => toggleMajorProjectComponentBundleSelection(component.id)}
-                                        disabled={isBundleSource}
-                                      />
-                                      {isBundleSource ? "Starting item" : "Include in bundle"}
-                                    </label>
-                                  ) : (
-                                    <button type="button" className="pill-button" onClick={() => startMajorProjectComponentBundleDraft(component)}>Bundle with this</button>
-                                  )}
-                                  <button type="button" className="pill-button" onClick={() => addMajorProjectComponent(component.bundleAssignmentId ?? "")}>Add similar</button>
-                                </div>
-                                <RowActions
-                                  rowNumber={index + 1}
-                                  totalRows={activeMajorOptionComponents.length}
-                                  onMoveUp={() => moveMajorProjectComponent(component.id, -1)}
-                                  onMoveDown={() => moveMajorProjectComponent(component.id, 1)}
-                                  onMoveTo={(targetPosition) => moveMajorProjectComponentToPosition(component.id, targetPosition)}
-                                  onDuplicate={() => duplicateMajorProjectComponent(component.id)}
-                                  onRemove={() => removeMajorProjectComponent(component.id)}
-                                />
-                              </div>
-                            </div>
-                            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+
+return {
+  id: component.id, accessibleName: component.internalName || `Component ${index + 1}`,
+  description: <input aria-label={`Component ${index + 1} name`} value={component.internalName} onChange={(event) => updateActiveMajorComponent(component.id, (current) => ({ ...current, internalName: event.target.value }))} />,
+  quantity: <input aria-label={`Component ${index + 1} quantity`} type="number" min="0" step="0.01" value={component.quantity} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const quantity = Math.max(parseNumber(event.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), vendorExtendedCost: Number((quantity * current.vendorUnitCost).toFixed(2)) }; })} />,
+  rate: <input aria-label={`Component ${index + 1} unit price`} type="number" min="0" step="0.01" value={component.customerUnitPrice} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} />,
+  cadence: <select aria-label={`Component ${index + 1} billing`} value={component.schedule} onChange={(event) => updateActiveMajorComponent(component.id, (current) => ({ ...current, schedule: event.target.value as MajorProjectComponent["schedule"] }))}><option value="one_time">One-time</option><option value="recurring">Monthly</option></select>,
+  total: formatCurrency(componentRevenue, currencyCode),
+  optional: component.optional === true, onOptionalChange: (checked) => updateActiveMajorComponent(component.id, (current) => ({ ...current, optional: checked })),
+  actions: <RowActions rowNumber={index + 1} totalRows={activeMajorOptionComponents.length} onMoveUp={() => moveMajorProjectComponent(component.id, -1)} onMoveDown={() => moveMajorProjectComponent(component.id, 1)} onMoveTo={(position) => moveMajorProjectComponentToPosition(component.id, position)} onDuplicate={() => duplicateMajorProjectComponent(component.id)} onRemove={() => removeMajorProjectComponent(component.id)} />,
+  details: <div className="rq-component-details">
+    <div className="rq-detail-actions"><span>{assignedBundleLabel}</span>
+    {majorProjectComponentBundleDraft ? <label className="rq-checkbox"><input type="checkbox" checked={isSelectedForBundle} onChange={() => toggleMajorProjectComponentBundleSelection(component.id)} disabled={isBundleSource} />{isBundleSource ? "Starting item" : "Include in bundle"}</label> : <button type="button" className="rq-button" onClick={() => startMajorProjectComponentBundleDraft(component)}>Bundle with this</button>}
+    <button type="button" className="rq-button" onClick={() => addMajorProjectComponent(component.bundleAssignmentId ?? "")}>Add similar</button></div>
+                                <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
                               <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Component name</span><input value={component.internalName} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
                               <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Customer label (optional)</span><input value={component.customerFacingLabel ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, customerFacingLabel: e.target.value }))} /></label>
                               <label className="builder-field compact">
@@ -6151,8 +5772,9 @@ export default function QuotePreview() {
                               <CommercialMetricCard label="Gross profit" value={formatCurrency(componentGrossProfit, currencyCode)} detail="Revenue minus cost" tone={componentGrossProfit >= 0 ? "success" : "warn"} />
                               <CommercialMetricCard label="Margin" value={formatPercent(componentMargin)} detail="Live component margin" tone={componentMargin >= 25 ? "success" : componentMargin > 0 ? "accent" : "warn"} />
                             </div>
-                          </div>
-                        );})}
+
+  </div>,
+};})} />
                       </div>
                     </MajorProjectStepCard>
 
@@ -6391,7 +6013,7 @@ export default function QuotePreview() {
                     )}
                   </div>
 
-                  <div className="mt-4 rounded-[18px] border border-[#dbe3ea] bg-[#f8fafc] p-4">
+                  <details className="rq-disclosure"><summary>Internal project totals</summary>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Project rollup</div>
@@ -6412,86 +6034,198 @@ export default function QuotePreview() {
                         <CommercialMetricCard label="Contract gross margin" value={formatPercent(majorProjectMetrics.totalContractGrossMarginPercent)} detail="Margin on full contract basis" tone={majorProjectMetrics.totalContractGrossMarginPercent >= 25 ? "success" : majorProjectMetrics.totalContractGrossMarginPercent > 0 ? "accent" : "warn"} />
                       </div>
                     </div>
-                  </div>
+                  </details>
                 </div>
               )}
 
-            </section>
 
-            <section className="builder-panel">
-              <div className="builder-panel-header">
-                <div><div className="builder-eyebrow">Section controls</div><h2 className="builder-title">Turn proposal sections on only when they are needed</h2></div>
-                <div className="flex flex-wrap gap-2">
-                  <SectionToggle label="Executive Summary" enabled={quote.executiveSummary.enabled} onChange={(next) => updateQuote((draft) => { draft.executiveSummary.enabled = next; return draft; })} />
-                  <SectionToggle label="Connectivity service" enabled={quote.sections.sectionA.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionA.enabled = next; return draft; })} />
-                  <SectionToggle label="Hardware" enabled={quote.sections.sectionB.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionB.enabled = next; return draft; })} />
-                  <SectionToggle label="Install / site services" enabled={quote.sections.sectionC.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionC.enabled = next; return draft; })} />
+              {!isMajorProject && !quote.sections.sectionA.enabled && !quote.sections.sectionB.enabled && !quote.sections.sectionC.enabled && <p className="rq-empty">Choose a section to add line items.</p>}
+            </div>
+            <div hidden={visibleEditorTab !== "pricing"} aria-labelledby="rq-nav-pricing">
+              <section className="builder-panel">
+  <div className="rq-section-heading"><h2>Pricing</h2><span>{currencyCode}</span></div>
+  <fieldset className="rq-mode-group"><legend>Quote type</legend><div className="rq-segmented">
+    {(["purchase", "lease"] as QuoteType[]).map((type) => <button key={type} type="button" aria-pressed={quote.metadata.quoteType === type} onClick={() => updateQuote((draft) => { draft.metadata.quoteType = type; return draft; })}>{type === "purchase" ? "Purchase" : "Lease"}</button>)}
+  </div></fieldset>
+  {isLeaseQuote && <div className="rq-lease-settings">
+    <label className="builder-field"><span>Lease term</span><select value={selectedLeaseTerm} onChange={(event) => updateQuote((draft) => { draft.metadata.leaseTermMonths = Number(event.target.value) as LeaseTermMonths; return draft; })}>{[3, 6, 9, 12, 24, 36].map((term) => <option key={term} value={term}>{term} months</option>)}</select></label>
+    <label className="rq-checkbox"><input type="checkbox" checked={hasActiveDataAgreement} onChange={(event) => updateQuote((draft) => { draft.metadata.hasActiveDataAgreement = event.target.checked; return draft; })} />Active data agreement</label>
+    {!hasActiveDataAgreement && <p className="rq-notice rq-notice-warning" role="status">An active data agreement is required for lease pricing.</p>}
+  </div>}
+</section>
+                          <section className="builder-panel">
+              <div className="builder-panel-header"><div><div className="builder-eyebrow">Quote setup</div><h2 className="builder-title">Quote details</h2></div></div>
+
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]">
+                  <span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Quote number</span>
+                  <strong className="mt-1 block text-[16px] text-[#16202b]">{quote.metadata.proposalNumber}</strong>
+                  <span className="mt-1 block">Assigned automatically for new quotes and preserved on saved drafts.</span>
                 </div>
+                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]">
+                  <span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Environment</span>
+                  <strong className="mt-1 block text-[16px] text-[#16202b]">{RAPIDQUOTE_DEPLOYMENT_BRANDING.label}</strong>
+                  <span className="mt-1 block">This deployment is locked to {RAPIDQUOTE_DEPLOYMENT_BRANDING.legalName}. Quotes here do not switch between companies.</span>
+                </div>
+                <label className="builder-field"><span>Proposal date</span><input value={quote.metadata.proposalDate} onChange={(e) => updateQuote((draft) => { draft.metadata.proposalDate = e.target.value; draft.documentation.proposalDateLabel = e.target.value; return draft; })} /></label>
+                <label className="builder-field"><span>Proposal title</span><input value={quote.metadata.documentTitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentTitle = e.target.value; draft.documentation.proposalTitle = e.target.value; return draft; })} /></label>
+                <label className="builder-field"><span>Status</span><select value={quote.metadata.status} onChange={(e) => updateQuote((draft) => { draft.metadata.status = e.target.value as QuoteRecord["metadata"]["status"]; draft.internal.quoteStatus = e.target.value as QuoteRecord["metadata"]["status"]; return draft; })}>{QUOTE_STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
               </div>
-              <details className="mt-4 rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                <summary className="cursor-pointer list-none text-[14px] font-semibold text-[#16202b]">Advanced section labels and extra fields</summary>
-                <div className="mt-4 grid gap-4 md:grid-cols-3">
-                  <label className="builder-field"><span>Section A label</span><input value={quote.sections.sectionA.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.builderLabel = e.target.value; return draft; })} /></label>
-                  <label className="builder-field"><span>Section B label</span><input value={quote.sections.sectionB.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.builderLabel = e.target.value; return draft; })} /></label>
-                  <label className="builder-field"><span>Section C label</span><input value={quote.sections.sectionC.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.builderLabel = e.target.value; return draft; })} /></label>
-                </div>
-                <div className="mt-4 space-y-3">
-                {customSectionFields.map((field, index) => (
-                  <div key={field.id} className="rounded-[18px] border border-[#dde3e8] bg-white p-4">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                      <div className="text-[13px] font-semibold text-[#16202b]">
-                        {field.visibility === "customer" ? `Customer detail ${index + 1}` : `Internal note ${index + 1}`}
-                      </div>
-                      <div className={`rounded-full px-3 py-1 text-[12px] font-semibold ${field.visibility === "customer" ? "bg-[#ecf7ee] text-[#25643b]" : "bg-[#eef2f7] text-[#51606f]"}`}>
-                        {field.visibility === "customer" ? "Appears in proposal" : "Builder only"}
-                      </div>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-[1fr_1.2fr_.8fr_auto]">
-                      <label className="builder-field compact"><span>{field.visibility === "customer" ? "Customer-facing label" : "Internal label"}</span><input value={field.label} onChange={(e) => {
-                        const nextValue = e.target.value;
-                        setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, label: nextValue } : item));
-                        updateQuote((draft) => {
-                          draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, label: nextValue } : item);
-                          return draft;
-                        });
-                      }} /></label>
-                      <label className="builder-field compact"><span>{field.visibility === "customer" ? "Customer-facing value" : "Internal note"}</span><input value={field.value} onChange={(e) => {
-                        const nextValue = e.target.value;
-                        setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, value: nextValue } : item));
-                        updateQuote((draft) => {
-                          draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, value: nextValue } : item);
-                          return draft;
-                        });
-                      }} /></label>
-                      <label className="builder-field compact"><span>Visibility</span><select value={field.visibility} onChange={(e) => {
-                        const nextVisibility = e.target.value as QuoteCustomField["visibility"];
-                        setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, visibility: nextVisibility } : item));
-                        updateQuote((draft) => {
-                          draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, visibility: nextVisibility } : item);
-                          return draft;
-                        });
-                      }}><option value="customer">Customer detail</option><option value="internal">Internal note</option></select></label>
-                      <button type="button" className="danger-button self-end" onClick={() => {
-                        setCustomSectionFields((current) => current.filter((item) => item.id !== field.id));
-                        updateQuote((draft) => {
-                          draft.customFields = (draft.customFields ?? []).filter((item) => item.id !== field.id);
-                          return draft;
-                        });
-                      }}>Remove</button>
-                    </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <label className="builder-field"><span>Proposal owner</span><select value={quote.metadata.ownerUserId ?? activeProposal?.owner.id ?? mockUsers[0].id} onChange={(e) => updateQuote((draft) => { const owner = mockUsers.find((user) => user.id === e.target.value) ?? mockUsers[0]; draft.metadata.ownerUserId = owner.id; draft.metadata.ownerName = owner.name; draft.internal.workspaceOwnerId = owner.id; draft.internal.workspaceOwnerName = owner.name; draft.internal.crmOwnerLabel = owner.name; return draft; })}>{mockUsers.map((user) => <option key={user.id} value={user.id}>{user.name} — {user.role}</option>)}</select></label>
+                <label className="builder-field"><span>Owner display name</span><input value={quote.metadata.ownerName ?? activeProposal?.owner.name ?? ""} onChange={(e) => updateQuote((draft) => { draft.metadata.ownerName = e.target.value; draft.internal.workspaceOwnerName = e.target.value; draft.internal.crmOwnerLabel = e.target.value; return draft; })} /></label>
+                <label className="builder-field"><span>Account name</span><input value={quote.metadata.accountName ?? quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.metadata.accountName = e.target.value; return draft; })} /></label>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+                <label className="builder-field"><span>Proposal subtitle</span><input value={quote.metadata.documentSubtitle} onChange={(e) => updateQuote((draft) => { draft.metadata.documentSubtitle = e.target.value; return draft; })} /></label>
+                <div className="rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]"><span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Customer on this draft</span><strong className="mt-1 block text-[16px] text-[#16202b]">{customerHeadline}</strong><span className="mt-1 block">{customerSubline || "Use Customer entry above to edit customer details."}</span></div>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+                <label className="builder-field"><span>Expiration date</span><input value={quote.metadata.expirationDate ?? ""} onChange={(e) => updateQuote((draft) => { draft.metadata.expirationDate = e.target.value; return draft; })} /></label>
+                <label className="builder-field"><span>Sales tax amount</span><input type="number" min="0" step="0.01" value={quote.metadata.salesTaxAmount ?? 0} onChange={(e) => updateQuote((draft) => { draft.metadata.salesTaxAmount = Number(e.target.value || 0); return draft; })} /></label>
+              </div>
+
+              <details className="mt-4 rounded-[18px] border border-[#e2e7ec] bg-[#fbfcfe] px-4 py-3 text-[13px] text-[#51606d]">
+                <summary className="cursor-pointer list-none font-semibold text-[#16202b]">Internal record details</summary>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-[14px] bg-white px-4 py-3">
+                    <span className="block text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Internal proposal ID</span>
+                    <strong className="mt-1 block text-[#16202b]">{activeProposal?.id ?? quote.internal.savedProposalId ?? quote.internal.quoteId}</strong>
                   </div>
-                ))}
-                <div className="flex flex-wrap gap-3">
-                  <button type="button" className="pill-button pill-button-active" onClick={() => addCustomSectionField("customer")}>Add customer detail</button>
-                  <button type="button" className="pill-button" onClick={() => addCustomSectionField("internal")}>Add internal note</button>
-                </div>
+                  <div className="rounded-[14px] bg-white px-4 py-3">
+                    <span className="block text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Account ID</span>
+                    <strong className="mt-1 block text-[#16202b]">{quote.metadata.accountId?.trim() || "Not set"}</strong>
+                    <span className="mt-1 block">Hidden from the normal quoting surface and kept read-only here.</span>
+                  </div>
                 </div>
               </details>
-            </section>
 
-            <section className="builder-panel">
+              <details className="mt-5 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
+                <summary className="cursor-pointer list-none">
+                  <div className="builder-eyebrow">Prepared by</div>
+                  <div className="mt-1 text-[18px] font-semibold text-[#16202b]">{selectedBranding.label} contact and sender details</div>
+                </summary>
+                <div className="mt-4 space-y-4 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
+                  <div className="flex items-start gap-3">
+                    <img src={selectedBranding.logoSrc} alt={selectedBranding.logoAlt} className="workspace-logo-inline h-auto max-h-[34px] w-auto object-contain" />
+                    <div>
+                      <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{selectedBranding.shortName}</div>
+                      <div className="mt-1 text-[18px] font-semibold text-[#16202b]">Sales contact</div>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="builder-field compact"><span>Prepared by</span><input value={quote.inet.contactName} onChange={(e) => updateQuote((draft) => { draft.inet.contactName = e.target.value; return draft; })} /></label>
+                    <label className="builder-field compact"><span>Sales team name</span><input value={quote.inet.name} onChange={(e) => updateQuote((draft) => { draft.inet.name = e.target.value; return draft; })} /></label>
+                    <label className="builder-field compact"><span>Sales phone</span><input value={quote.inet.contactPhone} onChange={(e) => updateQuote((draft) => { draft.inet.contactPhone = e.target.value; return draft; })} /></label>
+                    <label className="builder-field compact"><span>Sales email</span><input value={quote.inet.contactEmail} onChange={(e) => updateQuote((draft) => { draft.inet.contactEmail = e.target.value; return draft; })} /></label>
+                  </div>
+                </div>
+              </details>
+
+</section>
+            </div>
+            <div hidden={visibleEditorTab !== "documents"} aria-labelledby="rq-nav-documents">
+              <section className="builder-panel"><div className="rq-section-heading"><h2>Terms and warranty</h2></div>          <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#fbfcfe] px-4 py-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Terms package</div>
+                <div className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">Proposal terms and conditions package</div>
+                <div className="mt-2 text-[13px] text-[#60707f]">Choose the legal/commercial terms set that should flow into the proposal output. Placeholder packages are supported until final legal text is ready.</div>
+              </div>
+              <label className="builder-field compact min-w-[260px]">
+                <span>Applied package</span>
+                <select value={quote.terms.selectedPackageKey ?? "starlink_only"} onChange={(e) => applyTermsPackage(e.target.value as (typeof TERMS_PACKAGES)[number]["key"])}>
+                  {TERMS_PACKAGES.map((entry) => <option key={entry.key} value={entry.key}>{entry.label}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="mt-3 rounded-[14px] border border-[#e3e8ee] bg-white px-3 py-3 text-[13px] text-[#435160]">
+              {TERMS_PACKAGES.find((entry) => entry.key === (quote.terms.selectedPackageKey ?? "starlink_only"))?.description ?? TERMS_PACKAGES[0].description}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#fbfcfe] px-4 py-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8b96a3]">Warranty handling</div>
+                <div className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-[#16202b]">Quote-level warranty reference</div>
+                <div className="mt-2 text-[13px] text-[#60707f]">
+                  Capture the manufacturer warranty reference and any quote-specific handling notes that should flow into the proposal. This keeps warranty language flexible by quote instead of assuming one standard block.
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]">
+                <input
+                  type="checkbox"
+                  checked={quote.warranty.enabled}
+                  onChange={(e) => updateQuote((draft) => {
+                    draft.warranty.enabled = e.target.checked;
+                    return draft;
+                  })}
+                />
+                Include in proposal
+              </label>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="builder-field compact md:col-span-2">
+                <span>Section heading</span>
+                <input
+                  value={quote.warranty.heading}
+                  onChange={(e) => updateQuote((draft) => {
+                    draft.warranty.heading = e.target.value;
+                    return draft;
+                  })}
+                />
+              </label>
+              <label className="builder-field compact md:col-span-2">
+                <span>Manufacturer / source reference</span>
+                <input
+                  value={quote.warranty.manufacturerReference}
+                  onChange={(e) => updateQuote((draft) => {
+                    draft.warranty.manufacturerReference = e.target.value;
+                    return draft;
+                  })}
+                  placeholder="Quoted hardware follows the applicable manufacturer warranty coverage"
+                />
+              </label>
+              <label className="builder-field compact md:col-span-2">
+                <span>Coverage note</span>
+                <textarea
+                  rows={3}
+                  value={quote.warranty.coverageNote}
+                  onChange={(e) => updateQuote((draft) => {
+                    draft.warranty.coverageNote = e.target.value;
+                    return draft;
+                  })}
+                  placeholder="Note any quote-specific coverage limits, registration requirements, or manufacturer exceptions"
+                />
+              </label>
+              <label className="builder-field compact md:col-span-2">
+                <span>Claim / handling note</span>
+                <textarea
+                  rows={3}
+                  value={quote.warranty.claimNote ?? ""}
+                  onChange={(e) => updateQuote((draft) => {
+                    draft.warranty.claimNote = e.target.value;
+                    return draft;
+                  })}
+                  placeholder="Explain how warranty claims, labor, shipping, or exclusions should be handled for this quote"
+                />
+              </label>
+            </div>
+            <div className="mt-3 rounded-[14px] border border-[#e3e8ee] bg-white px-3 py-3 text-[13px] text-[#435160]">
+              {quote.warranty.enabled
+                ? `Proposal output will include ${quote.warranty.heading.toLowerCase()} with the manufacturer reference and any quote-specific coverage notes entered here.`
+                : "Warranty guidance is saved on the quote but hidden from the customer-facing proposal until you enable it."}
+            </div>
+          </div>
+
+</section>
+                          <section className="builder-panel">
               <div className="builder-panel-header">
-                <div><div className="builder-eyebrow">Executive Summary</div><h2 className="builder-title">Summary for the proposal intro page</h2></div>
+                <div><div className="builder-eyebrow">Executive Summary</div><h2 className="builder-title">Executive summary</h2></div>
                 <div className="flex flex-wrap gap-2">
                   <SectionToggle label="Include in proposal" enabled={quote.executiveSummary.enabled} onChange={(next) => updateQuote((draft) => { draft.executiveSummary.enabled = next; return draft; })} />
                   <button type="button" className="pill-button pill-button-active" onClick={generateExecutiveSummary}>Generate draft summary</button>
@@ -6578,327 +6312,123 @@ export default function QuotePreview() {
               </div>
             </section>
 
-            {!isMajorProject && quote.sections.sectionA.enabled && (
-              <section className="builder-panel">
-                <div className="builder-panel-header">
-                  <div><div className="builder-eyebrow">Quick Quote step 1</div><h2 className="builder-title">Connectivity service line items</h2></div>
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" className={`pill-button ${quote.sections.sectionA.mode === "pool" ? "pill-button-active" : ""}`} onClick={() => updateQuote((draft) => { draft.sections.sectionA.mode = "pool"; return draft; })}>Pool pricing</button>
-                    <button type="button" className={`pill-button ${quote.sections.sectionA.mode === "per_kit" ? "pill-button-active" : ""}`} onClick={() => updateQuote((draft) => { draft.sections.sectionA.mode = "per_kit"; return draft; })}>Per-kit pricing</button>
-                  </div>
-                </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
-                  <label className="builder-field"><span>Section title</span><input value={quote.sections.sectionA.title} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.title = e.target.value; return draft; })} /></label>
-                  <label className="builder-field"><span>Term (months)</span><input type="number" value={quote.sections.sectionA.termMonths} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.termMonths = parseNumber(e.target.value); return draft; })} /></label>
-                  <label className="builder-field"><span>Quick add service row</span><select defaultValue="" onChange={(e) => { if (e.target.value) { addSectionARowFromCatalog(e.target.value); e.target.value = ""; } }}><option value="">Choose an item…</option>{filteredSectionACatalog.map((item) => <option key={item.id} value={item.id}>{item.label} — {formatCurrency(item.defaultUnitPrice, currencyCode)}</option>)}</select></label>
-                </div>
-
-                <div className="mt-4 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                  <div className="builder-eyebrow">Fast data add</div>
-                  <h3 className="mt-1 text-[18px] font-semibold text-[#16202b]">Better quick-add options</h3>
-                  <div className="mt-3 grid gap-3 md:grid-cols-[.9fr_.8fr_auto_auto]">
-                    <label className="builder-field compact"><span>Amount</span><input type="number" min="0" step="0.1" value={dataQuickAddValue} onChange={(e) => setDataQuickAddValue(e.target.value)} /></label>
-                    <label className="builder-field compact"><span>Unit</span><select value={dataQuickAddUnit} onChange={(e) => setDataQuickAddUnit(e.target.value as DataQuickAddUnit)}><option value="GB">GB</option><option value="TB">TB</option></select></label>
-                    <button type="button" className="pill-button" onClick={() => { setDataQuickAddValue("1"); setDataQuickAddUnit("TB"); addCustomDataRow({ value: "1", unit: "TB" }); }}>Quick add 1 TB</button>
-                    <button type="button" className="pill-button pill-button-active" onClick={() => addCustomDataRow()}>Add custom data row</button>
-                  </div>
-                </div>
-
-                <label className="builder-field mt-4"><span>Section intro</span><textarea value={quote.sections.sectionA.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.introText = e.target.value; return draft; })} rows={3} /></label>
-
-                <div className="mt-5 space-y-3">
-                  {activeSectionARows.map((row, index) => (
-                    <div key={row.id} className="line-editor-card">
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Section A row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">{row.rowType === "support" ? "Support and portal access" : "Monthly service line"}</div></div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <OptionalLineToggle checked={isOptionalLineItem(row)} onChange={(checked) => updateActiveSectionARow(row.id, "optional", checked)} />
-                          <RowActions totalRows={activeSectionARows.length} rowNumber={index + 1} onMoveUp={() => moveActiveSectionARow(row.id, -1)} onMoveDown={() => moveActiveSectionARow(row.id, 1)} onMoveTo={(targetPosition) => moveActiveSectionAToPosition(row.id, targetPosition)} onDuplicate={() => duplicateActiveSectionARow(row.id)} onRemove={() => removeActiveSectionARow(row.id)} />
-                        </div>
-                      </div>
-                      <div className="grid gap-3 lg:grid-cols-[2fr_.8fr_.8fr_1fr]">
-                        <label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateActiveSectionARow(row.id, "description", e.target.value)} /></label>
-                        <label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity ?? ""} onChange={(e) => updateActiveSectionARow(row.id, "quantity", e.target.value)} disabled={row.rowType === "support"} /></label>
-                        <label className="builder-field compact"><span>Unit label</span><input value={row.unitLabel ?? ""} onChange={(e) => updateActiveSectionARow(row.id, "unitLabel", e.target.value)} disabled={row.rowType === "support"} /></label>
-                        <label className="builder-field compact"><span>{row.rowType === "overage" ? "Rate / GB" : "Monthly rate"}</span><input type="number" step="0.01" value={row.monthlyRate ?? row.unitPrice ?? ""} onChange={(e) => updateActiveSectionARow(row.id, "monthlyRate", e.target.value)} disabled={row.rowType === "support"} /></label>
-                      </div>
-                      {row.rowType === "support" && <label className="builder-field compact mt-3"><span>Support details (one per line)</span><textarea rows={3} value={(row.includedText ?? []).join("\n")} onChange={(e) => updateActiveSectionARow(row.id, "includedText", e.target.value)} /></label>}
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.rowType === "support" ? "Included support and portal access" : "Monthly service line"}</span><span>{row.rowType === "support" ? "Included with service" : `Subtotal: ${formatCurrency(row.totalMonthlyRate ?? row.monthlyRate ?? 0, currencyCode)}`}</span></div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {!isMajorProject && quote.sections.sectionB.enabled && (
-              <section className="builder-panel">
-                <div className="builder-panel-header">
-                  <div><div className="builder-eyebrow">Quick Quote step 2</div><h2 className="builder-title">Hardware</h2></div>
-                </div>
-
-                <label className="builder-field"><span>Section note</span><textarea rows={3} value={quote.sections.sectionB.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.introText = e.target.value; return draft; })} /></label>
-
-                {suggestedAccessories.length > 0 && (
-                  <div className="mt-4 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                    <div className="builder-eyebrow">Smart suggestions</div>
-                    <h3 className="mt-1 text-[18px] font-semibold text-[#16202b]">Accessory suggestions based on selected Starlink device</h3>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      {suggestedAccessories.map(({ terminalType, item }) => (
-                        <div key={item.id} className="rounded-[18px] border border-[#d9e0e7] bg-white p-4">
-                          <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">For {terminalType}</div>
-                          <div className="mt-1 text-[16px] font-semibold text-[#16202b]">{item.label}</div>
-                          <div className="mt-1 text-[13px] text-[#60707f]">{item.description}</div>
-                          <button type="button" className="mt-3 pill-button pill-button-active" onClick={() => addEquipmentRow(item.id)}>Add suggested accessory</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-5 grid gap-4 xl:grid-cols-[1.3fr_.9fr]">
-                  <div className="rounded-[24px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="builder-eyebrow">Recommended items</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Hardware picker</h3></div><div className="text-[13px] text-[#66717d]">{filteredEquipmentCatalog.length} match(es)</div></div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_.8fr]"><label className="builder-field compact"><span>Search Hardware</span><input placeholder="router, mini, mount, cable..." value={equipmentSearch} onChange={(e) => setEquipmentSearch(e.target.value)} /></label><label className="builder-field compact"><span>Category</span><select value={equipmentCategoryFilter} onChange={(e) => setEquipmentCategoryFilter(e.target.value)}>{equipmentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label></div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">{filteredEquipmentCatalog.map((item) => <div key={item.id} className="rounded-[20px] border border-[#d9e0e7] bg-white p-4 shadow-[0_8px_20px_rgba(31,42,52,0.05)]"><div className="flex items-start justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">{item.category}</div><h4 className="mt-1 text-[16px] font-semibold text-[#16202b]">{item.label}</h4></div></div><p className="mt-2 text-[13px] leading-[1.5] text-[#60707f]">{item.description ?? "Recommended equipment item."}</p><div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[#66717d]">{item.terminalType && <span className="rounded-full bg-[#f6f8fb] px-3 py-1">Type: {item.terminalType}</span>}<span className="rounded-full bg-[#f6f8fb] px-3 py-1">Recommended</span></div><button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={() => addEquipmentRow(item.id)}>Add to Hardware Rows</button></div>)}</div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="rounded-[24px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
-                      <div className="builder-eyebrow">Custom item</div><h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Manual Hardware Row</h3>
-                      <div className="mt-4 grid gap-3 md:grid-cols-2"><label className="builder-field compact"><span>Item name</span><input value={customEquipmentDraft.itemName} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, itemName: e.target.value }))} /></label><label className="builder-field compact"><span>Image URL</span><input value={customEquipmentDraft.imageUrl} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, imageUrl: e.target.value }))} placeholder="https://..." /></label><label className="builder-field compact"><span>Category</span><input value={customEquipmentDraft.itemCategory} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, itemCategory: e.target.value }))} /></label><label className="builder-field compact"><span>Terminal type</span><input value={customEquipmentDraft.terminalType} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, terminalType: e.target.value }))} /></label><label className="builder-field compact"><span>Part #</span><input value={customEquipmentDraft.partNumber} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, partNumber: e.target.value }))} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={customEquipmentDraft.quantity} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, quantity: e.target.value }))} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={customEquipmentDraft.unitPrice} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, unitPrice: e.target.value }))} /></label></div>
-                      <label className="builder-field compact mt-3"><span>Description / notes</span><textarea rows={3} value={customEquipmentDraft.description} onChange={(e) => setCustomEquipmentDraft((current) => ({ ...current, description: e.target.value }))} /></label>
-                      <button type="button" className="mt-4 pill-button pill-button-active w-full" onClick={addCustomEquipmentRow}>Add Custom Hardware Row</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 space-y-3">{quote.sections.sectionB.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Hardware row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">{row.sourceType === "standard" ? "Recommended line" : "Custom line"}</div></div><div className="flex flex-wrap items-center gap-2"><OptionalLineToggle checked={isOptionalLineItem(row)} onChange={(checked) => updateEquipmentRow(row.id, "optional", checked)} /><RowActions totalRows={quote.sections.sectionB.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveEquipmentRow(row.id, -1)} onMoveDown={() => moveEquipmentRow(row.id, 1)} onMoveTo={(targetPosition) => moveEquipmentRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateEquipmentRow(row.id)} onRemove={() => removeEquipmentRow(row.id)} /></div></div><div className="grid gap-4 lg:grid-cols-[160px_minmax(0,1fr)]"><div className="rounded-[18px] border border-[#dce3ea] bg-[#f8fbfd] p-3">{row.imageUrl ? <img src={row.imageUrl} alt={row.itemName} className="h-[132px] w-full rounded-[12px] bg-white object-contain" /> : <div className="flex h-[132px] items-center justify-center rounded-[12px] border border-dashed border-[#d8e1e8] bg-white px-3 text-center text-[12px] text-[#7a8794]">Add an image URL to show a normalized hardware preview.</div>}</div><div><div className="grid gap-3 lg:grid-cols-[1.7fr_1fr_.7fr_.8fr]"><label className="builder-field compact"><span>Item</span><input value={row.itemName} onChange={(e) => updateEquipmentRow(row.id, "itemName", e.target.value)} /></label><label className="builder-field compact"><span>Category</span><input value={row.itemCategory ?? ""} onChange={(e) => updateEquipmentRow(row.id, "itemCategory", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateEquipmentRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit Price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateEquipmentRow(row.id, "unitPrice", e.target.value)} /></label></div><div className="mt-3 grid gap-3 lg:grid-cols-3"><label className="builder-field compact"><span>Image URL</span><input value={row.imageUrl ?? ""} onChange={(e) => updateEquipmentRow(row.id, "imageUrl", e.target.value)} placeholder="https://..." /></label><label className="builder-field compact"><span>Terminal Type</span><input value={row.terminalType ?? ""} onChange={(e) => updateEquipmentRow(row.id, "terminalType", e.target.value)} /></label><label className="builder-field compact"><span>Part #</span><input value={row.partNumber ?? ""} onChange={(e) => updateEquipmentRow(row.id, "partNumber", e.target.value)} /></label></div><div className="mt-3 grid gap-3 lg:grid-cols-2"><label className="builder-field compact"><span>Reference</span><input value={row.sourceLabel ?? ""} onChange={(e) => updateEquipmentRow(row.id, "sourceLabel", e.target.value)} /></label><label className="builder-field compact"><span>Description / Notes</span><input value={row.description ?? ""} onChange={(e) => updateEquipmentRow(row.id, "description", e.target.value)} /></label></div><div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.sourceType === "custom" ? "Custom hardware line" : "Recommended hardware line"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div></div></div>)}</div>
-              </section>
-            )}
-
-            {!isMajorProject && quote.sections.sectionC.enabled && (
-              <section className="builder-panel">
-                <div className="builder-panel-header"><div><div className="builder-eyebrow">Quick Quote step 3</div><h2 className="builder-title">Install and site service line items</h2></div><button type="button" className="pill-button pill-button-active" onClick={addServiceRow}>Add service row</button></div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="builder-field"><span>Section title</span><input value={quote.sections.sectionC.title} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.title = e.target.value; draft.sections.sectionC.builderLabel = e.target.value; return draft; })} /></label>
-                  <label className="builder-field"><span>Section intro / note</span><textarea rows={3} value={quote.sections.sectionC.introText ?? ""} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.introText = e.target.value; return draft; })} /></label>
-                </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{servicePresetTemplates.map((preset) => <button key={preset.key} type="button" className="pill-button" onClick={() => addPresetServiceRow(preset.key)}>{preset.label}</button>)}</div>
-
-                <div className="mt-5 rounded-[20px] border border-[#dde3e8] bg-[#fbfcfe] p-4 md:p-5">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className="builder-eyebrow">Service agreement defaults</div>
-                      <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">
-                        {quoteServiceAgreementProfile.agreementLabel || "Customer SLA pricing profile"}
-                      </h3>
-                      <p className="mt-2 text-[13px] leading-[1.55] text-[#60707f]">
-                        Keep SLA pricing defaults with the install and site service workflow, then add the categories you need into Section C.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button type="button" className="pill-button" onClick={() => void handleExportServiceAgreement()}>
-                        Export SLA Document
-                      </button>
-                      {selectedCustomerProfile && hasSelectedCustomerServiceAgreement ? (
-                        <button type="button" className="pill-button" onClick={applyCustomerServiceAgreementDefaults}>
-                          Refresh from customer defaults
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Agreement</strong>{quoteServiceAgreementProfile.agreementLabel || "No SLA name set"}<br />{quote.serviceAgreement.sourceCustomerProfileName || quote.customer.name || "Not linked to a saved customer"}</div>
-                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Attachment</strong>{quoteServiceAgreementProfile.sourceDocument?.fileName || "No source document reference"}<br />{quoteServiceAgreementProfile.sourceDocument?.note || quoteServiceAgreementProfile.sourceDocument?.fileUrl || "Signed/source PDF can be referenced here"}</div>
-                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Accepted dates</strong>{quoteServiceAgreementProfile.signedDate || "No signed date"}<br />{quoteServiceAgreementProfile.acceptedDate || "No accepted date"}</div>
-                    <div className="rounded-[18px] border border-[#e2e7ec] bg-white p-4 text-[13px] text-[#51606d]"><strong className="block text-[#16202b]">Ready categories</strong>{activeServiceAgreementCategories.length} pricing default{activeServiceAgreementCategories.length === 1 ? "" : "s"}<br />{quote.serviceAgreement.lastAppliedAt ? "Applied to this quote" : "Quote-level profile ready to use"}</div>
-                  </div>
-
-                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <label className="builder-field compact xl:col-span-2"><span>Agreement name</span><input value={quoteServiceAgreementProfile.agreementLabel} onChange={(e) => updateAgreementProfileField("agreementLabel", e.target.value)} placeholder="Customer service pricing agreement" /></label>
-                    <label className="builder-field compact"><span>Signed date</span><input type="date" value={quoteServiceAgreementProfile.signedDate ?? ""} onChange={(e) => updateAgreementProfileField("signedDate", e.target.value)} /></label>
-                    <label className="builder-field compact"><span>Accepted date</span><input type="date" value={quoteServiceAgreementProfile.acceptedDate ?? ""} onChange={(e) => updateAgreementProfileField("acceptedDate", e.target.value)} /></label>
-                  </div>
-
-                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <label className="builder-field compact"><span>SLA PDF / file name</span><input value={quoteServiceAgreementProfile.sourceDocument?.fileName ?? ""} onChange={(e) => updateAgreementAttachmentField("fileName", e.target.value)} placeholder="signed-service-agreement.pdf" /></label>
-                    <label className="builder-field compact"><span>Document reference / URL</span><input value={quoteServiceAgreementProfile.sourceDocument?.fileUrl ?? ""} onChange={(e) => updateAgreementAttachmentField("fileUrl", e.target.value)} placeholder="Internal link or storage reference" /></label>
-                    <label className="builder-field compact"><span>Attachment note</span><input value={quoteServiceAgreementProfile.sourceDocument?.note ?? ""} onChange={(e) => updateAgreementAttachmentField("note", e.target.value)} placeholder="Where the signed PDF lives" /></label>
-                  </div>
-
-                  <label className="builder-field compact mt-4"><span>Agreement notes</span><textarea rows={3} value={quoteServiceAgreementProfile.notes ?? ""} onChange={(e) => updateAgreementProfileField("notes", e.target.value)} placeholder="Internal guidance or exceptions for using this customer's service pricing defaults" /></label>
-
-                  <div className="mt-4 space-y-3">
-                    {quoteServiceAgreementProfile.categories.map((category) => (
-                      <div key={category.key} className={`rounded-[18px] border p-4 ${serviceAgreementCategoryTone(category.rateBasis)}`}>
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                          <div>
-                            <div className="text-[16px] font-semibold text-[#16202b]">{category.label}</div>
-                            <div className="mt-1 text-[12px] font-medium uppercase tracking-[0.14em] text-[#7a8793]">{serviceAgreementRateBasisLabel(category.rateBasis)}</div>
-                          </div>
-                          <div className="grid gap-3 md:grid-cols-3 lg:min-w-[620px]">
-                            <label className="builder-field compact"><span>Rate basis</span><select value={category.rateBasis} onChange={(e) => updateAgreementCategoryField(category.key, "rateBasis", e.target.value)}><option value="na">N/A</option><option value="standard">Standard</option><option value="non_standard">Non-standard</option></select></label>
-                            <label className="builder-field compact"><span>Labor rate</span><input type="number" step="0.01" value={category.laborRate ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "laborRate", e.target.value)} placeholder="0.00" /></label>
-                            <label className="builder-field compact"><span>Mileage rate</span><input type="number" step="0.01" value={category.mileageRate ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "mileageRate", e.target.value)} placeholder="0.00" /></label>
-                          </div>
-                        </div>
-                        <label className="builder-field compact mt-3"><span>Notes</span><input value={category.notes ?? ""} onChange={(e) => updateAgreementCategoryField(category.key, "notes", e.target.value)} placeholder="Scope note, exception, or dispatch guidance" /></label>
-                        {category.rateBasis !== "na" ? (
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#51606d]">
-                            <div>
-                              Labor {category.laborRate !== null ? formatCurrency(category.laborRate, currencyCode) : "Not set"} • Mileage {category.mileageRate !== null ? formatCurrency(category.mileageRate, currencyCode) : "Not set"}
-                            </div>
-                            <button type="button" className="pill-button pill-button-active" onClick={() => addAgreementCategoryToSectionC(category)}>
-                              Add to Section C
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-
-                  {!activeServiceAgreementCategories.length ? (
-                    <div className="mt-4 rounded-[18px] border border-dashed border-[#d9e0e7] bg-white p-4 text-[13px] leading-[1.55] text-[#5d6772]">
-                      No active SLA pricing defaults are loaded on this quote yet. Turn on the categories you need here, or keep using manual service rows.
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="mt-5 space-y-3">{quote.sections.sectionC.lineItems.map((row, index) => <div key={row.id} className="line-editor-card"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Service row {index + 1}</div><div className="mt-1 text-[14px] font-semibold text-[#1a2430]">{isOptionalLineItem(row) ? "Option cost service" : "Field service"}</div></div><div className="flex flex-wrap items-center gap-2"><OptionalLineToggle checked={isOptionalLineItem(row)} onChange={(checked) => updateServiceRow(row.id, "optional", checked)} /><RowActions totalRows={quote.sections.sectionC.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(targetPosition) => moveServiceRowToPosition(row.id, targetPosition)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} /></div></div><div className="grid gap-3 lg:grid-cols-[2fr_.7fr_.8fr_1fr]"><label className="builder-field compact"><span>Description</span><input value={row.description} onChange={(e) => updateServiceRow(row.id, "description", e.target.value)} /></label><label className="builder-field compact"><span>Qty</span><input type="number" value={row.quantity} onChange={(e) => updateServiceRow(row.id, "quantity", e.target.value)} /></label><label className="builder-field compact"><span>Unit price</span><input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateServiceRow(row.id, "unitPrice", e.target.value)} /></label><label className="builder-field compact"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(e) => updateServiceRow(row.id, "pricingStage", e.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label></div><label className="builder-field compact mt-3"><span>Notes</span><input value={row.notes ?? ""} onChange={(e) => updateServiceRow(row.id, "notes", e.target.value)} /></label><div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-[#66717d]"><span>{row.serviceCategory === "site_inspection" ? "Site inspection" : row.serviceCategory === "installation" ? "Installation" : "Custom service"}</span><span>Line total: {formatCurrency(row.totalPrice, currencyCode)}</span></div></div>)}</div>
-              </section>
-            )}
-            </>
-            )}
-          </div>
-
-          <aside className="space-y-6">
-            {builderLocked ? (
-              <section className="builder-panel sticky top-6">
-                <div className="builder-panel-header"><div><div className="builder-eyebrow">Customer intake</div><h2 className="builder-title">What’s ready so far</h2></div></div>
-                <div className="space-y-4 text-[14px] text-[#32404c]">
-                  <div className="summary-block"><div className="summary-label">Customer</div><div className="summary-value">{customerHeadline}</div><div className="summary-subvalue">{customerSubline || "No customer selected yet"}</div></div>
-                  <div className="summary-block"><div className="summary-label">Service address</div><div className="summary-value">{customerServiceAddress || "Not set yet"}</div><div className="summary-subvalue">Complete the intake card on the left to continue.</div></div>
-                  <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">Once the customer is selected, RapidQuote unlocks quote setup, pricing, preview, and PDF output.</div>
-                </div>
-              </section>
-            ) : (
-            <section className="builder-panel sticky top-6 proposal-editor-summary-rail">
-              <div className="builder-panel-header proposal-editor-summary-header">
-                <div>
-                  <div className="builder-eyebrow">Review rail</div>
-                  <h2 className="builder-title">Release confidence</h2>
-                  <p className="proposal-editor-summary-copy">Keep setup and pricing on the left. Use this rail to understand readiness, revision confidence, and final handoff before you preview or export.</p>
-                </div>
-                <div className="proposal-editor-summary-status">
-                  <span className="proposal-editor-meta-chip proposal-editor-meta-chip-strong">{statusToStageLabel(quote.metadata.status)}</span>
-                  <span className="proposal-editor-meta-chip">Revision {governanceState.revisionLabel}</span>
+                          <section className="builder-panel">
+              <div className="builder-panel-header">
+                <div><div className="builder-eyebrow">Section controls</div><h2 className="builder-title">Output sections</h2></div>
+                <div className="flex flex-wrap gap-2">
+                  <SectionToggle label="Executive Summary" enabled={quote.executiveSummary.enabled} onChange={(next) => updateQuote((draft) => { draft.executiveSummary.enabled = next; return draft; })} />
+                  <SectionToggle label="Connectivity service" enabled={quote.sections.sectionA.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionA.enabled = next; return draft; })} />
+                  <SectionToggle label="Hardware" enabled={quote.sections.sectionB.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionB.enabled = next; return draft; })} />
+                  <SectionToggle label="Install / site services" enabled={quote.sections.sectionC.enabled} onChange={(next) => updateQuote((draft) => { draft.sections.sectionC.enabled = next; return draft; })} />
                 </div>
               </div>
-              <div className="proposal-editor-summary-glance">
-                <div className="proposal-editor-summary-glance-card">
-                  <span>Needs attention</span>
-                  <strong>{editorNeedsAttention.length}</strong>
-                  <p>{editorNeedsAttention.length ? "Review items still queued before release." : "No major blockers are queued right now."}</p>
+              <details className="mt-4 rounded-[18px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
+                <summary className="cursor-pointer list-none text-[14px] font-semibold text-[#16202b]">Advanced section labels and extra fields</summary>
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                  <label className="builder-field"><span>Section A label</span><input value={quote.sections.sectionA.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionA.builderLabel = e.target.value; return draft; })} /></label>
+                  <label className="builder-field"><span>Section B label</span><input value={quote.sections.sectionB.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionB.builderLabel = e.target.value; return draft; })} /></label>
+                  <label className="builder-field"><span>Section C label</span><input value={quote.sections.sectionC.builderLabel} onChange={(e) => updateQuote((draft) => { draft.sections.sectionC.builderLabel = e.target.value; return draft; })} /></label>
                 </div>
-                <div className="proposal-editor-summary-glance-card">
-                  <span>Preview status</span>
-                  <strong>{outputReadiness[0]?.state || "Ready"}</strong>
-                  <p>{outputReadiness[0]?.detail || "Customer-facing preview is ready to open."}</p>
-                </div>
-                <div className="proposal-editor-summary-glance-card">
-                  <span>Last saved</span>
-                  <strong>{quoteLastTouchedLabel || "Not saved yet"}</strong>
-                  <p>{latestProposalActivity?.message || "Save from the builder to keep the draft and activity history in sync."}</p>
-                </div>
-              </div>
-              <div className="space-y-5 text-[14px] text-[#32404c]">
-                <div className="summary-block"><div className="summary-label">Customer</div><div className="summary-value">{quote.customer.name}</div><div className="summary-subvalue">{quote.customer.contactName} • {quote.metadata.proposalNumber} • {quote.metadata.proposalDate}</div></div>
-                <div className="summary-block"><div className="summary-label">Proposal info</div><div className="summary-value">{quote.metadata.documentTitle}</div><div className="summary-subvalue">Prepared by {quote.inet.contactName || selectedBranding.shortName} • {quote.inet.contactPhone}</div></div>
-                <div className="summary-block"><div className="summary-label">Bill To / Ship To</div><div className="summary-value">{quote.billTo.companyName || quote.customer.name}</div><div className="summary-subvalue">{quote.shippingSameAsBillTo ? "Ship To matches Bill To" : `${quote.shipTo.companyName || "Custom Ship To"} configured separately`}</div></div>
-                <div className="summary-block"><div className="summary-label">Executive Summary</div><div className="summary-value">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent ? (quote.executiveSummary.heading?.trim() || "Executive Summary") : "Hidden"}</div><div className="summary-subvalue">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent ? `${executiveSummaryRenderBlocks.length} structured block(s) ready for output` : "Not included in proposal output"}</div></div>
-                <div className="summary-block"><div className="summary-label">Workflow</div><div className="summary-value">{isMajorProject ? "Major Project" : "Quick Quote"}</div><div className="summary-subvalue">{isMajorProject ? "Commercial model is driving downstream proposal sections" : "Builder rows are driving proposal sections directly"}</div></div>
-                <div className="summary-block"><div className="summary-label">Quote type</div><div className="summary-value">{quote.metadata.quoteType === "purchase" ? "Purchase" : "Lease"}</div><div className="summary-subvalue">{quote.metadata.quoteType === "purchase" ? "Separate one-time and recurring outputs" : hasActiveDataAgreement ? `Estimated monthly blended total over ${selectedLeaseTerm} months` : "Lease pricing blocked until active data agreement is confirmed"}</div></div>
-                <div className="summary-block">
-                  <div className="summary-label">Revision confidence</div>
-                  <div className="summary-value">Revision {governanceState.revisionLabel}</div>
-                  <div className="summary-subvalue">
-                    {governanceState.sourceMode === "crm_attached" ? "CRM-attached lineage" : "Standalone-first lineage"}
-                    {` • Family ${governanceState.quoteFamilyId}`}
-                    {quoteLastTouchedLabel ? ` • Saved ${quoteLastTouchedLabel}` : ""}
-                  </div>
-                  <div className="mt-2 rounded-[14px] border border-[#e2e7ec] bg-white px-3 py-3 text-[12px] leading-[1.6] text-[#51606d]">
-                    <strong className="block text-[#16202b]">Latest recorded change</strong>
-                    <span className="mt-1 block">{latestRevisionEntry?.changeDetails || latestProposalActivity?.message || "This draft is using the current saved proposal state."}</span>
-                    {governanceState.basedOnRevisionId ? <span className="mt-1 block text-[#6d7782]">Based on {governanceState.basedOnRevisionId}</span> : null}
-                  </div>
-                </div>
-                <div className="summary-block">
-                  <div className="summary-label">Current pricing</div>
-                  <div className="summary-value">{isMajorProject ? "Imported cost + margin aware" : "Current proposal data"}</div>
-                  <div className="summary-subvalue">{isMajorProject ? `Imported BOM and vendor quote defaults seed customer pricing from vendor cost at ${DEFAULT_IMPORTED_MARGIN_PERCENT}% margin unless you override it.` : "Recommended defaults plus any edits you made in this proposal."}</div>
-                  <div className="commercial-metric-grid mt-3">
-                    <CommercialMetricCard label={isMajorProject ? "Recurring MRR" : "Recurring monthly"} value={formatCurrency(recurringMonthlyTotal, currencyCode)} detail={isMajorProject ? `${majorProjectTermMonths}-month driver on internal contract math` : "Current monthly recurring total"} tone="accent" />
-                    <CommercialMetricCard label="Customer one-time total" value={formatCurrency(customerFacingOneTimeTotal, currencyCode)} detail={isLeaseQuote ? "Leased hardware excluded; field services only" : "Hardware and field services combined"} />
-                    <CommercialMetricCard label="Option costs" value={formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)} detail={`${formatCurrency(optionCostSummary.monthlyTotal, currencyCode)} monthly option${optionCostSummary.monthlyTotal === 1 ? "" : "s"} • ${optionCostSummary.items.length} line${optionCostSummary.items.length === 1 ? "" : "s"}`} />
-                    <CommercialMetricCard label={isMajorProject ? "Contract GP" : "Gross profit"} value={formatCurrency(commercialMetrics.totalGrossProfit, currencyCode)} detail={isMajorProject ? "Internal full-contract profit" : "Current internal proposal profit"} tone={commercialMetrics.totalGrossProfit >= 0 ? "success" : "warn"} />
-                    <CommercialMetricCard label={isMajorProject ? "Contract margin" : "Gross margin"} value={formatPercent(commercialMetrics.totalGrossMarginPercent)} detail={`Recurring margin ${formatPercent(commercialMetrics.recurringGrossMarginPercent)}`} tone={commercialMetrics.totalGrossMarginPercent >= 25 ? "success" : commercialMetrics.totalGrossMarginPercent > 0 ? "accent" : "warn"} />
-                  </div>
-                </div>
-                <div className="summary-block"><div className="summary-label">Customer SLA profile</div><div className="summary-value">{quoteServiceAgreementProfile.agreementLabel || "No SLA profile name set"}</div><div className="summary-subvalue">{activeServiceAgreementCategories.length ? `${activeServiceAgreementCategories.length} active pricing categories on this quote` : "No active SLA defaults loaded on this quote"}{quoteServiceAgreementProfile.sourceDocument?.fileName ? ` • ${quoteServiceAgreementProfile.sourceDocument.fileName}` : ""}</div></div>
-                <div className="summary-block"><div className="summary-label">Enabled sections</div><ul className="list-disc pl-5 text-[#56616d]">{quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent && <li>Executive Summary</li>}{quote.sections.sectionA.enabled && contentPresence.hasSectionAContent && <li>{isMajorProject ? "MRR" : "Monthly Service"}</li>}{quote.sections.sectionB.enabled && contentPresence.hasSectionBContent && <li>Hardware</li>}{quote.sections.sectionC.enabled && contentPresence.hasSectionCContent && <li>Field Services</li>}</ul></div>
-                {customSectionFields.length > 0 && <div className="summary-block"><div className="summary-label">Extra section fields</div><div className="space-y-1 text-[#56616d]">{customSectionFields.map((field) => <div key={field.id}><strong>{field.label}:</strong> {field.value || "—"} <span className="text-[#8b96a3]">({field.visibility === "customer" ? "proposal" : "internal"})</span></div>)}</div></div>}
-                <div className="summary-block">
-                  <div className="summary-label">Needs attention</div>
-                  <div className="summary-value">{editorNeedsAttention.length ? `${editorNeedsAttention.length} review item${editorNeedsAttention.length === 1 ? "" : "s"}` : "No major blockers queued"}</div>
-                  <div className="summary-subvalue">{editorNeedsAttention.length ? "These are the remaining items most likely to slow preview, export, or release confidence." : "This draft is in good shape for preview, export, and approval review."}</div>
-                  {editorNeedsAttention.length ? (
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-[12px] text-[#56616d]">
-                      {editorNeedsAttention.map((item) => <li key={item}>{item}</li>)}
-                    </ul>
-                  ) : null}
-                </div>
-                <div className="summary-block">
-                  <div className="summary-label">Output readiness</div>
-                  <div className="space-y-2">
-                    {outputReadiness.map((item) => (
-                      <div key={item.label} className="rounded-[14px] border border-[#e2e7ec] bg-white px-3 py-3 text-[12px] text-[#51606d]">
-                        <div className="flex items-center justify-between gap-3">
-                          <strong className="text-[#16202b]">{item.label}</strong>
-                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
-                            item.state === "Ready"
-                              ? "bg-[#ecf7ee] text-[#25643b]"
-                              : item.state === "Blocked" || item.state === "Needs fixes"
-                                ? "bg-[#fff1f1] text-[#8d1f1f]"
-                                : "bg-[#eef2f7] text-[#51606f]"
-                          }`}>{item.state}</span>
-                        </div>
-                        <div className="mt-1">{item.detail}</div>
+                <div className="mt-4 space-y-3">
+                {customSectionFields.map((field, index) => (
+                  <div key={field.id} className="rounded-[18px] border border-[#dde3e8] bg-white p-4">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-[13px] font-semibold text-[#16202b]">
+                        {field.visibility === "customer" ? `Customer detail ${index + 1}` : `Internal note ${index + 1}`}
                       </div>
-                    ))}
+                      <div className={`rounded-full px-3 py-1 text-[12px] font-semibold ${field.visibility === "customer" ? "bg-[#ecf7ee] text-[#25643b]" : "bg-[#eef2f7] text-[#51606f]"}`}>
+                        {field.visibility === "customer" ? "Appears in proposal" : "Builder only"}
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-[1fr_1.2fr_.8fr_auto]">
+                      <label className="builder-field compact"><span>{field.visibility === "customer" ? "Customer-facing label" : "Internal label"}</span><input value={field.label} onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, label: nextValue } : item));
+                        updateQuote((draft) => {
+                          draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, label: nextValue } : item);
+                          return draft;
+                        });
+                      }} /></label>
+                      <label className="builder-field compact"><span>{field.visibility === "customer" ? "Customer-facing value" : "Internal note"}</span><input value={field.value} onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, value: nextValue } : item));
+                        updateQuote((draft) => {
+                          draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, value: nextValue } : item);
+                          return draft;
+                        });
+                      }} /></label>
+                      <label className="builder-field compact"><span>Visibility</span><select value={field.visibility} onChange={(e) => {
+                        const nextVisibility = e.target.value as QuoteCustomField["visibility"];
+                        setCustomSectionFields((current) => current.map((item) => item.id === field.id ? { ...item, visibility: nextVisibility } : item));
+                        updateQuote((draft) => {
+                          draft.customFields = (draft.customFields ?? []).map((item) => item.id === field.id ? { ...item, visibility: nextVisibility } : item);
+                          return draft;
+                        });
+                      }}><option value="customer">Customer detail</option><option value="internal">Internal note</option></select></label>
+                      <button type="button" className="danger-button self-end" onClick={() => {
+                        setCustomSectionFields((current) => current.filter((item) => item.id !== field.id));
+                        updateQuote((draft) => {
+                          draft.customFields = (draft.customFields ?? []).filter((item) => item.id !== field.id);
+                          return draft;
+                        });
+                      }}>Remove</button>
+                    </div>
                   </div>
+                ))}
+                <div className="flex flex-wrap gap-3">
+                  <button type="button" className="pill-button pill-button-active" onClick={() => addCustomSectionField("customer")}>Add customer detail</button>
+                  <button type="button" className="pill-button" onClick={() => addCustomSectionField("internal")}>Add internal note</button>
                 </div>
-                <div className="summary-block"><div className="summary-label">Section A output</div><div className="summary-value">{isMajorProject ? "MRR schedule" : quote.sections.sectionA.mode === "pool" ? "Pool pricing schedule" : "Per-kit pricing schedule"}</div><div className="summary-subvalue">{isMajorProject ? `Month driver: ${quote.sections.sectionA.termMonths} months • generated from ${activeMajorOption?.label ?? "active major option"}` : `${activeSectionARows.length} row(s) ready for the proposal`}</div></div>
-                <div className="summary-block"><div className="summary-label">Section B output</div><div className="summary-value">{contentPresence.hasSectionBContent ? `${quote.sections.sectionB.lineItems.length} hardware row(s)` : "No hardware added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionBContent ? (suggestedAccessories.length > 0 ? `${suggestedAccessories.length} accessory suggestion(s) available` : "All suggested accessories are already added") : "Add equipment only when this quote actually needs one-time hardware."}</div></div>
-                <div className="summary-block"><div className="summary-label">Section C output</div><div className="summary-value">{contentPresence.hasSectionCContent ? quote.sections.sectionC.title : "No field services added yet"}</div><div className="summary-subvalue">{contentPresence.hasSectionCContent ? `${quote.sections.sectionC.lineItems.length} service row(s) • ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "budgetary").length} budgetary / ${quote.sections.sectionC.lineItems.filter((row) => row.pricingStage === "final").length} final` : "Field services stay out of the proposal until live rows exist."}</div></div>
-                <div className="summary-block"><div className="summary-label">Totals</div><div className="space-y-2 text-[#56616d]"><div className="flex justify-between gap-3"><span>{isMajorProject ? "MRR" : "Recurring monthly"}</span><strong>{formatCurrency(recurringMonthlyTotal, currencyCode)}</strong></div>{contentPresence.hasSectionBContent && !isLeaseQuote && <div className="flex justify-between gap-3"><span>One-time equipment</span><strong>{formatCurrency(equipmentTotal, currencyCode)}</strong></div>}{contentPresence.hasSectionCContent && <div className="flex justify-between gap-3"><span>Field services</span><strong>{formatCurrency(sectionCTotal, currencyCode)}</strong></div>}{optionCostSummary.items.length > 0 && <div className="flex justify-between gap-3"><span>Option costs</span><strong>{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</strong></div>}{optionCostSummary.monthlyTotal > 0 && <div className="flex justify-between gap-3"><span>Monthly options</span><strong>{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)}</strong></div>}{quote.metadata.quoteType === "lease" && <div className="brand-text-emphasis flex justify-between gap-3"><span>Blended lease monthly</span><strong>{hasActiveDataAgreement ? formatCurrency(leaseMonthly, currencyCode) : "Data agreement required"}</strong></div>}</div></div>
-                <div className="summary-block">
-                  <div className="summary-label">Review handoff</div>
-                  <div className="summary-value">Save here. Export from Preview.</div>
-                  <div className="summary-subvalue">Keep the editor focused on setup and pricing. Use Preview Proposal for the customer-facing document plus Approval Workbook and PDF exports.</div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" className="pill-button" onClick={persistProposalState}>Save Draft</button>
-                    <button type="button" className="pill-button pill-button-active" onClick={handlePreviewProposal}>Preview Proposal</button>
-                  </div>
                 </div>
-                <div className="rounded-[18px] border border-dashed border-[#d5dbe2] bg-[#f8fafc] px-4 py-4 text-[13px] leading-[1.5] text-[#5e6974]">Keep it simple: build the quote, review the proposal, and send it with confidence.</div>
-              </div>
+              </details>
             </section>
-            )}
-          </aside>
+
+
+            </div>
+            <div hidden={visibleEditorTab !== "review"} aria-labelledby="rq-nav-review"><section className="builder-panel">
+  <div className="rq-section-heading"><h2>Quote review</h2><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span></div>
+  <dl className="rq-review-details">
+    <div><dt>Customer</dt><dd>{quote.customer.name}</dd></div>
+    <div><dt>Quote</dt><dd>{quote.metadata.proposalNumber}</dd></div>
+    <div><dt>Date</dt><dd>{quote.metadata.proposalDate}</dd></div>
+    <div><dt>Revision</dt><dd>{governanceState.revisionLabel}</dd></div>
+  </dl>
+  <h3>Needs attention</h3>
+  {editorNeedsAttention.length ? <ul className="rq-review-list">{editorNeedsAttention.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="rq-ready"><Check size={16} aria-hidden="true" />Ready for customer preview</p>}
+  {majorProjectHasBlockingErrors && <ul className="rq-review-list rq-errors">{majorProjectBlockingIssues.map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}</ul>}
+  <div className="rq-review-actions">
+    <button type="button" className="rq-button rq-button-primary" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" />Customer preview</button>
+    <button type="button" className="rq-button" onClick={copyProposalFromBuilder}><Copy size={16} aria-hidden="true" />Duplicate quote</button>
+  </div>
+</section>
+<OrderProcessingPanel quote={quote} onChange={updateQuote} onEditCustomer={() => { setCustomerEntryMode("create"); setEditorTab("customer"); }} onEditItems={() => setEditorTab("items")} onExport={handleDownloadOrderSummary} />
+</div>
+          </div>
+          <aside className="rq-totals" aria-label="Quote totals" data-expanded={showMobileTotals}>
+  <div className="rq-totals-main">
+    <span className="rq-total-label">Total monthly payment</span>
+    <strong className="rq-monthly-total">{isLeaseQuote && !hasActiveDataAgreement ? "Agreement required" : formatCurrency(isLeaseQuote ? leaseMonthly : recurringMonthlyTotal, currencyCode)}</strong>
+    <span className="rq-total-context">{isLeaseQuote ? `${selectedLeaseTerm}-month lease` : "Recurring services"}</span>
+  </div>
+  <div className="rq-mobile-upfront"><span>One-time charges</span><strong>{formatCurrency(customerFacingOneTimeTotal, currencyCode)}</strong></div>
+  <button type="button" className="rq-mobile-totals-toggle" aria-expanded={showMobileTotals} aria-controls="rq-price-breakdown" onClick={() => setShowMobileTotals(!showMobileTotals)}>Price breakdown{optionCostSummary.items.length > 0 ? ` and ${optionCostSummary.items.length} option${optionCostSummary.items.length === 1 ? "" : "s"}` : ""}<ChevronDown size={16} aria-hidden="true" /></button>
+  <div className="rq-totals-details" id="rq-price-breakdown">
+  <dl className="rq-total-breakdown">
+    {isLeaseQuote && <div><dt>Equipment lease / month</dt><dd>{hasActiveDataAgreement ? formatCurrency(leaseEquipmentMonthly, currencyCode) : "Pending"}</dd></div>}
+    <div><dt>Services / month</dt><dd>{formatCurrency(recurringMonthlyTotal, currencyCode)}</dd></div>
+    <div className="rq-total-divider"><dt>One-time charges</dt><dd>{formatCurrency(customerFacingOneTimeTotal, currencyCode)}</dd></div>
+  </dl>
+  {optionCostSummary.items.length > 0 && <div className="rq-option-summary">
+    <h3>Option Costs <span>{optionCostSummary.items.length}</span></h3>
+    <p>Not included in base totals</p>
+    <dl className="rq-total-breakdown"><div><dt>Monthly options</dt><dd>{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)}</dd></div><div><dt>One-time options</dt><dd>{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</dd></div></dl>
+  </div>}
+  <button type="button" className={`rq-review-link ${editorNeedsAttention.length ? "rq-needs-review" : ""}`} onClick={() => setEditorTab("review")} disabled={!customerEntryComplete}>{editorNeedsAttention.length ? <AlertCircle size={16} aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}{editorNeedsAttention.length ? `${editorNeedsAttention.length} item${editorNeedsAttention.length === 1 ? "" : "s"} to review` : "Ready for review"}<ArrowRight size={16} aria-hidden="true" /></button>
+  </div>
+</aside>
         </div>
       </div>
     </main>
-  ) : <div className="workspace-shell"><div className="workspace-container">Loading proposal builder…</div></div>;
+  ) : <div className="workspace-shell"><div className="workspace-container">Loading quote...</div></div>;
 }
