@@ -1,1184 +1,212 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+/* eslint-disable @next/next/no-img-element */
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { IliosEstimateDocument } from "@/app/components/ilios-estimate-document";
 import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
-import {
-  buildProposalCommercialSummary,
-  getCombinedOneTimeTotal,
-  getEquipmentTotal,
-  getIncludedEquipmentRows,
-  getIncludedSectionARows,
-  getIncludedServiceRows,
-  getLeasePricingSummary,
-  getLeaseMonthlyTotal,
-  getOptionalServicesTotal,
-  getProposalOptionCostSummary,
-  getQuoteContentPresence,
-  getRecurringMonthlyTotal,
-} from "@/app/lib/proposal-commercial-summary";
+import { getCombinedOneTimeTotal, getEquipmentTotal, getIncludedEquipmentRows, getIncludedSectionARows, getIncludedServiceRows, getLeasePricingSummary, getOptionalServicesTotal, getProposalOptionCostSummary, getQuotedSalesTax, getRecurringMonthlyTotal } from "@/app/lib/proposal-commercial-summary";
+import { customerCopy, getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
+import { getProposalAttachments } from "@/app/lib/proposal-attachments";
 import { getMajorProjectSpecAttachmentFile, isMajorProjectSpecAttachmentPdf } from "@/app/lib/major-project-spec-attachments";
-import { resolveMajorProjectOutputSpecAttachments, type MajorProjectOutputSpecAttachment } from "@/app/lib/major-project";
-import { chunkEquipmentRowsForProposalPages } from "@/app/lib/proposal-print-pagination";
 import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
-import type { MajorProjectSpecAttachment, QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
+import type { QuoteRecord } from "@/app/lib/quote-record";
+import "./proposal-customer.css";
 
 type ProposalDocumentProps = {
   quote: QuoteRecord;
-  assetOverrides?: {
-    inetLogoSrc?: string;
-  };
+  assetOverrides?: { inetLogoSrc?: string };
 };
 
-type ResolvedSpecSheetPreview = MajorProjectOutputSpecAttachment & {
-  objectUrl: string | null;
-  loadError: string | null;
-};
-
-type ResolvedSystemDrawingPreview = {
-  attachment: MajorProjectSpecAttachment;
-  objectUrl: string | null;
-  loadError: string | null;
-};
-
-function isImageAttachment(fileName: string, mimeType: string) {
-  const normalizedMimeType = mimeType.trim().toLowerCase();
-  const normalizedFileName = fileName.trim().toLowerCase();
-  return normalizedMimeType.startsWith("image/") || [".png", ".jpg", ".jpeg", ".gif", ".webp"].some((extension) => normalizedFileName.endsWith(extension));
+function money(value: number, currency: string, maximumFractionDigits = 2) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits }).format(value);
 }
 
-function formatCurrency(value: number, currencyCode = "USD") {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currencyCode,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+function Lines({ values }: { values: Array<string | undefined> }) {
+  return <>{values.filter((value) => value?.trim()).map((value, index) => <div key={index}>{value}</div>)}</>;
 }
 
-
-function getPricingLabel(row: ServicePricingRow) {
-  if (row.pricingStage === "final") return "Final";
-  return "Budgetary";
+function ItemCopy({ title, description, image }: { title: string; description?: string; image?: string }) {
+  const note = customerCopy(description);
+  return <div className="cp-item">
+    {image && <img className="cp-item-image" src={image} alt={title} />}
+    <div><strong>{title}</strong>{note && <p>{note}</p>}</div>
+  </div>;
 }
 
-function supportingSpecLabel(value: string | undefined) {
-  const label = value?.trim();
-  return label ? `Supporting spec: ${label}` : null;
+function Section({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
+  return <section className={"cp-section " + className}><h2>{title}</h2>{children}</section>;
 }
 
-function normalizeHeadingText(value: string | undefined) {
-  return (value ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-function isRedundantHeadingText(value: string | undefined, comparisons: Array<string | undefined>) {
-  const normalizedValue = normalizeHeadingText(value);
-  if (!normalizedValue) return true;
-  return comparisons.some((comparison) => {
-    const normalizedComparison = normalizeHeadingText(comparison);
-    return Boolean(
-      normalizedComparison &&
-      normalizedComparison !== normalizedValue &&
-      (normalizedComparison.includes(normalizedValue) || normalizedValue.includes(normalizedComparison)),
-    );
-  });
-}
-
-function buildSectionHeadingContent(badge: string, overline: string, title: string) {
-  const resolvedTitle = title.trim();
-  const resolvedBadge = isRedundantHeadingText(badge, [overline, resolvedTitle]) ? null : badge;
-  const resolvedOverline = isRedundantHeadingText(overline, [badge, resolvedTitle]) ? null : overline;
-  return {
-    badge: resolvedBadge,
-    overline: resolvedOverline,
-    title: resolvedTitle,
-  };
-}
-
-function cleanLines(lines: Array<string | null | undefined>) {
-  return lines.map((line) => (line ?? "").trim()).filter(Boolean);
-}
-
-function splitParagraphs(values: Array<string | null | undefined>) {
-  return values
-    .flatMap((value) => (value ?? "").replace(/\r\n/g, "\n").split(/\n\s*\n/))
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
-}
-
-function getSpecOutputSectionLabel(outputSection: MajorProjectOutputSpecAttachment["outputSection"]) {
-  switch (outputSection) {
-    case "sectionA":
-      return "Recurring services";
-    case "sectionB":
-      return "Equipment and accessories";
-    case "sectionC":
-      return "Field services";
-    default:
-      return "Proposal section";
-  }
+function AppendixPreview({ entry }: { entry: ReturnType<typeof getProposalAttachments>[number] }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    getMajorProjectSpecAttachmentFile(entry.attachment.storageKey).then((blob) => {
+      if (cancelled) return;
+      if (!blob) { setUnavailable(true); return; }
+      objectUrl = URL.createObjectURL(blob);
+      setUrl(objectUrl);
+    }).catch(() => { if (!cancelled) setUnavailable(true); });
+    return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [entry.attachment.storageKey]);
+  return <details className="cp-attachment-preview no-print">
+    <summary>{entry.id + " / " + entry.label}</summary>
+    {unavailable ? <p role="alert">Assigned file is unavailable: {entry.attachment.fileName}. PDF download requires this file to be reattached or removed.</p> : url
+      ? isMajorProjectSpecAttachmentPdf(entry.attachment.fileName, entry.attachment.mimeType)
+        ? <iframe src={url} title={entry.label} />
+        : <img src={url} alt={entry.label} />
+      : <p>Loading attachment...</p>}
+  </details>;
 }
 
 function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentProps) {
-  const selectedBranding = getQuoteBranding(quote);
-  const [systemDrawingPreviews, setSystemDrawingPreviews] = useState<ResolvedSystemDrawingPreview[]>([]);
-  const [specSheetPreviews, setSpecSheetPreviews] = useState<ResolvedSpecSheetPreview[]>([]);
-  const [systemDrawingPreviewsReady, setSystemDrawingPreviewsReady] = useState(false);
-  const [specSheetPreviewsReady, setSpecSheetPreviewsReady] = useState(false);
-  const currencyCode = quote.metadata.currencyCode || "USD";
-  const sectionARows = getIncludedSectionARows(quote);
-  const sectionBRows = getIncludedEquipmentRows(quote);
-  const sectionCRows = getIncludedServiceRows(quote);
-  const recurringMonthlyTotal = getRecurringMonthlyTotal(quote);
+  const branding = getQuoteBranding(quote);
+  const currency = quote.metadata.currencyCode || "USD";
+  const content = getCustomerQuoteContent(quote);
+  const services = getIncludedSectionARows(quote);
+  const equipment = getIncludedEquipmentRows(quote);
+  const fieldServices = getIncludedServiceRows(quote);
+  const recurring = getRecurringMonthlyTotal(quote);
   const equipmentTotal = getEquipmentTotal(quote);
-  const sectionCTotal = getOptionalServicesTotal(quote);
-  const optionCostSummary = getProposalOptionCostSummary(quote);
-  const leasePricing = getLeasePricingSummary(quote, recurringMonthlyTotal, equipmentTotal);
-  const isLeaseQuote = quote.metadata.quoteType === "lease";
-  const leaseMonthly = isLeaseQuote
-    ? leasePricing.leaseMonthly
-    : getLeaseMonthlyTotal(quote, recurringMonthlyTotal, equipmentTotal);
-  const executiveSummaryRenderBlocks = buildExecutiveSummaryRenderBlocks(quote.executiveSummary);
-  const sectionAHeading = buildSectionHeadingContent("Services", "Recurring services", quote.sections.sectionA.title);
-  const sectionBHeading = buildSectionHeadingContent("Equipment", "Equipment and accessories", quote.sections.sectionB.title);
-  const sectionCHeading = buildSectionHeadingContent("Services", "Field services", quote.sections.sectionC.title);
-  const billToLines = cleanLines([
-    quote.billTo.companyName ?? "",
-    quote.billTo.attention ?? "",
-    ...quote.billTo.lines,
-  ]);
-
-  const shipToSource = quote.shippingSameAsBillTo ? quote.billTo : quote.shipTo;
-  const shipToLines = cleanLines([
-    shipToSource.companyName ?? "",
-    shipToSource.attention ?? "",
-    ...shipToSource.lines,
-  ]);
-  const customerVisibleCustomFields = (quote.customFields ?? []).filter(
-    (field) => field.visibility === "customer" && (field.label ?? "").trim().length > 0 && (field.value ?? "").trim().length > 0,
-  );
-  const contentPresence = getQuoteContentPresence(quote);
-  const equipmentRowPages = quote.sections.sectionB.enabled && contentPresence.hasSectionBContent
-    ? chunkEquipmentRowsForProposalPages(sectionBRows)
-    : [];
-  const commercialSummaryItems = buildProposalCommercialSummary(quote);
-  const customerFacingOneTimeTotal = getCombinedOneTimeTotal(
-    quote,
-    equipmentTotal,
-    contentPresence.hasSectionCContent ? sectionCTotal : 0,
-  );
-  const sectionBIntroText = isLeaseQuote
-    ? "The equipment below is included in the lease structure and is not billed as a separate upfront equipment purchase."
-    : quote.sections.sectionB.introText || "The prices below reflect one-time hardware and accessory charges.";
-  const sectionBSummaryValue = isLeaseQuote ? "Included in lease" : formatCurrency(equipmentTotal, currencyCode);
-  const sectionBSummaryCopy = isLeaseQuote
-    ? "Hardware is retained as the lease cost basis and rolled into the estimated lease monthly."
-    : "One-time hardware, accessories, and related material pricing.";
-  const sectionBUnitPriceLabel = isLeaseQuote ? "Lease Treatment" : "Unit Price";
-  const sectionBTotalPriceLabel = isLeaseQuote ? "Customer Upfront" : "Total Price";
-  const sectionBTotalLabel = isLeaseQuote ? "Customer upfront equipment total" : "One-time equipment total";
-  const sectionBTotalValue = isLeaseQuote ? formatCurrency(0, currencyCode) : formatCurrency(equipmentTotal, currencyCode);
-  const systemDrawingAttachments = quote.majorProject?.summary?.systemDrawings ?? [];
-  const resolvedSpecSheetAttachments = useMemo(() => resolveMajorProjectOutputSpecAttachments(quote), [quote]);
-  const pricingSnapshotItems = commercialSummaryItems.map((item) => ({
-    ...item,
-    value: formatCurrency(item.value, currencyCode),
-    tone: item.tone ?? "default",
-  }));
-  const warrantyParagraphs = splitParagraphs([quote.warranty.coverageNote, quote.warranty.claimNote]);
-  const hasWarrantyContent = quote.warranty.enabled && (
-    quote.warranty.manufacturerReference.trim().length > 0 ||
-    warrantyParagraphs.length > 0
-  );
-
-  useEffect(() => {
-    let isCancelled = false;
-    const objectUrls: string[] = [];
-
-    async function loadSystemDrawingPreviews() {
-      if (!systemDrawingAttachments.length) {
-        setSystemDrawingPreviews([]);
-        setSystemDrawingPreviewsReady(true);
-        return;
-      }
-
-      setSystemDrawingPreviewsReady(false);
-
-      const nextPreviews = await Promise.all(
-        systemDrawingAttachments.map(async (attachment) => {
-          const isImageDrawing = isImageAttachment(attachment.fileName, attachment.mimeType);
-
-          try {
-            const fileBlob = await getMajorProjectSpecAttachmentFile(attachment.storageKey);
-
-            if (!fileBlob) {
-              return { attachment, objectUrl: null, loadError: "Drawing file is missing from local storage." } satisfies ResolvedSystemDrawingPreview;
-            }
-
-            if (!isImageDrawing) {
-              return { attachment, objectUrl: null, loadError: "HTML preview is only available for image drawings in this slice." } satisfies ResolvedSystemDrawingPreview;
-            }
-
-            const objectUrl = URL.createObjectURL(fileBlob);
-            if (isCancelled) {
-              URL.revokeObjectURL(objectUrl);
-              return { attachment, objectUrl: null, loadError: "Drawing preview unavailable." } satisfies ResolvedSystemDrawingPreview;
-            }
-
-            objectUrls.push(objectUrl);
-            return { attachment, objectUrl, loadError: null } satisfies ResolvedSystemDrawingPreview;
-          } catch {
-            return { attachment, objectUrl: null, loadError: "Drawing preview unavailable." } satisfies ResolvedSystemDrawingPreview;
-          }
-        }),
-      );
-
-      if (!isCancelled) {
-        setSystemDrawingPreviews(nextPreviews);
-        setSystemDrawingPreviewsReady(true);
-      }
-    }
-
-    void loadSystemDrawingPreviews();
-
-    return () => {
-      isCancelled = true;
-      objectUrls.forEach((objectUrl) => URL.revokeObjectURL(objectUrl));
-    };
-  }, [systemDrawingAttachments]);
-
-  useEffect(() => {
-    let isCancelled = false;
-    const objectUrls: string[] = [];
-
-    async function loadSpecSheetPreviews() {
-      if (!resolvedSpecSheetAttachments.length) {
-        setSpecSheetPreviews([]);
-        setSpecSheetPreviewsReady(true);
-        return;
-      }
-
-      setSpecSheetPreviewsReady(false);
-
-      const nextPreviews = await Promise.all(
-        resolvedSpecSheetAttachments.map(async (entry) => {
-          const isPdfAttachment = isMajorProjectSpecAttachmentPdf(entry.attachment.fileName, entry.attachment.mimeType);
-          const isImageSpecAttachment = isImageAttachment(entry.attachment.fileName, entry.attachment.mimeType);
-
-          try {
-            const fileBlob = await getMajorProjectSpecAttachmentFile(entry.attachment.storageKey);
-
-            if (!fileBlob) {
-              return {
-                ...entry,
-                objectUrl: null,
-                loadError: `Preview unavailable in this render context for ${entry.attachment.fileName}.`,
-              } satisfies ResolvedSpecSheetPreview;
-            }
-
-            if (!isPdfAttachment && !isImageSpecAttachment) {
-              return {
-                ...entry,
-                objectUrl: null,
-                loadError: "HTML preview is not available for this attachment type.",
-              } satisfies ResolvedSpecSheetPreview;
-            }
-
-            const objectUrl = URL.createObjectURL(fileBlob);
-
-            if (isCancelled) {
-              URL.revokeObjectURL(objectUrl);
-              return {
-                ...entry,
-                objectUrl: null,
-                loadError: "Attachment preview unavailable.",
-              } satisfies ResolvedSpecSheetPreview;
-            }
-
-            objectUrls.push(objectUrl);
-
-            return {
-              ...entry,
-              objectUrl,
-              loadError: null,
-            } satisfies ResolvedSpecSheetPreview;
-          } catch {
-            return {
-              ...entry,
-              objectUrl: null,
-              loadError: `Unable to load attachment preview for ${entry.attachment.fileName}.`,
-            } satisfies ResolvedSpecSheetPreview;
-          }
-        }),
-      );
-
-      if (!isCancelled) {
-        setSpecSheetPreviews(nextPreviews);
-        setSpecSheetPreviewsReady(true);
-      }
-    }
-
-    void loadSpecSheetPreviews();
-
-    return () => {
-      isCancelled = true;
-      objectUrls.forEach((objectUrl) => URL.revokeObjectURL(objectUrl));
-    };
-  }, [resolvedSpecSheetAttachments]);
-
-  let printPageNumber = 1;
-  const coverPageLabel = `Page ${printPageNumber++}`;
-  const proposalInfoPageLabel = `Page ${printPageNumber++}`;
-  const proposalAddressPageLabel = `Page ${printPageNumber++}`;
-  const recurringServicesPageLabel = quote.sections.sectionA.enabled && contentPresence.hasSectionAContent ? `Page ${printPageNumber++}` : null;
-  const equipmentPageLabels = equipmentRowPages.map(() => `Page ${printPageNumber++}`);
-  const fieldServicesPageLabel = quote.sections.sectionC.enabled && contentPresence.hasSectionCContent ? `Page ${printPageNumber++}` : null;
-  const optionCostsPageLabel = optionCostSummary.items.length > 0 ? `Page ${printPageNumber++}` : null;
-  const systemDrawingPageLabels = systemDrawingPreviews.map(() => `Page ${printPageNumber++}`);
-  const specSheetPageLabels = specSheetPreviews.map(() => `Page ${printPageNumber++}`);
-  const termsPageLabel = `Page ${printPageNumber++}`;
-  const closingPageLabel = `Page ${printPageNumber++}`;
-
-  return (
-    <main
-      className={`proposal-shell proposal-shell-${selectedBranding.key}`}
-      data-attachments-ready={systemDrawingPreviewsReady && specSheetPreviewsReady ? "true" : "false"}
-      style={{
-        ["--proposal-brand-primary" as string]: selectedBranding.primaryColor,
-        ["--proposal-brand-accent" as string]: selectedBranding.accentColor,
-        ["--proposal-brand-muted" as string]: selectedBranding.mutedColor,
-      }}
-    >
-      <section className="proposal-page cover-page proposal-page-with-band" data-page-label={coverPageLabel}>
-        <div className="cover-grid">
-          <div className="cover-topbar">
-            <div className="cover-brand-row">
-              <div className="cover-brand-lockup">
-                <img
-                  src={assetOverrides?.inetLogoSrc ?? selectedBranding.logoSrc}
-                  alt={selectedBranding.logoAlt}
-                  className="cover-brand-logo h-auto w-auto"
-                  width={208}
-                  height={64}
-                />
-                <div className="cover-brand-subtitle">{selectedBranding.proposalBannerText}</div>
-              </div>
-              <div className="cover-proposal-meta">
-                <div className="cover-meta-label">Proposal</div>
-                <div className="cover-meta-value">#{quote.metadata.proposalNumber}</div>
-                <div>{quote.metadata.proposalDate}</div>
-                {quote.metadata.documentTitle ? <div className="cover-meta-chip">{quote.metadata.documentTitle}</div> : null}
-              </div>
-            </div>
-          </div>
-
-          <div className="cover-content">
-            {quote.metadata.documentTitle ? <div className="cover-kicker">{quote.metadata.documentTitle}</div> : null}
-            <h1>{quote.metadata.documentTitle}</h1>
-            <h2>{quote.metadata.documentSubtitle}</h2>
-
-            <div className="cover-customer-grid print-keep-group">
-              <div className="cover-customer-card print-keep-block">
-                <div className="cover-customer-label">Prepared for</div>
-                <div className="cover-customer-brand-row">
-                  {quote.customer.logoDataUrl ? (
-                    <img src={quote.customer.logoDataUrl} alt={`${quote.customer.name} logo`} className="customer-brand-logo" />
-                  ) : (
-                    <div className="customer-brand-fallback">{quote.customer.logoText || quote.customer.name}</div>
-                  )}
-                </div>
-                <div className="cover-customer-name">{quote.customer.name}</div>
-                <div className="cover-contact-lines">
-                  <div>{quote.customer.contactName}</div>
-                  <div>{quote.customer.contactPhone}</div>
-                  <div>{quote.customer.contactEmail}</div>
-                </div>
-                <div className="cover-customer-lines">
-                  {quote.customer.addressLines.map((line, index) => (
-                    <div key={`${line}-${index}`}>{line}</div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="cover-contact-card print-keep-block">
-                <div className="cover-customer-label">{quote.documentation.preparedByLabel ?? "Prepared by"}</div>
-                <div className="cover-contact-name">{quote.inet.contactName}</div>
-                <div className="cover-contact-lines">
-                  <div>{quote.inet.name}</div>
-                  <div>{quote.inet.contactPhone}</div>
-                  <div>{quote.inet.contactEmail}</div>
-                </div>
-                <div className="cover-customer-lines">
-                  {quote.inet.addressLines.map((line, index) => (
-                    <div key={`${line}-${index}`}>{line}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="cover-summary-strip">
-            {pricingSnapshotItems.map((item) => (
-              <div key={item.key} className="cover-summary-card">
-                <div className="cover-summary-label">{item.label}</div>
-                <div className="cover-summary-value">{item.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="cover-band">
-          <div className="cover-band-copy">Confidential commercial proposal prepared for review and approval.</div>
-        </div>
-      </section>
-
-      <section className="proposal-page proposal-info-page" data-page-label={proposalInfoPageLabel}>
-        <div className="proposal-header">
-          <span>Proposal details</span>
-          <span>Proposal #{quote.metadata.proposalNumber}</span>
-        </div>
-
-        <div className="proposal-title-block">
-          <div>
-            <div className="proposal-overline">Proposal overview</div>
-            <h2 className="proposal-section-title">Proposal Information</h2>
-          </div>
-          <div className="proposal-date-card">
-            <div className="proposal-date-label">Prepared</div>
-            <div>{quote.metadata.proposalDate}</div>
-            <div className="proposal-cell-note">Revision {quote.metadata.revisionVersion}</div>
-          </div>
-        </div>
-
-        <div className="section-title-rule" />
-
-        <div className="proposal-summary-grid">
-          <div className="proposal-summary-panel">
-            <div className="summary-panel-label">Proposal</div>
-            <div className="summary-panel-value">#{quote.documentation.proposalNumberLabel}</div>
-            <div className="summary-panel-copy">{quote.documentation.proposalTitle}</div>
-          </div>
-          <div className="proposal-summary-panel">
-            <div className="summary-panel-label">Date</div>
-            <div className="summary-panel-value">{quote.documentation.proposalDateLabel}</div>
-            <div className="summary-panel-copy">{quote.metadata.documentTitle || quote.documentation.proposalTitle}</div>
-          </div>
-          <div className="proposal-summary-panel">
-            <div className="summary-panel-label">{quote.documentation.preparedByLabel ?? "Prepared by"}</div>
-            <div className="summary-panel-value">{quote.inet.contactName}</div>
-            <div className="summary-panel-copy">{quote.inet.name}</div>
-          </div>
-        </div>
-
-        <div className="proposal-detail-grid print-keep-group">
-          <div className="proposal-copy proposal-copy-card print-keep-block">
-            <div className="proposal-mini-heading">Customer</div>
-            <p><strong>Customer Contact</strong> {quote.customer.contactName}</p>
-            <p><strong>Contact Phone</strong> {quote.customer.contactPhone}</p>
-            <p><strong>Contact Email</strong> {quote.customer.contactEmail}</p>
-            <p><strong>{quote.documentation.customerAddressHeading}</strong></p>
-            {quote.customer.addressLines.map((line, index) => (
-              <p key={`${line}-${index}`}>{line}</p>
-            ))}
-          </div>
-          <div className="proposal-copy proposal-copy-card print-keep-block">
-            <div className="proposal-mini-heading">{quote.documentation.inetSalesHeading ?? selectedBranding.shortName}</div>
-            <p><strong>{quote.documentation.preparedByLabel ?? "Prepared By"}</strong> {quote.inet.contactName}</p>
-            <p><strong>Contact Phone</strong> {quote.inet.contactPhone}</p>
-            <p><strong>Contact Email</strong> {quote.inet.contactEmail}</p>
-            <p><strong>{quote.documentation.inetAddressHeading}</strong></p>
-            {quote.inet.addressLines.map((line, index) => (
-              <p key={`${line}-${index}`}>{line}</p>
-            ))}
-          </div>
-        </div>
-
-      </section>
-
-      <section className="proposal-page proposal-info-page proposal-info-address-page proposal-page-force-new-sheet" data-page-label={proposalAddressPageLabel}>
-        <div className="proposal-header">
-          <span>Proposal details</span>
-          <span>Proposal #{quote.metadata.proposalNumber}</span>
-        </div>
-
-        <div className="proposal-address-grid print-keep-group">
-          <div className="proposal-copy proposal-copy-card print-keep-block">
-            <div className="proposal-mini-heading">{quote.documentation.billToHeading ?? "Bill To"}</div>
-            {billToLines.map((line, index) => (
-              <p key={`bill-${line}-${index}`}>{line}</p>
-            ))}
-          </div>
-          <div className="proposal-copy proposal-copy-card print-keep-block">
-            <div className="proposal-mini-heading">{quote.documentation.shipToHeading ?? "Ship To"}</div>
-            {shipToLines.map((line, index) => (
-              <p key={`ship-${line}-${index}`}>{line}</p>
-            ))}
-            {quote.shippingSameAsBillTo && <p className="proposal-cell-note">Same as Bill To</p>}
-          </div>
-        </div>
-
-        {quote.executiveSummary.enabled && contentPresence.hasExecutiveSummaryContent && executiveSummaryRenderBlocks.length > 0 && (
-          <div className="proposal-copy proposal-copy-card proposal-executive-summary-card">
-            <div className="proposal-mini-heading">{quote.executiveSummary.heading?.trim() || "Executive Summary"}</div>
-            <div className="space-y-3">
-              {executiveSummaryRenderBlocks.map((block) => {
-                if (block.type === "heading") {
-                  return (
-                    <h3 key={block.id} className="pt-1 text-[15px] font-semibold leading-[1.35] text-[#16202b]">
-                      {block.text}
-                    </h3>
-                  );
-                }
-
-                if (block.type === "paragraph") {
-                  return <p key={block.id} style={{ whiteSpace: "pre-line" }}>{block.text}</p>;
-                }
-
-                const ListTag = block.type === "numbered_list" ? "ol" : "ul";
-                return (
-                  <ListTag key={block.id} className="space-y-2 pl-5 text-[15px] leading-[1.65] text-[#485564] marker:text-[#485564]">
-                    {(block.items ?? []).map((item, index) => <li key={`${block.id}-${index}`}>{item}</li>)}
-                  </ListTag>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {customerVisibleCustomFields.length ? (
-          <div className="proposal-copy proposal-copy-card">
-            <div className="proposal-mini-heading">Additional Proposal Details</div>
-            {customerVisibleCustomFields.map((field) => (
-              <p key={field.id}>
-                <strong>{field.label || "Detail"}</strong>
-                {field.value ? ` ${field.value}` : ""}
-              </p>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="proposal-callout-grid proposal-callout-grid-full">
-          <div className="proposal-callout proposal-callout-feature totals-callout print-keep-block">
-            <div className="proposal-callout-header">
-              <div>
-                <div className="proposal-callout-label">Commercial snapshot</div>
-                <div className="proposal-callout-title">Pricing at a glance</div>
-              </div>
-              <div className="proposal-callout-chip">Customer view</div>
-            </div>
-            <div className="proposal-highlight-grid print-keep-group">
-              {pricingSnapshotItems.map((item) => (
-                <div
-                  key={item.label}
-                  className={`proposal-highlight-card print-keep-block ${item.tone === "accent" ? "proposal-highlight-card-accent" : ""}`}
-                >
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {quote.sections.sectionA.enabled && contentPresence.hasSectionAContent && (
-        <section className="proposal-page" data-page-label={recurringServicesPageLabel ?? "Page"}>
-          <div className="proposal-header">
-            <span>Recurring services</span>
-            <span>Proposal #{quote.metadata.proposalNumber}</span>
-          </div>
-
-          <div className="proposal-section-heading keep-with-next">
-            {sectionAHeading.badge ? <div className="section-heading-badge">{sectionAHeading.badge}</div> : null}
-            {sectionAHeading.overline ? <div className="proposal-overline">{sectionAHeading.overline}</div> : null}
-            <h2 className="proposal-section-title">{sectionAHeading.title}</h2>
-            <p className="proposal-intro">
-              {quote.sections.sectionA.introText ||
-                `The pricing below reflects a ${quote.sections.sectionA.termMonths}-month commercial term.`}
-            </p>
-          </div>
-
-          {quote.sections.sectionA.explanatoryParagraphs?.length ? (
-            <div className="proposal-copy proposal-copy-card section-copy-block">
-              {quote.sections.sectionA.explanatoryParagraphs.map((paragraph, index) => (
-                <p key={index}>{paragraph}</p>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="proposal-section-summary-card keep-with-next">
-            <div className="proposal-section-summary-label">Section summary</div>
-            <div className="proposal-section-summary-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
-            <div className="proposal-section-summary-copy">Total monthly recurring for the proposed service scope.</div>
-          </div>
-
-          <table className="proposal-table sample-table">
-            <thead>
-              <tr>
-                <th>Service Description</th>
-                <th>Qty</th>
-                <th>Unit Monthly</th>
-                <th>Total Monthly</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sectionARows.map((row) => (
-                <tr key={row.id} className="keep-together">
-                  <td>
-                    <div className="proposal-cell-title">{row.description}</div>
-                    {row.unitLabel && row.rowType !== "support" && row.rowType !== "terminal_fee" && (
-                      <div className="proposal-cell-subtitle">{row.unitLabel}</div>
-                    )}
-                    {row.rowType === "support" && row.includedText && (
-                      <ul className="proposal-bullets inline-bullets">
-                        {row.includedText.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {supportingSpecLabel(row.specSheetLabel) ? <div className="proposal-cell-note">{supportingSpecLabel(row.specSheetLabel)}</div> : null}
-                  </td>
-                  <td>{row.quantity ?? (row.rowType === "support" ? "—" : "—")}</td>
-                  <td>
-                    {row.rowType === "support"
-                      ? "Included with service"
-                      : formatCurrency(row.monthlyRate ?? row.unitPrice ?? 0, currencyCode)}
-                  </td>
-                  <td>
-                    {row.rowType === "support"
-                      ? "Included"
-                      : formatCurrency(row.totalMonthlyRate ?? 0, currencyCode)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="proposal-total-row">
-                <td colSpan={3}>Total monthly recurring</td>
-                <td>{formatCurrency(recurringMonthlyTotal, currencyCode)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </section>
-      )}
-
-      {equipmentRowPages.map((equipmentRows, pageIndex) => {
-        const isFirstPage = pageIndex === 0;
-        const isLastPage = pageIndex === equipmentRowPages.length - 1;
-
-        return (
-          <section
-            key={`equipment-page-${pageIndex}`}
-            className="proposal-page"
-            data-page-label={equipmentPageLabels[pageIndex] ?? "Page"}
-          >
-            <div className="proposal-header">
-              <span>Equipment and accessories</span>
-              <span>Proposal #{quote.metadata.proposalNumber}</span>
-            </div>
-
-            {isFirstPage ? (
-              <>
-                <div className="proposal-section-heading keep-with-next">
-                  {sectionBHeading.badge ? <div className="section-heading-badge">{sectionBHeading.badge}</div> : null}
-                  {sectionBHeading.overline ? <div className="proposal-overline">{sectionBHeading.overline}</div> : null}
-                  <h2 className="proposal-section-title">{sectionBHeading.title}</h2>
-                  <p className="proposal-intro">{sectionBIntroText}</p>
-                </div>
-
-                <div className="proposal-section-summary-card keep-with-next">
-                  <div className="proposal-section-summary-label">Section summary</div>
-                  <div className="proposal-section-summary-value">{sectionBSummaryValue}</div>
-                  <div className="proposal-section-summary-copy">{sectionBSummaryCopy}</div>
-                </div>
-              </>
-            ) : (
-              <div className="proposal-section-heading proposal-section-heading-continuation keep-with-next">
-                {sectionBHeading.overline ? <div className="proposal-overline">{sectionBHeading.overline}</div> : null}
-                <h2 className="proposal-section-title">{sectionBHeading.title} continued</h2>
-              </div>
-            )}
-
-            <table className="proposal-table sample-table">
-              <thead>
-                <tr>
-                  <th>Equipment Description</th>
-                  <th>Qty</th>
-                  <th>{sectionBUnitPriceLabel}</th>
-                  <th>{sectionBTotalPriceLabel}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {equipmentRows.map((row) => (
-                  <tr key={row.id} className="keep-together">
-                    <td>
-                      <div className="proposal-line-item-media">
-                        {row.imageUrl ? (
-                          <div className="proposal-line-item-image-wrap">
-                            <img src={row.imageUrl} alt={row.itemName} className="proposal-line-item-image" />
-                          </div>
-                        ) : null}
-                        <div className="proposal-line-item-copy">
-                          <div className="proposal-cell-title">{row.itemName}</div>
-                          {([row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).length > 0) ? (
-                            <div className="proposal-cell-subtitle">
-                              {[row.itemCategory, row.terminalType, row.partNumber].filter(Boolean).join(" • ")}
-                            </div>
-                          ) : null}
-                          {row.description && <div className="proposal-cell-note">{row.description}</div>}
-                          {supportingSpecLabel(row.specSheetLabel) ? <div className="proposal-cell-note">{supportingSpecLabel(row.specSheetLabel)}</div> : null}
-                        </div>
-                      </div>
-                    </td>
-                    <td>{row.quantity}</td>
-                    <td>{isLeaseQuote ? "Included in lease" : formatCurrency(row.unitPrice, currencyCode)}</td>
-                    <td>{isLeaseQuote ? formatCurrency(0, currencyCode) : formatCurrency(row.totalPrice, currencyCode)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              {isLastPage ? (
-                <tfoot>
-                  <tr className="proposal-total-row">
-                    <td colSpan={3}>{sectionBTotalLabel}</td>
-                    <td>{sectionBTotalValue}</td>
-                  </tr>
-                </tfoot>
-              ) : null}
-            </table>
-          </section>
-        );
-      })}
-
-      {quote.sections.sectionC.enabled && contentPresence.hasSectionCContent && (
-        <section className="proposal-page" data-page-label={fieldServicesPageLabel ?? "Page"}>
-          <div className="proposal-header">
-            <span>Field services</span>
-            <span>Proposal #{quote.metadata.proposalNumber}</span>
-          </div>
-
-          <div className="proposal-section-heading keep-with-next">
-            {sectionCHeading.badge ? <div className="section-heading-badge">{sectionCHeading.badge}</div> : null}
-            {sectionCHeading.overline ? <div className="proposal-overline">{sectionCHeading.overline}</div> : null}
-            <h2 className="proposal-section-title">{sectionCHeading.title}</h2>
-            <p className="proposal-intro">
-              {quote.sections.sectionC.introText ||
-                "Field services can be included as budgetary or final pricing."}
-            </p>
-          </div>
-
-          <div className="proposal-section-summary-card keep-with-next">
-            <div className="proposal-section-summary-label">Section summary</div>
-            <div className="proposal-section-summary-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
-            <div className="proposal-section-summary-copy">Field services included in the proposed scope.</div>
-          </div>
-
-          <table className="proposal-table sample-table">
-            <thead>
-              <tr>
-                <th>Service Description</th>
-                <th>Qty</th>
-                <th>Unit Price</th>
-                <th>Total Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sectionCRows.map((row) => (
-                <tr key={row.id} className="keep-together">
-                  <td>
-                    <div className="proposal-cell-title">{row.description}</div>
-                    <div className="proposal-cell-subtitle">{getPricingLabel(row)}</div>
-                    {row.notes && <div className="proposal-cell-note">{row.notes}</div>}
-                    {supportingSpecLabel(row.specSheetLabel) ? <div className="proposal-cell-note">{supportingSpecLabel(row.specSheetLabel)}</div> : null}
-                  </td>
-                  <td>{row.quantity}</td>
-                  <td>{formatCurrency(row.unitPrice, currencyCode)}</td>
-                  <td>{formatCurrency(row.totalPrice, currencyCode)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="proposal-total-row">
-                <td colSpan={3}>Field services total</td>
-                <td>{formatCurrency(sectionCTotal, currencyCode)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </section>
-      )}
-
-      {optionCostSummary.items.length > 0 && (
-        <section className="proposal-page" data-page-label={optionCostsPageLabel ?? "Page"}>
-          <div className="proposal-header">
-            <span>Option costs</span>
-            <span>Proposal #{quote.metadata.proposalNumber}</span>
-          </div>
-
-          <div className="proposal-section-heading keep-with-next">
-            <div className="section-heading-badge">Options</div>
-            <div className="proposal-overline">Optional add-ons</div>
-            <h2 className="proposal-section-title">Option Costs</h2>
-            <p className="proposal-intro">
-              The items below are available options and are not included in the base proposed totals unless selected.
-            </p>
-          </div>
-
-          <div className="proposal-grand-totals proposal-option-costs-totals print-keep-group">
-            {optionCostSummary.monthlyTotal > 0 ? (
-              <div className="grand-total-card print-keep-block">
-                <div className="grand-total-label">Monthly options</div>
-                <div className="grand-total-value">{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)}</div>
-              </div>
-            ) : null}
-            {optionCostSummary.oneTimeTotal > 0 ? (
-              <div className="grand-total-card print-keep-block">
-                <div className="grand-total-label">One-time options</div>
-                <div className="grand-total-value">{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</div>
-              </div>
-            ) : null}
-          </div>
-
-          <table className="proposal-table sample-table">
-            <thead>
-              <tr>
-                <th>Option Description</th>
-                <th>Type</th>
-                <th>Qty</th>
-                <th>Option Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {optionCostSummary.items.map((item) => (
-                <tr key={item.key} className="keep-together">
-                  <td>
-                    <div className="proposal-cell-title">{item.label}</div>
-                    {item.description ? <div className="proposal-cell-note">{item.description}</div> : null}
-                  </td>
-                  <td>{item.categoryLabel}</td>
-                  <td>{item.quantity ?? "—"}{item.unitLabel ? ` ${item.unitLabel}` : ""}</td>
-                  <td>{item.cadence === "monthly" ? `${formatCurrency(item.amount, currencyCode)} / mo` : formatCurrency(item.amount, currencyCode)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              {optionCostSummary.monthlyTotal > 0 ? (
-                <tr className="proposal-total-row">
-                  <td colSpan={3}>Monthly option total</td>
-                  <td>{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)} / mo</td>
-                </tr>
-              ) : null}
-              {optionCostSummary.oneTimeTotal > 0 ? (
-                <tr className="proposal-total-row">
-                  <td colSpan={3}>One-time option total</td>
-                  <td>{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</td>
-                </tr>
-              ) : null}
-            </tfoot>
-          </table>
-        </section>
-      )}
-
-      {systemDrawingPreviews.map((drawing, index) => {
-        const fallbackMessage = !drawing.objectUrl
-          ? (drawing.loadError ?? "Drawing preview unavailable.")
-          : null;
-
-        return (
-          <section
-            key={drawing.attachment.storageKey}
-            className="proposal-page proposal-spec-sheet-page proposal-system-drawing-page"
-            data-page-label={systemDrawingPageLabels[index] ?? "Page"}
-          >
-            <div className="proposal-header">
-              <span>System drawings</span>
-              <span>Proposal #{quote.metadata.proposalNumber}</span>
-            </div>
-
-            <div className="proposal-section-heading keep-with-next">
-              <div className="section-heading-badge">Drawing</div>
-              <div className="proposal-overline">Technical documentation</div>
-              <h2 className="proposal-section-title">System Drawing</h2>
-              <p className="proposal-intro">
-                This drawing is included as part of the proposal package and appears before supporting spec sheets.
-              </p>
-            </div>
-
-            <div className="proposal-copy proposal-copy-card proposal-spec-sheet-meta print-keep-block">
-              <p><strong>Drawing file</strong> {drawing.attachment.fileName}</p>
-            </div>
-
-            <div className="proposal-spec-sheet-frame">
-              {drawing.objectUrl ? (
-                <img
-                  src={drawing.objectUrl}
-                  alt={drawing.attachment.fileName}
-                  className="proposal-spec-sheet-image"
-                />
-              ) : null}
-
-              {fallbackMessage ? (
-                <div className="proposal-spec-sheet-empty">
-                  <strong>{fallbackMessage}</strong>
-                  <span>{drawing.attachment.fileName}</span>
-                </div>
-              ) : null}
-            </div>
-          </section>
-        );
-      })}
-
-      {specSheetPreviews.map((specSheet, index) => {
-        const sectionLabel = getSpecOutputSectionLabel(specSheet.outputSection);
-        const isPdf = isMajorProjectSpecAttachmentPdf(specSheet.attachment.fileName, specSheet.attachment.mimeType);
-        const isImage = isImageAttachment(specSheet.attachment.fileName, specSheet.attachment.mimeType);
-        const fallbackMessage = !specSheet.objectUrl
-          ? (specSheet.loadError ?? "Attachment preview unavailable.")
-          : (!isPdf && !isImage ? "HTML preview is not available for this attachment type." : null);
-
-        return (
-          <section
-            key={specSheet.attachment.storageKey}
-            className="proposal-page proposal-spec-sheet-page proposal-spec-attachment-page"
-            data-page-label={specSheetPageLabels[index] ?? "Page"}
-          >
-            <div className="proposal-header">
-              <span>Supporting spec sheets</span>
-              <span>Proposal #{quote.metadata.proposalNumber}</span>
-            </div>
-
-            <div className="proposal-section-heading keep-with-next">
-              <div className="section-heading-badge">Specs</div>
-              <div className="proposal-overline">Supporting documentation</div>
-              <h2 className="proposal-section-title">Supporting Spec Sheet</h2>
-              <p className="proposal-intro">
-                This attachment supports {sectionLabel.toLowerCase()} and remains separate from the proposal pricing tables.
-              </p>
-            </div>
-
-            <div className="proposal-copy proposal-copy-card proposal-spec-sheet-meta print-keep-block">
-              <p><strong>Proposal section</strong> {sectionLabel}</p>
-              <p><strong>Output item</strong> {specSheet.outputItemLabel}</p>
-              <p><strong>Attachment source</strong> {specSheet.sourceLabel}</p>
-              <p><strong>File</strong> {specSheet.attachment.fileName}</p>
-            </div>
-
-            <div className="proposal-spec-sheet-frame">
-              {isImage && specSheet.objectUrl ? (
-                <img
-                  src={specSheet.objectUrl}
-                  alt={specSheet.attachment.fileName}
-                  className="proposal-spec-sheet-image"
-                />
-              ) : null}
-
-              {isPdf && specSheet.objectUrl ? (
-                <iframe
-                  src={`${specSheet.objectUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                  title={specSheet.attachment.fileName}
-                  className="proposal-spec-sheet-embed"
-                />
-              ) : null}
-
-              {fallbackMessage ? (
-                <div className="proposal-spec-sheet-empty">
-                  <strong>{fallbackMessage}</strong>
-                  <span>{specSheet.attachment.fileName}</span>
-                </div>
-              ) : null}
-            </div>
-          </section>
-        );
-      })}
-
-      <section className="proposal-page proposal-terms-page" data-page-label={termsPageLabel}>
-        <div className="proposal-header">
-          <span>Terms and conditions</span>
-          <span>Proposal #{quote.metadata.proposalNumber}</span>
-        </div>
-
-        <div className="proposal-terms-intro-card keep-with-next print-keep-block">
-          <div className="proposal-section-summary-label">Review notes</div>
-          <div className="proposal-terms-intro-title">Terms that support this commercial proposal</div>
-          <div className="proposal-section-summary-copy">
-            The items below stay with the printed proposal so the commercial pages and approval page are backed by the same terms package.
-          </div>
-        </div>
-
-        <div className="proposal-overline">Terms and conditions</div>
-        <h2 className="proposal-section-title">{quote.terms.generalStarlinkServiceTermsTitle}</h2>
-        <div className="section-title-rule" />
-
-        <div className="proposal-copy proposal-copy-card section-copy-block print-keep-block">
-          <ol className="proposal-numbered-list">
-            {quote.terms.generalStarlinkServiceTerms.map((term, index) => (
-              <li key={`${term}-${index}`}>{term}</li>
-            ))}
-          </ol>
-        </div>
-
-        <div className="proposal-overline">Commercial terms</div>
-        <h2 className="proposal-section-title">{quote.terms.pricingTermsTitle}</h2>
-        <div className="proposal-copy proposal-copy-card section-copy-block print-keep-block">
-          <ul className="proposal-bullets compact">
-            {quote.terms.pricingTerms.map((term) => (
-              <li key={term}>{term}</li>
-            ))}
-          </ul>
-        </div>
-
-        {hasWarrantyContent ? (
-          <>
-            <div className="proposal-overline">Warranty reference</div>
-            <h2 className="proposal-section-title">{quote.warranty.heading}</h2>
-            <div className="proposal-copy proposal-copy-card section-copy-block print-keep-block">
-              {quote.warranty.manufacturerReference.trim().length > 0 ? (
-                <p><strong>Manufacturer / source reference</strong> {quote.warranty.manufacturerReference}</p>
-              ) : null}
-              {warrantyParagraphs.map((paragraph, index) => (
-                <p key={`${paragraph}-${index}`}>{paragraph}</p>
-              ))}
-            </div>
-          </>
-        ) : null}
-      </section>
-
-      <section className="proposal-page proposal-closing-page proposal-page-with-band" data-page-label={closingPageLabel}>
-        <div className="proposal-header">
-          <span>Commercial recap</span>
-          <span>Proposal #{quote.metadata.proposalNumber}</span>
-        </div>
-
-        <div className="proposal-overline">Commercial recap</div>
-        <h2 className="proposal-section-title">Summary of proposed pricing</h2>
-        <div className="section-title-rule" />
-
-        <div className="proposal-grand-totals print-keep-group">
-          {contentPresence.hasSectionAContent && recurringMonthlyTotal > 0 && !isLeaseQuote && (
-            <div className="grand-total-card print-keep-block">
-              <div className="grand-total-label">Recurring monthly</div>
-              <div className="grand-total-value">{formatCurrency(recurringMonthlyTotal, currencyCode)}</div>
-            </div>
-          )}
-          {contentPresence.hasSectionBContent && !isLeaseQuote && (
-            <div className="grand-total-card print-keep-block">
-              <div className="grand-total-label">One-time equipment</div>
-              <div className="grand-total-value">{formatCurrency(equipmentTotal, currencyCode)}</div>
-            </div>
-          )}
-          {contentPresence.hasSectionCContent && (
-            <>
-              <div className="grand-total-card print-keep-block">
-                <div className="grand-total-label">Field services</div>
-                <div className="grand-total-value">{formatCurrency(sectionCTotal, currencyCode)}</div>
-              </div>
-              <div className="grand-total-card accent-card print-keep-block">
-                <div className="grand-total-label">One-time total</div>
-                <div className="grand-total-value">{formatCurrency(customerFacingOneTimeTotal, currencyCode)}</div>
-              </div>
-            </>
-          )}
-          {isLeaseQuote && (
-            <div className="grand-total-card accent-card print-keep-block">
-              <div className="grand-total-label">Monthly total</div>
-              <div className="grand-total-value">{formatCurrency(leaseMonthly, currencyCode)}</div>
-            </div>
-          )}
-          {optionCostSummary.monthlyTotal > 0 && (
-            <div className="grand-total-card print-keep-block">
-              <div className="grand-total-label">Monthly option costs</div>
-              <div className="grand-total-value">{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)}</div>
-            </div>
-          )}
-          {optionCostSummary.oneTimeTotal > 0 && (
-            <div className="grand-total-card print-keep-block">
-              <div className="grand-total-label">One-time option costs</div>
-              <div className="grand-total-value">{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</div>
-            </div>
-          )}
-        </div>
-
-        {isLeaseQuote ? (
-          <div className="proposal-copy proposal-copy-card proposal-lease-pricing-card print-keep-block">
-            <div className="proposal-overline">Lease pricing</div>
-            <h3 className="proposal-mini-heading">Lease pricing schedule</h3>
-            <div className="proposal-lease-pricing-grid">
-              <div>
-                <span>Lease term</span>
-                <strong>{leasePricing.termMonths} months</strong>
-              </div>
-              <div>
-                <span>Leased equipment monthly</span>
-                <strong>{formatCurrency(leasePricing.hardwareMonthly, currencyCode)}</strong>
-              </div>
-              <div>
-                <span>Recurring monthly service</span>
-                <strong>{formatCurrency(leasePricing.recurringMonthlyTotal, currencyCode)}</strong>
-              </div>
-              <div className="proposal-lease-pricing-total">
-                <span>Monthly total</span>
-                <strong>{formatCurrency(leasePricing.leaseMonthly, currencyCode)}</strong>
-              </div>
-            </div>
-            <p>
-              This monthly total includes recurring service and leased equipment for the selected lease term.
-            </p>
-            {!leasePricing.hasActiveDataAgreement ? (
-              <p>Active data agreement has not been confirmed on this saved lease quote.</p>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="proposal-copy proposal-copy-card closing-copy closing-copy-strong print-keep-block">
-          <p>
-            This proposal outlines the current commercial structure for review. Final scope, taxes, freight,
-            installation assumptions, and delivery details may be refined in the next revision.
-          </p>
-          <p>
-            Please sign below to indicate acceptance of this proposal and authorization for {selectedBranding.shortName} to proceed with order
-            processing based on the approved scope.
-          </p>
-          {quote.approval.approvalNote ? <p>{quote.approval.approvalNote}</p> : null}
-        </div>
-
-        <div className="approval-block sample-approval-block print-keep-block">
-          <div className="approval-block-header">
-            <div>
-              <div className="proposal-overline">{quote.approval.heading}</div>
-              <h3 className="approval-title">Authorization to proceed</h3>
-            </div>
-          </div>
-
-          <div className="approval-copy">
-            By signing below, the customer confirms review and acceptance of the pricing and scope described in this
-            proposal, subject to any mutually agreed revisions or final contract documents.
-          </div>
-
-          <div className="approval-signature-grid approval-signature-grid-three-up print-keep-group">
-            <div className="signature-field print-keep-block">
-              <div className="signature-line" />
-              <div className="signature-label">{quote.approval.signatureLabel}</div>
-            </div>
-            <div className="signature-field print-keep-block">
-              <div className="signature-line" />
-              <div className="signature-label">{quote.approval.customerNameLabel}</div>
-            </div>
-            <div className="signature-field print-keep-block">
-              <div className="signature-line" />
-              <div className="signature-label">{quote.approval.dateLabel}</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="page-bottom-band" aria-hidden="true">
-          <div className="cover-band-copy">Confidential commercial proposal prepared for review and approval.</div>
-        </div>
-      </section>
-    </main>
-  );
+  const fieldTotal = getOptionalServicesTotal(quote);
+  const upfront = getCombinedOneTimeTotal(quote);
+  const lease = getLeasePricingSummary(quote);
+  const isLease = quote.metadata.quoteType === "lease";
+  const monthly = isLease ? lease.leaseMonthly : recurring;
+  const monthlyConfirmed = !isLease || lease.hasActiveDataAgreement;
+  const options = getProposalOptionCostSummary(quote);
+  const attachments = useMemo(() => getProposalAttachments(quote), [quote]);
+  const executiveBlocks = quote.executiveSummary.enabled ? buildExecutiveSummaryRenderBlocks(quote.executiveSummary) : [];
+  const customerFields = (quote.customFields ?? []).filter((field) => field.visibility === "customer" && field.label.trim() && field.value.trim());
+  const overageRows = services.filter((row) => row.rowType === "overage");
+  const overage = quote.orderProcessing?.overageOptIn ?? "pending";
+  const overageLabel = { pending: "Not confirmed", yes: "Opted in", no: "Opted out", not_applicable: "Not applicable" }[overage];
+  const tax = getQuotedSalesTax(quote);
+  const addressValues = (address: QuoteRecord["billTo"]) => [address.companyName, address.attention, ...address.lines].filter((value): value is string => Boolean(value?.trim()));
+  const billTo = addressValues(quote.billTo);
+  const shipTo = addressValues(quote.shippingSameAsBillTo ? quote.billTo : quote.shipTo);
+  const sameAddress = (left: string[], right: string[]) => left.join(" ").replace(/\s+/g, " ").trim().toLowerCase() === right.join(" ").replace(/\s+/g, " ").trim().toLowerCase();
+  const customerAddress = [quote.customer.name, quote.customer.contactName, ...quote.customer.addressLines].filter(Boolean);
+  const showBillTo = billTo.length > 0 && !sameAddress(billTo, customerAddress);
+  const showShipTo = shipTo.length > 0 && !sameAddress(shipTo, customerAddress);
+  const sameBillingShipping = sameAddress(billTo, shipTo);
+  const date = quote.metadata.proposalDate;
+  const extraDetails = [
+    { label: "Subscription commitment", value: services.length ? content.serviceTermMonths + " months" : "" },
+    { label: "Equipment lease", value: isLease ? lease.termMonths + " months" : "" },
+    { label: "Billing begins", value: content.settings.billingStart },
+    { label: "Delivery / lead time", value: content.settings.deliveryLeadTime },
+  ].filter((detail) => detail.value);
+
+  return <main className="proposal-shell customer-proposal" data-attachments-ready="true" style={{ ["--cp-brand" as string]: branding.primaryColor }}>
+    <header className="cp-header">
+      <img className="cp-logo" src={assetOverrides?.inetLogoSrc ?? branding.logoSrc} alt={branding.logoAlt} />
+      <div className="cp-reference"><strong>{quote.metadata.proposalNumber}</strong><span>{date + " / Revision " + quote.metadata.revisionVersion}</span>{quote.metadata.expirationDate && <span>Valid through {quote.metadata.expirationDate}</span>}<span className={content.isDraft ? "cp-draft" : "cp-issued"}>{content.isDraft ? "Draft proposal" : "Commercial proposal"}</span></div>
+    </header>
+
+    <div className="cp-title"><p>Prepared for {quote.customer.name}</p><h1>{content.title}</h1>{content.subtitle && <p>{content.subtitle}</p>}</div>
+
+    <div className="cp-commercial">
+      <div><span>Total monthly payment</span><strong>{monthlyConfirmed ? money(monthly, currency) : "Pending agreement"}</strong><small>{isLease ? lease.termMonths + "-month equipment lease" : services.length ? "Recurring services" : "No recurring charges quoted"}</small></div>
+      <div><span>One-time charges</span><strong>{money(upfront, currency)}</strong><small>{tax > 0 ? "Includes quoted sales tax" : "Quoted equipment and services"}</small></div>
+    </div>
+    {isLease && monthlyConfirmed && <p className="cp-payment-breakdown">Equipment lease {money(lease.hardwareMonthly, currency)}/month + recurring services {money(recurring, currency)}/month.</p>}
+
+    <div className="cp-parties">
+      <div><h3>Customer</h3><strong>{quote.customer.name}</strong><Lines values={[quote.customer.contactName, quote.customer.contactEmail, quote.customer.contactPhone]} /></div>
+      <div><h3>Service location</h3>{quote.customer.addressLines.some((line) => line.trim()) ? <Lines values={quote.customer.addressLines} /> : <span>To be confirmed</span>}</div>
+      <div><h3>Prepared by</h3><strong>{quote.inet.contactName}</strong><Lines values={[quote.inet.name, quote.inet.contactEmail, quote.inet.contactPhone]} /></div>
+    </div>
+    {(showBillTo || showShipTo) && <div className="cp-addresses">
+      {showBillTo && <div><h3>{sameBillingShipping ? "Billing & shipping" : "Billing address"}</h3><Lines values={billTo} /></div>}
+      {showShipTo && !sameBillingShipping && <div><h3>Shipping address</h3><Lines values={shipTo} /></div>}
+    </div>}
+    {extraDetails.length > 0 && <dl className="cp-facts">{extraDetails.map((detail) => <div key={detail.label}><dt>{detail.label}</dt><dd>{detail.value}</dd></div>)}</dl>}
+    {content.scope && !executiveBlocks.length && <Section title="Proposed scope"><p>{content.scope}</p></Section>}
+    {executiveBlocks.length > 0 && <Section title={customerCopy(quote.executiveSummary.heading) || "Proposed scope"}>{executiveBlocks.map((block) => {
+      if (block.type === "heading") return <h3 key={block.id}>{block.text}</h3>;
+      if (block.type === "paragraph") return <p className="cp-preserve-lines" key={block.id}>{block.text}</p>;
+      const Tag = block.type === "numbered_list" ? "ol" : "ul";
+      return <Tag key={block.id}>{(block.items ?? []).map((item, index) => <li key={index}>{item}</li>)}</Tag>;
+    })}</Section>}
+    {customerFields.length > 0 && <Section title="Scope details"><dl className="cp-custom-details">{customerFields.map((field) => <div key={field.id}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl></Section>}
+
+    {services.length > 0 && <Section title="Subscriptions & service pricing">
+      {content.serviceIntro && <p className="cp-preserve-lines">{content.serviceIntro}</p>}
+      {content.serviceNotes.map((line, index) => <p className="cp-preserve-lines" key={index}>{line}</p>)}
+      {quote.orderProcessing?.dataPlanDetails && <p><strong>Data allocation:</strong> {quote.orderProcessing.dataPlanDetails}</p>}
+      <table className="cp-table"><caption>Included subscriptions and fees</caption><colgroup><col className="cp-col-item" /><col className="cp-col-qty" /><col className="cp-col-price" /><col className="cp-col-price" /></colgroup><thead><tr><th>Service / fee</th><th>Qty</th><th>Unit rate</th><th>Monthly total</th></tr></thead><tbody>
+        {services.map((row) => <tr key={row.id}><td><ItemCopy title={row.description} />{row.includedText?.map(customerCopy).filter(Boolean).map((line, index) => <p className="cp-row-note" key={index}>{line}</p>)}{row.rowType === "overage" && <span className="cp-row-note">Usage-based charge{row.unitLabel ? " per " + row.unitLabel : ""}</span>}</td><td>{row.quantity ?? "-"}</td><td>{money(row.monthlyRate ?? row.unitPrice ?? 0, currency)}{row.rowType === "overage" && row.unitLabel ? " / " + row.unitLabel : ""}</td><td>{row.rowType === "overage" ? "Usage-based" : money(row.totalMonthlyRate ?? 0, currency)}</td></tr>)}
+      </tbody><tfoot><tr><td colSpan={3}>Recurring services per month</td><td>{money(recurring, currency)}</td></tr></tfoot></table>
+      <div className="cp-service-notes">
+        {quote.orderProcessing?.monitoringSupportDetails && <p><strong>Monitoring &amp; support:</strong> {quote.orderProcessing.monitoringSupportDetails}</p>}
+        {quote.orderProcessing?.terminalAccessFeeDetails && <p><strong>TAF:</strong> {quote.orderProcessing.terminalAccessFeeDetails}</p>}
+        {(overageRows.length > 0 || overage !== "pending") && <p><strong>Overage election:</strong> {overageLabel}. Usage-based charges are separate from the fixed monthly payment.</p>}
+      </div>
+    </Section>}
+
+    {equipment.length > 0 && <Section title={isLease ? "Equipment included in lease" : "Equipment & materials"}>
+      {content.equipmentIntro && <p className="cp-preserve-lines">{content.equipmentIntro}</p>}
+      <table className={"cp-table " + (isLease ? "cp-equipment-lease" : "")}><caption>Included equipment</caption><colgroup><col className="cp-col-item" /><col className="cp-col-qty" />{!isLease && <col className="cp-col-price" />}<col className="cp-col-price" /></colgroup><thead><tr><th>Equipment / item</th><th>Qty</th>{!isLease && <th>Unit price</th>}<th>{isLease ? "Billing" : "Line total"}</th></tr></thead><tbody>
+        {equipment.map((row) => <tr key={row.id}><td><ItemCopy title={row.itemName} description={row.description} image={row.imageUrl} />{row.partNumber && <span className="cp-row-note">Part {row.partNumber}</span>}</td><td>{row.quantity}</td>{!isLease && <td>{money(row.unitPrice, currency)}</td>}<td>{isLease ? "Included in lease" : money(row.totalPrice, currency)}</td></tr>)}
+      </tbody>{!isLease && <tfoot><tr><td colSpan={3}>One-time equipment total</td><td>{money(equipmentTotal, currency)}</td></tr></tfoot>}</table>
+      {isLease && <p className="cp-muted">No separate upfront equipment purchase is charged.</p>}
+    </Section>}
+
+    {fieldServices.length > 0 && <Section title="Implementation & field services">
+      {content.fieldServiceIntro && <p className="cp-preserve-lines">{content.fieldServiceIntro}</p>}
+      <table className="cp-table"><caption>Included implementation and field services</caption><colgroup><col className="cp-col-item" /><col className="cp-col-qty" /><col className="cp-col-price" /><col className="cp-col-price" /></colgroup><thead><tr><th>Service</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>
+        {fieldServices.map((row) => <tr key={row.id}><td><ItemCopy title={row.description} description={row.notes} />{row.pricingStage === "budgetary" && !content.fieldServicePricingConfirmed && <span className="cp-row-note">Estimated</span>}</td><td>{row.quantity}{row.unitLabel ? " " + row.unitLabel : ""}</td><td>{money(row.unitPrice, currency)}</td><td>{money(row.totalPrice, currency)}</td></tr>)}
+      </tbody><tfoot><tr><td colSpan={3}>One-time services total</td><td>{money(fieldTotal, currency)}</td></tr></tfoot></table>
+    </Section>}
+    {tax > 0 && <p className="cp-tax"><strong>Quoted sales tax:</strong> {money(tax, currency)} (included in one-time charges).</p>}
+
+    {options.items.length > 0 && <Section title="Option Costs" className="cp-options">
+      <p className="cp-muted">Available options only. Excluded from the included scope and all base totals.</p>
+      <table className="cp-table cp-option-table"><caption>Available options excluded from base pricing</caption><colgroup><col className="cp-col-ref" /><col className="cp-col-option" /><col className="cp-col-qty" /><col className="cp-col-price" /><col className="cp-col-price" /></colgroup><thead><tr><th>Ref</th><th>Available option</th><th>Qty</th><th>Unit price</th><th>Option total</th></tr></thead><tbody>
+        {options.items.map((item, index) => <tr key={item.key}><td>{"O" + (index + 1)}</td><td><ItemCopy title={item.label} description={item.description} /><span className="cp-row-note">{item.usageBased ? "Usage-based" : item.cadence === "monthly" ? "Monthly" : "One-time"}</span></td><td>{item.usageBased ? "-" : item.quantity ?? "-"}</td><td>{item.unitPrice == null ? "-" : money(item.unitPrice, currency, 4)}{item.usageBased ? " / " + (item.unitLabel || "unit") : item.cadence === "monthly" && item.unitPrice != null ? " / mo" : ""}</td><td>{item.usageBased ? "Usage-based" : money(item.amount, currency)}{!item.usageBased && item.cadence === "monthly" ? " / mo" : ""}</td></tr>)}
+      </tbody><tfoot><tr><td colSpan={4}>Available monthly options</td><td>{money(options.monthlyTotal, currency)} / mo</td></tr><tr><td colSpan={4}>Available one-time options</td><td>{money(options.oneTimeTotal, currency)}</td></tr></tfoot></table>
+    </Section>}
+
+    <Section title="Commercial terms" className="cp-terms">
+      <dl className="cp-facts">
+        <div><dt>Currency</dt><dd>{currency}</dd></div>
+        {quote.metadata.expirationDate && <div><dt>Quote valid through</dt><dd>{quote.metadata.expirationDate}</dd></div>}
+        {services.length > 0 && <div><dt>Subscription commitment</dt><dd>{content.serviceTermMonths} months</dd></div>}
+        {isLease && <div><dt>Equipment lease term</dt><dd>{lease.termMonths} months</dd></div>}
+      </dl>
+      {isLease && <div className="cp-lease-terms">
+        <p><strong>Equipment at end of lease:</strong> {content.settings.leaseEndTerms || "To be confirmed."}</p>
+        <p><strong>Pricing after the equipment lease:</strong> {content.settings.postLeaseTerms || "To be confirmed."}</p>
+      </div>}
+      {content.pricingTerms.map((line, index) => <p key={index}>{line}</p>)}
+      {content.serviceTerms.length > 0 && <div className="cp-terms-subsection"><h3>{content.serviceTermsTitle}</h3>{content.serviceTerms.map((line, index) => <p key={index}>{line}</p>)}</div>}
+      {content.warranty.length > 0 && <div className="cp-terms-subsection"><h3>Warranty</h3>{content.warranty.map((line, index) => <p key={index}>{line}</p>)}</div>}
+    </Section>
+
+    <section className="cp-acceptance">
+      <h2>{content.approvalReady ? "Quote acceptance" : "Commercial details to confirm"}</h2>
+      <div className="cp-accepted-totals"><div><span>Included monthly payment</span><strong>{monthlyConfirmed ? money(monthly, currency) : "Pending agreement"}</strong></div><div><span>Included one-time charges</span><strong>{money(upfront, currency)}</strong></div></div>
+      {options.items.length > 0 && <p>All items under Option Costs are excluded from these totals and from this acceptance. A revised quote is required to include chosen options.</p>}
+      {content.approvalReady ? <>
+        <p>Acceptance applies to the included scope, pricing, and applicable terms in this proposal.</p>
+        {content.approvalNote && <p className="cp-preserve-lines">{content.approvalNote}</p>}
+        <div className="cp-signatures"><div><span>Authorized signature</span></div><div><span>Printed name / title</span></div><div><span>Date</span></div></div>
+      </> : <><p>This proposal is pending the following commercial details and is not ready for order authorization.</p><ul>{content.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></>}
+    </section>
+
+    {attachments.length > 0 && <Section title="Technical appendix" className="cp-appendix-index">
+      <table className="cp-table cp-appendix-table"><caption>Technical appendix index</caption><thead><tr><th>Ref</th><th>Quoted item / scope</th><th>Document</th></tr></thead><tbody>{attachments.map((entry) => <tr key={entry.id}><td>{entry.id}</td><td>{entry.itemLabels.join("; ")}</td><td>{entry.label}<span className="cp-row-note">{entry.kind === "drawing" ? "System drawing" : "Supporting document"}</span></td></tr>)}</tbody></table>
+      <p className="cp-muted">Supporting documentation follows this index in reference order. Included scope and pricing are defined by the commercial schedules above.</p>
+      {attachments.map((entry) => <AppendixPreview key={entry.attachment.storageKey} entry={entry} />)}
+    </Section>}
+    <footer className="cp-screen-footer no-print">{branding.legalName} / {quote.metadata.proposalNumber}</footer>
+  </main>;
 }
 
 export function ProposalDocument(props: ProposalDocumentProps) {
-  if (resolveQuoteOutputTemplateKey(props.quote) === "estimate_compact") {
-    return <IliosEstimateDocument quote={props.quote} />;
-  }
-
+  if (resolveQuoteOutputTemplateKey(props.quote) === "estimate_compact") return <IliosEstimateDocument quote={props.quote} />;
   return <DetailedProposalDocument {...props} />;
 }

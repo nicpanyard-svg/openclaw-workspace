@@ -381,7 +381,7 @@ test("Major Project saved output supplies categories without exporting generated
     { unitPrice: 0.5, total: 0.5 },
     { unitPrice: 0, total: 0 },
   ]);
-  assert.match(buildOrderProcessingText(savedOutput), /Quoted recurring total: \$120\.50\/month/);
+  assert.match(buildOrderProcessingText(savedOutput), /Quoted recurring total: \$120\.00\/month/);
   assert.doesNotMatch(buildOrderProcessingText(savedOutput), /cost|profit|margin|765432/i);
   assert.deepEqual(getOrderProcessing(savedOutput), getOrderProcessing(quote));
 });

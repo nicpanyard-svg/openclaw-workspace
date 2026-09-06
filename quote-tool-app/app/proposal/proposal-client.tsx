@@ -7,12 +7,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate } from "@/app/components/auth-shell";
 import { ProposalDocument } from "@/app/components/proposal-document";
 import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/active-proposal";
-import { buildProposalPdfPreviewPath, buildProposalPrintPath } from "@/app/lib/proposal-navigation";
+import { buildProposalPdfPreviewPath } from "@/app/lib/proposal-navigation";
 import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
 import { buildProposalApprovalWorkbook } from "@/app/lib/proposal-xlsx-export";
 
 export function ProposalClient({ requestedProposalId = null }: { requestedProposalId?: string | null }) {
   const [isHydrated, setIsHydrated] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   const pdfRequestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -71,23 +73,7 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
     }
 
     const basePdfBlob = await requestBasePdfBlob();
-    return assembleFinalProposalPdf(basePdfBlob, quote);
-  };
-
-  const openRouteInNewTab = (path: string) => {
-    const opened = window.open(path, "_blank");
-
-    if (opened) {
-      try {
-        opened.opener = null;
-      } catch {
-        // Ignore cross-browser noopener assignment issues once the tab is already open.
-      }
-      return true;
-    }
-
-    window.location.assign(path);
-    return false;
+    return assembleFinalProposalPdf(basePdfBlob, quote, { proposalId: quote.metadata.proposalNumber });
   };
 
   const handleViewPdf = async () => {
@@ -96,44 +82,24 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
   };
 
   const handlePrintPdf = async () => {
-    if (!quote) return;
-
-    const safeProposalNumber = quote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
-
+    if (!quote || isDownloading) return;
+    setIsDownloading(true);
+    setExportError(null);
     try {
       const blob = await generatePdfBlob();
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-
       link.href = objectUrl;
-      link.download = `${safeProposalNumber}.pdf`;
-      link.rel = "noopener";
+      const name = quote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-") || "proposal";
+      link.download = name + ".pdf";
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-      return;
-    } catch {
-      try {
-        const basePdfBlob = await requestBasePdfBlob();
-        if (basePdfBlob) {
-          const blob = await assembleFinalProposalPdf(basePdfBlob, quote);
-          const objectUrl = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = objectUrl;
-          link.download = `${safeProposalNumber}.pdf`;
-          link.rel = "noopener";
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-          return;
-        }
-      } catch {
-        // Fall through to print view backup.
-      }
-
-      openRouteInNewTab(buildProposalPrintPath(activeProposalId));
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "PDF export failed.");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -205,12 +171,13 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
             <button type="button" className="proposal-secondary-button" onClick={() => void handleViewPdf()}>
               Open PDF Preview
             </button>
-            <button type="button" className="proposal-print-button" onClick={() => void handlePrintPdf()}>
-              Download PDF
+            <button type="button" className="proposal-print-button" disabled={isDownloading} onClick={() => void handlePrintPdf()}>
+              {isDownloading ? "Generating PDF..." : "Download PDF"}
             </button>
           </div>
         </div>
 
+        {exportError && <div className="proposal-export-error no-print" role="alert">{exportError}</div>}
         <div className="proposal-preview-shell">
           <div className="proposal-preview-pane-header no-print">
             <div className="proposal-preview-pane-title">Customer proposal HTML</div>

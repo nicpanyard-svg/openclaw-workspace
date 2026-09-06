@@ -63,7 +63,7 @@ export function ProposalPrintClient({
         }
 
         const basePdfBlob = await response.blob();
-        const finalPdfBlob = await assembleFinalProposalPdf(basePdfBlob, quote);
+        const finalPdfBlob = await assembleFinalProposalPdf(basePdfBlob, quote, { proposalId: quote.metadata.proposalNumber });
 
         if (isCancelled) {
           return;
@@ -71,9 +71,9 @@ export function ProposalPrintClient({
 
         const objectUrl = URL.createObjectURL(finalPdfBlob);
         window.location.replace(objectUrl);
-      } catch {
+      } catch (error) {
         if (!isCancelled) {
-          setPdfPreviewError("Unable to generate the PDF preview right now. Please return to Proposal Preview and try again.");
+          setPdfPreviewError(error instanceof Error ? error.message : "Unable to generate the PDF preview.");
         }
       }
     };

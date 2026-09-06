@@ -9,6 +9,7 @@ import { normalizeMajorProjectSpecAttachment } from "@/app/lib/major-project-spe
 import { createDefaultQuoteServiceAgreementState, normalizeQuoteServiceAgreementState } from "@/app/lib/service-agreement";
 import { normalizeQuoteWarrantyDetails } from "@/app/lib/quote-warranty";
 import { normalizeOrderProcessing } from "@/app/lib/order-processing";
+import { normalizeCustomerOutput } from "@/app/lib/proposal-customer-content";
 import type { LeaseTermMonths, QuoteCustomField, QuoteRecord } from "@/app/lib/quote-record";
 import { RAPIDQUOTE_DEPLOYMENT_KEY, scopeStorageKey } from "@/app/lib/app-environment";
 
@@ -353,6 +354,7 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
       shipTo,
       shippingSameAsBillTo,
       orderProcessing: normalizeOrderProcessing(parsed.orderProcessing),
+      customerOutput: normalizeCustomerOutput(parsed.customerOutput),
       executiveSummary: {
         enabled: parsed.executiveSummary?.enabled ?? false,
         heading: parsed.executiveSummary?.heading ?? "Executive Summary",

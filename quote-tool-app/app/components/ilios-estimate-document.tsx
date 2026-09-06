@@ -19,7 +19,7 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
   }
 
   return (
-    <div className="mx-auto max-w-[980px] bg-white px-8 py-10 text-[#23313d]">
+    <div className="ilios-estimate-document mx-auto max-w-[980px] bg-white px-8 py-10 text-[#23313d]">
       <section className="rounded-[28px] border border-[#d9e2ea] bg-white px-8 py-8 shadow-[0_18px_60px_rgba(25,52,78,0.08)]">
         <div className="flex flex-wrap items-start justify-between gap-8 border-b border-[#d8e1e8] pb-8">
           <div className="max-w-[440px] space-y-4">
@@ -116,7 +116,7 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
                     </td>
                     <td className="px-4 py-3 align-top text-[#526573]">{item.categoryLabel}</td>
                     <td className="px-4 py-3 align-top text-[#526573]">{item.quantity ?? "—"}{item.unitLabel ? ` ${item.unitLabel}` : ""}</td>
-                    <td className="px-4 py-3 align-top font-semibold text-[#1f2d3a]">{item.cadence === "monthly" ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / mo` : formatCurrency(item.amount, quote.metadata.currencyCode || "USD")}</td>
+                    <td className="px-4 py-3 align-top font-semibold text-[#1f2d3a]">{item.usageBased ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / ${item.unitLabel || "unit"} (usage-based)` : item.cadence === "monthly" ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / mo` : formatCurrency(item.amount, quote.metadata.currencyCode || "USD")}</td>
                   </tr>
                 ))}
               </tbody>

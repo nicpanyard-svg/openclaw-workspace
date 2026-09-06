@@ -46,6 +46,7 @@ export function createBlankQuoteRecord(base: QuoteRecord = sampleQuoteRecord): Q
   quote.majorProject = createDefaultMajorProjectState();
   quote.serviceAgreement = createDefaultQuoteServiceAgreementState();
   quote.warranty = createDefaultQuoteWarrantyDetails();
+  quote.customerOutput = { leaseEndTerms: "", postLeaseTerms: "", deliveryLeadTime: "", billingStart: "" };
 
   quote.documentation.proposalTitle = "";
   quote.documentation.proposalDateLabel = proposalDate;

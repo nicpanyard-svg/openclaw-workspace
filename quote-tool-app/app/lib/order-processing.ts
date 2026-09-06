@@ -226,7 +226,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     `Customer one-time total: ${money(getCombinedOneTimeTotal(quote, equipmentTotal, servicesTotal))}`,
     "",
     "Optional items (excluded from order totals; require separate selection):",
-    ...options.items.map((item) => `- [${item.key}] ${item.label}: ${money(item.amount)} (${item.cadence === "monthly" ? "monthly" : "one-time"})`),
+    ...options.items.map((item) => `- [${item.key}] ${item.label}: ${money(item.amount)} (${item.usageBased ? `usage-based per ${item.unitLabel || "unit"}` : item.cadence === "monthly" ? "monthly" : "one-time"})`),
     ...(!options.items.length ? ["None"] : []),
     `Excluded optional monthly total: ${money(options.monthlyTotal)}`,
     `Excluded optional one-time total: ${money(options.oneTimeTotal)}`,

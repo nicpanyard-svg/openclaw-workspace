@@ -5,6 +5,8 @@
 import { AlertCircle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calculator, Check, ChevronDown, ClipboardCheck, Copy, Download, Eye, Files, List, MoreHorizontal, Plus, Save, Trash2, UserRound, X } from "lucide-react";
 import { QuoteLineTable } from "@/app/components/quote-line-table";
 import { OrderProcessingPanel } from "@/app/components/order-processing-panel";
+import { CustomerOutputSettings } from "@/app/components/customer-output-settings";
+import { getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
 import { buildOrderProcessingText } from "@/app/lib/order-processing";
 import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
 import "./quote-editor.css";
@@ -2379,7 +2381,7 @@ export default function QuotePreview() {
     [currencyCode, firstImportedMajorProjectCost, majorProjectImportedMarginPercent],
   );
   const editorNeedsAttention = useMemo(() => {
-    const items: string[] = [];
+    const items: string[] = getCustomerQuoteContent(quote).warnings;
 
     if (!customerEntryComplete) {
       items.push("Select or complete the customer before reviewing this quote.");
@@ -2409,8 +2411,9 @@ export default function QuotePreview() {
       items.push(`${importedMajorProjectNeedsReviewCount} imported component${importedMajorProjectNeedsReviewCount === 1 ? "" : "s"} still need label, pricing, or output review.`);
     }
 
-    return items;
+    return [...new Set(items)];
   }, [
+    quote,
     contentPresence.hasExecutiveSummaryContent,
     contentPresence.hasSectionAContent,
     contentPresence.hasOptionCostsContent,
@@ -4438,7 +4441,7 @@ export default function QuotePreview() {
         body: JSON.stringify({ quote: savedQuote, proposalId }),
       });
       if (!response.ok) throw new Error("Unable to generate PDF. Please try again.");
-      const blob = await assembleFinalProposalPdf(await response.blob(), savedQuote);
+      const blob = await assembleFinalProposalPdf(await response.blob(), savedQuote, { proposalId: savedQuote.metadata.proposalNumber });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       const name = savedQuote.metadata.proposalNumber.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "proposal";
@@ -6042,6 +6045,7 @@ return {
               {!isMajorProject && !quote.sections.sectionA.enabled && !quote.sections.sectionB.enabled && !quote.sections.sectionC.enabled && <p className="rq-empty">Choose a section to add line items.</p>}
             </div>
             <div hidden={visibleEditorTab !== "pricing"} aria-labelledby="rq-nav-pricing">
+              <CustomerOutputSettings quote={quote} onChange={updateQuote} />
               <section className="builder-panel">
   <div className="rq-section-heading"><h2>Pricing</h2><span>{currencyCode}</span></div>
   <fieldset className="rq-mode-group"><legend>Quote type</legend><div className="rq-segmented">

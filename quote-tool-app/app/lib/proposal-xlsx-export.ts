@@ -176,7 +176,7 @@ function allocateCostsByRevenue<T extends { revenue: number }>(items: T[], total
 
 function buildOptionCostWorkbookLines(quote: QuoteRecord) {
   return getProposalOptionCostSummary(quote).items.map((row) => {
-    const schedule = row.cadence === "monthly" ? "Recurring option" : "One-time option";
+    const schedule = row.usageBased ? `Usage-based option per ${row.unitLabel || "unit"}` : row.cadence === "monthly" ? "Recurring option" : "One-time option";
     return {
       item: row.label || "Option cost",
       description: row.description || row.categoryLabel,

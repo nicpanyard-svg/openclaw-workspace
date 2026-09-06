@@ -622,6 +622,14 @@ export type QuoteOrderProcessing = {
   notes: string;
 };
 
+export type QuoteCustomerOutput = {
+  fieldServiceConfirmation?: string;
+  leaseEndTerms: string;
+  postLeaseTerms: string;
+  deliveryLeadTime: string;
+  billingStart: string;
+};
+
 export type QuoteRecord = {
   metadata: QuoteMetadata;
   governance?: QuoteGovernanceState;
@@ -638,6 +646,7 @@ export type QuoteRecord = {
   shipTo: AddressBlock;
   shippingSameAsBillTo: boolean;
   orderProcessing?: QuoteOrderProcessing;
+  customerOutput?: QuoteCustomerOutput;
   executiveSummary: QuoteTextBlock;
   customFields?: QuoteCustomField[];
   sections: {
