@@ -12,6 +12,7 @@ import { createBlankQuoteRecord } from "../app/lib/quote-template";
 import { quoteMasterFixtures } from "./quote-master-fixtures";
 
 async function clickText(page: Page, selector: string, text: string) {
+  await page.waitForFunction((selector, text) => [...document.querySelectorAll(selector)].some((element) => element.textContent?.trim() === text), { timeout: 20_000 }, selector, text);
   await page.$$eval(selector, (elements, text) => {
     const match = elements.find((element) => element.textContent?.trim() === text) as HTMLElement | undefined;
     if (!match) throw new Error("Missing control: " + text);
@@ -64,6 +65,7 @@ async function main() {
       assert.ok(ai.includes("$10,200.00") && ai.includes("$1,600.00") && !ai.includes("Optional services"));
       await page.screenshot({ path: path.join(output, `workspace-${width}.png`), fullPage: true });
       await page.click('input[aria-label="Select all quotes for QA SARA Workbook"]');
+      await page.screenshot({ path: path.join(output, `selection-${width}.png`) });
       await clickText(page, ".qw-selection-bar button", "Export selected quotes");
       await page.waitForSelector("dialog[open]");
       assert.equal(await page.$$eval(".qm-split", (labels) => labels.length), 1);
