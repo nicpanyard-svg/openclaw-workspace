@@ -119,6 +119,14 @@ export function buildQuoteMasterColumns(selections: QuoteMasterSelection[]): Quo
   return columns;
 }
 
+export function canSplitQuoteMasterConnectivity(selection: QuoteMasterSelection) {
+  try {
+    return buildQuoteMasterColumns([{ ...selection, splitConnectivity: true }]).length === 2;
+  } catch {
+    return false;
+  }
+}
+
 export function blankQuoteMasterInputs(): QuoteMasterCell[] {
   const cells: QuoteMasterCell[] = [];
   const set = (sheet: string, address: string, value: string | number | null) => cells.push({ sheet, address, value });

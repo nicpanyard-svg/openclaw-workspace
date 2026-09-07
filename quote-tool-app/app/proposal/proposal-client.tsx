@@ -10,8 +10,8 @@ import { persistPreviewQuote, resolveActiveProposalQuote } from "@/app/lib/activ
 import { buildProposalPdfPreviewPath } from "@/app/lib/proposal-navigation";
 import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
 import { buildProposalPdfFileName } from "@/app/lib/proposal-file-name";
-import { buildProposalApprovalWorkbook } from "@/app/lib/proposal-xlsx-export";
-import { QuoteMasterExport } from "@/app/components/quote-master-export";
+import { QuoteExportMenu } from "@/app/components/quote-export-menu";
+import { ArrowLeft, Eye } from "lucide-react";
 
 export function ProposalClient({ requestedProposalId = null }: { requestedProposalId?: string | null }) {
   const [isHydrated, setIsHydrated] = useState(false);
@@ -35,7 +35,6 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
     return nextResolved;
   }, [isHydrated, requestedProposalId]);
   const quote = resolved?.quote ?? null;
-  const usingSavedData = resolved?.usingSavedData ?? false;
   const activeProposalId = resolved?.activeProposalId ?? null;
 
   const requestBasePdfBlob = async () => {
@@ -104,24 +103,6 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
     }
   };
 
-  const handleExportApprovalWorkbook = async () => {
-    if (!quote) return;
-
-    try {
-      const { blob, fileName } = await buildProposalApprovalWorkbook(quote);
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      link.href = objectUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-    } catch {
-      window.alert("Unable to generate the approval workbook right now. Please try again.");
-    }
-  };
 
   if (!resolved) {
     return <AuthGate><div className="proposal-route-shell"><div className="proposal-toolbar no-print"><div className="proposal-toolbar-title">Loading proposal preview...</div></div></div></AuthGate>;
@@ -157,34 +138,18 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
       <div className="proposal-route-shell">
         <div className="proposal-toolbar no-print">
           <div>
-            <div className="proposal-toolbar-label">App preview controls</div>
-            <div className="proposal-toolbar-title">Proposal Preview</div>
-            <div className="proposal-toolbar-subtitle">
-              {usingSavedData
-                ? "These controls are part of the app. The customer-facing proposal begins below and is the HTML source of truth used for PDF export."
-                : "These controls are part of the app. The customer-facing proposal begins below."}
-            </div>
+            <div className="proposal-toolbar-title">{quote.metadata.documentTitle || "Customer proposal"}</div>
+            <div className="proposal-toolbar-subtitle">{quote.customer.name} / {quote.metadata.proposalNumber}</div>
           </div>
           <div className="proposal-toolbar-actions">
-            {quote.metadata.workflowMode === "major_project" && <QuoteMasterExport quote={quote} />}
-            <button type="button" className="proposal-secondary-button" onClick={() => void handleExportApprovalWorkbook()}>
-              Export Approval Workbook
-            </button>
-            <button type="button" className="proposal-secondary-button" onClick={() => void handleViewPdf()}>
-              Open PDF Preview
-            </button>
-            <button type="button" className="proposal-print-button" disabled={isDownloading} onClick={() => void handlePrintPdf()}>
-              {isDownloading ? "Generating PDF..." : "Download PDF"}
-            </button>
+            <Link className="qe-button" href={activeProposalId ? `/new?proposalId=${encodeURIComponent(activeProposalId)}` : "/workspace"}><ArrowLeft size={16} />Back to quote</Link>
+            <button type="button" className="qe-button" onClick={() => void handleViewPdf()}><Eye size={16} />PDF preview</button>
+            <QuoteExportMenu quote={quote} onPdf={handlePrintPdf} downloading={isDownloading} />
           </div>
         </div>
 
         {exportError && <div className="proposal-export-error no-print" role="alert">{exportError}</div>}
         <div className="proposal-preview-shell">
-          <div className="proposal-preview-pane-header no-print">
-            <div className="proposal-preview-pane-title">Customer proposal HTML</div>
-            <div className="proposal-toolbar-subtitle">Everything below is customer-facing proposal content, not app chrome.</div>
-          </div>
           <ProposalDocument quote={quote} />
         </div>
       </div>

@@ -1,33 +1,20 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect */
-
 import Link from "next/link";
-import { ProductLogo } from "@/app/components/product-logo";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useAuth } from "@/app/components/auth-shell";
+import type { ReactNode } from "react";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import { deleteProposalFromBrowserState } from "@/app/lib/proposal-delete";
 import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
-import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, buildProposalSummary, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, getProposalById, isOpenQuoteStatus, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type ProposalStoreData, type SavedProposalRecord } from "@/app/lib/proposal-store";
-import { ensureEnvironmentProposalStore } from "@/app/lib/environment-samples";
-import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
+import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalCopy, deserializeProposalStore, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { getWorkspaceQuoteSummary } from "@/app/lib/workspace-quote-summary";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value);
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
 }
 
 function formatDateTime(value: string) {
@@ -38,18 +25,6 @@ function formatDateTime(value: string) {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(value));
-}
-
-function formatRelativeTime(value: string) {
-  const deltaMs = new Date(value).getTime() - Date.now();
-  const deltaHours = Math.round(deltaMs / (1000 * 60 * 60));
-  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-
-  if (Math.abs(deltaHours) < 24) {
-    return formatter.format(deltaHours, "hour");
-  }
-
-  return formatter.format(Math.round(deltaHours / 24), "day");
 }
 
 function statusTone(status: SavedProposalRecord["status"]) {
@@ -64,21 +39,6 @@ function statusTone(status: SavedProposalRecord["status"]) {
       return "workspace-badge workspace-badge-muted";
     default:
       return "workspace-badge";
-  }
-}
-
-function statusAccentClass(status: SavedProposalRecord["status"]) {
-  switch (status) {
-    case "in_review":
-      return "proposal-state-accent proposal-state-accent-warn";
-    case "approved":
-      return "proposal-state-accent proposal-state-accent-success";
-    case "sent":
-      return "proposal-state-accent proposal-state-accent-info";
-    case "booked":
-      return "proposal-state-accent proposal-state-accent-muted";
-    default:
-      return "proposal-state-accent";
   }
 }
 
@@ -99,43 +59,11 @@ function getNextStepLabel(proposal: SavedProposalRecord) {
   }
 }
 
-function getPriorityBucket(proposal: SavedProposalRecord) {
-  if (proposal.status === "in_review" || proposal.status === "approved") return "next";
-  return "watch";
-}
-
 function confirmDeleteProposal(proposal: SavedProposalRecord) {
   if (typeof window === "undefined") return false;
 
   return window.confirm(
     `Delete proposal ${proposal.quote.metadata.proposalNumber} for ${proposal.quote.customer.name}? This removes it from the RapidQuote workspace.`,
-  );
-}
-
-function StatFilterCard({
-  label,
-  value,
-  note,
-  active,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  note: ReactNode;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`workspace-stat-card text-left transition ${active ? "workspace-stat-card-active" : "workspace-stat-card-hover"}`}
-      aria-pressed={active}
-    >
-      <div className="workspace-stat-label">{label}</div>
-      <div className="workspace-stat-value">{value}</div>
-      <div className="workspace-stat-note">{note}</div>
-    </button>
   );
 }
 
@@ -167,554 +95,7 @@ function WorkspaceReviewCard({
   );
 }
 
-export function ProposalWorkspace() {
-  const { user } = useAuth();
-  const seed = useMemo(() => createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }), []);
-  const fallbackStore = useMemo(() => getDefaultProposalStore(seed), [seed]);
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [store, setStore] = useState<ProposalStoreData>(fallbackStore);
-  const [ownerFilter, setOwnerFilter] = useState<string>("mine");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [activeProposalId, setActiveProposalId] = useState<string | null>(fallbackStore.proposals[0]?.id ?? null);
-  useEffect(() => {
-    const saved = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
-    const sessionUser = user
-      ? {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.title,
-          team: user.team,
-        }
-      : fallbackStore.currentUser;
-
-    const baseStore = saved
-      ? {
-          ...saved,
-          currentUser: sessionUser,
-        }
-      : {
-          ...fallbackStore,
-          currentUser: sessionUser,
-        };
-    const nextStore = ensureEnvironmentProposalStore(baseStore);
-    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
-
-    const savedActiveProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
-    const resolvedActiveProposalId = getActiveProposalId(nextStore, savedActiveProposalId);
-    if (resolvedActiveProposalId) {
-      window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, resolvedActiveProposalId);
-    }
-
-    setStore(nextStore);
-    setActiveProposalId(resolvedActiveProposalId);
-    setIsHydrated(true);
-  }, [fallbackStore, user]);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const proposalSummaries = useMemo(() => {
-    if (!store) return [];
-
-    return store.proposals.map((proposal) => ({
-      proposal,
-      summary: buildProposalSummary(proposal),
-      nextStep: getNextStepLabel(proposal),
-      priorityBucket: getPriorityBucket(proposal),
-    }));
-  }, [store]);
-
-  const proposals = useMemo(() => {
-    if (!store) return [];
-
-    const normalizedSearch = searchQuery.trim().toLowerCase();
-
-    return proposalSummaries.filter(({ proposal, summary, nextStep }) => {
-      const ownerMatch = ownerFilter === "all" ? true : proposal.owner.id === store.currentUser.id;
-      const statusMatch = statusFilter === "all"
-        ? true
-          : statusFilter === "active"
-            ? isOpenQuoteStatus(proposal.status)
-            : proposal.status === statusFilter;
-
-      const searchMatch = !normalizedSearch
-        ? true
-        : [
-            summary.customerName,
-            summary.title,
-            summary.proposalNumber,
-            summary.ownerName,
-            proposal.stageLabel,
-            proposal.owner.team ?? "",
-            proposal.workspace.accountSegment,
-            nextStep,
-          ].some((value) => value.toLowerCase().includes(normalizedSearch));
-
-      return ownerMatch && statusMatch && searchMatch;
-    });
-  }, [ownerFilter, proposalSummaries, searchQuery, statusFilter, store]);
-
-  const groupedProposals = useMemo(() => ({
-    next: proposals.filter((entry) => entry.priorityBucket === "next"),
-    watch: proposals.filter((entry) => entry.priorityBucket === "watch"),
-  }), [proposals]);
-
-  const stats = useMemo(() => {
-    if (!store) return { total: 0, mine: 0, active: 0, sent: 0 };
-
-    return {
-      total: store.proposals.length,
-      mine: store.proposals.filter((proposal) => proposal.owner.id === store.currentUser.id).length,
-      active: store.proposals.filter((proposal) => isOpenQuoteStatus(proposal.status)).length,
-      sent: store.proposals.filter((proposal) => proposal.status === "sent").length,
-    };
-  }, [store]);
-
-  const launchpadStats = useMemo(() => {
-    if (!store) {
-      return {
-        teamCount: 0,
-        activeOwners: 0,
-        nextUp: 0,
-        sent: 0,
-      };
-    }
-
-    return {
-      teamCount: store.users.length,
-      activeOwners: new Set(
-        store.proposals
-          .filter((proposal) => isOpenQuoteStatus(proposal.status))
-          .map((proposal) => proposal.owner.id),
-      ).size,
-      nextUp: store.proposals.filter((proposal) => proposal.status === "in_review" || proposal.status === "approved").length,
-      sent: store.proposals.filter((proposal) => proposal.status === "sent").length,
-    };
-  }, [store]);
-
-  const activeProposal = useMemo(() => {
-    if (!store) return null;
-    return getProposalById(store, activeProposalId) ?? proposals[0]?.proposal ?? store.proposals[0] ?? null;
-  }, [activeProposalId, proposals, store]);
-
-  const currentOwner = store?.currentUser;
-  const myOpenCount = store ? store.proposals.filter((proposal) => proposal.owner.id === store.currentUser.id && isOpenQuoteStatus(proposal.status)).length : 0;
-  const searchHasResults = proposals.length > 0;
-  const activeFilterCount = [ownerFilter !== "mine", statusFilter !== "all", searchQuery.trim().length > 0].filter(Boolean).length;
-  const visibleTotalMonthly = proposals.reduce((sum, entry) => sum + entry.summary.totalMonthly, 0);
-  const visibleEquipmentTotal = proposals.reduce((sum, entry) => sum + entry.summary.equipmentTotal, 0);
-  const openQuoteRollups = useMemo(() => {
-    const openProposals = proposals.filter(({ proposal }) => isOpenQuoteStatus(proposal.status));
-    const rollups = {
-      standardProducts: 0,
-      accessories: 0,
-      customHardware: 0,
-      terminalTypes: {} as Record<string, number>,
-    };
-
-    openProposals.forEach(({ proposal }) => {
-      proposal.quote.sections.sectionB.lineItems.forEach((item) => {
-        const quantity = Number.isFinite(item.quantity) ? item.quantity : 0;
-        const category = item.itemCategory?.toLowerCase() ?? "";
-        const terminalType = item.terminalType?.trim();
-
-        if (item.sourceType === "custom") {
-          rollups.customHardware += quantity;
-        } else if (category.includes("accessory") || category.includes("mount") || category.includes("cable")) {
-          rollups.accessories += quantity;
-        } else {
-          rollups.standardProducts += quantity;
-        }
-
-        if (terminalType) {
-          rollups.terminalTypes[terminalType] = (rollups.terminalTypes[terminalType] ?? 0) + quantity;
-        }
-      });
-    });
-
-    const terminalTypeSummary = Object.entries(rollups.terminalTypes)
-      .sort(([, a], [, b]) => b - a)
-      .map(([terminalType, quantity]) => `${terminalType}: ${quantity}`)
-      .join(" • ");
-
-    return {
-      ...rollups,
-      openProposalCount: openProposals.length,
-      terminalTypeSummary: terminalTypeSummary || "No terminal types selected yet",
-    };
-  }, [proposals]);
-
-  const setActiveProposal = (proposalId: string) => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, proposalId);
-    }
-    setActiveProposalId(proposalId);
-  };
-
-  const copyProposal = (proposal: SavedProposalRecord) => {
-    if (!store) return;
-
-    const copiedProposal = createProposalCopy({
-      proposal,
-      owner: proposal.owner,
-      currentUser: store.currentUser,
-      existingNumbers: store.proposals.map((saved) => saved.quote.metadata.proposalNumber),
-    });
-    const nextStore = upsertProposal(store, copiedProposal);
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
-      window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
-    }
-
-    setActiveProposalId(copiedProposal.id);
-  };
-
-  const deleteProposal = (proposal: SavedProposalRecord) => {
-    if (!confirmDeleteProposal(proposal)) return;
-
-    const deletion = deleteProposalFromBrowserState(proposal.id);
-    if (!deletion) return;
-
-    setStore(deletion.nextStore);
-    setActiveProposalId(deletion.nextActiveProposalId);
-  };
-
-  if (!isHydrated || !store || !currentOwner) {
-    return <main className="workspace-shell"><div className="workspace-empty">Loading dashboard…</div></main>;
-  }
-
-  return (
-    <main className="workspace-shell">
-      <div className="workspace-container">
-        <section className="workspace-hero workspace-dashboard-hero">
-          <div className="workspace-dashboard-hero-copy">
-            <div className="workspace-brand-block workspace-dashboard-brand-block">
-              <ProductLogo width={188} height={54} className="workspace-brand-logo product-logo workspace-queue-logo" priority />
-              <div className="workspace-brand-heading-row workspace-dashboard-heading-row">
-                <div>
-                  <div className="workspace-eyebrow">RapidQuote workspace</div>
-                  <h1 className="workspace-title">Manage open proposals, {currentOwner.name.split(" ")[0]}.</h1>
-                </div>
-                <span className="workspace-user-chip">{currentOwner.team} • {currentOwner.role}</span>
-              </div>
-            </div>
-          </div>
-          <div className="workspace-actions workspace-dashboard-actions">
-            <Link href="/signup" className="workspace-secondary-button">Request access</Link>
-            <Link href="/new?mode=new&entry=major-project" className="workspace-secondary-button">New Major Project</Link>
-            <Link href="/new?mode=new" className="workspace-primary-button">+ New Proposal</Link>
-          </div>
-        </section>
-
-        <section className="workspace-panel workspace-launchpad-panel">
-          <div className="workspace-launchpad-grid">
-            <div className="workspace-launchpad-card workspace-launchpad-card-primary">
-              <div className="workspace-support-label">Your lane</div>
-              <strong>{myOpenCount} active proposals</strong>
-              <p className="workspace-support-copy">This is the control room for ownership, review status, totals, and follow-through — not customer intake.</p>
-            </div>
-            <div className="workspace-launchpad-card">
-              <div className="workspace-support-label">In review</div>
-              <strong>{launchpadStats.nextUp} proposals need review</strong>
-            
-            </div>
-            <div className="workspace-launchpad-card">
-              <div className="workspace-support-label">Sent</div>
-              <strong>{launchpadStats.sent} proposals sent</strong>
-              <p className="workspace-support-copy">Customer-facing proposals that now need follow-up or opportunity management in Salesforce.</p>
-            </div>
-            <div className="workspace-launchpad-card">
-              <div className="workspace-support-label">Major Project</div>
-              <strong>Keep the structured workflow easy to find</strong>
-              <p className="workspace-support-copy">Open a new draft directly in Major Project mode when the opportunity needs internal rows, mapped bundles, and customer-facing quote-line control.</p>
-              <div className="mt-3">
-                <Link href="/new?mode=new&entry=major-project" className="workspace-secondary-button">Launch Major Project</Link>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="workspace-stat-grid">
-          <StatFilterCard label="All Proposals" value={stats.total} note="Show every saved proposal" active={ownerFilter === "all" && statusFilter === "all"} onClick={() => { setOwnerFilter("all"); setStatusFilter("all"); }} />
-          <StatFilterCard label="My Proposals" value={stats.mine} note="Show only proposals in your lane" active={ownerFilter === "mine" && statusFilter === "all"} onClick={() => { setOwnerFilter("mine"); setStatusFilter("all"); }} />
-        </section>
-
-        <section className="workspace-panel workspace-launchpad-panel">
-          <div className="workspace-eyebrow">Open quote rollups</div>
-          <h2 className="workspace-section-title">Hardware exposure across active proposals</h2>
-          <p className="workspace-panel-copy">
-            Counts roll up Section B hardware on draft, review, and sent proposals so Nick can see standard products, accessories, custom hardware, and terminal demand before quotes close.
-          </p>
-          <div className="workspace-launchpad-grid mt-4">
-            <div className="workspace-launchpad-card">
-              <div className="workspace-support-label">Open proposals</div>
-              <strong>{openQuoteRollups.openProposalCount}</strong>
-            </div>
-            <div className="workspace-launchpad-card">
-              <div className="workspace-support-label">Standard products</div>
-              <strong>{openQuoteRollups.standardProducts}</strong>
-            </div>
-            <div className="workspace-launchpad-card">
-              <div className="workspace-support-label">Accessories</div>
-              <strong>{openQuoteRollups.accessories}</strong>
-            </div>
-            <div className="workspace-launchpad-card">
-              <div className="workspace-support-label">Custom hardware</div>
-              <strong>{openQuoteRollups.customHardware}</strong>
-            </div>
-          </div>
-          <div className="workspace-results-summary mt-4">
-            <div className="workspace-results-summary-copy"><strong>Terminal types</strong> • {openQuoteRollups.terminalTypeSummary}</div>
-          </div>
-        </section>
-
-        <section className="workspace-panel workspace-dashboard-panel">
-          <div className="workspace-panel-topbar workspace-dashboard-topbar">
-            <div>
-              <div className="workspace-eyebrow">Dashboard</div>
-              <h2 className="workspace-section-title">Proposal launchpad</h2>
-              <p className="workspace-panel-copy">
-                Search saved proposal records by customer, title, owner, next step, or proposal number. Use this page after intake when the proposal already exists.
-              </p>
-            </div>
-            <div className="workspace-filter-stack">
-              <label className="workspace-field workspace-search-field">
-                <span>Search</span>
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Customer, title, owner, next step, or proposal #"
-                  aria-label="Search proposals by customer, title, owner, next step, or proposal number"
-                />
-              </label>
-              <div className="workspace-filter-row">
-                <label className="workspace-field compact">
-                  <span>Owner</span>
-                  <select value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
-                    <option value="mine">My proposals</option>
-                    <option value="all">All owners</option>
-                  </select>
-                </label>
-                <label className="workspace-field compact">
-                  <span>Status</span>
-                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                    <option value="all">All statuses</option>
-                    <option value="active">Active</option>
-                    {QUOTE_STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-                  </select>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div className="workspace-results-summary" aria-live="polite">
-            <div className="workspace-results-summary-copy">
-              <strong>{proposals.length}</strong> proposal{proposals.length === 1 ? "" : "s"} showing
-              {activeFilterCount ? <span> • {activeFilterCount} active filter{activeFilterCount === 1 ? "" : "s"}</span> : <span> • default dashboard view</span>}
-            </div>
-            <div className="workspace-results-summary-metrics">
-              <span><strong>{formatCurrency(visibleTotalMonthly)}</strong> MRR in view</span>
-              <span><strong>{formatCurrency(visibleEquipmentTotal)}</strong> one-time in view</span>
-            </div>
-          </div>
-
-          <div className="workspace-section-stack">
-            <DashboardGroup
-              title="Approval queue"
-              subtitle="Quotes that still need internal review or are already approved and ready for customer release."
-              emptyLabel=""
-              proposals={groupedProposals.next}
-              activeProposalId={activeProposal?.id ?? null}
-              setActiveProposal={setActiveProposal}
-              onCopyProposal={copyProposal}
-              onDeleteProposal={deleteProposal}
-              tone="next"
-            />
-            <DashboardGroup
-              title="Keep moving"
-              subtitle="Draft proposals still being built, sent proposals in follow-up, and booked quotes waiting on downstream handoff."
-              emptyLabel="No draft, sent, or booked proposals match the current filters."
-              proposals={groupedProposals.watch}
-              activeProposalId={activeProposal?.id ?? null}
-              setActiveProposal={setActiveProposal}
-              onCopyProposal={copyProposal}
-              onDeleteProposal={deleteProposal}
-              tone="watch"
-            />
-          </div>
-
-          {!searchHasResults ? (
-            <div className="workspace-search-empty">
-              <strong>No proposals matched that search.</strong>
-              <p>Try a customer name, proposal title, owner name, next step phrase, proposal number, or loosen the filters.</p>
-            </div>
-          ) : null}
-        </section>
-      </div>
-    </main>
-  );
-}
-
-function DashboardGroup({
-  title,
-  subtitle,
-  emptyLabel,
-  proposals,
-  activeProposalId,
-  setActiveProposal,
-  onCopyProposal,
-  onDeleteProposal,
-  tone,
-}: {
-  title: string;
-  subtitle?: string;
-  emptyLabel?: string;
-  proposals: Array<{
-    proposal: SavedProposalRecord;
-    summary: ReturnType<typeof buildProposalSummary>;
-    nextStep: string;
-    priorityBucket: string;
-  }>;
-  activeProposalId: string | null;
-  setActiveProposal: (proposalId: string) => void;
-  onCopyProposal: (proposal: SavedProposalRecord) => void;
-  onDeleteProposal: (proposal: SavedProposalRecord) => void;
-  tone: "next" | "watch";
-}) {
-  return (
-    <section className="workspace-dashboard-group">
-      <div className="workspace-dashboard-group-head">
-        <div>
-          <h3 className="workspace-dashboard-group-title">{title}</h3>
-          {subtitle ? <p className="workspace-dashboard-group-copy">{subtitle}</p> : null}
-        </div>
-        <span className={`workspace-dashboard-group-count workspace-dashboard-group-count-${tone}`}>{proposals.length}</span>
-      </div>
-
-      {proposals.length ? (
-        <div className="workspace-list">
-          {proposals.map(({ proposal, summary, nextStep }) => {
-            const isActive = proposal.id === activeProposalId;
-            const hasOptionalServices = summary.optionalServicesTotal > 0;
-            const isMajorProjectProposal = proposal.quote.metadata.workflowMode === "major_project" && Boolean(proposal.quote.majorProject?.enabled);
-            const majorProjectTermMonths = proposal.quote.majorProject?.commercial.termMonths ?? 0;
-            const revisionLabel = proposal.quote.governance?.revisionLabel || proposal.quote.metadata.revisionVersion || "1.0";
-            const quoteTypeLabel = proposal.quote.metadata.quoteType === "lease" ? "Lease" : "Purchase";
-
-            return (
-              <article key={proposal.id} className={`proposal-list-card proposal-list-card-visual ${isActive ? "proposal-list-card-active" : ""}`}>
-                <div className={statusAccentClass(proposal.status)} aria-hidden="true" />
-
-                <div className="proposal-list-topline">
-                  <div className="proposal-list-topline-meta">
-                    <div className="proposal-list-kicker">{summary.proposalNumber}</div>
-                    <div className="proposal-list-updated">Updated {formatDate(summary.updatedAt)} • {formatRelativeTime(summary.updatedAt)}</div>
-                  </div>
-                  <div className="proposal-list-status-cluster">
-                    <span className={statusTone(proposal.status)}>{proposal.stageLabel || statusToStageLabel(proposal.status)}</span>
-                    {isActive ? <span className="proposal-list-selected-pill">Open now</span> : null}
-                  </div>
-                </div>
-
-                <div className="proposal-list-head proposal-list-head-visual">
-                  <div className="proposal-list-title-block">
-                    <p className="proposal-list-customer">{summary.customerName}</p>
-                    <h3>{summary.title}</h3>
-                    <div className="proposal-list-meta-row">
-                      <p className="proposal-list-subtitle">Owner {summary.ownerName}</p>
-                      <span className="proposal-owner-chip">{proposal.owner.team ?? "Team"}</span>
-                      <span className="proposal-segment-chip">{proposal.workspace.accountSegment}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="proposal-next-step-banner">
-                  <span>Next step</span>
-                  <strong>{nextStep}</strong>
-                </div>
-
-                <div className="proposal-review-strip">
-                  <div className="proposal-review-card">
-                    <span>Revision</span>
-                    <strong>{revisionLabel}</strong>
-                    <em>Record v{proposal.recordVersion}</em>
-                  </div>
-                  <div className="proposal-review-card">
-                    <span>Workflow</span>
-                    <strong>{isMajorProjectProposal ? "Major Project" : "Quick Quote"}</strong>
-                    <em>{summary.proposalNumber}</em>
-                  </div>
-                  <div className="proposal-review-card">
-                    <span>Quote type</span>
-                    <strong>{quoteTypeLabel}</strong>
-                    <em>{hasOptionalServices ? "Optional services included" : "Core scope only"}</em>
-                  </div>
-                  <div className="proposal-review-card">
-                    <span>Last touch</span>
-                    <strong>{formatRelativeTime(summary.updatedAt)}</strong>
-                    <em>{formatDateTime(proposal.updatedAt)}</em>
-                  </div>
-                </div>
-
-                <div className="proposal-commercial-grid">
-                  <div className="proposal-commercial-card proposal-commercial-card-primary">
-                    <span>Monthly recurring</span>
-                    <strong>{formatCurrency(summary.totalMonthly)}</strong>
-                    <em>Primary recurring revenue</em>
-                  </div>
-                  <div className="proposal-commercial-card">
-                    <span>One-time total</span>
-                    <strong>{formatCurrency(summary.equipmentTotal)}</strong>
-                    <em>Equipment and install scope</em>
-                  </div>
-                  <div className={`proposal-commercial-card ${hasOptionalServices ? "proposal-commercial-card-optional" : "proposal-commercial-card-muted"}`}>
-                    <span>Optional services</span>
-                    <strong>{formatCurrency(summary.optionalServicesTotal)}</strong>
-                    <em>{hasOptionalServices ? "Upsell value included" : "No optional services added"}</em>
-                  </div>
-                  <div className="proposal-commercial-card proposal-commercial-card-optional">
-                    <span>{isMajorProjectProposal ? "Contract margin" : "Gross margin"}</span>
-                    <strong>{summary.totalGrossMarginPercent.toFixed(1)}%</strong>
-                    <em>{formatCurrency(summary.totalGrossProfit)} {isMajorProjectProposal && majorProjectTermMonths > 0 ? `${majorProjectTermMonths}-month GP` : "internal GP"}</em>
-                  </div>
-                </div>
-
-                <div className="proposal-list-footer proposal-list-footer-visual">
-                  <div className="proposal-list-note-block">
-                    <div className="proposal-list-note-label">Team context</div>
-                    <div className="proposal-list-note">
-                      Created {formatDate(proposal.createdAt)} • Last touch {formatDateTime(proposal.updatedAt)}
-                    </div>
-                    <div className="proposal-list-note proposal-list-note-secondary">
-                      Stage {proposal.stageLabel || statusToStageLabel(proposal.status)} • Segment {proposal.workspace.accountSegment}
-                    </div>
-                  </div>
-                  <div className="proposal-list-actions proposal-list-actions-priority">
-                    <button type="button" className="workspace-secondary-button" onClick={() => onCopyProposal(proposal)}>
-                      Copy Proposal
-                    </button>
-                    <button type="button" className="danger-button" onClick={() => onDeleteProposal(proposal)}>
-                      Delete
-                    </button>
-                    <Link href={`/new?proposalId=${proposal.id}`} className="workspace-primary-button workspace-primary-button-small" onClick={() => setActiveProposal(proposal.id)}>
-                      Open Editor
-                    </Link>
-                    <Link href={buildProposalPreviewPath(proposal.id)} className="workspace-secondary-button" onClick={() => setActiveProposal(proposal.id)}>
-                      Preview Proposal
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      ) : (
-        emptyLabel ? <div className="workspace-group-empty">{emptyLabel}</div> : null
-      )}
-    </section>
-  );
-}
+export { QuoteWorkspace as ProposalWorkspace } from "./quote-workspace";
 
 export function ProposalDetailView({ proposal, users }: { proposal: SavedProposalRecord; users: ProposalOwner[] }) {
   const copyProposal = () => {
@@ -744,6 +125,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
     window.location.href = "/workspace";
   };
   const summary = buildProposalSummary(proposal);
+  const totals = getWorkspaceQuoteSummary(proposal.quote);
   const commercial = buildCommercialMetrics(proposal.quote);
   const isMajorProjectProposal = proposal.quote.metadata.workflowMode === "major_project" && Boolean(proposal.quote.majorProject?.enabled);
   const majorProjectTermMonths = proposal.quote.majorProject?.commercial.termMonths ?? 0;
@@ -763,7 +145,7 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
             <span className={statusTone(proposal.status)}>{proposal.stageLabel}</span>
             <button type="button" className="workspace-secondary-button" onClick={copyProposal}>Copy Proposal</button>
             <button type="button" className="danger-button" onClick={deleteProposal}>Delete</button>
-            <Link href="/" className="workspace-secondary-button">Dashboard</Link>
+            <Link href="/workspace" className="workspace-secondary-button">Quotes</Link>
             <Link href={buildProposalPreviewPath(proposal.id)} className="workspace-secondary-button">Preview Proposal</Link>
             <Link href={`/new?proposalId=${proposal.id}`} className="workspace-primary-button">Open Editor</Link>
           </div>
@@ -860,9 +242,9 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
             </div>
 
             <div className="commercial-metric-grid workspace-commercial-grid">
-              <WorkspaceReviewCard label="Monthly recurring" value={formatCurrency(summary.totalMonthly)} detail="Section A" tone="accent" />
-              <WorkspaceReviewCard label="Equipment" value={formatCurrency(summary.equipmentTotal)} detail="Section B" />
-              <WorkspaceReviewCard label="Optional services" value={formatCurrency(summary.optionalServicesTotal)} detail="Section C" />
+              <WorkspaceReviewCard label="Monthly recurring" value={totals.monthly === null ? "Agreement required" : formatCurrency(totals.monthly)} detail={proposal.quote.metadata.quoteType === "lease" ? "Equipment lease and services" : "Included services"} tone="accent" />
+              <WorkspaceReviewCard label="One-time charges" value={formatCurrency(totals.oneTime)} detail="Included equipment, services, and quoted tax" />
+              <WorkspaceReviewCard label="Annual subscriptions" value={formatCurrency(totals.annualFirstYear)} detail={`Year 2 renewal: ${formatCurrency(totals.annualRenewal)}`} />
               <WorkspaceReviewCard label="Prepared by" value={proposal.quote.inet.contactName} detail={proposal.quote.inet.contactEmail} />
               <WorkspaceReviewCard label={isMajorProjectProposal ? "Contract gross profit" : "Gross profit"} value={formatCurrency(commercial.totalGrossProfit)} detail={isMajorProjectProposal && majorProjectTermMonths > 0 ? `${majorProjectTermMonths}-month contract basis` : "Internal only"} tone={commercial.totalGrossProfit >= 0 ? "success" : "warn"} />
               <WorkspaceReviewCard label={isMajorProjectProposal ? "Contract gross margin" : "Gross margin"} value={`${commercial.totalGrossMarginPercent.toFixed(1)}%`} detail={isMajorProjectProposal ? "MRR x months plus one-time value" : "Revenue vs cost"} tone={commercial.totalGrossMarginPercent >= 25 ? "success" : commercial.totalGrossMarginPercent > 0 ? "accent" : "warn"} />

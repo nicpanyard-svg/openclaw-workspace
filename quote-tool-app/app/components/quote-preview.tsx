@@ -2,13 +2,13 @@
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { AlertCircle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calculator, Check, ChevronDown, ClipboardCheck, Copy, Download, Eye, Files, List, MoreHorizontal, Plus, Save, Trash2, UserRound, X } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calculator, Check, ChevronDown, ClipboardCheck, Copy, Eye, Files, List, MoreHorizontal, Plus, Save, Trash2, UserRound, X } from "lucide-react";
 import { QuoteLineTable } from "@/app/components/quote-line-table";
 import { QuoteBillingSelect } from "@/app/components/quote-billing-select";
 import { getAnnualSubscriptionSummary, getLineBilling, isAnnualLine } from "@/app/lib/quote-line-billing";
 import { OrderProcessingPanel } from "@/app/components/order-processing-panel";
 import { CustomerOutputSettings } from "@/app/components/customer-output-settings";
-import { QuoteMasterExport } from "@/app/components/quote-master-export";
+import { QuoteExportMenu } from "@/app/components/quote-export-menu";
 import { getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
 import { buildOrderProcessingText } from "@/app/lib/order-processing";
 import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
@@ -2385,37 +2385,35 @@ export default function QuotePreview() {
     [currencyCode, firstImportedMajorProjectCost, majorProjectImportedMarginPercent],
   );
   const editorNeedsAttention = useMemo(() => {
-    const items: string[] = getCustomerQuoteContent(quote).warnings;
-
-    if (!customerEntryComplete) {
-      items.push("Select or complete the customer before reviewing this quote.");
-    }
+    const items: { message: string; tab: "customer" | "items" | "pricing" | "documents" }[] = getCustomerQuoteContent(quote).warnings.map((message) => ({ message, tab: "documents" }));
+    if (!customerEntryComplete) items.push({ message: "Complete the customer details.", tab: "customer" });
+    if (!quote.metadata.documentTitle.trim()) items.push({ message: "Add a quote title.", tab: "pricing" });
     if (!contentPresence.hasSectionAContent && !contentPresence.hasSectionBContent && !contentPresence.hasSectionCContent && !contentPresence.hasOptionCostsContent && !contentPresence.hasAnnualContent) {
-      items.push("Add at least one quote item.");
+      items.push({ message: "Add at least one quote item.", tab: "items" });
     }
     if (quote.executiveSummary.enabled && !contentPresence.hasExecutiveSummaryContent) {
-      items.push("Executive Summary is enabled but still has no customer-facing content.");
+      items.push({ message: "Add the executive summary or turn it off.", tab: "documents" });
     }
     if (quote.sections.sectionB.enabled && !contentPresence.hasSectionBContent && !quote.sections.sectionB.lineItems.some(isAnnualLine) && !optionCostSummary.items.some((item) => item.sourceSection === "sectionB")) {
-      items.push("Hardware output is enabled but there are no live hardware rows yet.");
+      items.push({ message: "Add equipment or turn off the empty hardware section.", tab: "items" });
     }
     if (quote.sections.sectionC.enabled && !contentPresence.hasSectionCContent && !quote.sections.sectionC.lineItems.some(isAnnualLine) && !optionCostSummary.items.some((item) => item.sourceSection === "sectionC")) {
-      items.push("Install / site services are enabled but there are no live service rows yet.");
+      items.push({ message: "Add services or turn off the empty services section.", tab: "items" });
     }
     if (quote.warranty.enabled && !quote.warranty.manufacturerReference.trim() && !quote.warranty.coverageNote.trim()) {
-      items.push("Warranty is enabled but still needs source text or coverage notes.");
+      items.push({ message: "Add warranty coverage or turn it off.", tab: "documents" });
     }
     if (quote.metadata.quoteType === "lease" && !hasActiveDataAgreement) {
-      items.push("Lease pricing still needs an active data agreement before release.");
+      items.push({ message: "Confirm the active data agreement for this lease.", tab: "pricing" });
     }
     if (isMajorProject && majorProjectMetrics.validation.errorCount > 0) {
-      items.push(`${majorProjectMetrics.validation.errorCount} Major Project validation issue${majorProjectMetrics.validation.errorCount === 1 ? "" : "s"} still block preview/export readiness.`);
+      items.push({ message: `Resolve ${majorProjectMetrics.validation.errorCount} line-item validation issues.`, tab: "items" });
     }
     if (isMajorProject && importedMajorProjectNeedsReviewCount > 0) {
-      items.push(`${importedMajorProjectNeedsReviewCount} imported component${importedMajorProjectNeedsReviewCount === 1 ? "" : "s"} still need label, pricing, or output review.`);
+      items.push({ message: `Review ${importedMajorProjectNeedsReviewCount} imported components.`, tab: "items" });
     }
 
-    return [...new Set(items)];
+    return items.filter((item, index) => items.findIndex((entry) => entry.message === item.message) === index);
   }, [
     quote,
     contentPresence.hasExecutiveSummaryContent,
@@ -4505,13 +4503,12 @@ export default function QuotePreview() {
       <header className="rq-editor-header">
         <div className="rq-editor-identity">
           <button type="button" className="rq-icon-button" aria-label="Back to quotes" data-tooltip="Back to quotes" onClick={() => router.push("/workspace")}><ArrowLeft size={18} aria-hidden="true" /></button>
-          <div><h1>{quote.customer.name || "New quote"}</h1><div className="rq-editor-meta"><span>{quote.metadata.proposalNumber}</span><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span><span role="status" className={hasUnsavedChanges ? "rq-unsaved" : "rq-saved"}>{hasUnsavedChanges ? "Unsaved changes" : "Saved"}</span></div></div>
+          <div><h1>{quote.metadata.documentTitle || "New quote"}</h1><div className="rq-editor-meta"><span>{quote.customer.name}</span><span>{quote.metadata.proposalNumber}</span><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span><span role="status" className={hasUnsavedChanges ? "rq-unsaved" : "rq-saved"}>{hasUnsavedChanges ? "Unsaved changes" : "Saved"}</span></div></div>
         </div>
         <div className="rq-editor-actions">
-          {quote.metadata.workflowMode === "major_project" && customerEntryComplete && <QuoteMasterExport quote={quote} className="rq-button" />}
           <button type="button" className="rq-button" onClick={persistProposalState} disabled={!customerEntryComplete}><Save size={16} aria-hidden="true" /><span>Save</span></button>
           <button type="button" className="rq-button" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" /><span>Preview</span></button>
-          <button type="button" className="rq-button rq-button-primary" onClick={() => void handleDownloadPdf()} disabled={!customerEntryComplete || majorProjectHasBlockingErrors || isDownloadingPdf}><Download size={16} aria-hidden="true" /><span>{isDownloadingPdf ? "Generating..." : "Download PDF"}</span></button>
+          <QuoteExportMenu quote={quote} disabled={!customerEntryComplete} pdfDisabled={majorProjectHasBlockingErrors} downloading={isDownloadingPdf} onPdf={handleDownloadPdf} onOrderSummary={handleDownloadOrderSummary} getQuote={() => persistProposalState()?.proposal.quote} />
         </div>
       </header>
       <div className="rq-editor-container">
@@ -6407,7 +6404,7 @@ return {
     <div><dt>Revision</dt><dd>{governanceState.revisionLabel}</dd></div>
   </dl>
   <h3>Needs attention</h3>
-  {editorNeedsAttention.length ? <ul className="rq-review-list">{editorNeedsAttention.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="rq-ready"><Check size={16} aria-hidden="true" />Ready for customer preview</p>}
+  {editorNeedsAttention.length ? <ul className="rq-review-list rq-review-tasks">{editorNeedsAttention.map((item) => <li key={item.message}><button type="button" onClick={() => { setEditorTab(item.tab); window.scrollTo({ top: 0, behavior: "smooth" }); }}><AlertCircle size={16} /><span>{item.message}</span><ArrowRight size={16} /></button></li>)}</ul> : <p className="rq-ready"><Check size={16} aria-hidden="true" />Ready for customer preview</p>}
   {majorProjectHasBlockingErrors && <ul className="rq-review-list rq-errors">{majorProjectBlockingIssues.map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}</ul>}
   <div className="rq-review-actions">
     <button type="button" className="rq-button rq-button-primary" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" />Customer preview</button>

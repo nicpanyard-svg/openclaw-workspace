@@ -130,6 +130,12 @@ body:has(.rq-editor) .app-shell-brand-copy { display: none; }
 .rq-review-details dd { margin: 0; overflow-wrap: anywhere; }
 .rq-review-list { padding-left: 20px; margin: 14px 0 24px; color: #59636b; font-size: 14px; }
 .rq-review-list li { margin-bottom: 10px; }
+.rq-review-tasks { list-style: none; padding: 0; }
+.rq-review-tasks li { margin: 0; border-bottom: 1px solid var(--rq-line); }
+.rq-review-tasks button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 0; background: transparent; border: 0; text-align: left; font: inherit; color: #805a21; cursor: pointer; }
+.rq-review-tasks button span { flex: 1; }
+.rq-review-tasks button svg { flex-shrink: 0; }
+.rq-review-tasks button:hover { color: #242b31; }
 .rq-errors { color: #a43131; }
 .rq-ready { display: flex; align-items: center; gap: 7px; color: #32704d; margin: 16px 0 24px; }
 .rq-empty { padding: 28px 0; color: var(--rq-muted); }

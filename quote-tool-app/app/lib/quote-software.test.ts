@@ -6,7 +6,7 @@ import { getCombinedOneTimeTotal, getOptionalServicesTotal } from "./proposal-co
 import { getCustomerQuoteContent } from "./proposal-customer-content";
 import { deserializeQuoteRecord, serializeQuoteRecord } from "./proposal-state";
 import { getAnnualSubscriptionSummary } from "./quote-line-billing";
-import type { MajorProjectComponent, ServicePricingRow } from "./quote-record";
+import type { MajorProjectComponent, MajorProjectCustomerQuoteLine, ServicePricingRow } from "./quote-record";
 import { createBlankQuoteRecord } from "./quote-template";
 import { getSoftwareServicesPresentation, IOTEDGE_KINNECT_DESCRIPTION, IOTEDGE_KINNECT_LABEL, isIoTEdgeKinnect, normalizeQuoteSoftware, normalizeSoftwareComponent } from "./quote-software";
 
@@ -106,7 +106,8 @@ test("mapped software bundles retain pricing and use the same label in the appen
   option.simpleRows = [];
   option.components = [component()];
   option.bundles = [{ id: "bundle", internalName: legacyLabel, customerFacingLabel: legacyLabel, componentIds: ["software"], specSheetAttachment: attachment }];
-  option.customerQuoteLines = [{ id: "software-line", label: legacyLabel, bundleIds: ["bundle"], presentationCategory: "implementation" }];
+  // Exercise the legacy value still present in older saved quotes.
+  option.customerQuoteLines = [{ id: "software-line", label: legacyLabel, bundleIds: ["bundle"], presentationCategory: "implementation" as MajorProjectCustomerQuoteLine["presentationCategory"] }];
   const output = applyMajorProjectToQuote(quote);
   assert.equal(output.sections.sectionC.lineItems[0].description, IOTEDGE_KINNECT_LABEL);
   assert.ok(output.sections.sectionC.lineItems[0].notes!.includes(IOTEDGE_KINNECT_DESCRIPTION));
