@@ -11,6 +11,7 @@ import { buildProposalPdfPreviewPath } from "@/app/lib/proposal-navigation";
 import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
 import { buildProposalPdfFileName } from "@/app/lib/proposal-file-name";
 import { buildProposalApprovalWorkbook } from "@/app/lib/proposal-xlsx-export";
+import { QuoteMasterExport } from "@/app/components/quote-master-export";
 
 export function ProposalClient({ requestedProposalId = null }: { requestedProposalId?: string | null }) {
   const [isHydrated, setIsHydrated] = useState(false);
@@ -165,6 +166,7 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
             </div>
           </div>
           <div className="proposal-toolbar-actions">
+            {quote.metadata.workflowMode === "major_project" && <QuoteMasterExport quote={quote} />}
             <button type="button" className="proposal-secondary-button" onClick={() => void handleExportApprovalWorkbook()}>
               Export Approval Workbook
             </button>

@@ -8,6 +8,7 @@ import { QuoteBillingSelect } from "@/app/components/quote-billing-select";
 import { getAnnualSubscriptionSummary, getLineBilling, isAnnualLine } from "@/app/lib/quote-line-billing";
 import { OrderProcessingPanel } from "@/app/components/order-processing-panel";
 import { CustomerOutputSettings } from "@/app/components/customer-output-settings";
+import { QuoteMasterExport } from "@/app/components/quote-master-export";
 import { getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
 import { buildOrderProcessingText } from "@/app/lib/order-processing";
 import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
@@ -4507,6 +4508,7 @@ export default function QuotePreview() {
           <div><h1>{quote.customer.name || "New quote"}</h1><div className="rq-editor-meta"><span>{quote.metadata.proposalNumber}</span><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span><span role="status" className={hasUnsavedChanges ? "rq-unsaved" : "rq-saved"}>{hasUnsavedChanges ? "Unsaved changes" : "Saved"}</span></div></div>
         </div>
         <div className="rq-editor-actions">
+          {quote.metadata.workflowMode === "major_project" && customerEntryComplete && <QuoteMasterExport quote={quote} className="rq-button" />}
           <button type="button" className="rq-button" onClick={persistProposalState} disabled={!customerEntryComplete}><Save size={16} aria-hidden="true" /><span>Save</span></button>
           <button type="button" className="rq-button" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" /><span>Preview</span></button>
           <button type="button" className="rq-button rq-button-primary" onClick={() => void handleDownloadPdf()} disabled={!customerEntryComplete || majorProjectHasBlockingErrors || isDownloadingPdf}><Download size={16} aria-hidden="true" /><span>{isDownloadingPdf ? "Generating..." : "Download PDF"}</span></button>
