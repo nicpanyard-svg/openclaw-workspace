@@ -11,8 +11,8 @@ function quickQuote() {
   quote.metadata.quoteType = "purchase";
   quote.metadata.salesTaxAmount = 20;
   quote.sections.sectionA.enabled = true;
-  quote.sections.sectionA.mode = "per_kit";
-  quote.sections.sectionA.perKitRows = [
+  quote.sections.sectionA.mode = "pool";
+  quote.sections.sectionA.poolRows = [
     { id: "service", rowType: "service", description: "Data", quantity: 1, totalMonthlyRate: 100 },
     { id: "overage", rowType: "overage", description: "Usage", quantity: 1, totalMonthlyRate: 900 },
   ];
