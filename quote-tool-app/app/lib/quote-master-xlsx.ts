@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { calculateQuoteMasterWorkbook } from "./quote-master-calculation";
 import { buildQuoteMasterFormulaRepairs } from "./quote-master-formulas";
 import { buildQuoteMasterInputs, QUOTE_MASTER_TEMPLATE_URL, type QuoteMasterCell, type QuoteMasterSelection } from "./quote-master-model";
 
@@ -34,6 +35,7 @@ export async function patchQuoteMasterWorkbook(bytes: ArrayBuffer | Uint8Array, 
     return [sheet.getAttribute("name")!, target.startsWith("/") ? target.slice(1) : `xl/${target}`];
   }));
   const bySheet = new Map<string, QuoteMasterCell[]>();
+  const documents = new Map<string, XMLDocument>();
   for (const edit of edits) {
     if (!paths.has(edit.sheet) || !/^[A-Z]{1,3}[1-9][0-9]*$/.test(edit.address)) throw new Error("Invalid Quote Master input mapping.");
     const rows = bySheet.get(edit.sheet) || [];
@@ -42,6 +44,7 @@ export async function patchQuoteMasterWorkbook(bytes: ArrayBuffer | Uint8Array, 
   }
   for (const [name, path] of paths) {
     const document = parse(await read(path));
+    documents.set(name, document);
     const data = document.getElementsByTagNameNS(NS, "sheetData")[0];
     if (!data) throw new Error(`Missing cells in ${name}.`);
     const cellMap = new Map(Array.from(data.getElementsByTagNameNS(NS, "c")).map((cell) => [cell.getAttribute("r"), cell]));
@@ -77,7 +80,7 @@ export async function patchQuoteMasterWorkbook(bytes: ArrayBuffer | Uint8Array, 
         cell.appendChild(value);
       }
     }
-    // Force Excel to calculate changed inputs; never ship stale example totals as current results.
+    // Remove stale template totals before calculating this quote's results.
     let cleared = false;
     for (const cell of cellMap.values()) {
       if (children(cell, "f").length) {
@@ -85,6 +88,20 @@ export async function patchQuoteMasterWorkbook(bytes: ArrayBuffer | Uint8Array, 
       }
     }
     if (cleared || bySheet.has(name)) zip.file(path, new XMLSerializer().serializeToString(document));
+  }
+  const results = calculateQuoteMasterWorkbook(await zip.generateAsync({ type: "uint8array", compression: "STORE" }));
+  for (const [name, document] of documents) {
+    for (const cell of Array.from(document.getElementsByTagNameNS(NS, "c"))) {
+      if (!children(cell, "f").length) continue;
+      const result = results.get(`${name}!${cell.getAttribute("r")}`);
+      if (!result) throw new Error(`Missing Quote Master calculation for ${name}!${cell.getAttribute("r")}.`);
+      children(cell, "v").forEach((value) => value.remove());
+      cell.setAttribute("t", result.type);
+      const value = document.createElementNS(NS, "v");
+      value.textContent = String(typeof result.value === "boolean" ? Number(result.value) : result.value);
+      cell.appendChild(value);
+    }
+    zip.file(paths.get(name)!, new XMLSerializer().serializeToString(document));
   }
   let calc = workbook.getElementsByTagNameNS(NS, "calcPr")[0];
   if (!calc) { calc = workbook.createElementNS(NS, "calcPr"); workbook.documentElement.appendChild(calc); }

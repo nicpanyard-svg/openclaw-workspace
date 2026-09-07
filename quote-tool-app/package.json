@@ -10,6 +10,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@formulajs/formulajs": "4.5.6",
     "@react-pdf/renderer": "^4.5.1",
     "@sparticuz/chromium": "^147.0.1",
     "exceljs": "^4.4.0",
@@ -21,7 +22,8 @@
     "puppeteer-core": "^24.41.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "xlsx-calc": "0.9.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

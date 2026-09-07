@@ -61,7 +61,7 @@ async function main() {
     }
     assert.equal(files.length, 1);
     const workbookPath = path.join(output, files[0]);
-    const wb = XLSX.read(await readFile(workbookPath), { cellStyles: true, cellFormula: true });
+    const wb = XLSX.read(await readFile(workbookPath), { cellStyles: true, cellFormula: true, sheetStubs: true });
     assert.deepEqual(wb.SheetNames, ["Instructions, Assumptions", "Rental (BOM)", "Sale (BOM)", "Pricing", "Cashflow & Payback", "Exec Summary", "NPV - IRR"]);
     assert.equal(wb.Sheets["Sale (BOM)"].C10.v, 6000);
     assert.equal(wb.Sheets.Pricing.H6.v, 92.5);
@@ -71,6 +71,17 @@ async function main() {
     assert.equal(wb.Sheets["Exec Summary"].J31.f, "'Pricing'!G56");
     assert.equal(wb.Sheets["Exec Summary"].N40.f, "'Pricing'!I65");
     assert.equal(wb.Sheets["Cashflow & Payback"].C33.f, "-C32");
+    assert.equal(wb.Sheets["Exec Summary"].D44.v, 31805.22);
+    assert.equal(wb.Sheets["Exec Summary"].F20.v, "Radar hardware");
+    assert.equal(wb.Sheets.Pricing.H55.v, 92.5);
+    assert.equal(wb.Sheets.Pricing.I55.v, 285.5);
+    for (const [name, sheet] of Object.entries(wb.Sheets)) {
+      for (const [address, cell] of Object.entries(sheet)) {
+        if (!cell.f) continue;
+        assert.notEqual(cell.v, undefined, `Missing calculated result: ${name}!${address}`);
+        assert.notEqual(cell.t, "e", `Calculation error: ${name}!${address}`);
+      }
+    }
     assert.deepEqual(errors, []);
     await mkdir(path.resolve("tmp/hector-workbook"), { recursive: true });
     await writeFile(path.resolve("tmp/hector-workbook/latest-qa.json"), JSON.stringify({ workbookPath, output }, null, 2));
