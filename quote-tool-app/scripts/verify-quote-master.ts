@@ -4,6 +4,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import puppeteer from "puppeteer-core";
 import * as XLSX from "xlsx";
+import JSZip from "jszip";
 import { AUTH_STORAGE_KEY, USER_DIRECTORY_STORAGE_KEY, buildSession } from "../app/lib/auth";
 import { PROPOSAL_STORAGE_KEY, PROPOSAL_STORAGE_FALLBACK_KEY } from "../app/lib/proposal-state";
 import { PROPOSAL_STORE_KEY, ACTIVE_PROPOSAL_ID_KEY, createProposalFromQuote } from "../app/lib/proposal-store";
@@ -61,7 +62,12 @@ async function main() {
     }
     assert.equal(files.length, 1);
     const workbookPath = path.join(output, files[0]);
-    const wb = XLSX.read(await readFile(workbookPath), { cellStyles: true, cellFormula: true, sheetStubs: true });
+    const bytes = await readFile(workbookPath);
+    const zip = await JSZip.loadAsync(bytes);
+    assert.equal(zip.file("xl/calcChain.xml"), null, "The template calculation chain must not survive formula edits");
+    assert.ok(!(await zip.file("xl/_rels/workbook.xml.rels")!.async("string")).includes("/calcChain"));
+    assert.ok(!(await zip.file("[Content_Types].xml")!.async("string")).includes("/calcChain.xml"));
+    const wb = XLSX.read(bytes, { cellStyles: true, cellFormula: true, sheetStubs: true });
     assert.deepEqual(wb.SheetNames, ["Instructions, Assumptions", "Rental (BOM)", "Sale (BOM)", "Pricing", "Cashflow & Payback", "Exec Summary", "NPV - IRR"]);
     assert.equal(wb.Sheets["Sale (BOM)"].C10.v, 6000);
     assert.equal(wb.Sheets.Pricing.H6.v, 92.5);

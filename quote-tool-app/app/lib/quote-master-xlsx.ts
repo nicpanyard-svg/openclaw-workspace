@@ -26,6 +26,17 @@ export async function patchQuoteMasterWorkbook(bytes: ArrayBuffer | Uint8Array, 
   };
   const workbook = parse(await read("xl/workbook.xml"));
   const relationships = parse(await read("xl/_rels/workbook.xml.rels"));
+  // Formula edits invalidate the template's calculation chain. Excel rebuilds this optional index.
+  zip.remove("xl/calcChain.xml");
+  for (const relationship of Array.from(relationships.documentElement.children)) {
+    if (relationship.getAttribute("Type") === `${REL}/calcChain`) relationship.remove();
+  }
+  zip.file("xl/_rels/workbook.xml.rels", new XMLSerializer().serializeToString(relationships));
+  const contentTypes = parse(await read("[Content_Types].xml"));
+  for (const override of Array.from(contentTypes.documentElement.children)) {
+    if (override.getAttribute("PartName") === "/xl/calcChain.xml") override.remove();
+  }
+  zip.file("[Content_Types].xml", new XMLSerializer().serializeToString(contentTypes));
   const sheetElements = Array.from(workbook.getElementsByTagNameNS(NS, "sheet"));
   if (JSON.stringify(sheetElements.map((sheet) => sheet.getAttribute("name"))) !== JSON.stringify(SHEETS)) throw new Error("This is not Hector's seven-sheet Quote Master template.");
   const paths = new Map(sheetElements.map((sheet) => {
