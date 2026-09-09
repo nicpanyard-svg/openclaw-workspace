@@ -11,12 +11,16 @@ import { buildProposalPdfPreviewPath } from "@/app/lib/proposal-navigation";
 import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
 import { buildProposalPdfFileName } from "@/app/lib/proposal-file-name";
 import { QuoteExportMenu } from "@/app/components/quote-export-menu";
-import { ArrowLeft, Eye } from "lucide-react";
+import { ArrowLeft, Eye, Presentation } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const CustomerPresentation = dynamic(() => import("@/app/components/customer-presentation").then((module) => module.CustomerPresentation));
 
 export function ProposalClient({ requestedProposalId = null }: { requestedProposalId?: string | null }) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isPresenting, setIsPresenting] = useState(false);
   const pdfRequestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -136,6 +140,7 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
   return (
     <AuthGate>
       <div className="proposal-route-shell">
+        {isPresenting && <CustomerPresentation quote={quote} onClose={() => setIsPresenting(false)} />}
         <div className="proposal-toolbar no-print">
           <div>
             <div className="proposal-toolbar-title">{quote.metadata.documentTitle || "Customer proposal"}</div>
@@ -144,6 +149,7 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
           <div className="proposal-toolbar-actions">
             <Link className="qe-button" href={activeProposalId ? `/new?proposalId=${encodeURIComponent(activeProposalId)}` : "/workspace"}><ArrowLeft size={16} />Back to quote</Link>
             <button type="button" className="qe-button" onClick={() => void handleViewPdf()}><Eye size={16} />PDF preview</button>
+            <button type="button" className="qe-button" onClick={() => setIsPresenting(true)}><Presentation size={16} />Present</button>
             <QuoteExportMenu quote={quote} onPdf={handlePrintPdf} downloading={isDownloading} />
           </div>
         </div>

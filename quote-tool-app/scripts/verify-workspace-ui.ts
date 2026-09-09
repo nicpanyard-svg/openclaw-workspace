@@ -158,10 +158,12 @@ async function main() {
     assert.equal(files.length, 1);
     const wb = XLSX.read(await readFile(path.join(output, files[0])), { cellFormula: true });
     assert.equal(wb.SheetNames.length, 7);
-    assert.equal(wb.Sheets["Sale (BOM)"].C10.v, 6000);
-    assert.equal(wb.Sheets.Pricing.G6.v, 1600 / 12);
-    assert.equal(wb.Sheets.Pricing.H6.v, 92.5);
-    assert.equal(wb.Sheets.Pricing.I6.v, 285.5);
+    // Workspace order is recency-based; validate each named scope, not a fixed column.
+    const costs = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets["Sale (BOM)"], { header: 1 });
+    assert.equal(costs.find((row) => row[0] === "Radar hardware package")?.[2], 6000);
+    assert.equal(costs.find((row) => row[0] === "Camera hardware package")?.[2], 4400);
+    const monthlyByScope = Object.fromEntries(["E", "F", "G", "H", "I"].map((column) => [wb.Sheets.Pricing[`${column}3`].v, wb.Sheets.Pricing[`${column}6`].v]));
+    assert.deepEqual(monthlyByScope, { "Radar hardware": 0, "Camera hardware": 0, "AI / cloud": 1600 / 12, "Cellular + SecureLynk": 92.5, "Starlink + SecureLynk": 285.5 });
     const outputs = await readdir(output);
     assert.ok(outputs.some((name) => name.endsWith(".txt")), "Internal order summary downloaded");
     assert.ok(outputs.some((name) => name.endsWith(".xlsx") && !name.endsWith("Quote Master.xlsx")), "Approval workbook downloaded");

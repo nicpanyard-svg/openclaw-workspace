@@ -5,6 +5,10 @@
 import { AlertCircle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calculator, Check, ChevronDown, ClipboardCheck, Copy, Eye, Files, List, MoreHorizontal, Plus, Save, Trash2, UserRound, X } from "lucide-react";
 import { QuoteLineTable } from "@/app/components/quote-line-table";
 import { QuoteBillingSelect } from "@/app/components/quote-billing-select";
+import dynamic from "next/dynamic";
+import { Columns3, Package, Presentation } from "lucide-react";
+import { addLibraryProduct } from "@/app/lib/quote-product-library";
+import { comparisonLeaseTerms, getPricingReviewItems } from "@/app/lib/quote-experience";
 import { getAnnualSubscriptionSummary, getLineBilling, isAnnualLine } from "@/app/lib/quote-line-billing";
 import { OrderProcessingPanel } from "@/app/components/order-processing-panel";
 import { CustomerOutputSettings } from "@/app/components/customer-output-settings";
@@ -108,6 +112,10 @@ import {
 } from "@/app/lib/major-project-spec-attachments";
 import { sampleQuoteRecord } from "@/app/lib/sample-quote-record";
 import { createBlankQuoteRecord } from "@/app/lib/quote-template";
+
+const QuoteProductPicker = dynamic(() => import("./quote-product-picker").then((module) => module.QuoteProductPicker));
+const QuoteComparison = dynamic(() => import("./quote-comparison").then((module) => module.QuoteComparison));
+const CustomerPresentation = dynamic(() => import("./customer-presentation").then((module) => module.CustomerPresentation));
 
 type EquipmentDraft = {
   itemName: string;
@@ -1792,6 +1800,7 @@ export default function QuotePreview() {
   const [lastSavedQuote, setLastSavedQuote] = useState<QuoteRecord | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [showMobileTotals, setShowMobileTotals] = useState(false);
+  const [experiencePanel, setExperiencePanel] = useState<"products" | "compare" | "present" | null>(null);
   const [quote, setQuote] = useState<QuoteRecord>(() => createBlankQuoteRecord());
   const [activeProposal, setActiveProposal] = useState<SavedProposalRecord | null>(null);
   const [customerProfiles, setCustomerProfiles] = useState<SavedCustomerProfile[]>([]);
@@ -2413,6 +2422,7 @@ export default function QuotePreview() {
       items.push({ message: `Review ${importedMajorProjectNeedsReviewCount} imported components.`, tab: "items" });
     }
 
+    items.push(...getPricingReviewItems(quote));
     return items.filter((item, index) => items.findIndex((entry) => entry.message === item.message) === index);
   }, [
     quote,
@@ -4500,6 +4510,21 @@ export default function QuotePreview() {
 
   return isHydrated ? (
     <main className="rq-editor">
+      {experiencePanel === "products" && <QuoteProductPicker currency={currencyCode} needsCost={isMajorProject} onClose={() => setExperiencePanel(null)} onAdd={(selection) => {
+        updateQuote((draft) => addLibraryProduct(draft, selection, `library-${crypto.randomUUID()}`));
+        setExperiencePanel(null);
+        setWorkflowNotice(`${selection.product.label} added${selection.optional ? " as an option" : ""}.`);
+      }} />}
+      {experiencePanel === "compare" && <QuoteComparison quote={quote} onClose={() => setExperiencePanel(null)} onSelect={(id, mode) => {
+        if (mode === "options") updateMajorProjectQuote((draft) => { if (draft.majorProject?.options.some((option) => option.id === id)) draft.majorProject.activeOptionId = id; return draft; });
+        else updateQuote((draft) => {
+          if (id === "purchase") draft.metadata.quoteType = "purchase";
+          else { const term = comparisonLeaseTerms.find((term) => id === `lease-${term}`); if (term && draft.metadata.hasActiveDataAgreement) { draft.metadata.quoteType = "lease"; draft.metadata.leaseTermMonths = term; } }
+          return draft;
+        });
+        setExperiencePanel(null);
+      }} />}
+      {experiencePanel === "present" && <CustomerPresentation quote={quote} onClose={() => setExperiencePanel(null)} />}
       <header className="rq-editor-header">
         <div className="rq-editor-identity">
           <button type="button" className="rq-icon-button" aria-label="Back to quotes" data-tooltip="Back to quotes" onClick={() => router.push("/workspace")}><ArrowLeft size={18} aria-hidden="true" /></button>
@@ -4508,6 +4533,7 @@ export default function QuotePreview() {
         <div className="rq-editor-actions">
           <button type="button" className="rq-button" onClick={persistProposalState} disabled={!customerEntryComplete}><Save size={16} aria-hidden="true" /><span>Save</span></button>
           <button type="button" className="rq-button" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" /><span>Preview</span></button>
+          <button type="button" className="rq-button rq-present-action" aria-label="Present to customer" title="Present to customer" onClick={() => setExperiencePanel("present")} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Presentation size={16} aria-hidden="true" /><span>Present</span></button>
           <QuoteExportMenu quote={quote} disabled={!customerEntryComplete} pdfDisabled={majorProjectHasBlockingErrors} downloading={isDownloadingPdf} onPdf={handleDownloadPdf} onOrderSummary={handleDownloadOrderSummary} getQuote={() => persistProposalState()?.proposal.quote} />
         </div>
       </header>
@@ -4519,8 +4545,10 @@ export default function QuotePreview() {
             { key: "pricing", label: "Pricing", icon: Calculator },
             { key: "documents", label: "Documents", icon: Files },
             { key: "review", label: "Review", icon: ClipboardCheck },
-          ] as const).map(({ key, label, icon: Icon }) => <button key={key} id={`rq-nav-${key}`} type="button" aria-current={visibleEditorTab === key ? "page" : undefined} disabled={!customerEntryComplete && key !== "customer"} onClick={() => setEditorTab(key)}><Icon size={16} aria-hidden="true" />{label}</button>)}
+          ] as const).map(({ key, label, icon: Icon }) => <button key={key} id={`rq-nav-${key}`} type="button" aria-current={visibleEditorTab === key ? "page" : undefined} disabled={!customerEntryComplete && key !== "customer"} onClick={() => { setEditorTab(key); window.scrollTo({ top: 0, behavior: "instant" }); }}><Icon size={16} aria-hidden="true" /><span>{label}</span>{key === "review" && editorNeedsAttention.length > 0 && <small className="rq-nav-count">{editorNeedsAttention.length}</small>}</button>)}
+          <button type="button" className="rq-nav-compare" disabled={!customerEntryComplete} onClick={() => setExperiencePanel("compare")}><Columns3 size={16} aria-hidden="true" /><span>Compare</span></button>
         </nav>
+        <div className="rq-editor-workarea">
         {workflowNotice && <div className="rq-notice" role="status"><span>{workflowNotice}</span><button type="button" className="rq-icon-button" aria-label="Dismiss notice" onClick={() => setWorkflowNotice(null)}><X size={16} aria-hidden="true" /></button></div>}
         <div className="rq-editor-grid">
           <div className="rq-editor-main">
@@ -4747,6 +4775,7 @@ export default function QuotePreview() {
             </div>
             <div hidden={visibleEditorTab !== "items"} aria-labelledby="rq-nav-items">
               <div className="rq-items-toolbar">
+  <button type="button" className="rq-button rq-button-primary" onClick={() => setExperiencePanel("products")}><Package size={16} aria-hidden="true" />Product library</button>
   <fieldset className="rq-mode-group"><legend className="sr-only">Quote mode</legend><div className="rq-segmented">
     <button type="button" aria-pressed={!isMajorProject} onClick={() => updateQuote((draft) => { draft.metadata.workflowMode = "quick_quote"; return draft; })}>Quick Quote</button>
     <button type="button" aria-pressed={isMajorProject} onClick={() => { if (!isMajorProject) { updateQuote(convertQuickQuoteToMajorProject); setWorkflowNotice("Quick Quote data carried into Major Quote."); } }}>Major Quote</button>
@@ -4797,7 +4826,7 @@ export default function QuotePreview() {
       <label className="builder-field"><span>Description / notes</span><textarea rows={2} value={row.description ?? ""} onChange={(event) => updateEquipmentRow(row.id, "description", event.target.value)} /></label>
     </div>,
   }))} />
-  <details className="rq-disclosure rq-hardware-picker"><summary>Add hardware</summary>                {suggestedAccessories.length > 0 && (
+  <details className="rq-disclosure rq-hardware-picker"><summary>Manual entry & existing catalog</summary>                {suggestedAccessories.length > 0 && (
                   <div className="mt-4 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
                     <div className="builder-eyebrow">Smart suggestions</div>
                     <h3 className="mt-1 text-[18px] font-semibold text-[#16202b]">Accessory suggestions based on selected Starlink device</h3>
@@ -6053,6 +6082,7 @@ return {
               <CustomerOutputSettings quote={quote} onChange={updateQuote} />
               <section className="builder-panel">
   <div className="rq-section-heading"><h2>Pricing</h2><span>{currencyCode}</span></div>
+  <div className="rq-pricing-compare"><button type="button" className="rq-button" onClick={() => setExperiencePanel("compare")}><Columns3 size={16} />Compare options</button></div>
   <fieldset className="rq-mode-group"><legend>Quote type</legend><div className="rq-segmented">
     {(["purchase", "lease"] as QuoteType[]).map((type) => <button key={type} type="button" aria-pressed={quote.metadata.quoteType === type} onClick={() => updateQuote((draft) => { draft.metadata.quoteType = type; return draft; })}>{type === "purchase" ? "Purchase" : "Lease"}</button>)}
   </div></fieldset>
@@ -6415,6 +6445,7 @@ return {
 </div>
           </div>
           <aside className="rq-totals" aria-label="Quote totals" data-expanded={showMobileTotals}>
+  <div className="rq-summary-heading"><span>Quote summary</span><small>{currencyCode}</small></div>
   <div className="rq-totals-main">
     <span className="rq-total-label">Total monthly payment</span>
     <strong className="rq-monthly-total">{isLeaseQuote && !hasActiveDataAgreement ? "Agreement required" : formatCurrency(isLeaseQuote ? leaseMonthly : recurringMonthlyTotal, currencyCode)}</strong>
@@ -6423,20 +6454,25 @@ return {
   <div className="rq-mobile-upfront"><span>One-time charges</span><strong>{formatCurrency(customerFacingOneTimeTotal, currencyCode)}</strong></div>
   <button type="button" className="rq-mobile-totals-toggle" aria-expanded={showMobileTotals} aria-controls="rq-price-breakdown" onClick={() => setShowMobileTotals(!showMobileTotals)}>Price breakdown{optionCostSummary.items.length > 0 ? ` and ${optionCostSummary.items.length} option${optionCostSummary.items.length === 1 ? "" : "s"}` : ""}<ChevronDown size={16} aria-hidden="true" /></button>
   <div className="rq-totals-details" id="rq-price-breakdown">
+  {isMajorProject && <p className="rq-active-option">{activeMajorOption.label}</p>}
   <dl className="rq-total-breakdown">
     {annualSummary.items.length > 0 && <><div><dt>Year 1 annual subscriptions</dt><dd>{formatCurrency(annualSummary.firstYearTotal, currencyCode)}</dd></div><div><dt>Annual renewal / Year 2</dt><dd>{formatCurrency(annualSummary.renewalTotal, currencyCode)} / yr</dd></div></>}
     {isLeaseQuote && <div><dt>Equipment lease / month</dt><dd>{hasActiveDataAgreement ? formatCurrency(leaseEquipmentMonthly, currencyCode) : "Pending"}</dd></div>}
     <div><dt>Services / month</dt><dd>{formatCurrency(recurringMonthlyTotal, currencyCode)}</dd></div>
     <div className="rq-total-divider"><dt>One-time charges</dt><dd>{formatCurrency(customerFacingOneTimeTotal, currencyCode)}</dd></div>
+    {annualSummary.items.length > 0 && <div className="rq-total-divider"><dt>Year 1 recurring equivalent / mo</dt><dd>{isLeaseQuote && !hasActiveDataAgreement ? "Pending" : formatCurrency((isLeaseQuote ? leaseMonthly : recurringMonthlyTotal) + annualSummary.firstYearTotal / 12, currencyCode)}</dd></div>}
   </dl>
+  {annualSummary.items.length > 0 && <p className="rq-total-context">Annual subscriptions are billed annually.</p>}
   {optionCostSummary.items.length > 0 && <div className="rq-option-summary">
     <h3>Option Costs <span>{optionCostSummary.items.length}</span></h3>
     <p>Not included in base totals</p>
     <dl className="rq-total-breakdown"><div><dt>Monthly options</dt><dd>{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)}</dd></div><div><dt>One-time options</dt><dd>{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</dd></div>{optionCostSummary.items.some((item) => item.cadence === "annual") && <div><dt>Annual renewal options</dt><dd>{formatCurrency(optionCostSummary.annualTotal, currencyCode)} / yr</dd></div>}</dl>
   </div>}
   <button type="button" className={`rq-review-link ${editorNeedsAttention.length ? "rq-needs-review" : ""}`} onClick={() => setEditorTab("review")} disabled={!customerEntryComplete}>{editorNeedsAttention.length ? <AlertCircle size={16} aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}{editorNeedsAttention.length ? `${editorNeedsAttention.length} item${editorNeedsAttention.length === 1 ? "" : "s"} to review` : "Ready for review"}<ArrowRight size={16} aria-hidden="true" /></button>
+  <button type="button" className="rq-button rq-summary-compare" disabled={!customerEntryComplete} onClick={() => setExperiencePanel("compare")}><Columns3 size={16} />Compare options</button>
   </div>
 </aside>
+        </div>
         </div>
       </div>
     </main>
