@@ -4533,7 +4533,6 @@ export default function QuotePreview() {
         <div className="rq-editor-actions">
           <button type="button" className="rq-button" onClick={persistProposalState} disabled={!customerEntryComplete}><Save size={16} aria-hidden="true" /><span>Save</span></button>
           <button type="button" className="rq-button" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" /><span>Preview</span></button>
-          <button type="button" className="rq-button rq-present-action" aria-label="Present to customer" title="Present to customer" onClick={() => setExperiencePanel("present")} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Presentation size={16} aria-hidden="true" /><span>Present</span></button>
           <QuoteExportMenu quote={quote} disabled={!customerEntryComplete} pdfDisabled={majorProjectHasBlockingErrors} downloading={isDownloadingPdf} onPdf={handleDownloadPdf} onOrderSummary={handleDownloadOrderSummary} getQuote={() => persistProposalState()?.proposal.quote} />
         </div>
       </header>
@@ -4545,10 +4544,8 @@ export default function QuotePreview() {
             { key: "pricing", label: "Pricing", icon: Calculator },
             { key: "documents", label: "Documents", icon: Files },
             { key: "review", label: "Review", icon: ClipboardCheck },
-          ] as const).map(({ key, label, icon: Icon }) => <button key={key} id={`rq-nav-${key}`} type="button" aria-current={visibleEditorTab === key ? "page" : undefined} disabled={!customerEntryComplete && key !== "customer"} onClick={() => { setEditorTab(key); window.scrollTo({ top: 0, behavior: "instant" }); }}><Icon size={16} aria-hidden="true" /><span>{label}</span>{key === "review" && editorNeedsAttention.length > 0 && <small className="rq-nav-count">{editorNeedsAttention.length}</small>}</button>)}
-          <button type="button" className="rq-nav-compare" disabled={!customerEntryComplete} onClick={() => setExperiencePanel("compare")}><Columns3 size={16} aria-hidden="true" /><span>Compare</span></button>
+          ] as const).map(({ key, label, icon: Icon }) => <button key={key} id={`rq-nav-${key}`} type="button" aria-current={visibleEditorTab === key ? "page" : undefined} disabled={!customerEntryComplete && key !== "customer"} onClick={() => { setEditorTab(key); window.scrollTo({ top: 0, behavior: "instant" }); }}><Icon size={16} aria-hidden="true" />{label}</button>)}
         </nav>
-        <div className="rq-editor-workarea">
         {workflowNotice && <div className="rq-notice" role="status"><span>{workflowNotice}</span><button type="button" className="rq-icon-button" aria-label="Dismiss notice" onClick={() => setWorkflowNotice(null)}><X size={16} aria-hidden="true" /></button></div>}
         <div className="rq-editor-grid" data-customer-ready={customerEntryComplete}>
           <div className="rq-editor-main">
@@ -4775,11 +4772,11 @@ export default function QuotePreview() {
             </div>
             <div hidden={visibleEditorTab !== "items"} aria-labelledby="rq-nav-items">
               <div className="rq-items-toolbar">
-  <button type="button" className="rq-button rq-button-primary" onClick={() => setExperiencePanel("products")}><Package size={16} aria-hidden="true" />Product library</button>
   <fieldset className="rq-mode-group"><legend className="sr-only">Quote mode</legend><div className="rq-segmented">
     <button type="button" aria-pressed={!isMajorProject} onClick={() => updateQuote((draft) => { draft.metadata.workflowMode = "quick_quote"; return draft; })}>Quick Quote</button>
     <button type="button" aria-pressed={isMajorProject} onClick={() => { if (!isMajorProject) { updateQuote(convertQuickQuoteToMajorProject); setWorkflowNotice("Quick Quote data carried into Major Quote."); } }}>Major Quote</button>
   </div></fieldset>
+  <button type="button" className="rq-button rq-library-action" onClick={() => setExperiencePanel("products")}><Package size={16} aria-hidden="true" />Product library</button>
   <button type="button" className="rq-button rq-button-quiet" onClick={() => setEditorTab("pricing")}>{isLeaseQuote ? `Lease / ${selectedLeaseTerm} months` : "Purchase"}<ChevronDown size={14} aria-hidden="true" /></button>
 </div>
 {!isMajorProject && <div className="rq-section-switches" aria-label="Included sections">
@@ -4826,7 +4823,7 @@ export default function QuotePreview() {
       <label className="builder-field"><span>Description / notes</span><textarea rows={2} value={row.description ?? ""} onChange={(event) => updateEquipmentRow(row.id, "description", event.target.value)} /></label>
     </div>,
   }))} />
-  <details className="rq-disclosure rq-hardware-picker"><summary>Manual entry & existing catalog</summary>                {suggestedAccessories.length > 0 && (
+  <details className="rq-disclosure rq-hardware-picker"><summary>Add hardware</summary>                {suggestedAccessories.length > 0 && (
                   <div className="mt-4 rounded-[22px] border border-[#dde3e8] bg-[#fbfcfe] p-4">
                     <div className="builder-eyebrow">Smart suggestions</div>
                     <h3 className="mt-1 text-[18px] font-semibold text-[#16202b]">Accessory suggestions based on selected Starlink device</h3>
@@ -6082,7 +6079,7 @@ return {
               <CustomerOutputSettings quote={quote} onChange={updateQuote} />
               <section className="builder-panel">
   <div className="rq-section-heading"><h2>Pricing</h2><span>{currencyCode}</span></div>
-  <div className="rq-pricing-compare"><button type="button" className="rq-button" onClick={() => setExperiencePanel("compare")}><Columns3 size={16} />Compare options</button></div>
+  <div className="rq-pricing-compare"><button type="button" className="rq-button rq-compare-trigger" onClick={() => setExperiencePanel("compare")}><Columns3 size={16} aria-hidden="true" />Compare options</button></div>
   <fieldset className="rq-mode-group"><legend>Quote type</legend><div className="rq-segmented">
     {(["purchase", "lease"] as QuoteType[]).map((type) => <button key={type} type="button" aria-pressed={quote.metadata.quoteType === type} onClick={() => updateQuote((draft) => { draft.metadata.quoteType = type; return draft; })}>{type === "purchase" ? "Purchase" : "Lease"}</button>)}
   </div></fieldset>
@@ -6438,6 +6435,7 @@ return {
   {majorProjectHasBlockingErrors && <ul className="rq-review-list rq-errors">{majorProjectBlockingIssues.map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}</ul>}
   <div className="rq-review-actions">
     <button type="button" className="rq-button rq-button-primary" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" />Customer preview</button>
+    <button type="button" className="rq-button" aria-label="Present to customer" onClick={() => setExperiencePanel("present")} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Presentation size={16} aria-hidden="true" />Present to customer</button>
     <button type="button" className="rq-button" onClick={copyProposalFromBuilder}><Copy size={16} aria-hidden="true" />Duplicate quote</button>
   </div>
 </section>
@@ -6445,7 +6443,6 @@ return {
 </div>
           </div>
           <aside className="rq-totals" aria-label="Quote totals" hidden={!customerEntryComplete} data-expanded={showMobileTotals}>
-  <div className="rq-summary-heading"><span>Quote summary</span><small>{currencyCode}</small></div>
   <div className="rq-totals-main">
     <span className="rq-total-label">Total monthly payment</span>
     <strong className="rq-monthly-total">{isLeaseQuote && !hasActiveDataAgreement ? "Agreement required" : formatCurrency(isLeaseQuote ? leaseMonthly : recurringMonthlyTotal, currencyCode)}</strong>
@@ -6469,10 +6466,8 @@ return {
     <dl className="rq-total-breakdown"><div><dt>Monthly options</dt><dd>{formatCurrency(optionCostSummary.monthlyTotal, currencyCode)}</dd></div><div><dt>One-time options</dt><dd>{formatCurrency(optionCostSummary.oneTimeTotal, currencyCode)}</dd></div>{optionCostSummary.items.some((item) => item.cadence === "annual") && <div><dt>Annual renewal options</dt><dd>{formatCurrency(optionCostSummary.annualTotal, currencyCode)} / yr</dd></div>}</dl>
   </div>}
   <button type="button" className={`rq-review-link ${editorNeedsAttention.length ? "rq-needs-review" : ""}`} onClick={() => setEditorTab("review")} disabled={!customerEntryComplete}>{editorNeedsAttention.length ? <AlertCircle size={16} aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}{editorNeedsAttention.length ? `${editorNeedsAttention.length} item${editorNeedsAttention.length === 1 ? "" : "s"} to review` : "Ready for review"}<ArrowRight size={16} aria-hidden="true" /></button>
-  <button type="button" className="rq-button rq-summary-compare" disabled={!customerEntryComplete} onClick={() => setExperiencePanel("compare")}><Columns3 size={16} />Compare options</button>
   </div>
 </aside>
-        </div>
         </div>
       </div>
     </main>

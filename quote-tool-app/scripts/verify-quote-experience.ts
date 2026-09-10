@@ -56,6 +56,12 @@ async function enterLabel(page: Page, label: string, value: string) {
   await page.keyboard.type(value);
 }
 
+async function openComparison(page: Page) {
+  await page.click("#rq-nav-pricing");
+  await page.click(".rq-compare-trigger");
+  await page.waitForSelector(".qx-comparison");
+}
+
 async function noOverflow(page: Page, label: string) {
   assert.equal(
     await page.evaluate(
@@ -207,6 +213,12 @@ async function main() {
       );
       await page.waitForSelector(".rq-editor", { timeout: 60_000 });
       await noOverflow(page, `Editor ${width}`);
+      const navigation = await page.$eval(".rq-editor-nav", (el) => el.getBoundingClientRect().bottom);
+      const editor = await page.$eval(".rq-editor-grid", (el) => el.getBoundingClientRect().top);
+      assert.ok(navigation <= editor, "Section navigation stays above the editor");
+      assert.equal(await page.$$eval(".rq-editor-nav button", (els) => els.length), 5);
+      assert.equal(await page.$('.rq-editor-actions [aria-label="Present to customer"]'), null);
+      assert.equal(await page.$(".rq-totals .rq-summary-compare"), null);
       await page.screenshot({ path: path.join(output, `editor-${width}.png`) });
       await clickText(page, ".rq-items-toolbar button", "Product library");
       await page.waitForSelector("dialog[open] .qx-products");
@@ -272,8 +284,7 @@ async function main() {
         await clickText(page, ".rq-editor-actions button", "Save");
       } else await page.keyboard.press("Escape");
       await page.waitForFunction(() => !document.querySelector("dialog[open]"));
-      await page.click(".rq-nav-compare");
-      await page.waitForSelector(".qx-comparison");
+      await openComparison(page);
       assert.equal(
         await page.$$eval(".qx-comparison thead th", (els) => els.length),
         3,
@@ -292,10 +303,11 @@ async function main() {
       await page.keyboard.press("Escape");
       assert.equal(
         await page.evaluate(() =>
-          document.activeElement?.classList.contains("rq-nav-compare"),
+          document.activeElement?.classList.contains("rq-compare-trigger"),
         ),
         true,
       );
+      await page.click("#rq-nav-review");
       await page.click('button[aria-label="Present to customer"]');
       await page.waitForSelector(".qx-presentation .customer-proposal");
       const text = await page.$eval(
@@ -336,16 +348,14 @@ async function main() {
       }
     }
     await page.setViewport({ width: 1440, height: 1000 });
-    await page.click(".rq-nav-compare");
-    await page.waitForSelector(".qx-comparison");
+    await openComparison(page);
     await page.click('button[aria-label="Use Performance site"]');
     await page.waitForFunction(() => !document.querySelector("dialog[open]"));
     assert.match(
       await page.$eval(".rq-active-option", (el) => el.textContent || ""),
       /Performance site/,
     );
-    await page.click(".rq-nav-compare");
-    await page.waitForSelector(".qx-comparison");
+    await openComparison(page);
     await clickText(page, ".qx-tabs button", "Purchase & lease");
     await page.click('button[aria-label="Use 3-month lease"]');
     await page.waitForFunction(() => !document.querySelector("dialog[open]"));
