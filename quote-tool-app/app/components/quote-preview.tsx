@@ -4550,32 +4550,32 @@ export default function QuotePreview() {
         </nav>
         <div className="rq-editor-workarea">
         {workflowNotice && <div className="rq-notice" role="status"><span>{workflowNotice}</span><button type="button" className="rq-icon-button" aria-label="Dismiss notice" onClick={() => setWorkflowNotice(null)}><X size={16} aria-hidden="true" /></button></div>}
-        <div className="rq-editor-grid">
+        <div className="rq-editor-grid" data-customer-ready={customerEntryComplete}>
           <div className="rq-editor-main">
             <div hidden={visibleEditorTab !== "customer"} aria-labelledby="rq-nav-customer">
                           <section className="builder-panel">
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Step 1</div><h2 className="builder-title">Customer entry</h2></div></div>
 
               {customerEntryMode === "start" ? (
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div className="rq-customer-choices">
                   <button
                     type="button"
-                    className="rounded-[24px] border border-[#dde3e8] bg-white p-5 text-left shadow-[0_12px_28px_rgba(75,88,106,0.08)] transition hover:-translate-y-[1px] hover:border-[#c7d5e3]"
+                    className="rq-customer-choice"
                     onClick={() => setCustomerEntryMode("select")}
                   >
-                    <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">Saved profile</div>
-                    <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Choose Customer</div>
-                    <div className="mt-4 text-[13px] font-medium text-[#2e5b85]">{customerProfiles.length} saved customer profile{customerProfiles.length === 1 ? "" : "s"} available</div>
+                    <UserRound size={22} aria-hidden="true" />
+                    <span><strong>Choose Customer</strong><small>{customerProfiles.length} saved customer{customerProfiles.length === 1 ? "" : "s"}</small></span>
+                    <ArrowRight size={18} aria-hidden="true" />
                   </button>
 
                   <button
                     type="button"
-                    className="rounded-[24px] border border-[#dde3e8] bg-white p-5 text-left shadow-[0_12px_28px_rgba(75,88,106,0.08)] transition hover:-translate-y-[1px] hover:border-[#c7d5e3]"
+                    className="rq-customer-choice"
                     onClick={() => setCustomerEntryMode("create")}
                   >
-                    <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#8b96a3]">New draft</div>
-                    <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#16202b]">Create Customer</div>
-                    <div className="mt-4 text-[13px] font-medium text-[#2e5b85]">Lightweight by design — not a CRM detour</div>
+                    <Plus size={22} aria-hidden="true" />
+                    <span><strong>Create Customer</strong></span>
+                    <ArrowRight size={18} aria-hidden="true" />
                   </button>
                 </div>
               ) : null}
@@ -6444,7 +6444,7 @@ return {
 <OrderProcessingPanel quote={quote} onChange={updateQuote} onEditCustomer={() => { setCustomerEntryMode("create"); setEditorTab("customer"); }} onEditItems={() => setEditorTab("items")} onExport={handleDownloadOrderSummary} />
 </div>
           </div>
-          <aside className="rq-totals" aria-label="Quote totals" data-expanded={showMobileTotals}>
+          <aside className="rq-totals" aria-label="Quote totals" hidden={!customerEntryComplete} data-expanded={showMobileTotals}>
   <div className="rq-summary-heading"><span>Quote summary</span><small>{currencyCode}</small></div>
   <div className="rq-totals-main">
     <span className="rq-total-label">Total monthly payment</span>

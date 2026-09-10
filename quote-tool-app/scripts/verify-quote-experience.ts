@@ -135,7 +135,9 @@ async function main() {
     documentTitle: "Quick site estimate",
   });
   quick.internal.quoteId = "qa-quick";
-  const quotes = [major, quick];
+  const empty = createBlankQuoteRecord();
+  empty.internal.quoteId = "qa-empty";
+  const quotes = [major, quick, empty];
   const store = {
     currentUser: session.user,
     users: [session.user],
@@ -181,7 +183,23 @@ async function main() {
       },
     );
 
-    for (const width of [1440, 1024, 390, 320]) {
+    const widths = [1440, 1024, 785, 390, 320];
+    for (const width of widths) {
+      await page.setViewport({ width, height: width < 600 ? 844 : 1000 });
+      await page.goto(new URL("/new?proposalId=qa-empty", base).href, {
+        waitUntil: "networkidle0", timeout: 120_000,
+      });
+      await page.waitForSelector(".rq-customer-choices");
+      await noOverflow(page, `Customer entry ${width}`);
+      assert.equal(await page.$eval(".rq-totals", (el) => getComputedStyle(el).display), "none");
+      const choices = await page.$eval(".rq-customer-choices", (el) => el.getBoundingClientRect().bottom);
+      assert.ok(choices < (width < 600 ? 844 : 1000), `Customer choices visible without scrolling at ${width}`);
+      const header = await page.$eval(".app-shell-header", (el) => el.getBoundingClientRect().height);
+      assert.ok(header < 115, `Compact app header at ${width}`);
+      await page.screenshot({ path: path.join(output, `new-quote-${width}.png`) });
+    }
+
+    for (const width of widths) {
       await page.setViewport({ width, height: width < 600 ? 844 : 1000 });
       await page.goto(
         new URL(`/new?proposalId=${major.internal.quoteId}`, base).href,
@@ -369,7 +387,7 @@ async function main() {
     await writeFile(
       path.join(output, "result.json"),
       JSON.stringify(
-        { result: "PASS", viewports: [1440, 1024, 390, 320], output },
+        { result: "PASS", viewports: widths, output },
         null,
         2,
       ),
