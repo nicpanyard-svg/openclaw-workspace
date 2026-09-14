@@ -1539,13 +1539,13 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
           <View style={styles.approvalHeader}>
             <View>
               <Text style={styles.overline}>{model.approval.heading}</Text>
-              <Text style={styles.approvalTitle}>Authorization to proceed</Text>
+              <Text style={styles.approvalTitle}>Customer approval to proceed</Text>
             </View>
           </View>
 
           <Text style={styles.approvalCopy}>
-            By signing below, the customer confirms review and acceptance of the pricing and scope described in this
-            proposal, subject to any mutually agreed revisions or final contract documents.
+            By signing below, the customer confirms review and acceptance of the pricing, included scope, and applicable
+            terms described in this proposal and authorizes order processing.
           </Text>
 
           <View style={styles.approvalActionRow}>
@@ -1566,7 +1566,7 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
           <View style={styles.signatureGrid}>
             <View style={styles.signatureField}>
               <View style={styles.signatureLine} />
-              <Text style={styles.signatureLabel}>{model.approval.signatureLabel}</Text>
+              <Text style={styles.signatureLabel}>Customer approval signature</Text>
             </View>
             <View style={styles.signatureField}>
               <View style={styles.signatureLine} />

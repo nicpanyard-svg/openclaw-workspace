@@ -183,15 +183,14 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
     </Section>
 
     <section className="cp-acceptance">
-      <h2>{content.approvalReady ? "Quote acceptance" : "Commercial details to confirm"}</h2>
+      <h2>Customer approval</h2>
       <div className="cp-accepted-totals"><div><span>Included monthly payment</span><strong>{monthlyConfirmed ? money(monthly, currency) : "Pending agreement"}</strong></div><div><span>Included one-time charges</span><strong>{money(upfront, currency)}</strong></div></div>
       {annual.items.length > 0 && <><div className="cp-accepted-totals"><div><span>Included Year 1 annual subscriptions</span><strong>{money(annual.firstYearTotal, currency)}</strong></div><div><span>Included annual renewals from Year 2</span><strong>{money(annual.renewalTotal, currency)} / yr</strong></div></div><p><strong>One-time + Year 1 annual charges: {money(upfront + annual.firstYearTotal, currency)}.</strong> Monthly payments are separate.</p></>}
       {options.items.length > 0 && <p>All items under Option Costs are excluded from these totals and from this acceptance. A revised quote is required to include chosen options.</p>}
-      {content.approvalReady ? <>
-        <p>Acceptance applies to the included scope, pricing, and applicable terms in this proposal.</p>
-        {content.approvalNote && <p className="cp-preserve-lines">{content.approvalNote}</p>}
-        <div className="cp-signatures"><div><span>Authorized signature</span></div><div><span>Printed name / title</span></div><div><span>Date</span></div></div>
-      </> : <><p>This proposal is pending the following commercial details and is not ready for order authorization.</p><ul>{content.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></>}
+      <p>By signing below, the customer accepts the included scope, pricing, and applicable terms in this proposal and authorizes order processing.</p>
+      {!content.approvalReady && <><p>This proposal also has commercial details to confirm before fulfillment.</p><ul>{content.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></>}
+      {content.approvalNote && <p className="cp-preserve-lines">{content.approvalNote}</p>}
+      <div className="cp-signatures"><div><span>Customer approval signature</span></div><div><span>Printed name / title</span></div><div><span>Date</span></div></div>
     </section>
 
     {attachments.length > 0 && <Section title="Technical appendix" className="cp-appendix-index">
