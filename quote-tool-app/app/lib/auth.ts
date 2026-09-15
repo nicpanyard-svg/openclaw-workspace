@@ -175,6 +175,18 @@ const seededUsersByDeployment: Record<typeof RAPIDQUOTE_DEPLOYMENT_KEY, Director
       password: "RapidQuote!30",
     },
     {
+      id: "scott-smith",
+      name: "Scott Smith",
+      email: "scott.smith@inetlte.com",
+      title: "Account Executive",
+      team: "Sales",
+      role: "sales",
+      status: "active",
+      initials: "SS",
+      canManageUsers: false,
+      password: "RapidQuote!Scott2026#",
+    },
+    {
       id: "james-spencer",
       name: "James Spencer",
       email: "james.spencer@inetlte.com",
