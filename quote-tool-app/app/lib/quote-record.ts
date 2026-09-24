@@ -373,7 +373,10 @@ export type MajorProjectRevenueSchedule = "one_time" | "recurring";
 export type MajorProjectCostBasis = "vendor_quote" | "msrp" | "estimate" | "internal_labor" | "blended" | "other";
 export type MajorProjectResaleBasis = "fixed_fee" | "cost_plus" | "target_margin" | "pass_through" | "bundle" | "other";
 
+export type LaborTask = { id: string; task: string; role: string; people: number; hours: number; hourlyCost: number };
+
 export type MajorProjectComponent = {
+  laborTasks?: LaborTask[];
   quickQuoteSource?: { section: "sectionA" | "sectionB" | "sectionC"; rowId: string; usageBased?: boolean };
   billing?: QuoteLineBilling;
   id: string;

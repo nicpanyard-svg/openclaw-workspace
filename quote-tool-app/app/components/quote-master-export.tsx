@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Download, FileSpreadsheet, LoaderCircle, X } from "lucide-react";
-import { ensureMajorProjectState } from "../lib/major-project";
+import { convertQuickQuoteToMajorProject } from "../lib/major-project";
 import { PROPOSAL_STORE_KEY, deserializeProposalStore } from "../lib/proposal-store";
 import { buildQuoteMasterColumns, canSplitQuoteMasterConnectivity, QUOTE_MASTER_TEMPLATE_NOTICE, type QuoteMasterSelection } from "../lib/quote-master-model";
 import type { QuoteRecord } from "../lib/quote-record";
@@ -15,6 +15,7 @@ const idsFor = (quote: QuoteRecord) => [quote.metadata.proposalNumber, quote.int
 
 type Props = {
   quote: QuoteRecord;
+  getQuote?: () => QuoteRecord | null | undefined;
   className?: string;
   selectedQuotes?: QuoteRecord[];
   label?: string;
@@ -23,7 +24,7 @@ type Props = {
   onClosed?: () => void;
 };
 
-export function QuoteMasterExport({ quote, className = "proposal-secondary-button", selectedQuotes, label = "Quote Master Workbook", disabled, renderTrigger, onClosed }: Props) {
+export function QuoteMasterExport({ quote, className = "proposal-secondary-button", selectedQuotes, getQuote, label = "Quote Master Workbook", disabled, renderTrigger, onClosed }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -42,10 +43,12 @@ export function QuoteMasterExport({ quote, className = "proposal-secondary-butto
     if (disabled) return;
     returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     try {
+      const source = getQuote ? getQuote() : quote;
+      if (!source) throw new Error("Complete the customer details before exporting.");
       const store = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
-      const customer = quote.customer.name.trim().toLowerCase();
-      const others = (store?.proposals || []).filter((record) => record.quote.customer.name.trim().toLowerCase() === customer && !idsFor(record.quote).some((id) => id && idsFor(quote).includes(id)) && record.quote.metadata.workflowMode === "major_project");
-      const quotes = (selectedQuotes ?? [quote, ...others.map((record) => record.quote)]).map((record) => ensureMajorProjectState(structuredClone(record)));
+      const customer = source.customer.name.trim().toLowerCase();
+      const others = (store?.proposals || []).filter((record) => record.quote.customer.name.trim().toLowerCase() === customer && !idsFor(record.quote).some((id) => id && idsFor(source).includes(id)));
+      const quotes = (selectedQuotes ?? [source, ...others.map((record) => record.quote)]).map((record) => convertQuickQuoteToMajorProject(record));
       if (!selectedQuotes) quotes.sort((a, b) => {
         const order = (q: QuoteRecord) => { const i = saraIds.findIndex((id) => idsFor(q).includes(id)); return i < 0 ? 99 : i; };
         return order(a) - order(b);
@@ -54,9 +57,9 @@ export function QuoteMasterExport({ quote, className = "proposal-secondary-butto
         const choice = { quote: record, optionId: option.id, key: `${recordIndex}:${option.id}`, title: record.metadata.documentTitle || record.majorProject.summary.projectName || "Untitled quote" };
         return { ...choice, canSplit: canSplitQuoteMasterConnectivity(choice) };
       }));
-      const inSara = saraIds.some((id) => idsFor(quote).includes(id));
+      const inSara = saraIds.some((id) => idsFor(source).includes(id));
       setChoices(next);
-      setSelected(next.filter((choice) => choice.optionId === choice.quote.majorProject.activeOptionId && (selectedQuotes || (inSara ? saraIds.some((id) => idsFor(choice.quote).includes(id)) : idsFor(choice.quote).some((id) => id && idsFor(quote).includes(id))))).map((choice) => choice.key));
+      setSelected(next.filter((choice) => choice.optionId === choice.quote.majorProject.activeOptionId && (selectedQuotes || (inSara ? saraIds.some((id) => idsFor(choice.quote).includes(id)) : idsFor(choice.quote).some((id) => id && idsFor(source).includes(id))))).map((choice) => choice.key));
       setSplits(next.filter((choice) => choice.canSplit).map((choice) => choice.key));
       setError("");
     } catch (cause) {

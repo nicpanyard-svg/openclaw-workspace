@@ -105,7 +105,7 @@ export function QuoteWorkspace() {
   }, [visible]);
   // Filtering also scopes exports, so hidden quotes cannot be exported accidentally.
   const selected = visible.filter((p) => selectedIds.includes(p.id));
-  const exportError = selected.some((p) => p.quote.metadata.workflowMode !== "major_project") ? "Quote Master requires Major Project quotes. Convert the selected Quick Quote in the editor first." : new Set(selected.map((p) => customerGroupKey(p.quote.customer.name))).size > 1 ? "Select quotes for one customer to create a Quote Master workbook." : "";
+  const exportError = new Set(selected.map((p) => customerGroupKey(p.quote.customer.name))).size > 1 ? "Select quotes for one customer to create a Quote Master workbook." : "";
   const toggle = (ids: string[]) => setSelectedIds((current) => ids.every((id) => current.includes(id)) ? current.filter((id) => !ids.includes(id)) : [...new Set([...current, ...ids])]);
   const filter = (update: () => void) => { update(); setSelectedIds([]); };
   const copy = (proposal: SavedProposalRecord) => {

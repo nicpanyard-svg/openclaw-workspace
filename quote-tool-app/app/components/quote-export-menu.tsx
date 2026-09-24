@@ -41,26 +41,20 @@ export function QuoteExportMenu({ quote, disabled, pdfDisabled, downloading, onP
     document.addEventListener("keydown", escape);
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); };
   }, [open]);
-  const run = async (kind: "approval" | "order") => {
+  const run = async () => {
     if (busy || disabled) return;
     setBusy(true); setError("");
     try {
-      if (kind === "order" && onOrderSummary) {
+      if (onOrderSummary) {
         onOrderSummary();
         setOpen(false); trigger.current?.focus();
         return;
       }
       const source = getQuote ? getQuote() : quote;
       if (!source) throw new Error("Complete the customer details before exporting.");
-      if (kind === "approval") {
-        const { buildProposalApprovalWorkbook } = await import("../lib/proposal-xlsx-export");
-        const result = await buildProposalApprovalWorkbook(source);
-        downloadBlob(result.blob, result.fileName);
-      } else {
-        const { buildOrderProcessingText } = await import("../lib/order-processing");
-        const name = [source.customer.name, source.metadata.documentTitle, source.metadata.proposalNumber, "Order Summary"].filter(Boolean).join(" - ").replace(/[<>:"/\\|?*\x00-\x1f]/g, "-").slice(0, 210);
-        downloadBlob(new Blob([buildOrderProcessingText(source)], { type: "text/plain;charset=utf-8" }), `${name}.txt`);
-      }
+      const { buildOrderProcessingText } = await import("../lib/order-processing");
+      const name = [source.customer.name, source.metadata.documentTitle, source.metadata.proposalNumber, "Order Summary"].filter(Boolean).join(" - ").replace(/[<>:"/\\|?*\x00-\x1f]/g, "-").slice(0, 210);
+      downloadBlob(new Blob([buildOrderProcessingText(source)], { type: "text/plain;charset=utf-8" }), `${name}.txt`);
       setOpen(false); trigger.current?.focus();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Export failed. Please try again."); }
     finally { setBusy(false); }
@@ -71,9 +65,8 @@ export function QuoteExportMenu({ quote, disabled, pdfDisabled, downloading, onP
       <span className="qe-group-label">Customer-facing</span>
       <button type="button" disabled={disabled || pdfDisabled || downloading || busy} onClick={() => { setOpen(false); void onPdf(); }}><FileText size={17} />Customer Proposal PDF</button>
       <span className="qe-group-label">Internal only</span>
-      <button type="button" disabled={busy} onClick={() => void run("approval")}><FileSpreadsheet size={17} />Internal Approval Workbook</button>
-      {quote.metadata.workflowMode === "major_project" && <QuoteMasterExport quote={quote} onClosed={() => window.setTimeout(() => trigger.current?.focus(), 0)} renderTrigger={(start) => <button type="button" disabled={busy} onClick={() => { setOpen(false); start(); }}><FileSpreadsheet size={17} />Hector&apos;s Quote Master</button>} />}
-      <button type="button" disabled={busy} onClick={() => void run("order")}><ClipboardList size={17} />Order-Processing Summary</button>
+      <QuoteMasterExport quote={quote} getQuote={getQuote} onClosed={() => window.setTimeout(() => trigger.current?.focus(), 0)} renderTrigger={(start) => <button type="button" disabled={busy} onClick={() => { setOpen(false); start(); }}><FileSpreadsheet size={17} />Quote Master Workbook</button>} />
+      <button type="button" disabled={busy} onClick={() => void run()}><ClipboardList size={17} />Order-Processing Summary</button>
       {error && <p className="qe-error" role="alert">{error}</p>}
     </div>
   </div>;

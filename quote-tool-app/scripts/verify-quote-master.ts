@@ -40,7 +40,7 @@ async function main() {
       await page.goto(new URL(`/new?proposalId=${quote.internal.quoteId}`, base).href, { waitUntil: "networkidle0", timeout: 90_000 });
       await page.waitForSelector(".qe-menu > button", { timeout: 60_000 });
       await page.click(".qe-menu > button");
-      await page.$$eval(".qe-popover button", (buttons) => buttons.find((button) => button.textContent?.includes("Hector's Quote Master"))!.click());
+      await page.$$eval(".qe-popover button", (buttons) => buttons.find((button) => button.textContent?.includes("Quote Master Workbook"))!.click());
       await page.waitForSelector("dialog[open]");
       const text = await page.$eval("dialog[open]", (element) => element.textContent || "");
       for (const expected of ["Workbook columns (5/5)", "Radar hardware", "Camera hardware", "AI / cloud", "$11,944.46", "$9,660.76", "$10,200.00", "$1,600.00", "$92.50", "$285.50"]) assert.ok(text.includes(expected), "Dialog missing " + expected);
