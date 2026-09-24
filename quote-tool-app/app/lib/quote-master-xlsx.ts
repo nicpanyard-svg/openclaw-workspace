@@ -38,7 +38,7 @@ export async function patchQuoteMasterWorkbook(bytes: ArrayBuffer | Uint8Array, 
   }
   zip.file("[Content_Types].xml", new XMLSerializer().serializeToString(contentTypes));
   const sheetElements = Array.from(workbook.getElementsByTagNameNS(NS, "sheet"));
-  if (JSON.stringify(sheetElements.map((sheet) => sheet.getAttribute("name"))) !== JSON.stringify(SHEETS)) throw new Error("This is not Hector's seven-sheet Quote Master template.");
+  if (JSON.stringify(sheetElements.map((sheet) => sheet.getAttribute("name"))) !== JSON.stringify(SHEETS)) throw new Error("This is not the seven-sheet Quote Master template.");
   const paths = new Map(sheetElements.map((sheet) => {
     const rel = Array.from(relationships.documentElement.children).find((item) => item.getAttribute("Id") === sheet.getAttributeNS(REL, "id"));
     const target = rel?.getAttribute("Target");

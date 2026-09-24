@@ -1,3 +1,4 @@
+import { applyLaborCosts } from "./labor-breakdown";
 import type {
   MajorProjectBundle,
   MajorProjectBuilderMode,
@@ -331,7 +332,7 @@ function normalizeComponent(component: Partial<MajorProjectComponent> | undefine
   const billing = usageBased ? { cadence: "monthly" as const, startsYear: 1 as const }
     : getLineBilling(component ?? defaults, component?.schedule === "recurring" ? "monthly" : "one_time");
 
-  return normalizeSoftwareComponent({
+  return normalizeSoftwareComponent(applyLaborCosts({
     ...defaults,
     ...component,
     billing,
@@ -352,7 +353,7 @@ function normalizeComponent(component: Partial<MajorProjectComponent> | undefine
     vendorUnitCost,
     vendorExtendedCost: roundCurrency(vendorExtendedCost),
     importSource: normalizeSimpleRowImportSource(component?.importSource),
-  });
+  }));
 }
 
 function normalizeBundle(bundle: Partial<MajorProjectBundle> | undefined, index: number): MajorProjectBundle {

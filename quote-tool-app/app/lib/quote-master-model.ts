@@ -1,3 +1,4 @@
+import { laborDetails } from "./labor-breakdown";
 import { applyMajorProjectToQuote, buildMajorProjectMetrics, ensureMajorProjectState } from "./major-project";
 import { getLeasePricingSummary } from "./proposal-commercial-summary";
 import { getLineBilling } from "./quote-line-billing";
@@ -26,7 +27,7 @@ const pricingColumns = ["E", "F", "G", "H", "I"];
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 const money = (value: number) => `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
-const keyFor = (line: QuoteMasterLine) => JSON.stringify([line.label, line.quantity ? line.cost / line.quantity : 0, line.quantity ? line.price / line.quantity : 0, line.cadence, line.startsYear, line.optional, line.category]);
+const keyFor = (line: QuoteMasterLine) => JSON.stringify([line.label, line.quantity ? line.cost / line.quantity : 0, line.quantity ? line.price / line.quantity : 0, line.cadence, line.startsYear, line.optional, line.category, line.notes]);
 
 function category(label: string, installation: boolean, recurring: boolean) {
   if (recurring) return /T-Mobile|cellular/i.test(label) ? "Cellular or Traditional Phone Plan" : /Starlink|terminal.*fee|pooled data/i.test(label) ? "LEO, MEO, GEO Subscription Recurring" : "3rd Party Services";
@@ -57,7 +58,7 @@ function columnFor(selection: QuoteMasterSelection): QuoteMasterColumn {
       usageUnit: row.quickQuoteSource?.usageBased ? row.unit || "usage unit" : undefined,
       billing: getLineBilling(row, row.schedule === "recurring" ? "monthly" : "one_time"),
       optional: Boolean(row.optional || onlyOptionalPresenters || row.quickQuoteSource?.usageBased),
-      installation: row.lineType === "installation" || row.lineType === "internal_labor", hardware: row.lineType === "hardware", notes: row.notes || "",
+      installation: row.lineType === "installation" || row.lineType === "internal_labor", hardware: row.lineType === "hardware", notes: laborDetails(row),
     };
   });
   if (!rows.length) throw new Error(`${option.label}: add line items before exporting the Quote Master workbook.`);
@@ -97,7 +98,7 @@ export function buildQuoteMasterColumns(selections: QuoteMasterSelection[]): Quo
   if (!selections.length) throw new Error("Select at least one saved quote or project option.");
   const customers = new Set(selections.map(({ quote }) => quote.customer.name.trim().toLowerCase()));
   if (customers.size !== 1) throw new Error("Choose quotes for the same customer.");
-  if (selections.some(({ quote }) => quote.metadata.currencyCode !== "USD")) throw new Error("Hector's template is USD-only. No currency conversion was applied.");
+  if (selections.some(({ quote }) => quote.metadata.currencyCode !== "USD")) throw new Error("The Quote Master template is USD-only. No currency conversion was applied.");
   const columns = selections.flatMap((selection) => {
     const source = columnFor(selection);
     if (!selection.splitConnectivity) return [source];
@@ -115,7 +116,7 @@ export function buildQuoteMasterColumns(selections: QuoteMasterSelection[]): Quo
       calculateColumn({ ...source, label: "Starlink + SecureLynk", lines: [...satellite, ...access, ...privateNetwork].map((line) => ({ ...line, optional: false })), notes: "Starlink replaces cellular. Private-network charge retained." }),
     ];
   });
-  if (columns.length > 5) throw new Error("Hector's unchanged template holds five option columns. Select fewer options; no sheets or columns were added.");
+  if (columns.length > 5) throw new Error("The Quote Master template holds five option columns. Select fewer options; no sheets or columns were added.");
   return columns;
 }
 
@@ -180,7 +181,7 @@ export function buildQuoteMasterInputs(selections: QuoteMasterSelection[], colum
       const cadence = line.usageUnit ? `/${line.usageUnit}` : line.cadence === "annual" ? "/yr" : line.cadence === "monthly" ? "/mo" : "";
       const renewal = line.cadence === "annual" ? `; Y${line.startsYear}` : "";
       const detail = line.rental ? "Leased equipment; no upfront sale." : line.cadence === "one_time" && !line.optional ? "Cost and price per unit; full quoted quantities." : `${line.optional ? `Opt ${index + 1}${line.usageUnit ? " usage" : ` qty ${line.quantity}`}: ` : ""}${money(line.price / line.quantity)}${cadence}; cost ${money(line.cost / line.quantity)}${cadence}${renewal}.`;
-      group.note = detail;
+      group.note = [detail, line.notes].filter(Boolean).join(" ");
       grouped.set(key, group);
     }
   });

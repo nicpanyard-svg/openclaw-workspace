@@ -119,7 +119,7 @@ async function main() {
       await page.click(".qe-menu > button");
       await page.screenshot({ path: path.join(output, `editor-export-${width}.png`) });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `Editor overflow at ${width}`);
-      await clickText(page, ".qe-popover button", "Hector's Quote Master");
+      await clickText(page, ".qe-popover button", "Quote Master Workbook");
       await page.waitForSelector("dialog[open]");
       await page.keyboard.press("Escape");
       await page.waitForFunction(() => document.activeElement?.matches(".qe-menu > button"));
@@ -135,7 +135,10 @@ async function main() {
     await page.goto(new URL(`/proposal?proposalId=${quotes[2].internal.quoteId}`, base).href, { waitUntil: "networkidle0", timeout: 120_000 });
     await page.waitForSelector(".proposal-toolbar .qe-menu > button", { timeout: 60_000 });
     await page.click(".proposal-toolbar .qe-menu > button");
-    await clickText(page, ".qe-popover button", "Internal Approval Workbook");
+    await clickText(page, ".qe-popover button", "Quote Master Workbook");
+    await page.waitForSelector("dialog[open]");
+    await clickText(page, "dialog button", "Download Workbook");
+    await page.waitForSelector("dialog[open]", { hidden: true });
     await page.waitForFunction(() => !document.querySelector(".qe-popover:not([hidden])"), { timeout: 60_000 });
     await page.click(".proposal-toolbar .qe-menu > button");
     await clickText(page, ".qe-popover button", "Order-Processing Summary");

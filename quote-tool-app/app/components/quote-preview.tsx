@@ -3,6 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { AlertCircle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calculator, Check, ChevronDown, ClipboardCheck, Copy, Eye, Files, List, MoreHorizontal, Plus, Save, Trash2, UserRound, X } from "lucide-react";
+import { LaborBreakdown } from "./labor-breakdown";
 import { QuoteLineTable } from "@/app/components/quote-line-table";
 import { QuoteBillingSelect } from "@/app/components/quote-billing-select";
 import dynamic from "next/dynamic";
@@ -5750,8 +5751,9 @@ return {
                               <label className="builder-field compact"><span>Qty</span><input type="number" step="0.01" value={component.quantity} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const quantity = Math.max(parseNumber(e.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), vendorExtendedCost: Number((quantity * current.vendorUnitCost).toFixed(2)) }; })} /></label>
                               <label className="builder-field compact"><span>Unit</span><input value={component.unit} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, unit: e.target.value }))} /></label>
                               <label className="builder-field compact"><span>Customer unit price</span><input type="number" step="0.01" value={component.customerUnitPrice} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(e.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /></label>
-                              <label className="builder-field compact"><span>Vendor unit cost</span><input type="number" step="0.01" value={component.vendorUnitCost} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const vendorUnitCost = Math.max(parseNumber(e.target.value), 0); return { ...current, vendorUnitCost, vendorExtendedCost: Number((current.quantity * vendorUnitCost).toFixed(2)) }; })} /></label>
+                              <label className="builder-field compact"><span>Vendor unit cost{component.laborTasks?.length && ["installation", "internal_labor"].includes(component.lineType) ? " (from labor tasks)" : ""}</span><input readOnly={Boolean(component.laborTasks?.length && ["installation", "internal_labor"].includes(component.lineType))} type="number" step="0.01" value={component.vendorUnitCost} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const vendorUnitCost = Math.max(parseNumber(e.target.value), 0); return { ...current, vendorUnitCost, vendorExtendedCost: Number((current.quantity * vendorUnitCost).toFixed(2)) }; })} /></label>
                             </div>
+                            {["installation", "internal_labor"].includes(component.lineType) && <LaborBreakdown component={component} onChange={(updated) => updateActiveMajorComponent(component.id, () => updated)} />}
                             {component.lineType === "hardware" ? (
                               <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
                                 <NormalizedHardwarePreviewCard
