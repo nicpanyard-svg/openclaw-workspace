@@ -29,11 +29,12 @@ export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditIt
   return <section className="builder-panel rq-order-panel">
     <div className="rq-section-heading">
       <div><h2>Order processing</h2><span className="rq-internal-label">Internal handoff</span></div>
-      <button type="button" className="rq-button" onClick={onExport}><Download size={16} aria-hidden="true" />{summary.missingFields.length ? "Download draft summary" : "Download order summary"}</button>
+      <button type="button" className="rq-button" onClick={onExport} disabled={summary.missingFields.length > 0}><Download size={16} aria-hidden="true" />Download order summary</button>
     </div>
-    {summary.missingFields.length > 0 ? <details className="rq-order-checklist">
-      <summary><AlertCircle size={16} aria-hidden="true" />{summary.missingFields.length} additional handoff details to confirm</summary>
+    {summary.missingFields.length > 0 ? <details className="rq-order-checklist" open>
+      <summary><AlertCircle size={16} aria-hidden="true" />{summary.missingFields.length} required order details to complete</summary>
       <ul>{summary.missingFields.map((item) => <li key={item}>{item}</li>)}</ul>
+      <p>Complete these details before exporting the order summary. You can still save a draft.</p>
     </details> : <p className="rq-ready"><Check size={16} aria-hidden="true" />Order details complete</p>}
 
     <button type="button" className="rq-button" onClick={onEditSetup}>Review order setup<Pencil size={14} /></button>
@@ -42,7 +43,7 @@ export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditIt
       <div className="rq-section-heading"><h3>Service location and terminals</h3><button type="button" className="rq-button rq-button-quiet" onClick={onEditCustomer}><Pencil size={14} aria-hidden="true" />Edit customer</button></div>
       <div className="rq-order-address"><span>Service address</span>{summary.serviceAddress.length ? summary.serviceAddress.map((line, index) => <div key={index}>{line}</div>) : <strong>Not specified</strong>}</div>
       <div className="rq-detail-fields">
-        <label className="builder-field"><span>Terminal names / identifiers</span><select value={details.terminalsStatus} onChange={(event) => updateDetails({ terminalsStatus: event.target.value as QuoteOrderProcessing["terminalsStatus"] })}><option value="pending">Not confirmed</option><option value="listed">Listed below</option><option value="not_applicable">Not applicable</option></select></label>
+        <label className="builder-field"><span>Terminal names / identifiers (optional)</span><select value={details.terminalsStatus} onChange={(event) => updateDetails({ terminalsStatus: event.target.value as QuoteOrderProcessing["terminalsStatus"] })}><option value="pending">Not available yet — add later</option><option value="listed">Listed below</option><option value="not_applicable">Not applicable</option></select></label>
         {details.terminalsStatus === "listed" && <label className="builder-field"><span>Terminal list</span><textarea rows={3} value={details.terminals.join("\n")} onChange={(event) => updateDetails({ terminals: event.target.value.split("\n") })} placeholder="Site A - Terminal 1" /></label>}
       </div>
     </div>

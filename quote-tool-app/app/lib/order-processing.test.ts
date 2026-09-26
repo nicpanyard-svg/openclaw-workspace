@@ -1,4 +1,4 @@
-import { normalizeProcessingRequirements } from "./processing-requirements";
+import { normalizeProcessingRequirements, prefillStarlinkRates } from "./processing-requirements";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -93,7 +93,7 @@ test("legacy order details default to explicit pending decisions without mutatin
   assert.equal(serializeQuoteRecord(quote), before);
   details.terminals.push("Changed copy");
   assert.deepEqual(getOrderProcessing(quote), defaults);
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Service address", "Terminal decision", "Shipping decision", "Customer", "Sub-account decision", "Data plan / allocation details", "Corporate pricing decision", "Equipment needed decision", "Overage opt-in decision", "Public IP decision", "POC name", "POC phone number", "Special instructions (or None)"]);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Customer", "Sub-account decision", "Data plan / allocation details", "Corporate pricing decision", "Equipment needed decision", "Overage opt-in decision", "Public IP decision", "Shipping decision", "Service address", "POC name", "POC phone number", "Special instructions (or None)"]);
   const restored = deserializeQuoteRecord(before);
   assert.ok(restored);
   assert.deepEqual(restored.orderProcessing, defaults);
@@ -154,8 +154,7 @@ test("per-kit output excludes inactive pool rows and optional rows", () => {
   quote.sections.sectionA.perKitRows.push({ id: "optional-kit", rowType: "service", description: "Optional kit plan", optional: true, totalMonthlyRate: 1000 });
   const summary = getOrderProcessingSummary(quote);
   assert.deepEqual(summary.subscriptionRows.map((row) => row.id), ["inactive"]);
-  assert.ok(summary.missingFields.includes("Monitoring / support fee definition"));
-  assert.ok(summary.missingFields.includes("Terminal access fee definition"));
+  assert.deepEqual(summary.missingFields, []);
   assert.match(buildOrderProcessingText(quote), /Quoted recurring total: \$999\.00\/month/);
 });
 
@@ -163,12 +162,10 @@ test("pending overage is never inferred from overage rows, terminal names, or ex
   const quote = createOrderQuote();
   quote.metadata.hasActiveDataAgreement = true;
   quote.orderProcessing = { ...getOrderProcessing(quote), terminalsStatus: "pending", overageOptIn: "pending", shippingRequired: "pending" };
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Terminal decision", "Shipping decision", "Overage opt-in decision"]);
-  const output = buildOrderProcessingText(quote);
-  assert.ok(output.startsWith("DRAFT - missing details (3)\n"));
-  assert.match(output, /Missing details: Terminal decision; Shipping decision; Overage opt-in decision/);
-  assert.match(output, /Overage opt-in: Pending \(not authorized\)/);
-  assert.doesNotMatch(output, /Overage opt-in: Yes/);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage opt-in decision", "Shipping decision"]);
+  assert.throws(() => buildOrderProcessingText(quote), {
+    message: "Complete these order details before exporting: Overage opt-in decision; Shipping decision. You can still save a draft.",
+  });
 });
 
 test("explicit opt-in choices survive normalization without automatic authorization", () => {
@@ -186,53 +183,147 @@ test("recurring service needs explicit data allocation even when its prose menti
   const quote = createOrderQuote();
   quote.orderProcessing = { ...getOrderProcessing(quote), dataPlanDetails: " " };
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Data plan / allocation details"]);
-  const output = buildOrderProcessingText(quote);
-  assert.ok(output.startsWith("DRAFT - missing details (1)\n"));
-  assert.match(output, /Missing details: Data plan \/ allocation details/);
-  assert.match(output, /Data plan details \(explicit annotation\): Not provided/);
+  assert.throws(() => buildOrderProcessingText(quote), /Complete these order details before exporting: Data plan \/ allocation details/);
   quote.sections.sectionA.enabled = false;
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Data plan / allocation details"]);
+  assert.throws(() => buildOrderProcessingText(quote), /Data plan \/ allocation details/);
 });
 
-test("overage opt-in yes requires an included enabled overage pricing row", () => {
+test("corporate pricing covers missing support and overage rows with terminal IDs still unknown", () => {
   const quote = createOrderQuote();
-  quote.orderProcessing = { ...getOrderProcessing(quote), overageOptIn: "yes" };
+  quote.customer.name = "Revolution Power Solutions";
+  quote.orderProcessing = { ...getOrderProcessing(quote), overageOptIn: "yes", terminals: [], terminalsStatus: "pending" };
+  quote.sections.sectionB.lineItems[0].itemName = "Starlink Mini G1";
+  quote.sections.sectionA.poolRows = quote.sections.sectionA.poolRows.filter((row) => ["data", "taf"].includes(row.id));
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
-  quote.sections.sectionA.poolRows[3].optional = true;
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage pricing"]);
+  const output = buildOrderProcessingText(quote);
+  assert.ok(output.startsWith("ORDER TEMPLATE\n"));
+  assert.match(output, /Starlink Mini G1 \| Qty: 2/);
+  assert.match(output, /Corporate pricing: Yes/);
+  assert.match(output, /Individual rate confirmations: covered by corporate pricing/);
+  assert.match(output, /Monitoring & support definition: Covered by corporate pricing/);
+  assert.match(output, /Overage opt-in: Yes/);
+  assert.match(output, /Terminal identifiers \/ names \(optional\): Not available yet — can be added later/);
+  assert.match(output, /Missing fields: None/);
+  assert.doesNotMatch(output, /DRAFT|Terminal decision|Monitoring \/ support fee definition|Overage pricing/);
   quote.sections.sectionA.enabled = false;
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage pricing"]);
-  assert.ok(buildOrderProcessingText(quote).startsWith("DRAFT - missing details (1)\n"));
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
+  assert.match(buildOrderProcessingText(quote), /Terminal access fee definition: Covered by corporate pricing/);
 });
 
-test("lease without an active data agreement remains a draft with explicit pending status", () => {
+test("noncorporate structured rates complete the handoff without duplicate subscription fee rows", () => {
+  for (const pricingStructure of ["individual", "pool"] as const) {
+    const quote = createOrderQuote();
+    const details = getOrderProcessing(quote);
+    const requirements = prefillStarlinkRates({ ...details.requirements, corporatePricing: "no", pricingStructure });
+    requirements.rates.terminalAccess.amount = 44;
+    requirements.rates.poolTac.amount = 45;
+    quote.orderProcessing = { ...details, requirements, overageOptIn: "yes", terminals: [], terminalsStatus: "pending" };
+    quote.sections.sectionA.mode = pricingStructure === "pool" ? "pool" : "per_kit";
+    quote.sections.sectionA.poolRows = quote.sections.sectionA.poolRows.filter((row) => row.id === "data");
+    assert.deepEqual(getOrderProcessingSummary(quote).missingFields, [], pricingStructure);
+    const output = buildOrderProcessingText(quote);
+    assert.ok(output.startsWith("ORDER TEMPLATE\n"));
+    assert.match(output, /Monitoring & support definition: \$10\.00 per month/);
+    assert.match(output, pricingStructure === "pool"
+      ? /Terminal access fee definition: \$45\.00 per terminal \/ month/
+      : /Terminal access fee definition: \$44\.00 per terminal \/ month/);
+    assert.doesNotMatch(output, /Monitoring \/ support fee definition|Overage pricing/);
+    if (pricingStructure === "individual") {
+      assert.match(output, /Overages: \$0\.55 per GB/);
+      requirements.rates.overages.status = "pending";
+      assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overages pricing"]);
+      assert.throws(() => buildOrderProcessingText(quote), /Complete these order details before exporting: Overages pricing/);
+    } else {
+      requirements.rates.overages.status = "pending";
+      assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
+      requirements.rates.poolTac.status = "pending";
+      assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Pool TAC pricing"]);
+      assert.throws(() => buildOrderProcessingText(quote), /Complete these order details before exporting: Pool TAC pricing/);
+    }
+  }
+});
+
+test("lease without an active data agreement cannot export an order summary", () => {
   const quote = createOrderQuote();
   quote.metadata.quoteType = "lease";
   for (const hasActiveDataAgreement of [false, undefined]) {
     quote.metadata.hasActiveDataAgreement = hasActiveDataAgreement;
     assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Active data agreement confirmation"]);
-    const output = buildOrderProcessingText(quote);
-    assert.ok(output.startsWith("DRAFT - missing details (1)\n"));
-    assert.match(output, /Lease data agreement: Pending \(not confirmed\)/);
-    assert.doesNotMatch(output, /Lease data agreement: Confirmed/);
+    assert.throws(() => buildOrderProcessingText(quote), {
+      message: "Complete these order details before exporting: Active data agreement confirmation. You can still save a draft.",
+    });
   }
   quote.metadata.hasActiveDataAgreement = true;
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
   assert.match(buildOrderProcessingText(quote), /Lease data agreement: Confirmed/);
 });
 
-test("listed terminals require names and shipping yes requires address, contact, and explicit phone", () => {
+test("customer, corporate pricing, shipping, and POC requirements block order summary exports", () => {
+  const cases: { label: string; field: string; makeIncomplete: (quote: QuoteRecord) => void }[] = [
+    { label: "customer", field: "Customer", makeIncomplete: (quote) => { quote.customer.name = " "; } },
+    { label: "corporate decision", field: "Corporate pricing decision", makeIncomplete: (quote) => { quote.orderProcessing!.requirements.corporatePricing = "pending"; } },
+    { label: "shipping address", field: "Shipping address", makeIncomplete: (quote) => { quote.shipTo.lines = []; } },
+    { label: "shipping contact", field: "Shipping contact name", makeIncomplete: (quote) => { quote.shipTo.attention = ""; } },
+    { label: "shipping phone", field: "Shipping contact phone", makeIncomplete: (quote) => { quote.orderProcessing!.shippingContactPhone = ""; } },
+    { label: "POC name", field: "POC name", makeIncomplete: (quote) => { quote.customer.contactName = ""; } },
+    { label: "POC phone", field: "POC phone number", makeIncomplete: (quote) => { quote.customer.contactPhone = ""; } },
+  ];
+  for (const { label, field, makeIncomplete } of cases) {
+    const quote = createOrderQuote();
+    makeIncomplete(quote);
+    assert.deepEqual(getOrderProcessingSummary(quote).missingFields, [field], label);
+    assert.throws(() => buildOrderProcessingText(quote), {
+      message: `Complete these order details before exporting: ${field}. You can still save a draft.`,
+    }, label);
+  }
+});
+
+test("an incomplete customer quote can remain saved as a draft while order summary export is blocked", () => {
+  const quote = createOrderQuote();
+  quote.metadata.status = "draft";
+  quote.customer.contactName = "";
+  quote.orderProcessing = { ...getOrderProcessing(quote), shippingRequired: "pending" };
+  const proposal = createProposalFromQuote({ quote });
+  const store = deserializeProposalStore(serializeProposalStore({ currentUser: proposal.createdBy, users: [proposal.owner], proposals: [proposal] }));
+  assert.ok(store);
+  const savedQuote = store.proposals[0].quote;
+  assert.equal(savedQuote.customer.name, "Order customer");
+  assert.equal(savedQuote.metadata.status, "draft");
+  assert.equal(savedQuote.customer.contactName, "");
+  assert.deepEqual(getOrderProcessingSummary(savedQuote).missingFields, ["Shipping decision", "POC name"]);
+  assert.throws(() => buildOrderProcessingText(savedQuote), {
+    message: "Complete these order details before exporting: Shipping decision; POC name. You can still save a draft.",
+  });
+});
+
+test("shipping yes requires address, contact, and explicit phone while terminal names remain optional", () => {
   const quote = createOrderQuote();
   quote.customer.addressLines = [" "];
   quote.customer.contactName = "";
   quote.shipTo = { lines: [" "] };
   quote.orderProcessing = { ...getOrderProcessing(quote), terminals: [" "], shippingContactPhone: "" };
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, [
-    "Service address", "Terminal identifiers / names", "Shipping address", "Shipping contact name", "Shipping contact phone", "POC name",
+    "Shipping address", "Shipping contact name", "Shipping contact phone", "Service address", "POC name",
   ]);
+  assert.throws(() => buildOrderProcessingText(quote), /Shipping address; Shipping contact name; Shipping contact phone; Service address; POC name/);
   quote.orderProcessing.terminalsStatus = "not_applicable";
   quote.orderProcessing.shippingRequired = "no";
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Service address", "POC name"]);
+});
+
+test("pending, empty listed, and not applicable terminal identifiers never mark an otherwise complete quote as draft", () => {
+  for (const terminalsStatus of ["pending", "listed", "not_applicable"] as const) {
+    const quote = createOrderQuote();
+    quote.orderProcessing = { ...getOrderProcessing(quote), terminals: [" "], terminalsStatus };
+    assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
+    const output = buildOrderProcessingText(quote);
+    assert.ok(output.startsWith("ORDER TEMPLATE\n"));
+    assert.match(output, terminalsStatus === "not_applicable"
+      ? /Terminal identifiers \/ names \(optional\): Not applicable/
+      : /Terminal identifiers \/ names \(optional\): Not available yet — can be added later/);
+    assert.doesNotMatch(output, /Terminal decision/);
+  }
 });
 
 test("shippingSameAsBillTo uses only the selected attention, never the customer contact or company", () => {
@@ -249,7 +340,7 @@ test("shippingSameAsBillTo uses only the selected attention, never the customer 
   quote.shipTo.attention = " ";
   assert.equal(getOrderProcessingSummary(quote).shippingContactName, "");
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Shipping contact name"]);
-  assert.match(buildOrderProcessingText(quote), /Shipping contact: Not provided/);
+  assert.throws(() => buildOrderProcessingText(quote), /Complete these order details before exporting: Shipping contact name/);
   quote.shippingSameAsBillTo = true;
   quote.billTo.attention = "";
   assert.equal(getOrderProcessingSummary(quote).shippingContactName, "");
@@ -258,7 +349,7 @@ test("shippingSameAsBillTo uses only the selected attention, never the customer 
   assert.ok(getOrderProcessingSummary(quote).missingFields.includes("Shipping contact phone"));
 });
 
-test("fee annotations complete missing definitions and descriptions remain authoritative", () => {
+test("fee descriptions and annotations take precedence over the corporate pricing fallback", () => {
   const quote = createOrderQuote();
   quote.orderProcessing = { ...getOrderProcessing(quote), monitoringSupportDetails: "Included", terminalAccessFeeDetails: "Not applicable" };
   assert.match(buildOrderProcessingText(quote), /Monitoring & support definition: Managed monitoring/);
@@ -270,7 +361,9 @@ test("fee annotations complete missing definitions and descriptions remain autho
   assert.match(buildOrderProcessingText(quote), /Terminal access fee definition: Not applicable/);
   quote.orderProcessing.monitoringSupportDetails = "";
   quote.orderProcessing.terminalAccessFeeDetails = "";
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Monitoring / support fee definition", "Terminal access fee definition"]);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
+  assert.match(buildOrderProcessingText(quote), /Monitoring & support definition: Covered by corporate pricing/);
+  assert.match(buildOrderProcessingText(quote), /Terminal access fee definition: Covered by corporate pricing/);
 });
 
 test("included rows and totals exclude options while the optional list retains separate totals", () => {
@@ -301,6 +394,9 @@ test("disabled sections suppress their rows, totals, optional items, and recurri
   assert.deepEqual(summary.equipmentRows, []);
   assert.deepEqual(summary.serviceRows, []);
   assert.deepEqual(summary.missingFields, ["Equipment items, quantities and pricing", "Overage opt-in decision"]);
+  assert.throws(() => buildOrderProcessingText(quote), /Equipment items, quantities and pricing; Overage opt-in decision/);
+  quote.orderProcessing.requirements.equipmentRequired = "no";
+  quote.orderProcessing.overageOptIn = "no";
   const output = buildOrderProcessingText(quote);
   assert.match(output, /Quoted recurring total: \$0\.00\/month/);
   assert.match(output, /Lease monthly total: \$0\.00\/month/);
@@ -310,13 +406,13 @@ test("disabled sections suppress their rows, totals, optional items, and recurri
   assert.doesNotMatch(output, /Managed monitoring|Fleet access|Optional spare|Install and permit/);
 });
 
-test("optional-only recurring rows do not satisfy fee definitions or trigger recurring requirements", () => {
+test("optional-only recurring rows do not change the required overage decision or corporate fee coverage", () => {
   const quote = createOrderQuote();
   quote.orderProcessing = { ...getOrderProcessing(quote), overageOptIn: "pending" };
   quote.sections.sectionA.poolRows.forEach((row) => { row.optional = true; });
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage opt-in decision"]);
   quote.sections.sectionA.poolRows[0].optional = false;
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage opt-in decision", "Monitoring / support fee definition", "Terminal access fee definition"]);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage opt-in decision"]);
 });
 
 test("text includes required handoff fields and lease equipment is pricing basis, not upfront", () => {
@@ -353,6 +449,7 @@ test("export excludes internal economics, source metadata, and generated support
 
 test("Major Project saved output supplies categories without exporting generated internal costs", () => {
   const quote = createOrderQuote();
+  quote.orderProcessing = { ...getOrderProcessing(quote), requirements: { ...getOrderProcessing(quote).requirements, equipmentRequired: "no" } };
   quote.metadata.workflowMode = "major_project";
   quote.majorProject.enabled = true;
   quote.majorProject.builderMode = "simple";

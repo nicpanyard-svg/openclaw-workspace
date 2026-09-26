@@ -64,7 +64,7 @@ test("Major Project equipment still requires assembly selection and exports conf
   const row = applyMajorProjectToQuote(quote).sections.sectionB.lineItems[0];
   quote.orderProcessing!.requirements!.equipment = {};
   assert.deepEqual(missingProcessingRequirements(quote), ["Remote kit: assembly or standalone"]);
-  assert.ok(buildOrderProcessingText(quote).includes("Assembly: Not confirmed"));
+  assert.throws(() => buildOrderProcessingText(quote), /Remote kit: assembly or standalone/);
   quote.orderProcessing!.requirements!.equipment[row.id] = { kind: "assembly", assemblyDetails: "Router + antenna" };
   assert.deepEqual(missingProcessingRequirements(quote), []);
   const output = buildOrderProcessingText(quote);
