@@ -51,6 +51,10 @@ async function main() {
     assert.equal(initialDraft.quote.metadata.status, 'draft');
     assert.ok(missingProcessingRequirements(initialDraft.quote).includes('Corporate pricing decision'), 'Draft save must preserve unanswered requirements');
     assert.equal(initialDraft.quote.customer.name, quote.customer.name);
+    await page.reload({ waitUntil: 'networkidle0' });
+    await page.waitForSelector('.rq-editor-actions');
+    assert.ok(await page.$eval('.rq-editor-meta', el => el.textContent?.includes('Saved')), 'The named incomplete draft should reopen as saved');
+    assert.ok(await page.$eval('.rq-editor-meta', (el, name) => el.textContent?.includes(name), quote.customer.name), 'The reopened draft should retain its customer');
     await page.$$eval('.rq-editor-actions button', buttons => buttons.find(b => b.textContent?.trim() === 'Finish setup')!.click());
     await page.waitForSelector('nav[aria-label="Quote setup steps"]');
     assert.equal(await page.$eval('#rq-nav-customer', el => el.getAttribute('aria-current')), 'page');
@@ -142,29 +146,67 @@ async function main() {
     await page.waitForSelector('.proposal-toolbar');
     assert.equal(new URL(page.url()).pathname, '/proposal');
     assert.equal(await page.$eval('body', el => el.textContent!.includes('Complete required quote information')), false);
+    const proposalIdsBeforeBlank = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).proposals.map((proposal: { id: string }) => proposal.id).sort(), PROPOSAL_STORE_KEY);
     await page.goto(new URL('/new?mode=new', base).href, { waitUntil: 'networkidle0' });
     await page.waitForSelector('.rq-editor-actions');
     await page.$$eval('.rq-editor-actions button', buttons => {
       const button = buttons.find(button => button.textContent?.trim() === 'Save draft');
-      if (!button || button.disabled) throw new Error('A new quote without a customer must have an enabled Save draft action');
+      if (!button || !button.disabled) throw new Error('A new quote without a customer must disable Save draft');
       if (buttons.some(button => button.textContent?.trim() === 'Finish setup')) throw new Error('Finish setup should wait until the customer is selected');
       button.click();
     });
+    const proposalIdsAfterBlank = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).proposals.map((proposal: { id: string }) => proposal.id).sort(), PROPOSAL_STORE_KEY);
+    assert.deepEqual(proposalIdsAfterBlank, proposalIdsBeforeBlank, 'A quote without a customer must not create a saved proposal');
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), ACTIVE_PROPOSAL_ID_KEY), null);
+    assert.equal(await page.$$eval('.rq-notice', notices => notices.some(notice => notice.textContent?.includes('Draft saved'))), false);
+    assert.equal(new URL(page.url()).pathname, '/new');
+    await page.screenshot({ path: path.join(output, 'customer-required-draft-mobile.png'), fullPage: true });
+    await page.$$eval('.rq-customer-choice', buttons => {
+      const button = buttons.find(button => button.textContent?.includes('Create Customer')) as HTMLButtonElement | undefined;
+      if (!button) throw new Error('Create Customer action is missing');
+      button.click();
+    });
+    await page.waitForFunction(() => [...document.querySelectorAll('label')].some(label => label.querySelector('span')?.textContent === 'Customer name' && label.offsetHeight > 0));
+    await page.evaluate(() => {
+      const label = [...document.querySelectorAll('label')].find(label => label.querySelector('span')?.textContent === 'Customer name' && label.offsetHeight > 0)!;
+      const input = label.querySelector('input')!;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'QA Minimal Customer');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.$$eval('button', buttons => {
+      const button = buttons.find(button => button.textContent?.trim() === 'Use this customer' && button.offsetHeight > 0);
+      if (!button) throw new Error('Use this customer action is missing');
+      button.click();
+    });
+    await page.waitForFunction(() => [...document.querySelectorAll<HTMLButtonElement>('.rq-editor-actions button')].some(button => button.textContent?.trim() === 'Save draft' && !button.disabled));
+    await page.$$eval('.rq-editor-actions button', buttons => buttons.find(button => button.textContent?.trim() === 'Save draft')!.click());
     await page.waitForFunction(() => document.querySelector('.rq-notice')?.textContent?.includes('Draft saved'));
-    const blankDraft = await page.evaluate(({ storeKey, activeKey }) => {
+    const minimalDraft = await page.evaluate(({ storeKey, activeKey }) => {
       const activeId = localStorage.getItem(activeKey);
       return JSON.parse(localStorage.getItem(storeKey)!).proposals.find((proposal: { id: string }) => proposal.id === activeId);
     }, { storeKey: PROPOSAL_STORE_KEY, activeKey: ACTIVE_PROPOSAL_ID_KEY });
-    assert.ok(blankDraft, 'Save draft must create a stored proposal even before customer selection');
-    assert.notEqual(blankDraft.id, quote.internal.quoteId);
-    assert.equal(blankDraft.status, 'draft');
-    assert.equal(blankDraft.quote.metadata.status, 'draft');
-    assert.equal(blankDraft.quote.customer.name, '', 'Draft save must not invent a customer');
-    assert.ok(missingProcessingRequirements(blankDraft.quote).includes('Customer'));
-    assert.equal(new URL(page.url()).pathname, '/new', 'Saving a draft must stay in the editor');
-    await page.screenshot({ path: path.join(output, 'incomplete-customer-draft-mobile.png'), fullPage: true });
+    assert.ok(minimalDraft, 'A customer name alone should be enough to save a draft');
+    assert.notEqual(minimalDraft.id, quote.internal.quoteId);
+    assert.equal(minimalDraft.status, 'draft');
+    assert.equal(minimalDraft.quote.metadata.status, 'draft');
+    assert.equal(minimalDraft.quote.customer.name, 'QA Minimal Customer');
+    assert.equal(minimalDraft.quote.customer.addressLines.some((line: string) => line.trim()), false, 'Draft save must preserve missing service address');
+    assert.equal(minimalDraft.quote.customer.contactName, '');
+    assert.equal(minimalDraft.quote.customer.contactPhone, '');
+    assert.ok(missingProcessingRequirements(minimalDraft.quote).includes('Service address'));
+    assert.ok(missingProcessingRequirements(minimalDraft.quote).includes('POC name'));
+    await page.goto(new URL(`/new?proposalId=${minimalDraft.id}`, base).href, { waitUntil: 'networkidle0' });
+    await page.waitForSelector('.rq-editor-actions');
+    assert.ok(await page.$eval('.rq-editor-meta', el => el.textContent?.includes('QA Minimal Customer')), 'The minimal customer draft should reopen');
+    assert.ok(await page.$eval('.rq-editor-meta', el => el.textContent?.includes('Saved')));
+    await page.$$eval('.rq-editor-actions button', buttons => buttons.find(button => button.textContent?.trim() === 'Finish setup')!.click());
+    await waitForField('Service address');
+    assert.equal(await fieldValue('Service address'), '');
+    assert.equal(await fieldValue('POC name'), '');
+    assert.equal(await fieldValue('POC phone number'), '');
+    await page.screenshot({ path: path.join(output, 'minimal-customer-draft-mobile.png'), fullPage: true });
     assert.deepEqual(errors, [], 'The guided flow should not emit browser errors');
-    console.log(JSON.stringify({ passed: true, output, savedIncompleteDraft: true, savedWithoutCustomer: true, apiRejectedIncomplete: true, blockedIncompleteStep: true, equipmentRoundTrip: true, ratesEditableAndRetained: true, onlyActiveStepMounted: true, mobileNoOverflow: true, createdPreview: true }));
+    console.log(JSON.stringify({ passed: true, output, savedIncompleteDraft: true, reopenedNamedDraft: true, blockedDraftWithoutCustomer: true, savedNameOnlyDraft: true, reopenedNameOnlyDraft: true, apiRejectedIncomplete: true, blockedIncompleteStep: true, equipmentRoundTrip: true, ratesEditableAndRetained: true, onlyActiveStepMounted: true, mobileNoOverflow: true, createdPreview: true }));
   } finally { await browser.close(); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

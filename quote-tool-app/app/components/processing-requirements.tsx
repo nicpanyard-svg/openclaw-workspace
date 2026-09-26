@@ -56,7 +56,7 @@ export function ProcessingRequirementsForm({ quote: source, onChange, onEditItem
     review: "",
   };
   return <section className="builder-panel rq-setup" aria-label="Required quote information">
-    <div className="rq-setup-customer"><span><strong>{quote.customer.name}</strong><small>Quote setup · Save a draft at any time</small></span><button type="button" className="rq-button rq-button-quiet" onClick={onEditCustomer}><Pencil size={14} />Change customer</button></div>
+    <div className="rq-setup-customer"><span><strong>{quote.customer.name}</strong><small>Customer selected · Save a draft and finish details later</small></span><button type="button" className="rq-button rq-button-quiet" onClick={onEditCustomer}><Pencil size={14} />Change customer</button></div>
     <nav className="rq-setup-steps" aria-label="Quote setup steps">{steps.map((step, index) => <button key={step.id} type="button" aria-current={index === active ? "step" : undefined} onClick={() => go(index)}><span className="rq-setup-number">{index < 4 && !step.missing.length ? <Check size={15} aria-label="Complete" /> : index + 1}</span><span>{step.title}</span></button>)}</nav>
     <header className="rq-setup-heading"><span>Step {active + 1} of {steps.length}</span><h2 ref={heading} tabIndex={-1}>{current.title}</h2><p>{current.description}</p></header>
     {attempted && current.missing.length > 0 && <div className="rq-setup-error" role="alert"><strong>Complete these to continue:</strong><ul>{current.missing.map(item => <li key={item}>{item}</li>)}</ul></div>}
