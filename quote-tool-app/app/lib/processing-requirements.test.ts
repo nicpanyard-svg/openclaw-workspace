@@ -4,6 +4,7 @@ import { prefillStarlinkRates, PROCESSING_RATES, missingProcessingRequirements, 
 import { createBlankQuoteRecord } from "./quote-template";
 import { getOrderProcessing, buildOrderProcessingText } from "./order-processing";
 import { serializeQuoteRecord, deserializeQuoteRecord } from "./proposal-state";
+import { applyMajorProjectToQuote, convertQuickQuoteToMajorProject } from "./major-project";
 
 function readyQuote() {
   const quote = createBlankQuoteRecord();
@@ -44,19 +45,38 @@ test("non-corporate pricing requires all five rates and valid amounts and units"
   details.rates.overages.basis = " ";
   assert.deepEqual(missingProcessingRequirements(quote), ["Overages pricing"]);
 });
-test("every included equipment row requires assembly selection, quantity and price", () => {
+test("Quick Quote equipment is standalone without assembly confirmation and still requires quantity and price", () => {
   const quote = readyQuote();
   quote.orderProcessing!.requirements!.equipment = {};
-  assert.deepEqual(missingProcessingRequirements(quote), ["Remote kit: assembly or standalone"]);
+  assert.deepEqual(missingProcessingRequirements(quote), []);
+  assert.ok(buildOrderProcessingText(quote).includes("Assembly: No (standalone)"));
+  quote.orderProcessing!.requirements!.equipment.kit = { kind: "pending", assemblyDetails: "" };
+  assert.deepEqual(missingProcessingRequirements(quote), []);
   quote.sections.sectionB.lineItems[0].quantity = 0;
   quote.sections.sectionB.lineItems[0].unitPrice = -1;
-  assert.ok(missingProcessingRequirements(quote).includes("Remote kit: equipment quantity"));
-  assert.ok(missingProcessingRequirements(quote).includes("Remote kit: equipment pricing"));
+  assert.deepEqual(missingProcessingRequirements(quote), ["Remote kit: equipment quantity", "Remote kit: equipment pricing"]);
   quote.sections.sectionB.lineItems[0].optional = true;
   quote.orderProcessing!.requirements!.equipmentRequired = "no";
   assert.deepEqual(missingProcessingRequirements(quote), []);
 });
-test("required details survive save/load and appear in the processing summary without changing prices", () => {
+test("Major Project equipment still requires assembly selection and exports confirmed assembly details", () => {
+  const quote = convertQuickQuoteToMajorProject(readyQuote());
+  const row = applyMajorProjectToQuote(quote).sections.sectionB.lineItems[0];
+  quote.orderProcessing!.requirements!.equipment = {};
+  assert.deepEqual(missingProcessingRequirements(quote), ["Remote kit: assembly or standalone"]);
+  assert.ok(buildOrderProcessingText(quote).includes("Assembly: Not confirmed"));
+  quote.orderProcessing!.requirements!.equipment[row.id] = { kind: "assembly", assemblyDetails: "Router + antenna" };
+  assert.deepEqual(missingProcessingRequirements(quote), []);
+  const output = buildOrderProcessingText(quote);
+  assert.ok(output.includes("Assembly: Yes"));
+  assert.ok(output.includes("Assembly details: Router + antenna"));
+  quote.orderProcessing!.requirements!.equipment[row.id].kind = "standalone";
+  assert.deepEqual(missingProcessingRequirements(quote), []);
+  assert.ok(buildOrderProcessingText(quote).includes("Assembly: No (standalone)"));
+  assert.ok(!buildOrderProcessingText(quote).includes("Router + antenna"));
+});
+
+test("Quick Quote save/load retains prices and required details but ignores stale assembly flags in the processing summary", () => {
   const quote = readyQuote(), details = quote.orderProcessing!.requirements!;
   details.subAccountStatus = "yes"; details.subAccount = "WEST-123"; details.corporatePricing = "no";
   for (const { key, basis } of PROCESSING_RATES) details.rates[key] = { status: "priced", amount: 25, basis };
@@ -64,7 +84,10 @@ test("required details survive save/load and appear in the processing summary wi
   assert.deepEqual(restored.orderProcessing!.requirements, details);
   assert.deepEqual(restored.sections.sectionB.lineItems, quote.sections.sectionB.lineItems);
   const output = buildOrderProcessingText(restored);
-  for (const text of ["Sub account: WEST-123", "Corporate pricing: No", "Data Plan/Pool: Shared 500GB pool", "Assembly: Yes", "Router + antenna", "TAC (terminal access charge): $25.00", "50GB: $25.00", "500GB: $25.00", "Overages: $25.00 per GB"]) assert.ok(output.includes(text), text);
+  for (const text of ["Sub account: WEST-123", "Corporate pricing: No", "Data Plan/Pool: Shared 500GB pool", "Assembly: No (standalone)", "TAC (terminal access charge): $25.00", "50GB: $25.00", "500GB: $25.00", "Overages: $25.00 per GB"]) assert.ok(output.includes(text), text);
+  assert.ok(!output.includes("Assembly: Yes"));
+  assert.ok(!output.includes("Assembly details:"));
+  assert.ok(!output.includes("Router + antenna"));
 });
 
 test("pool pricing requires only Pool TAC and management/support, plus explicit order decisions", () => {

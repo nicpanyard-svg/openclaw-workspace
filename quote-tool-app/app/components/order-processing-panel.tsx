@@ -1,6 +1,5 @@
 "use client";
 
-import { ProcessingRequirementsForm } from "./processing-requirements";
 import { AlertCircle, Check, Download, Pencil } from "lucide-react";
 import type { QuoteOrderProcessing, QuoteRecord } from "@/app/lib/quote-record";
 import { getOrderProcessing, getOrderProcessingSummary } from "@/app/lib/order-processing";
@@ -15,9 +14,10 @@ type OrderProcessingPanelProps = {
   onEditCustomer: () => void;
   onEditItems: () => void;
   onExport: () => void;
+  onEditSetup: () => void;
 };
 
-export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditItems, onExport }: OrderProcessingPanelProps) {
+export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditItems, onExport, onEditSetup }: OrderProcessingPanelProps) {
   const summary = getOrderProcessingSummary(quote);
   const details = { ...getOrderProcessing(quote), ...quote.orderProcessing };
   const currency = quote.metadata.currencyCode || "USD";
@@ -31,12 +31,13 @@ export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditIt
       <div><h2>Order processing</h2><span className="rq-internal-label">Internal handoff</span></div>
       <button type="button" className="rq-button" onClick={onExport}><Download size={16} aria-hidden="true" />{summary.missingFields.length ? "Download draft summary" : "Download order summary"}</button>
     </div>
-    {summary.missingFields.length > 0 ? <details className="rq-order-checklist" open>
-      <summary><AlertCircle size={16} aria-hidden="true" />{summary.missingFields.length} order details to confirm</summary>
+    {summary.missingFields.length > 0 ? <details className="rq-order-checklist">
+      <summary><AlertCircle size={16} aria-hidden="true" />{summary.missingFields.length} additional handoff details to confirm</summary>
       <ul>{summary.missingFields.map((item) => <li key={item}>{item}</li>)}</ul>
     </details> : <p className="rq-ready"><Check size={16} aria-hidden="true" />Order details complete</p>}
 
-    <ProcessingRequirementsForm quote={quote} onChange={onChange} onEditItems={onEditItems} />
+    <button type="button" className="rq-button" onClick={onEditSetup}>Review order setup<Pencil size={14} /></button>
+    <details className="rq-order-section"><summary>Additional handoff details</summary>
     <div className="rq-order-section">
       <div className="rq-section-heading"><h3>Service location and terminals</h3><button type="button" className="rq-button rq-button-quiet" onClick={onEditCustomer}><Pencil size={14} aria-hidden="true" />Edit customer</button></div>
       <div className="rq-order-address"><span>Service address</span>{summary.serviceAddress.length ? summary.serviceAddress.map((line, index) => <div key={index}>{line}</div>) : <strong>Not specified</strong>}</div>
@@ -72,5 +73,6 @@ export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditIt
       <label className="builder-field"><span>Miscellaneous charge notes</span><textarea rows={2} value={details.miscellaneousChargesNotes} onChange={(event) => updateDetails({ miscellaneousChargesNotes: event.target.value })} placeholder="Freight, activation, or other quoted charges" /></label>
     </div>
     <label className="builder-field"><span>Other important order notes</span><textarea rows={3} value={details.notes} onChange={(event) => updateDetails({ notes: event.target.value })} /></label>
+    </details>
   </section>;
 }

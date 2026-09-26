@@ -108,6 +108,25 @@ test("Quick Quote addition is immutable and never copies research provenance or 
   );
 });
 
+test("Savage Case and Charger are independently selectable with editable $500 and $75 defaults", () => {
+  const caseProduct = quoteLibraryProducts.find((item) => item.id === "savage-case")!;
+  const chargerProduct = quoteLibraryProducts.find((item) => item.id === "charger")!;
+  assert.equal(caseProduct.label, "Savage Case");
+  assert.equal(caseProduct.configuredPrice, 500);
+  assert.equal(chargerProduct.label, "Charger");
+  assert.equal(chargerProduct.configuredPrice, 75);
+  assert.ok(!quoteLibraryProducts.some((item) => item.label === "Savage Case with Charger"));
+  const caseOnly = addLibraryProduct(createBlankQuoteRecord(), {
+    product: caseProduct, quantity: 2, unitPrice: caseProduct.configuredPrice!, partNumber: "", optional: false,
+  }, "case-only");
+  assert.deepEqual(caseOnly.sections.sectionB.lineItems.map((row) => [row.itemName, row.unitPrice, row.totalPrice]), [["Savage Case", 500, 1000]]);
+  const withEditedCharger = addLibraryProduct(caseOnly, {
+    product: chargerProduct, quantity: 2, unitPrice: 70, partNumber: "", optional: false,
+  }, "edited-charger");
+  assert.deepEqual(withEditedCharger.sections.sectionB.lineItems.map((row) => [row.itemName, row.unitPrice, row.totalPrice]), [["Savage Case", 500, 1000], ["Charger", 70, 140]]);
+  assert.equal(chargerProduct.configuredPrice, 75, "a quote price edit must not alter the catalog default");
+});
+
 test("optional additions stay outside base totals", () => {
   const quote = createBlankQuoteRecord();
   const next = addLibraryProduct(

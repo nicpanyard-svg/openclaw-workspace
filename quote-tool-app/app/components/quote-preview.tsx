@@ -1270,7 +1270,7 @@ function RowActions({
 const accessoryMap: Record<string, string[]> = {
   "Performance G3": ["perf-pipe-adapter", "cable-50m", "non-pen-mount"],
   "Standard V4": ["pipe-adapter", "cable-50m", "non-pen-mount"],
-  "Mini G1": ["mini-pole-mount", "savage-case", "cable-50m"],
+  "Mini G1": ["mini-pole-mount", "savage-case", "charger", "cable-50m"],
 };
 
 const servicePresetTemplates: Array<{ key: string; label: string; description: string; category: ServiceCategory; stage: ServiceStage; unitPrice: number }> = [
@@ -1800,6 +1800,9 @@ export default function QuotePreview() {
   const router = useRouter();
   const [isHydrated, setIsHydrated] = useState(false);
   const [editorTab, setEditorTab] = useState<"customer" | "items" | "pricing" | "documents" | "review">("items");
+  const [setupRequest, setSetupRequest] = useState(0);
+  const [setupInitialStep, setSetupInitialStep] = useState<number | undefined>(undefined);
+  const [editingSetupItems, setEditingSetupItems] = useState(false);
   const [lastSavedQuote, setLastSavedQuote] = useState<QuoteRecord | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [showMobileTotals, setShowMobileTotals] = useState(false);
@@ -4307,6 +4310,7 @@ export default function QuotePreview() {
       return draft;
     });
     setCustomerEntryMode("review");
+    setEditorTab("customer");
     setWorkflowNotice(`Autofilled proposal details from ${profile.companyName}.`);
   };
 
@@ -4329,7 +4333,22 @@ export default function QuotePreview() {
     });
 
     setCustomerEntryMode("review");
+    setEditorTab("customer");
     setWorkflowNotice(`Customer locked in for this draft: ${quote.customer.name.trim()}.`);
+  };
+
+  const openQuoteSetup = () => {
+    setSetupInitialStep(undefined);
+    setSetupRequest(current => current + 1);
+    setEditingSetupItems(false);
+    setEditorTab("customer");
+    setWorkflowNotice(null);
+    window.setTimeout(() => document.querySelector('[aria-label="Required quote information"]')?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+  const openSetupItems = () => {
+    setEditingSetupItems(true);
+    setEditorTab("items");
+    window.scrollTo({ top: 0, behavior: "instant" });
   };
 
   const persistProposalState = () => {
@@ -4355,9 +4374,8 @@ export default function QuotePreview() {
 
     const missingRequired = missingProcessingRequirements(nextQuote);
     if (missingRequired.length) {
-      setEditorTab("customer");
-      setWorkflowNotice(`Complete required quote information before creating this quote: ${missingRequired.join("; ")}.`);
-      window.setTimeout(() => document.querySelector('[aria-label="Required quote information"]')?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      openQuoteSetup();
+      setWorkflowNotice("Finish the highlighted setup step to create your quote.");
       return null;
     }
     persistQuoteRecord(nextQuote);
@@ -4516,6 +4534,7 @@ export default function QuotePreview() {
     setWorkflowNotice(`Created ${copiedProposal.quote.metadata.proposalNumber} as a new draft copy on revision ${copiedProposal.quote.governance?.revisionLabel || copiedProposal.quote.metadata.revisionVersion || "1.0"}. Review status, pricing, and customer-facing output before sending.`);
   };
 
+  const setupIncomplete = missingProcessingRequirements(quote).length > 0;
   const visibleEditorTab = customerEntryComplete ? editorTab : "customer";
   const hasUnsavedChanges = lastSavedQuote !== quote;
 
@@ -4542,9 +4561,11 @@ export default function QuotePreview() {
           <div><h1>{quote.metadata.documentTitle || "New quote"}</h1><div className="rq-editor-meta"><span>{quote.customer.name}</span><span>{quote.metadata.proposalNumber}</span><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span><span role="status" className={hasUnsavedChanges ? "rq-unsaved" : "rq-saved"}>{hasUnsavedChanges ? "Unsaved changes" : "Saved"}</span></div></div>
         </div>
         <div className="rq-editor-actions">
+          {customerEntryComplete && setupIncomplete ? <button type="button" className="rq-button rq-button-primary" onClick={openQuoteSetup}>Finish setup<ArrowRight size={16} /></button> : <>
           <button type="button" className="rq-button" onClick={persistProposalState} disabled={!customerEntryComplete}><Save size={16} aria-hidden="true" /><span>Save</span></button>
           <button type="button" className="rq-button" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" /><span>Preview</span></button>
           <QuoteExportMenu quote={quote} disabled={!customerEntryComplete} pdfDisabled={majorProjectHasBlockingErrors} downloading={isDownloadingPdf} onPdf={handleDownloadPdf} onOrderSummary={handleDownloadOrderSummary} getQuote={() => persistProposalState()?.proposal.quote} />
+          </>}
         </div>
       </header>
       <div className="rq-editor-container">
@@ -4561,7 +4582,7 @@ export default function QuotePreview() {
         <div className="rq-editor-grid" data-customer-ready={customerEntryComplete}>
           <div className="rq-editor-main">
             <div hidden={visibleEditorTab !== "customer"} aria-labelledby="rq-nav-customer">
-                          <section className="builder-panel">
+                          <section className="builder-panel" hidden={customerEntryComplete}>
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Step 1</div><h2 className="builder-title">Customer entry</h2></div></div>
 
               {customerEntryMode === "start" ? (
@@ -4779,10 +4800,11 @@ export default function QuotePreview() {
             </section>
 
 
-              {customerEntryComplete && <ProcessingRequirementsForm quote={quote} onChange={updateQuote} onEditItems={() => setEditorTab("items")} />}
-              {customerEntryComplete && <button type="button" className="rq-button rq-button-primary" onClick={() => setEditorTab("items")}>Line items<ArrowRight size={16} aria-hidden="true" /></button>}
+              {customerEntryComplete && <ProcessingRequirementsForm key={`${quote.internal.quoteId}:${setupRequest}`} initialStep={setupInitialStep} quote={quote} onChange={updateQuote} onEditItems={openSetupItems} onEditCustomer={() => setCustomerEntryMode("create")} onComplete={handlePreviewProposal} blockedMessage={majorProjectHasBlockingErrors ? "Some line items need attention before the quote can be created." : undefined} />}
+
             </div>
             <div hidden={visibleEditorTab !== "items"} aria-labelledby="rq-nav-items">
+              {editingSetupItems && <div className="rq-setup-return"><div><strong>Add your equipment, quantity and price</strong><p>When you are done, return to setup to continue.</p></div><button type="button" className="rq-button rq-button-primary" onClick={() => { openQuoteSetup(); setSetupInitialStep(1); }}>Return to setup<ArrowRight size={16} /></button></div>}
               <div className="rq-items-toolbar">
   <fieldset className="rq-mode-group"><legend className="sr-only">Quote mode</legend><div className="rq-segmented">
     <button type="button" aria-pressed={!isMajorProject} onClick={() => updateQuote((draft) => { draft.metadata.workflowMode = "quick_quote"; return draft; })}>Quick Quote</button>
@@ -6452,7 +6474,7 @@ return {
     <button type="button" className="rq-button" onClick={copyProposalFromBuilder}><Copy size={16} aria-hidden="true" />Duplicate quote</button>
   </div>
 </section>
-<OrderProcessingPanel quote={quote} onChange={updateQuote} onEditCustomer={() => { setCustomerEntryMode("create"); setEditorTab("customer"); }} onEditItems={() => setEditorTab("items")} onExport={handleDownloadOrderSummary} />
+<OrderProcessingPanel onEditSetup={openQuoteSetup} quote={quote} onChange={updateQuote} onEditCustomer={() => { setCustomerEntryMode("create"); setEditorTab("customer"); }} onEditItems={() => setEditorTab("items")} onExport={handleDownloadOrderSummary} />
 </div>
           </div>
           <aside className="rq-totals" aria-label="Quote totals" hidden={!customerEntryComplete} data-expanded={showMobileTotals}>

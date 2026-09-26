@@ -84,11 +84,20 @@ export const equipmentCatalog: CatalogItem[] = [
   {
     id: "savage-case",
     kind: "equipment",
-    label: "Savage Case with Charger",
+    label: "Savage Case",
     category: "Accessory",
     source: "Accessory catalog",
-    defaultUnitPrice: 325,
-    description: "Portable protective case package for field-ready Starlink transport and charging.",
+    defaultUnitPrice: 500,
+    description: "Protective case for Starlink transport. Charger sold separately.",
+  },
+  {
+    id: "charger",
+    kind: "equipment",
+    label: "Charger",
+    category: "Accessory",
+    source: "Accessory catalog",
+    defaultUnitPrice: 75,
+    description: "Charger sold separately from the Savage Case.",
   },
   {
     id: "non-pen-mount",
