@@ -4320,12 +4320,6 @@ export default function QuotePreview() {
       setCustomerEntryMode("create");
       return;
     }
-    if (!quote.customer.addressLines[0]?.trim()) {
-      setWorkflowNotice("Add the customer's primary/default address before continuing into quote building.");
-      setCustomerEntryMode("create");
-      return;
-    }
-
     updateQuote((draft) => {
       draft.metadata.accountName = draft.metadata.accountName?.trim() || draft.customer.name.trim();
       draft.customer.logoText = draft.metadata.customerShortName?.trim() || draft.customer.logoText || draft.customer.name.trim();
@@ -4354,14 +4348,14 @@ export default function QuotePreview() {
   const persistProposalState = (options: { draft?: boolean } = {}) => {
     if (typeof window === "undefined") return null;
 
-    if (!customerEntryComplete && !options.draft) {
-      setWorkflowNotice("Finish customer intake before creating or previewing this quote. You can save a draft at any time.");
+    if (!customerEntryComplete) {
+      setWorkflowNotice("Choose or enter a customer before saving. You can fill in the remaining details later.");
       return null;
     }
 
     const preparedQuote = isMajorProject ? applyMajorProjectToQuote(quote) : quote;
     const missingRequired = missingProcessingRequirements(preparedQuote);
-    const saveAsDraft = Boolean(options.draft && (!customerEntryComplete || missingRequired.length || majorProjectHasBlockingErrors));
+    const saveAsDraft = Boolean(options.draft && (missingRequired.length || majorProjectHasBlockingErrors));
     const nextQuote = {
       ...preparedQuote,
       metadata: {
@@ -4565,7 +4559,7 @@ export default function QuotePreview() {
           <div><h1>{quote.metadata.documentTitle || "New quote"}</h1><div className="rq-editor-meta"><span>{quote.customer.name}</span><span>{quote.metadata.proposalNumber}</span><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span><span role="status" className={hasUnsavedChanges ? "rq-unsaved" : "rq-saved"}>{hasUnsavedChanges ? "Unsaved changes" : "Saved"}</span></div></div>
         </div>
         <div className="rq-editor-actions">
-          <button type="button" className="rq-button" onClick={() => persistProposalState({ draft: true })}><Save size={16} aria-hidden="true" /><span>Save draft</span></button>
+          <button type="button" className="rq-button" onClick={() => persistProposalState({ draft: true })} disabled={!customerEntryComplete} title={!customerEntryComplete ? "Choose or enter a customer first" : undefined}><Save size={16} aria-hidden="true" /><span>Save draft</span></button>
           {customerEntryComplete && setupIncomplete ? <button type="button" className="rq-button rq-button-primary" onClick={openQuoteSetup}>Finish setup<ArrowRight size={16} /></button> : <>
           <button type="button" className="rq-button" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" /><span>Preview</span></button>
           <QuoteExportMenu quote={quote} disabled={!customerEntryComplete} pdfDisabled={majorProjectHasBlockingErrors} downloading={isDownloadingPdf} onPdf={handleDownloadPdf} onOrderSummary={handleDownloadOrderSummary} getQuote={() => persistProposalState()?.proposal.quote} />
@@ -4588,6 +4582,7 @@ export default function QuotePreview() {
             <div hidden={visibleEditorTab !== "customer"} aria-labelledby="rq-nav-customer">
                           <section className="builder-panel" hidden={customerEntryComplete}>
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Step 1</div><h2 className="builder-title">Customer entry</h2></div></div>
+              <p>Choose or enter a customer to save a draft. Addresses, contacts and other order details can be added later.</p>
 
               {customerEntryMode === "start" ? (
                 <div className="rq-customer-choices">
