@@ -4351,19 +4351,22 @@ export default function QuotePreview() {
     window.scrollTo({ top: 0, behavior: "instant" });
   };
 
-  const persistProposalState = () => {
+  const persistProposalState = (options: { draft?: boolean } = {}) => {
     if (typeof window === "undefined") return null;
 
-    if (!customerEntryComplete) {
-      setWorkflowNotice("Finish customer intake before saving, previewing, or copying this proposal.");
+    if (!customerEntryComplete && !options.draft) {
+      setWorkflowNotice("Finish customer intake before creating or previewing this quote. You can save a draft at any time.");
       return null;
     }
 
     const preparedQuote = isMajorProject ? applyMajorProjectToQuote(quote) : quote;
+    const missingRequired = missingProcessingRequirements(preparedQuote);
+    const saveAsDraft = Boolean(options.draft && (!customerEntryComplete || missingRequired.length || majorProjectHasBlockingErrors));
     const nextQuote = {
       ...preparedQuote,
       metadata: {
         ...preparedQuote.metadata,
+        status: saveAsDraft ? "draft" as const : preparedQuote.metadata.status,
         lastTouchedAt: new Date().toISOString(),
       },
       internal: {
@@ -4372,8 +4375,7 @@ export default function QuotePreview() {
       },
     };
 
-    const missingRequired = missingProcessingRequirements(nextQuote);
-    if (missingRequired.length) {
+    if (missingRequired.length && !options.draft) {
       openQuoteSetup();
       setWorkflowNotice("Finish the highlighted setup step to create your quote.");
       return null;
@@ -4438,7 +4440,9 @@ export default function QuotePreview() {
     setActiveProposal(updatedProposal);
     setQuote(nextQuote);
     setLastSavedQuote(nextQuote);
-    const savedMessage = statusChanged
+    const savedMessage = saveAsDraft
+      ? "Draft saved. You can return to finish the missing details later."
+      : statusChanged
       ? `Draft saved. Quote is now ${statusToStageLabel(nextQuote.metadata.status)} on revision ${governanceState.revisionLabel}.`
       : `Draft saved for ${nextQuote.metadata.proposalNumber} on revision ${governanceState.revisionLabel}.`;
     setWorkflowNotice(
@@ -4561,8 +4565,8 @@ export default function QuotePreview() {
           <div><h1>{quote.metadata.documentTitle || "New quote"}</h1><div className="rq-editor-meta"><span>{quote.customer.name}</span><span>{quote.metadata.proposalNumber}</span><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span><span role="status" className={hasUnsavedChanges ? "rq-unsaved" : "rq-saved"}>{hasUnsavedChanges ? "Unsaved changes" : "Saved"}</span></div></div>
         </div>
         <div className="rq-editor-actions">
+          <button type="button" className="rq-button" onClick={() => persistProposalState({ draft: true })}><Save size={16} aria-hidden="true" /><span>Save draft</span></button>
           {customerEntryComplete && setupIncomplete ? <button type="button" className="rq-button rq-button-primary" onClick={openQuoteSetup}>Finish setup<ArrowRight size={16} /></button> : <>
-          <button type="button" className="rq-button" onClick={persistProposalState} disabled={!customerEntryComplete}><Save size={16} aria-hidden="true" /><span>Save</span></button>
           <button type="button" className="rq-button" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" /><span>Preview</span></button>
           <QuoteExportMenu quote={quote} disabled={!customerEntryComplete} pdfDisabled={majorProjectHasBlockingErrors} downloading={isDownloadingPdf} onPdf={handleDownloadPdf} onOrderSummary={handleDownloadOrderSummary} getQuote={() => persistProposalState()?.proposal.quote} />
           </>}

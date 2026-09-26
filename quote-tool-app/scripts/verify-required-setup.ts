@@ -6,6 +6,7 @@ import puppeteer from "puppeteer-core";
 import { AUTH_STORAGE_KEY, USER_DIRECTORY_STORAGE_KEY, buildSession } from "../app/lib/auth";
 import { PROPOSAL_STORAGE_KEY, PROPOSAL_STORAGE_FALLBACK_KEY } from "../app/lib/proposal-state";
 import { PROPOSAL_STORE_KEY, ACTIVE_PROPOSAL_ID_KEY, createProposalFromQuote } from "../app/lib/proposal-store";
+import { missingProcessingRequirements } from "../app/lib/processing-requirements";
 import { quoteMasterFixtures } from "./quote-master-fixtures";
 
 async function main() {
@@ -38,11 +39,23 @@ async function main() {
     await page.goto(new URL(`/new?proposalId=${quote.internal.quoteId}`, base).href, { waitUntil: "networkidle0", timeout: 90000 });
     await page.waitForSelector('.rq-editor-actions');
     await page.removeScriptToEvaluateOnNewDocument(seedScript.identifier);
+    await page.$$eval('.rq-editor-actions button', buttons => {
+      const button = buttons.find(button => button.textContent?.trim() === 'Save draft');
+      if (!button || button.disabled) throw new Error('An incomplete quote must have an enabled Save draft action');
+      button.click();
+    });
+    await page.waitForFunction(() => document.querySelector('.rq-notice')?.textContent?.includes('Draft saved'));
+    const initialDraft = await page.evaluate(({ key, id }) => JSON.parse(localStorage.getItem(key)!).proposals.find((proposal: { id: string }) => proposal.id === id), { key: PROPOSAL_STORE_KEY, id: quote.internal.quoteId });
+    assert.ok(initialDraft, 'Save draft must persist the incomplete quote');
+    assert.equal(initialDraft.status, 'draft');
+    assert.equal(initialDraft.quote.metadata.status, 'draft');
+    assert.ok(missingProcessingRequirements(initialDraft.quote).includes('Corporate pricing decision'), 'Draft save must preserve unanswered requirements');
+    assert.equal(initialDraft.quote.customer.name, quote.customer.name);
     await page.$$eval('.rq-editor-actions button', buttons => buttons.find(b => b.textContent?.trim() === 'Finish setup')!.click());
     await page.waitForSelector('nav[aria-label="Quote setup steps"]');
     assert.equal(await page.$eval('#rq-nav-customer', el => el.getAttribute('aria-current')), 'page');
     assert.equal(await page.$$eval('section[aria-label="Required quote information"]', forms => forms.length), 1, 'Setup should have one mounted form');
-    const api = await page.evaluate(async quote => { const response = await fetch('/api/proposal-pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quote }) }); return { status: response.status, body: await response.json() }; }, quote);
+    const api = await page.evaluate(async quote => { const response = await fetch('/api/proposal-pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quote }) }); return { status: response.status, body: await response.json() }; }, initialDraft.quote);
     assert.equal(api.status, 422);
     assert.ok(api.body.missingFields.includes('Corporate pricing decision'));
     const fill = async (label: string, value: string) => page.evaluate(({ label, value }) => {
@@ -129,8 +142,29 @@ async function main() {
     await page.waitForSelector('.proposal-toolbar');
     assert.equal(new URL(page.url()).pathname, '/proposal');
     assert.equal(await page.$eval('body', el => el.textContent!.includes('Complete required quote information')), false);
+    await page.goto(new URL('/new?mode=new', base).href, { waitUntil: 'networkidle0' });
+    await page.waitForSelector('.rq-editor-actions');
+    await page.$$eval('.rq-editor-actions button', buttons => {
+      const button = buttons.find(button => button.textContent?.trim() === 'Save draft');
+      if (!button || button.disabled) throw new Error('A new quote without a customer must have an enabled Save draft action');
+      if (buttons.some(button => button.textContent?.trim() === 'Finish setup')) throw new Error('Finish setup should wait until the customer is selected');
+      button.click();
+    });
+    await page.waitForFunction(() => document.querySelector('.rq-notice')?.textContent?.includes('Draft saved'));
+    const blankDraft = await page.evaluate(({ storeKey, activeKey }) => {
+      const activeId = localStorage.getItem(activeKey);
+      return JSON.parse(localStorage.getItem(storeKey)!).proposals.find((proposal: { id: string }) => proposal.id === activeId);
+    }, { storeKey: PROPOSAL_STORE_KEY, activeKey: ACTIVE_PROPOSAL_ID_KEY });
+    assert.ok(blankDraft, 'Save draft must create a stored proposal even before customer selection');
+    assert.notEqual(blankDraft.id, quote.internal.quoteId);
+    assert.equal(blankDraft.status, 'draft');
+    assert.equal(blankDraft.quote.metadata.status, 'draft');
+    assert.equal(blankDraft.quote.customer.name, '', 'Draft save must not invent a customer');
+    assert.ok(missingProcessingRequirements(blankDraft.quote).includes('Customer'));
+    assert.equal(new URL(page.url()).pathname, '/new', 'Saving a draft must stay in the editor');
+    await page.screenshot({ path: path.join(output, 'incomplete-customer-draft-mobile.png'), fullPage: true });
     assert.deepEqual(errors, [], 'The guided flow should not emit browser errors');
-    console.log(JSON.stringify({ passed: true, output, apiRejectedIncomplete: true, blockedIncompleteStep: true, equipmentRoundTrip: true, ratesEditableAndRetained: true, onlyActiveStepMounted: true, mobileNoOverflow: true, createdPreview: true }));
+    console.log(JSON.stringify({ passed: true, output, savedIncompleteDraft: true, savedWithoutCustomer: true, apiRejectedIncomplete: true, blockedIncompleteStep: true, equipmentRoundTrip: true, ratesEditableAndRetained: true, onlyActiveStepMounted: true, mobileNoOverflow: true, createdPreview: true }));
   } finally { await browser.close(); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
