@@ -118,38 +118,19 @@ export function getOrderProcessingSummary(quote: QuoteRecord): OrderProcessingSu
     });
   const equipmentRows = quote.sections.sectionB.enabled ? getIncludedEquipmentRows(quote) : [];
   const serviceRows = quote.sections.sectionC.enabled ? getIncludedServiceRows(quote) : [];
-  const missingFields: string[] = [];
-  if (!serviceAddress.length) missingFields.push("Service address");
-  if (details.terminalsStatus === "pending") missingFields.push("Terminal decision");
-  if (details.terminalsStatus === "listed" && !details.terminals.length) missingFields.push("Terminal identifiers / names");
-  if (details.shippingRequired === "pending") missingFields.push("Shipping decision");
-  if (details.shippingRequired === "yes") {
-    if (!shippingAddress.length) missingFields.push("Shipping address");
-    if (!shippingContactName) missingFields.push("Shipping contact name");
-    if (!details.shippingContactPhone) missingFields.push("Shipping contact phone");
-  }
-  if (subscriptionRows.length) {
-    if (!details.dataPlanDetails) missingFields.push("Data plan / allocation details");
-    if (details.overageOptIn === "pending") missingFields.push("Overage opt-in decision");
-    if (!subscriptionRows.some((row) => row.kind === "Monitoring & support") && !details.monitoringSupportDetails) {
-      missingFields.push("Monitoring / support fee definition");
-    }
-    if (!subscriptionRows.some((row) => row.kind === "Terminal access fee") && !details.terminalAccessFeeDetails) {
-      missingFields.push("Terminal access fee definition");
-    }
-  }
-  if (details.overageOptIn === "yes" && !subscriptionRows.some((row) => row.kind === "Overage")) {
-    missingFields.push("Overage pricing");
-  }
+  // Keep the handoff aligned with setup, including corporate and structured rates.
+  const missingFields = missingProcessingRequirements(quote);
   if (quote.metadata.quoteType === "lease" && !quote.metadata.hasActiveDataAgreement) {
     missingFields.push("Active data agreement confirmation");
   }
-  for (const field of missingProcessingRequirements(quote)) if (!missingFields.includes(field)) missingFields.push(field);
   return { details, serviceAddress, shippingAddress, shippingContactName, subscriptionRows, equipmentRows, serviceRows, missingFields };
 }
 
 export function buildOrderProcessingText(quote: QuoteRecord): string {
   const summary = getOrderProcessingSummary(quote);
+  if (summary.missingFields.length) {
+    throw new Error(`Complete these order details before exporting: ${summary.missingFields.join("; ")}. You can still save a draft.`);
+  }
   const { details, subscriptionRows, equipmentRows, serviceRows } = summary;
   const requirements = normalizeProcessingRequirements(details.requirements);
   const currency = new Intl.NumberFormat("en-US", {
@@ -160,8 +141,17 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
   const provided = (value: string | undefined) => text(value) || "Not provided";
   const stateLabel = (value: string) => value === "not_applicable" ? "Not applicable"
     : value.charAt(0).toUpperCase() + value.slice(1);
-  const feeDefinition = (kind: OrderProcessingSubscriptionRow["kind"], annotation: string) =>
-    subscriptionRows.filter((row) => row.kind === kind).map((row) => row.description).join("; ") || provided(annotation);
+  const feeDefinition = (kind: OrderProcessingSubscriptionRow["kind"], annotation: string) => {
+    const quoted = subscriptionRows.filter((row) => row.kind === kind).map((row) => row.description).join("; ");
+    if (quoted || text(annotation)) return quoted || text(annotation);
+    if (requirements.corporatePricing === "yes") return "Covered by corporate pricing";
+    const key = kind === "Monitoring & support" ? "managementSupport"
+      : requirements.pricingStructure === "pool" ? "poolTac" : "terminalAccess";
+    if (requirements.corporatePricing === "no" && requiredProcessingRates(requirements).some((rate) => rate.key === key)) {
+      return formatProcessingRate(requirements.rates[key], quote.metadata.currencyCode || "USD");
+    }
+    return "Not provided";
+  };
 
   // The shared total helpers do not gate disabled sections themselves.
   const recurringTotal = quote.sections.sectionA.enabled ? getRecurringMonthlyTotal(quote) : 0;
@@ -172,7 +162,6 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
   const options = getProposalOptionCostSummary(quote);
   const annual = getAnnualSubscriptionSummary(quote);
   const output = [
-    ...(summary.missingFields.length ? [`DRAFT - missing details (${summary.missingFields.length})`, `Missing details: ${summary.missingFields.join("; ")}`, ""] : []),
     "ORDER TEMPLATE",
     "Internal order-processing handoff",
     `Quote: ${provided(quote.metadata.proposalNumber)}`,
@@ -201,8 +190,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     "",
     "Service address:",
     ...(summary.serviceAddress.length ? summary.serviceAddress : ["Not provided"]),
-    `Terminal decision: ${stateLabel(details.terminalsStatus)}`,
-    `Terminal identifiers / names: ${details.terminals.join("; ") || "Not provided"}`,
+    `Terminal identifiers / names (optional): ${details.terminals.join("; ") || (details.terminalsStatus === "not_applicable" ? "Not applicable" : "Not available yet — can be added later")}`,
     "",
     `Shipping required: ${stateLabel(details.shippingRequired)}`,
     `Shipping address source: ${quote.shippingSameAsBillTo ? "Bill to" : "Ship to"}`,
