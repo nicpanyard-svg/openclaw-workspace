@@ -1,5 +1,6 @@
 "use client";
 
+import { ProcessingRequirementsForm } from "./processing-requirements";
 import { AlertCircle, Check, Download, Pencil } from "lucide-react";
 import type { QuoteOrderProcessing, QuoteRecord } from "@/app/lib/quote-record";
 import { getOrderProcessing, getOrderProcessingSummary } from "@/app/lib/order-processing";
@@ -35,6 +36,7 @@ export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditIt
       <ul>{summary.missingFields.map((item) => <li key={item}>{item}</li>)}</ul>
     </details> : <p className="rq-ready"><Check size={16} aria-hidden="true" />Order details complete</p>}
 
+    <ProcessingRequirementsForm quote={quote} onChange={onChange} onEditItems={onEditItems} />
     <div className="rq-order-section">
       <div className="rq-section-heading"><h3>Service location and terminals</h3><button type="button" className="rq-button rq-button-quiet" onClick={onEditCustomer}><Pencil size={14} aria-hidden="true" />Edit customer</button></div>
       <div className="rq-order-address"><span>Service address</span>{summary.serviceAddress.length ? summary.serviceAddress.map((line, index) => <div key={index}>{line}</div>) : <strong>Not specified</strong>}</div>
@@ -59,7 +61,7 @@ export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditIt
       <div className="rq-detail-fields">
         <label className="builder-field"><span>Data plan / allocation</span><input value={details.dataPlanDetails} onChange={(event) => updateDetails({ dataPlanDetails: event.target.value })} placeholder="Pool / 1 TB across 4 terminals" /></label>
         <label className="builder-field"><span>Monitoring &amp; support arrangement</span><input value={details.monitoringSupportDetails} onChange={(event) => updateDetails({ monitoringSupportDetails: event.target.value })} placeholder="Quoted, included, or not applicable" /></label>
-        <label className="builder-field"><span>Terminal access fee (TAF) arrangement</span><input value={details.terminalAccessFeeDetails} onChange={(event) => updateDetails({ terminalAccessFeeDetails: event.target.value })} placeholder="Quoted, included, or not applicable" /></label>
+        <label className="builder-field"><span>Terminal access charge (TAC / TAF) arrangement</span><input value={details.terminalAccessFeeDetails} onChange={(event) => updateDetails({ terminalAccessFeeDetails: event.target.value })} placeholder="Quoted, included, or not applicable" /></label>
         <label className="builder-field"><span>Opted into overages?</span><select value={details.overageOptIn} onChange={(event) => updateDetails({ overageOptIn: event.target.value as QuoteOrderProcessing["overageOptIn"] })}><option value="pending">Not confirmed</option><option value="yes">Yes - opted in</option><option value="no">No - opted out</option><option value="not_applicable">Not applicable</option></select></label>
       </div>
     </div>

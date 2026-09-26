@@ -635,7 +635,27 @@ export type MajorProjectState = {
   activeOptionId: string;
 };
 
+export type ProcessingRate = {
+  status: "pending" | "priced" | "included" | "not_applicable";
+  amount: number | null;
+  basis: string;
+};
+export type ProcessingRateKey = "managementSupport" | "terminalAccess" | "data50" | "data500" | "overages" | "poolTac";
+export type ProcessingRequirements = {
+  starlinkService: "fixed" | "mini_vehicle";
+  pricingStructure: "pending" | "individual" | "pool";
+  publicIp: "pending" | "yes" | "no";
+  equipmentRequired: "pending" | "yes" | "no";
+  subAccountStatus: "pending" | "yes" | "no";
+  subAccount: string;
+  corporatePricing: "pending" | "yes" | "no";
+  corporatePricingReference: string;
+  equipment: Record<string, { kind: "pending" | "assembly" | "standalone"; assemblyDetails: string }>;
+  rates: Record<ProcessingRateKey, ProcessingRate>;
+};
+
 export type QuoteOrderProcessing = {
+  requirements?: ProcessingRequirements;
   terminals: string[];
   terminalsStatus: "pending" | "listed" | "not_applicable";
   shippingRequired: "pending" | "yes" | "no";

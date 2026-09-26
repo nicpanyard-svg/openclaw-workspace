@@ -13,6 +13,8 @@ import { comparisonLeaseTerms, getPricingReviewItems } from "@/app/lib/quote-exp
 import { getAnnualSubscriptionSummary, getLineBilling, isAnnualLine } from "@/app/lib/quote-line-billing";
 import { OrderProcessingPanel } from "@/app/components/order-processing-panel";
 import { CustomerOutputSettings } from "@/app/components/customer-output-settings";
+import { ProcessingRequirementsForm } from "./processing-requirements";
+import { missingProcessingRequirements } from "../lib/processing-requirements";
 import { QuoteExportMenu } from "@/app/components/quote-export-menu";
 import { getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
 import { buildOrderProcessingText } from "@/app/lib/order-processing";
@@ -2396,6 +2398,7 @@ export default function QuotePreview() {
   );
   const editorNeedsAttention = useMemo(() => {
     const items: { message: string; tab: "customer" | "items" | "pricing" | "documents" }[] = getCustomerQuoteContent(quote).warnings.map((message) => ({ message, tab: "documents" }));
+    items.push(...missingProcessingRequirements(quote).map(message => ({ message, tab: "customer" as const })));
     if (!customerEntryComplete) items.push({ message: "Complete the customer details.", tab: "customer" });
     if (!quote.metadata.documentTitle.trim()) items.push({ message: "Add a quote title.", tab: "pricing" });
     if (!contentPresence.hasSectionAContent && !contentPresence.hasSectionBContent && !contentPresence.hasSectionCContent && !contentPresence.hasOptionCostsContent && !contentPresence.hasAnnualContent) {
@@ -4350,6 +4353,13 @@ export default function QuotePreview() {
       },
     };
 
+    const missingRequired = missingProcessingRequirements(nextQuote);
+    if (missingRequired.length) {
+      setEditorTab("customer");
+      setWorkflowNotice(`Complete required quote information before creating this quote: ${missingRequired.join("; ")}.`);
+      window.setTimeout(() => document.querySelector('[aria-label="Required quote information"]')?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      return null;
+    }
     persistQuoteRecord(nextQuote);
 
     const currentStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY)) ?? getDefaultProposalStore(
@@ -4769,6 +4779,7 @@ export default function QuotePreview() {
             </section>
 
 
+              {customerEntryComplete && <ProcessingRequirementsForm quote={quote} onChange={updateQuote} onEditItems={() => setEditorTab("items")} />}
               {customerEntryComplete && <button type="button" className="rq-button rq-button-primary" onClick={() => setEditorTab("items")}>Line items<ArrowRight size={16} aria-hidden="true" /></button>}
             </div>
             <div hidden={visibleEditorTab !== "items"} aria-labelledby="rq-nav-items">
@@ -6437,7 +6448,7 @@ return {
   {majorProjectHasBlockingErrors && <ul className="rq-review-list rq-errors">{majorProjectBlockingIssues.map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}</ul>}
   <div className="rq-review-actions">
     <button type="button" className="rq-button rq-button-primary" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" />Customer preview</button>
-    <button type="button" className="rq-button" aria-label="Present to customer" onClick={() => setExperiencePanel("present")} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Presentation size={16} aria-hidden="true" />Present to customer</button>
+    <button type="button" className="rq-button" aria-label="Present to customer" onClick={() => { if (persistProposalState()) setExperiencePanel("present"); }} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Presentation size={16} aria-hidden="true" />Present to customer</button>
     <button type="button" className="rq-button" onClick={copyProposalFromBuilder}><Copy size={16} aria-hidden="true" />Duplicate quote</button>
   </div>
 </section>

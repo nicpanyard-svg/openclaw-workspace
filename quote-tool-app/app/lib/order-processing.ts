@@ -1,3 +1,4 @@
+import { normalizeProcessingRequirements, missingProcessingRequirements, requiredProcessingRates, formatProcessingRate } from "./processing-requirements";
 import {
   getCombinedOneTimeTotal,
   getCustomerFacingEquipmentTotal,
@@ -57,6 +58,7 @@ export function normalizeOrderProcessing(value: unknown): QuoteOrderProcessing {
     ? value as Record<string, unknown>
     : {};
   return {
+    requirements: normalizeProcessingRequirements(raw.requirements),
     terminals: lines(raw.terminals),
     terminalsStatus: decision(raw.terminalsStatus, ["pending", "listed", "not_applicable"] as const, "pending"),
     shippingRequired: decision(raw.shippingRequired, ["pending", "yes", "no"] as const, "pending"),
@@ -142,12 +144,14 @@ export function getOrderProcessingSummary(quote: QuoteRecord): OrderProcessingSu
   if (quote.metadata.quoteType === "lease" && !quote.metadata.hasActiveDataAgreement) {
     missingFields.push("Active data agreement confirmation");
   }
+  for (const field of missingProcessingRequirements(quote)) if (!missingFields.includes(field)) missingFields.push(field);
   return { details, serviceAddress, shippingAddress, shippingContactName, subscriptionRows, equipmentRows, serviceRows, missingFields };
 }
 
 export function buildOrderProcessingText(quote: QuoteRecord): string {
   const summary = getOrderProcessingSummary(quote);
   const { details, subscriptionRows, equipmentRows, serviceRows } = summary;
+  const requirements = normalizeProcessingRequirements(details.requirements);
   const currency = new Intl.NumberFormat("en-US", {
     style: "currency", currency: quote.metadata.currencyCode || "USD",
     minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -169,6 +173,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
   const annual = getAnnualSubscriptionSummary(quote);
   const output = [
     ...(summary.missingFields.length ? [`DRAFT - missing details (${summary.missingFields.length})`, `Missing details: ${summary.missingFields.join("; ")}`, ""] : []),
+    "ORDER TEMPLATE",
     "Internal order-processing handoff",
     `Quote: ${provided(quote.metadata.proposalNumber)}`,
     `Quote ID: ${provided(quote.internal.quoteId)}`,
@@ -176,8 +181,16 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     `Revision: ${provided(quote.metadata.revisionVersion)}`,
     `Quote date: ${provided(quote.metadata.proposalDate)}`,
     `Customer: ${provided(quote.customer.name)}`,
+    `Sub account: ${requirements.subAccountStatus === "no" ? "Not applicable" : requirements.subAccountStatus === "yes" ? provided(requirements.subAccount) : "Not confirmed"}`,
+    `Corporate pricing: ${stateLabel(requirements.corporatePricing)}`,
+    ...(requirements.corporatePricing === "no" ? [`Pricing structure: ${stateLabel(requirements.pricingStructure)}`] : []),
+    `Public IP?: ${stateLabel(requirements.publicIp)}`,
+    ...(requirements.corporatePricing === "yes" ? [`Corporate pricing reference: ${provided(requirements.corporatePricingReference)}`, "Individual rate confirmations: covered by corporate pricing"] : []),
+    ...(requirements.corporatePricing === "no" ? requiredProcessingRates(requirements).map(({ key, label }) => `${label}: ${formatProcessingRate(requirements.rates[key], quote.metadata.currencyCode || "USD")}`) : []),
     `Customer account ID: ${provided(quote.metadata.accountId)}`,
     `Saved customer ID: ${provided(quote.internal.savedCustomerProfileId)}`,
+    `POC name: ${provided(quote.customer.contactName)}`,
+    `POC phone number: ${provided(quote.customer.contactPhone)}`,
     `Customer contact: ${provided(quote.customer.contactName)}`,
     `Customer phone: ${provided(quote.customer.contactPhone)}`,
     `Customer email: ${provided(quote.customer.contactEmail)}`,
@@ -199,6 +212,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     `Shipping phone: ${provided(details.shippingContactPhone)}`,
     "",
     `Subscription mode: ${quote.sections.sectionA.mode === "pool" ? "Pool" : "Per kit"}`,
+    `Data Plan/Pool: ${provided(details.dataPlanDetails)}`,
     `Data plan details (explicit annotation): ${provided(details.dataPlanDetails)}`,
     `Monitoring & support definition: ${feeDefinition("Monitoring & support", details.monitoringSupportDetails)}`,
     `Monitoring & support annotation: ${provided(details.monitoringSupportDetails)}`,
@@ -214,7 +228,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     "",
     isLease ? "Included equipment (pricing basis, not an upfront purchase):" : "Included equipment (one-time purchase):",
     ...equipmentRows.map((row) =>
-      `- [${row.id}] ${row.itemName} | Qty: ${row.quantity} | Unit price: ${money(row.unitPrice)} | ${isLease ? "Pricing basis" : "Line total"}: ${money(row.totalPrice)}${text(row.description) ? ` | ${text(row.description)}` : ""}`),
+      `- [${row.id}] ${row.itemName} | Qty: ${row.quantity} | Unit price: ${money(row.unitPrice)} | ${isLease ? "Pricing basis" : "Line total"}: ${money(row.totalPrice)}${text(row.description) ? ` | ${text(row.description)}` : ""} | Assembly: ${requirements.equipment[row.id]?.kind === "assembly" ? "Yes" : requirements.equipment[row.id]?.kind === "standalone" ? "No (standalone)" : "Not confirmed"}${requirements.equipment[row.id]?.kind === "assembly" && requirements.equipment[row.id].assemblyDetails ? ` | Assembly details: ${requirements.equipment[row.id].assemblyDetails}` : ""}`),
     ...(!equipmentRows.length ? ["None"] : []),
     `${isLease ? "Equipment pricing basis total" : "Equipment total"}: ${money(equipmentTotal)}`,
     `Customer upfront equipment: ${money(getCustomerFacingEquipmentTotal(quote, equipmentTotal))}`,
@@ -239,6 +253,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     `Year 1 prepaid annual subscriptions: ${money(annual.firstYearTotal)}`,
     `Annual renewals from Year 2: ${money(annual.renewalTotal)}/year`,
     "",
+    `Special instructions: ${provided(details.notes)}`,
     `Order notes: ${provided(details.notes)}`,
     `Missing fields: ${summary.missingFields.join("; ") || "None"}`,
   ];

@@ -1,3 +1,4 @@
+import { missingProcessingRequirements } from "@/app/lib/processing-requirements";
 import { NextResponse } from "next/server";
 import {
   cacheProposalPdfQuote,
@@ -25,6 +26,9 @@ export async function POST(request: Request) {
     if (!quote) {
       return NextResponse.json({ error: "Missing quote payload." }, { status: 400 });
     }
+
+    const missingFields = missingProcessingRequirements(quote);
+    if (missingFields.length) return NextResponse.json({ error: "Complete required quote information before creating the quote.", missingFields }, { status: 422 });
 
     const quoteProposalId = quote.internal?.savedProposalId ?? quote.internal?.quoteId ?? null;
     if (proposalId && quoteProposalId && proposalId !== quoteProposalId) {
