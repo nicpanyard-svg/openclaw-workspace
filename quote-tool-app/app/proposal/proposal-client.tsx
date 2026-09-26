@@ -3,6 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import Link from "next/link";
+import { missingProcessingRequirements } from "@/app/lib/processing-requirements";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate } from "@/app/components/auth-shell";
 import { ProposalDocument } from "@/app/components/proposal-document";
@@ -136,6 +137,9 @@ export function ProposalClient({ requestedProposalId = null }: { requestedPropos
   if (!quote) {
     return <AuthGate><div className="proposal-route-shell"><div className="proposal-toolbar no-print"><div className="proposal-toolbar-title">Loading proposal preview...</div></div></div></AuthGate>;
   }
+
+  const missingRequired = missingProcessingRequirements(quote);
+  if (missingRequired.length) return <main className="builder-panel"><h1>Complete required quote information</h1><p>Fill in these details before creating or exporting this quote.</p><ul>{missingRequired.map(field => <li key={field}>{field}</li>)}</ul><Link href={`/new?proposalId=${encodeURIComponent(quote.internal.savedProposalId || quote.internal.quoteId || "")}`}>Complete quote setup</Link></main>;
 
   return (
     <AuthGate>

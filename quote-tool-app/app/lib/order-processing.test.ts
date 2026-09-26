@@ -1,3 +1,4 @@
+import { normalizeProcessingRequirements } from "./processing-requirements";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -14,6 +15,7 @@ import type { PoolPricingRow, QuoteOrderProcessing, QuoteRecord } from "./quote-
 import { createBlankQuoteRecord } from "./quote-template";
 
 const defaults: QuoteOrderProcessing = {
+  requirements: normalizeProcessingRequirements(undefined),
   terminals: [],
   terminalsStatus: "pending",
   shippingRequired: "pending",
@@ -47,6 +49,7 @@ function createOrderQuote(): QuoteRecord {
   quote.shippingSameAsBillTo = false;
   quote.orderProcessing = {
     ...defaults,
+    requirements: { ...normalizeProcessingRequirements(undefined), publicIp: "no", pricingStructure: "individual", equipmentRequired: "yes", subAccountStatus: "no", corporatePricing: "yes", equipment: { hardware: { kind: "standalone", assemblyDetails: "" } } },
     terminals: ["Terminal A", "KIT-123"],
     terminalsStatus: "listed",
     shippingRequired: "yes",
@@ -90,7 +93,7 @@ test("legacy order details default to explicit pending decisions without mutatin
   assert.equal(serializeQuoteRecord(quote), before);
   details.terminals.push("Changed copy");
   assert.deepEqual(getOrderProcessing(quote), defaults);
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Service address", "Terminal decision", "Shipping decision"]);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Service address", "Terminal decision", "Shipping decision", "Customer", "Sub-account decision", "Data plan / allocation details", "Corporate pricing decision", "Equipment needed decision", "Overage opt-in decision", "Public IP decision", "POC name", "POC phone number", "Special instructions (or None)"]);
   const restored = deserializeQuoteRecord(before);
   assert.ok(restored);
   assert.deepEqual(restored.orderProcessing, defaults);
@@ -188,7 +191,7 @@ test("recurring service needs explicit data allocation even when its prose menti
   assert.match(output, /Missing details: Data plan \/ allocation details/);
   assert.match(output, /Data plan details \(explicit annotation\): Not provided/);
   quote.sections.sectionA.enabled = false;
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Data plan / allocation details"]);
 });
 
 test("overage opt-in yes requires an included enabled overage pricing row", () => {
@@ -225,11 +228,11 @@ test("listed terminals require names and shipping yes requires address, contact,
   quote.shipTo = { lines: [" "] };
   quote.orderProcessing = { ...getOrderProcessing(quote), terminals: [" "], shippingContactPhone: "" };
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, [
-    "Service address", "Terminal identifiers / names", "Shipping address", "Shipping contact name", "Shipping contact phone",
+    "Service address", "Terminal identifiers / names", "Shipping address", "Shipping contact name", "Shipping contact phone", "POC name",
   ]);
   quote.orderProcessing.terminalsStatus = "not_applicable";
   quote.orderProcessing.shippingRequired = "no";
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Service address"]);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Service address", "POC name"]);
 });
 
 test("shippingSameAsBillTo uses only the selected attention, never the customer contact or company", () => {
@@ -297,7 +300,7 @@ test("disabled sections suppress their rows, totals, optional items, and recurri
   assert.deepEqual(summary.subscriptionRows, []);
   assert.deepEqual(summary.equipmentRows, []);
   assert.deepEqual(summary.serviceRows, []);
-  assert.deepEqual(summary.missingFields, []);
+  assert.deepEqual(summary.missingFields, ["Equipment items, quantities and pricing", "Overage opt-in decision"]);
   const output = buildOrderProcessingText(quote);
   assert.match(output, /Quoted recurring total: \$0\.00\/month/);
   assert.match(output, /Lease monthly total: \$0\.00\/month/);
@@ -311,7 +314,7 @@ test("optional-only recurring rows do not satisfy fee definitions or trigger rec
   const quote = createOrderQuote();
   quote.orderProcessing = { ...getOrderProcessing(quote), overageOptIn: "pending" };
   quote.sections.sectionA.poolRows.forEach((row) => { row.optional = true; });
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage opt-in decision"]);
   quote.sections.sectionA.poolRows[0].optional = false;
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage opt-in decision", "Monitoring / support fee definition", "Terminal access fee definition"]);
 });
@@ -320,7 +323,7 @@ test("text includes required handoff fields and lease equipment is pricing basis
   const quote = createOrderQuote();
   quote.metadata.quoteType = "lease";
   const output = buildOrderProcessingText(quote);
-  assert.ok(output.startsWith("Internal order-processing handoff\n"));
+  assert.ok(output.startsWith("ORDER TEMPLATE\nInternal order-processing handoff\n"));
   for (const value of ["ORDER-123", quote.internal.quoteId, "ACCOUNT-456", "CUSTOMER-789", "Order customer", "Service site", "Terminal A; KIT-123", "Shipping address", "Ship recipient", "555-0123", "Shared 1 TB pool", "Call before activation", "Permit charge included"]) {
     assert.ok(output.includes(value), `Missing handoff field: ${value}`);
   }

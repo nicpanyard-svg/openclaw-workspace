@@ -3,6 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import Link from "next/link";
+import { missingProcessingRequirements } from "@/app/lib/processing-requirements";
 import { useEffect, useMemo, useState } from "react";
 import { ProposalDocument } from "@/app/components/proposal-document";
 import { ProposalPrintTrigger } from "@/app/components/proposal-print-trigger";
@@ -40,7 +41,7 @@ export function ProposalPrintClient({
   const quote = resolved?.quote ?? null;
 
   useEffect(() => {
-    if (!pdfPreviewOnly || !quote) {
+    if (!pdfPreviewOnly || !quote || missingProcessingRequirements(quote).length) {
       return;
     }
 
@@ -109,6 +110,9 @@ export function ProposalPrintClient({
   if (!quote) {
     return <div className="proposal-route-shell proposal-print-shell"><div className="proposal-toolbar no-print"><div className="proposal-toolbar-title">Loading print preview...</div></div></div>;
   }
+
+  const missingRequired = missingProcessingRequirements(quote);
+  if (missingRequired.length) return <main className="builder-panel"><h1>Complete required quote information</h1><p>Fill in these details before creating or exporting this quote.</p><ul>{missingRequired.map(field => <li key={field}>{field}</li>)}</ul><Link href={`/new?proposalId=${encodeURIComponent(quote.internal.savedProposalId || quote.internal.quoteId || "")}`}>Complete quote setup</Link></main>;
 
   if (pdfPreviewOnly) {
     return (
