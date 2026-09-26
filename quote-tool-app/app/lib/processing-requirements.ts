@@ -45,7 +45,7 @@ export function missingProcessingRequirements(source: QuoteRecord): string[] {
   if (!equipment.length && details.equipmentRequired === "pending") missing.push("Equipment needed decision");
   if (!equipment.length && details.equipmentRequired === "yes") missing.push("Equipment items, quantities and pricing");
   for (const row of equipment) {
-    if (!details.equipment[row.id] || details.equipment[row.id].kind === "pending") missing.push(`${row.itemName}: assembly or standalone`);
+    if (quote.metadata.workflowMode === "major_project" && (!details.equipment[row.id] || details.equipment[row.id].kind === "pending")) missing.push(`${row.itemName}: assembly or standalone`);
     if (!Number.isFinite(row.quantity) || row.quantity <= 0) missing.push(`${row.itemName}: equipment quantity`);
     if (![row.unitPrice, row.totalPrice].every(value => Number.isFinite(value) && value >= 0)) missing.push(`${row.itemName}: equipment pricing`);
   }
