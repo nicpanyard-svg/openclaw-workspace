@@ -1,6 +1,6 @@
 import type { QuoteCommercialState, QuoteRecord } from "@/app/lib/quote-record";
 import { buildMajorProjectMetrics, ensureMajorProjectState } from "@/app/lib/major-project";
-import { isOptionalLineItem } from "@/app/lib/proposal-commercial-summary";
+import { getRecurringMonthlyTotal, isOptionalLineItem } from "@/app/lib/proposal-commercial-summary";
 import { getAnnualSubscriptionSummary, isAnnualLine } from "./quote-line-billing";
 
 export function createDefaultCommercialState(): QuoteCommercialState {
@@ -43,8 +43,7 @@ export function ensureCommercialState(quote: QuoteRecord): QuoteRecord {
 
 export function buildCommercialMetrics(quote: QuoteRecord) {
   const hydratedQuote = ensureCommercialState(ensureMajorProjectState(quote));
-  const sectionARows = hydratedQuote.sections.sectionA.mode === "pool" ? hydratedQuote.sections.sectionA.poolRows : hydratedQuote.sections.sectionA.perKitRows;
-  const quickRecurringRevenue = Number(sectionARows.filter((row) => !isOptionalLineItem(row) && !isAnnualLine(row)).reduce((sum, row) => sum + (row.totalMonthlyRate ?? 0), 0).toFixed(2));
+  const quickRecurringRevenue = getRecurringMonthlyTotal(hydratedQuote);
   const quickOneTimeEquipmentRevenue = Number(
     hydratedQuote.sections.sectionB.lineItems.filter((row) => !isOptionalLineItem(row) && !isAnnualLine(row)).reduce((sum, row) => sum + (row.totalPrice ?? 0), 0).toFixed(2),
   );

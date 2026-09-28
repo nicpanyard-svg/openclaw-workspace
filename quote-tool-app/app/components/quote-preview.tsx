@@ -17,7 +17,8 @@ import { ProcessingRequirementsForm } from "./processing-requirements";
 import { missingProcessingRequirements } from "../lib/processing-requirements";
 import { QuoteExportMenu } from "@/app/components/quote-export-menu";
 import { getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
-import { buildOrderProcessingText } from "@/app/lib/order-processing";
+import { buildOrderProcessingText, getOrderProcessing } from "@/app/lib/order-processing";
+import { setOveragePrice } from "@/app/lib/overage-terms";
 import { assembleFinalProposalPdf } from "@/app/lib/proposal-spec-pdf-assembly";
 import { buildProposalPdfFileName } from "@/app/lib/proposal-file-name";
 import "./quote-editor.css";
@@ -997,7 +998,7 @@ function computeSectionARow<T extends PoolPricingRow | PerKitPricingRow>(row: T)
 
   const quantity = typeof row.quantity === "number" ? row.quantity : 1;
   const rate = typeof row.monthlyRate === "number" ? row.monthlyRate : row.unitPrice ?? 0;
-  const total = row.rowType === "overage" ? rate : quantity * rate;
+  const total = row.rowType === "overage" ? 0 : quantity * rate;
 
   return {
     ...row,
@@ -1151,7 +1152,7 @@ function createSectionARowFromCatalog(catalogId: string, mode: "pool" | "per_kit
       unitLabel: item.unitLabel ?? "GB",
       unitPrice: item.defaultUnitPrice,
       monthlyRate: item.defaultUnitPrice,
-      totalMonthlyRate: item.defaultUnitPrice,
+      totalMonthlyRate: 0,
       sourceLabel: item.source,
     };
   }
@@ -3992,6 +3993,10 @@ export default function QuotePreview() {
       if (field === "includedText") row.includedText = textValue.split("\n").filter(Boolean);
 
       rows[index] = computeSectionARow(row);
+      if (row.rowType === "overage" && !row.optional && ["unitPrice", "monthlyRate", "unitLabel"].includes(field)) {
+        draft.orderProcessing = getOrderProcessing(draft);
+        return setOveragePrice(draft, textValue === "" && field !== "unitLabel" ? null : row.monthlyRate ?? row.unitPrice ?? null, row.unitLabel?.trim() ? `per ${row.unitLabel}` : "");
+      }
       return draft;
     });
   };
@@ -4823,10 +4828,10 @@ export default function QuotePreview() {
   <QuoteLineTable label="Monthly service line items" rows={activeSectionARows.map((row, index) => ({
     id: row.id, accessibleName: row.description || `Service ${index + 1}`,
     description: <input aria-label={`Service ${index + 1} description`} value={row.description} onChange={(event) => updateActiveSectionARow(row.id, "description", event.target.value)} />,
-    quantity: <input aria-label={`Service ${index + 1} quantity`} type="number" min="0" value={row.quantity ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "quantity", event.target.value)} />,
+    quantity: <input aria-label={`Service ${index + 1} quantity`} type="number" min="0" value={row.rowType === "overage" ? "" : row.quantity ?? ""} disabled={row.rowType === "support" || row.rowType === "overage"} onChange={(event) => updateActiveSectionARow(row.id, "quantity", event.target.value)} />,
     rate: <input aria-label={`Service ${index + 1} rate`} type="number" min="0" step="0.01" value={row.monthlyRate ?? row.unitPrice ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "monthlyRate", event.target.value)} />,
     cadence: row.rowType === "support" ? "Included" : row.rowType === "overage" ? "Per GB" : <QuoteBillingSelect label={`Service ${index + 1} billing`} billing={getLineBilling(row, "monthly")} cadences={["monthly", "annual"]} onChange={(billing) => updateQuote((draft) => { const rows = draft.sections.sectionA.mode === "pool" ? draft.sections.sectionA.poolRows : draft.sections.sectionA.perKitRows; const target = rows.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />,
-    total: row.rowType === "support" ? "Included" : formatCurrency(row.totalMonthlyRate ?? row.monthlyRate ?? 0, currencyCode),
+    total: row.rowType === "support" ? "Included" : row.rowType === "overage" ? "Usage-based" : formatCurrency(row.totalMonthlyRate ?? row.monthlyRate ?? 0, currencyCode),
     optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateActiveSectionARow(row.id, "optional", checked),
     actions: <RowActions totalRows={activeSectionARows.length} rowNumber={index + 1} onMoveUp={() => moveActiveSectionARow(row.id, -1)} onMoveDown={() => moveActiveSectionARow(row.id, 1)} onMoveTo={(position) => moveActiveSectionAToPosition(row.id, position)} onDuplicate={() => duplicateActiveSectionARow(row.id)} onRemove={() => removeActiveSectionARow(row.id)} />,
     details: <div className="rq-detail-fields"><label className="builder-field"><span>Unit label</span><input value={row.unitLabel ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "unitLabel", event.target.value)} /></label>{row.rowType === "support" && <label className="builder-field"><span>Support details</span><textarea rows={3} value={(row.includedText ?? []).join("\n")} onChange={(event) => updateActiveSectionARow(row.id, "includedText", event.target.value)} /></label>}</div>,

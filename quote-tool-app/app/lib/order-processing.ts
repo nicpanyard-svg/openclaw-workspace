@@ -1,4 +1,5 @@
 import { normalizeProcessingRequirements, missingProcessingRequirements, requiredProcessingRates, formatProcessingRate } from "./processing-requirements";
+import { resolveOverageTerms } from "./overage-terms";
 import {
   getCombinedOneTimeTotal,
   getCustomerFacingEquipmentTotal,
@@ -112,7 +113,7 @@ export function getOrderProcessingSummary(quote: QuoteRecord): OrderProcessingSu
         kind,
         quantity: typeof row.quantity === "number" && Number.isFinite(row.quantity) ? row.quantity : null,
         unitPrice: finiteNumber(row.monthlyRate ?? row.unitPrice),
-        total: finiteNumber(row.totalMonthlyRate),
+        total: kind === "Overage" ? 0 : finiteNumber(row.totalMonthlyRate),
         billingLabel: kind === "Overage" ? `Usage-based per ${unit || "unit"}` : `Monthly${unit ? ` per ${unit}` : ""}`,
       };
     });
@@ -133,6 +134,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
   }
   const { details, subscriptionRows, equipmentRows, serviceRows } = summary;
   const requirements = normalizeProcessingRequirements(details.requirements);
+  const overages = resolveOverageTerms(quote);
   const currency = new Intl.NumberFormat("en-US", {
     style: "currency", currency: quote.metadata.currencyCode || "USD",
     minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -207,9 +209,10 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     `Terminal access fee definition: ${feeDefinition("Terminal access fee", details.terminalAccessFeeDetails)}`,
     `Terminal access fee annotation: ${provided(details.terminalAccessFeeDetails)}`,
     `Overage opt-in: ${stateLabel(details.overageOptIn)}${details.overageOptIn === "pending" ? " (not authorized)" : ""}`,
+    ...(overages.decision === "yes" && overages.amount !== null ? [`Overage rate: ${money(overages.amount)} ${overages.basis} — billed on actual usage; excluded from quoted totals`] : []),
     "Included subscription lines:",
     ...subscriptionRows.map((row) =>
-      `- [${row.id}] ${row.kind}: ${row.description} | Qty: ${row.quantity ?? "Not specified"} | Rate: ${money(row.unitPrice)} (${row.billingLabel}) | Quoted line total: ${money(row.total)}`),
+      `- [${row.id}] ${row.kind}: ${row.description} | Qty: ${row.quantity ?? "Not specified"} | Rate: ${money(row.unitPrice)} (${row.billingLabel}) | Quoted line total: ${row.kind === "Overage" ? "Usage-based; excluded from totals" : money(row.total)}`),
     ...(!subscriptionRows.length ? ["None"] : []),
     `Quoted recurring total: ${money(recurringTotal)}/month`,
     ...(isLease ? [`Lease monthly total: ${money(leaseMonthly)}/month`] : []),

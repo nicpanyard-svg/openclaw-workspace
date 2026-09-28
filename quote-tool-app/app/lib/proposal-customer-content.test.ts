@@ -4,6 +4,8 @@ import { customerCopy, getCustomerQuoteContent, getFieldServiceConfirmationKey, 
 import { deserializeQuoteRecord, serializeQuoteRecord } from "./proposal-state";
 import { createBlankQuoteRecord } from "./quote-template";
 import { buildTermsFromPackage } from "./terms-packages";
+import { getOrderProcessing } from "./order-processing";
+import { setOveragePrice } from "./overage-terms";
 
 function customerQuote() {
   const quote = createBlankQuoteRecord();
@@ -11,6 +13,7 @@ function customerQuote() {
   quote.sections.sectionA.termMonths = 36;
   quote.sections.sectionA.perKitRows = [{ id: "base", rowType: "service", description: "Connectivity", quantity: 1, monthlyRate: 100, totalMonthlyRate: 100 }];
   quote.metadata.quoteType = "purchase";
+  quote.orderProcessing = { ...getOrderProcessing(quote), overageOptIn: "no" };
   return quote;
 }
 
@@ -94,6 +97,19 @@ test("budgetary implementation and unresolved overages prevent order authorizati
   assert.ok(content.warnings.includes("Implementation and service pricing is budgetary and subject to confirmation based on final site count, configuration, and deployment requirements."));
   assert.ok(!content.warnings.includes("Field service pricing includes an estimate."));
   assert.equal(content.approvalReady, false);
+});
+
+test("customer overage readiness uses the guided price without requiring a monthly line", () => {
+  let quote = customerQuote();
+  quote.orderProcessing!.overageOptIn = "yes";
+  assert.ok(getCustomerQuoteContent(quote).warnings.includes("Opted-in overage pricing has not been specified."));
+  quote = setOveragePrice(quote, 0.73);
+  assert.ok(!getCustomerQuoteContent(quote).warnings.includes("Opted-in overage pricing has not been specified."));
+  assert.equal(quote.sections.sectionA.perKitRows.length, 1);
+  quote = setOveragePrice(quote, null);
+  assert.ok(getCustomerQuoteContent(quote).warnings.includes("Opted-in overage pricing has not been specified."));
+  quote.orderProcessing!.overageOptIn = "no";
+  assert.ok(!getCustomerQuoteContent(quote).warnings.includes("Opted-in overage pricing has not been specified."));
 });
 
 test("budgetary pricing note follows included unconfirmed services in Quick and Major quotes", () => {

@@ -175,7 +175,7 @@ test("explicit opt-in choices survive normalization without automatic authorizat
     const restored = deserializeQuoteRecord(serializeQuoteRecord(quote));
     assert.ok(restored);
     assert.equal(getOrderProcessing(restored).overageOptIn, overageOptIn);
-    assert.equal(getOrderProcessingSummary(restored).missingFields.includes("Overage opt-in decision"), overageOptIn === "pending");
+    assert.equal(getOrderProcessingSummary(restored).missingFields.includes("Overage opt-in decision"), overageOptIn === "pending" || overageOptIn === "not_applicable");
   }
 });
 
@@ -189,12 +189,15 @@ test("recurring service needs explicit data allocation even when its prose menti
   assert.throws(() => buildOrderProcessingText(quote), /Data plan \/ allocation details/);
 });
 
-test("corporate pricing covers missing support and overage rows with terminal IDs still unknown", () => {
+test("corporate pricing covers support while an opted-in overage rate remains explicit", () => {
   const quote = createOrderQuote();
   quote.customer.name = "Revolution Power Solutions";
   quote.orderProcessing = { ...getOrderProcessing(quote), overageOptIn: "yes", terminals: [], terminalsStatus: "pending" };
   quote.sections.sectionB.lineItems[0].itemName = "Starlink Mini G1";
   quote.sections.sectionA.poolRows = quote.sections.sectionA.poolRows.filter((row) => ["data", "taf"].includes(row.id));
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage price"]);
+  assert.throws(() => buildOrderProcessingText(quote), /Overage price/);
+  quote.orderProcessing.requirements!.rates.overages = { status: "priced", amount: 0.47, basis: "per GB" };
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
   const output = buildOrderProcessingText(quote);
   assert.ok(output.startsWith("ORDER TEMPLATE\n"));
@@ -203,6 +206,7 @@ test("corporate pricing covers missing support and overage rows with terminal ID
   assert.match(output, /Individual rate confirmations: covered by corporate pricing/);
   assert.match(output, /Monitoring & support definition: Covered by corporate pricing/);
   assert.match(output, /Overage opt-in: Yes/);
+  assert.match(output, /Overage rate: \$0\.47 per GB — billed on actual usage; excluded from quoted totals/);
   assert.match(output, /Terminal identifiers \/ names \(optional\): Not available yet — can be added later/);
   assert.match(output, /Missing fields: None/);
   assert.doesNotMatch(output, /DRAFT|Terminal decision|Monitoring \/ support fee definition|Overage pricing/);
@@ -229,14 +233,12 @@ test("noncorporate structured rates complete the handoff without duplicate subsc
       ? /Terminal access fee definition: \$45\.00 per terminal \/ month/
       : /Terminal access fee definition: \$44\.00 per terminal \/ month/);
     assert.doesNotMatch(output, /Monitoring \/ support fee definition|Overage pricing/);
-    if (pricingStructure === "individual") {
-      assert.match(output, /Overages: \$0\.55 per GB/);
-      requirements.rates.overages.status = "pending";
-      assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overages pricing"]);
-      assert.throws(() => buildOrderProcessingText(quote), /Complete these order details before exporting: Overages pricing/);
-    } else {
-      requirements.rates.overages.status = "pending";
-      assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
+    assert.match(output, /Overage rate: \$0\.55 per GB/);
+    requirements.rates.overages.status = "pending";
+    assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage price"]);
+    assert.throws(() => buildOrderProcessingText(quote), /Complete these order details before exporting: Overage price/);
+    requirements.rates.overages.status = "priced";
+    if (pricingStructure === "pool") {
       requirements.rates.poolTac.status = "pending";
       assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Pool TAC pricing"]);
       assert.throws(() => buildOrderProcessingText(quote), /Complete these order details before exporting: Pool TAC pricing/);
@@ -478,7 +480,7 @@ test("Major Project saved output supplies categories without exporting generated
   assert.deepEqual(summary.subscriptionRows.map(({ unitPrice, total }) => ({ unitPrice, total })), [
     { unitPrice: 55, total: 110 },
     { unitPrice: 5, total: 10 },
-    { unitPrice: 0.5, total: 0.5 },
+    { unitPrice: 0.5, total: 0 },
     { unitPrice: 0, total: 0 },
   ]);
   assert.match(buildOrderProcessingText(savedOutput), /Quoted recurring total: \$120\.00\/month/);
