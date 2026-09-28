@@ -16,10 +16,11 @@ const contactRequirements = new Set([
 ]);
 const pricingRequirements = new Set([
   "Data plan / allocation details", "Corporate pricing decision", "Individual or pool pricing decision",
+  "Overage opt-in decision", "Overage price",
   ...PROCESSING_RATES.map(({ label }) => `${label} pricing`),
 ]);
 const deliveryRequirements = new Set([
-  "Overage opt-in decision", "Public IP decision", "Shipping decision", "Shipping address", "Shipping contact name",
+  "Public IP decision", "Shipping decision", "Shipping address", "Shipping contact name",
   "Shipping contact phone", "Special instructions (or None)",
 ]);
 

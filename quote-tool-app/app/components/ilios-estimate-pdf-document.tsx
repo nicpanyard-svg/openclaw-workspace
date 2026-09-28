@@ -236,9 +236,9 @@ export function IliosEstimatePdfDocument({ quote }: { quote: QuoteRecord }) {
               <Text style={styles.cellItem}>{item.label}</Text>
               <Text style={styles.cellDescription}>{item.description || "-"}</Text>
               <Text style={styles.cellQty}>{item.quantity ?? "-"}{item.unit ? ` ${item.unit}` : ""}</Text>
-              <Text style={styles.cellSchedule}>{item.schedule === "monthly" ? "Monthly" : "One-time"}</Text>
-              <Text style={styles.cellRate}>{formatCurrency(item.rate, currencyCode)}</Text>
-              <Text style={styles.cellAmount}>{formatCurrency(item.amount, currencyCode)}</Text>
+              <Text style={styles.cellSchedule}>{item.schedule === "usage_based" ? "Usage-based" : item.schedule === "monthly" ? "Monthly" : "One-time"}</Text>
+              <Text style={styles.cellRate}>{formatCurrency(item.rate, currencyCode)}{item.schedule === "usage_based" ? ` / ${item.unit || "GB"}` : ""}</Text>
+              <Text style={styles.cellAmount}>{item.schedule === "usage_based" ? "Usage-based" : formatCurrency(item.amount, currencyCode)}</Text>
             </View>
           ))}
         </View>

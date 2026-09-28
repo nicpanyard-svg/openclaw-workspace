@@ -30,10 +30,10 @@ test("corporate pricing skips individual rates, applicable sub-accounts require 
   quote.orderProcessing!.requirements!.subAccount = "West division";
   assert.deepEqual(missingProcessingRequirements(quote), []);
 });
-test("non-corporate pricing requires all five rates and valid amounts and units", () => {
+test("non-corporate pricing requires four service rates with overages elected separately", () => {
   const quote = readyQuote(), details = quote.orderProcessing!.requirements!;
   details.corporatePricing = "no";
-  assert.deepEqual(missingProcessingRequirements(quote), PROCESSING_RATES.filter(row => row.key !== "poolTac").map(row => `${row.label} pricing`));
+  assert.deepEqual(missingProcessingRequirements(quote), PROCESSING_RATES.filter(row => !["poolTac", "overages"].includes(row.key)).map(row => `${row.label} pricing`));
   for (const { key } of PROCESSING_RATES) details.rates[key] = { status: "priced", amount: 0, basis: "per month" };
   assert.deepEqual(missingProcessingRequirements(quote), []);
   for (const amount of [null, -1, NaN, Infinity]) {
@@ -43,7 +43,9 @@ test("non-corporate pricing requires all five rates and valid amounts and units"
   details.rates.data50 = { status: "included", amount: null, basis: "" };
   details.rates.data500 = { status: "not_applicable", amount: null, basis: "" };
   details.rates.overages.basis = " ";
-  assert.deepEqual(missingProcessingRequirements(quote), ["Overages pricing"]);
+  assert.deepEqual(missingProcessingRequirements(quote), [], "opted-out quotes do not require an overage rate");
+  quote.orderProcessing!.overageOptIn = "yes";
+  assert.deepEqual(missingProcessingRequirements(quote), ["Overage price"]);
 });
 test("Quick Quote equipment is standalone without assembly confirmation and still requires quantity and price", () => {
   const quote = readyQuote();
@@ -79,12 +81,13 @@ test("Major Project equipment still requires assembly selection and exports conf
 test("Quick Quote save/load retains prices and required details but ignores stale assembly flags in the processing summary", () => {
   const quote = readyQuote(), details = quote.orderProcessing!.requirements!;
   details.subAccountStatus = "yes"; details.subAccount = "WEST-123"; details.corporatePricing = "no";
+  quote.orderProcessing!.overageOptIn = "yes";
   for (const { key, basis } of PROCESSING_RATES) details.rates[key] = { status: "priced", amount: 25, basis };
   const restored = deserializeQuoteRecord(serializeQuoteRecord(quote))!;
   assert.deepEqual(restored.orderProcessing!.requirements, details);
   assert.deepEqual(restored.sections.sectionB.lineItems, quote.sections.sectionB.lineItems);
   const output = buildOrderProcessingText(restored);
-  for (const text of ["Sub account: WEST-123", "Corporate pricing: No", "Data Plan/Pool: Shared 500GB pool", "Assembly: No (standalone)", "TAC (terminal access charge): $25.00", "50GB: $25.00", "500GB: $25.00", "Overages: $25.00 per GB"]) assert.ok(output.includes(text), text);
+  for (const text of ["Sub account: WEST-123", "Corporate pricing: No", "Data Plan/Pool: Shared 500GB pool", "Assembly: No (standalone)", "TAC (terminal access charge): $25.00", "50GB: $25.00", "500GB: $25.00", "$25.00 per GB"]) assert.ok(output.includes(text), text);
   assert.ok(!output.includes("Assembly: Yes"));
   assert.ok(!output.includes("Assembly details:"));
   assert.ok(!output.includes("Router + antenna"));
@@ -118,4 +121,41 @@ test("Starlink prices match the supplied sheet and user corrections; edits survi
   assert.equal(prefillStarlinkRates(edited, true).rates.data50.amount, 27.5);
   const quote = readyQuote(); quote.orderProcessing!.requirements = edited;
   assert.equal(deserializeQuoteRecord(serializeQuoteRecord(quote))!.orderProcessing!.requirements!.rates.data50.amount, 30);
+});
+
+test("every pricing structure requires an explicit overage decision and an opted-in price", () => {
+  for (const corporatePricing of ["yes", "no"] as const) for (const pricingStructure of ["individual", "pool"] as const) {
+    const quote = readyQuote();
+    quote.orderProcessing!.requirements = prefillStarlinkRates({ ...quote.orderProcessing!.requirements!, corporatePricing, pricingStructure });
+    const rate = quote.orderProcessing!.requirements!.rates.overages;
+    for (const decision of ["pending", "not_applicable"] as const) {
+      quote.orderProcessing!.overageOptIn = decision;
+      assert.deepEqual(missingProcessingRequirements(quote), ["Overage opt-in decision"]);
+    }
+    quote.orderProcessing!.overageOptIn = "yes";
+    for (const status of ["pending", "included", "not_applicable"] as const) {
+      rate.status = status;
+      assert.deepEqual(missingProcessingRequirements(quote), ["Overage price"]);
+    }
+    rate.status = "priced";
+    rate.amount = null;
+    assert.deepEqual(missingProcessingRequirements(quote), ["Overage price"]);
+    rate.amount = 0;
+    assert.deepEqual(missingProcessingRequirements(quote), []);
+    quote.orderProcessing!.overageOptIn = "no";
+    rate.amount = null;
+    assert.deepEqual(missingProcessingRequirements(quote), []);
+  }
+});
+
+test("conflicting structured and legacy overage prices block completion until confirmed", () => {
+  const quote = readyQuote();
+  quote.orderProcessing!.overageOptIn = "yes";
+  quote.orderProcessing!.requirements!.rates.overages = { status: "priced", amount: 0.55, basis: "per GB" };
+  quote.sections.sectionA.enabled = true;
+  quote.sections.sectionA.mode = "pool";
+  quote.sections.sectionA.poolRows = [{ id: "usage", rowType: "overage", description: "Usage", unitPrice: 0.42, unitLabel: "GB", totalMonthlyRate: 0 }];
+  assert.deepEqual(missingProcessingRequirements(quote), ["Overage price"]);
+  quote.orderProcessing!.requirements!.rates.overages.amount = 0.42;
+  assert.deepEqual(missingProcessingRequirements(quote), []);
 });

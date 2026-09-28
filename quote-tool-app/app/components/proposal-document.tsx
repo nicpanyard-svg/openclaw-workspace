@@ -4,6 +4,7 @@
 import { useMemo, type ReactNode } from "react";
 import { IliosEstimateDocument } from "@/app/components/ilios-estimate-document";
 import { ProposalAttachmentPreview } from "@/app/components/proposal-attachment-preview";
+import { OverageDisclosure } from "./overage-disclosure";
 import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
 import { getCombinedOneTimeTotal, getEquipmentTotal, getIncludedEquipmentRows, getIncludedSectionARows, getIncludedServiceRows, getLeasePricingSummary, getOptionalServicesTotal, getProposalOptionCostSummary, getQuotedSalesTax, getRecurringMonthlyTotal } from "@/app/lib/proposal-commercial-summary";
 import { customerCopy, getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
@@ -44,7 +45,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   const branding = getQuoteBranding(quote);
   const currency = quote.metadata.currencyCode || "USD";
   const content = getCustomerQuoteContent(quote);
-  const services = getIncludedSectionARows(quote);
+  const services = getIncludedSectionARows(quote).filter(row => row.rowType !== "overage");
   const equipment = getIncludedEquipmentRows(quote);
   const fieldServices = getIncludedServiceRows(quote);
   const servicePresentation = getSoftwareServicesPresentation(fieldServices);
@@ -61,9 +62,6 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
   const attachments = useMemo(() => getProposalAttachments(quote), [quote]);
   const executiveBlocks = quote.executiveSummary.enabled ? buildExecutiveSummaryRenderBlocks(quote.executiveSummary) : [];
   const customerFields = (quote.customFields ?? []).filter((field) => field.visibility === "customer" && field.label.trim() && field.value.trim());
-  const overageRows = services.filter((row) => row.rowType === "overage");
-  const overage = quote.orderProcessing?.overageOptIn ?? "pending";
-  const overageLabel = { pending: "Not confirmed", yes: "Opted in", no: "Opted out", not_applicable: "Not applicable" }[overage];
   const tax = getQuotedSalesTax(quote);
   const addressValues = (address: QuoteRecord["billTo"]) => [address.companyName, address.attention, ...address.lines].filter((value): value is string => Boolean(value?.trim()));
   const billTo = addressValues(quote.billTo);
@@ -127,15 +125,15 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
       {content.serviceNotes.map((line, index) => <p className="cp-preserve-lines" key={index}>{line}</p>)}
       {quote.orderProcessing?.dataPlanDetails && <p><strong>Data allocation:</strong> {quote.orderProcessing.dataPlanDetails}</p>}
       <table className="cp-table"><caption>Included subscriptions and fees</caption><colgroup><col className="cp-col-item" /><col className="cp-col-qty" /><col className="cp-col-price" /><col className="cp-col-price" /></colgroup><thead><tr><th>Service / fee</th><th>Qty</th><th>Unit rate</th><th>Monthly total</th></tr></thead><tbody>
-        {services.map((row) => <tr key={row.id}><td><ItemCopy title={row.description} />{row.includedText?.map(customerCopy).filter(Boolean).map((line, index) => <p className="cp-row-note" key={index}>{line}</p>)}{row.rowType === "overage" && <span className="cp-row-note">Usage-based charge{row.unitLabel ? " per " + row.unitLabel : ""}</span>}</td><td>{row.quantity ?? "-"}</td><td>{money(row.monthlyRate ?? row.unitPrice ?? 0, currency)}{row.rowType === "overage" && row.unitLabel ? " / " + row.unitLabel : ""}</td><td>{row.rowType === "overage" ? "Usage-based" : money(row.totalMonthlyRate ?? 0, currency)}</td></tr>)}
+        {services.map((row) => <tr key={row.id}><td><ItemCopy title={row.description} />{row.includedText?.map(customerCopy).filter(Boolean).map((line, index) => <p className="cp-row-note" key={index}>{line}</p>)}</td><td>{row.quantity ?? "-"}</td><td>{money(row.monthlyRate ?? row.unitPrice ?? 0, currency)}</td><td>{money(row.totalMonthlyRate ?? 0, currency)}</td></tr>)}
       </tbody><tfoot><tr><td colSpan={3}>Recurring services per month</td><td>{money(recurring, currency)}</td></tr></tfoot></table>
       <div className="cp-service-notes">
         {quote.orderProcessing?.monitoringSupportDetails && <p><strong>Monitoring &amp; support:</strong> {quote.orderProcessing.monitoringSupportDetails}</p>}
         {quote.orderProcessing?.terminalAccessFeeDetails && <p><strong>TAF:</strong> {quote.orderProcessing.terminalAccessFeeDetails}</p>}
-        {(overageRows.length > 0 || overage !== "pending") && <p><strong>Overage election:</strong> {overageLabel}. Usage-based charges are separate from the fixed monthly payment.</p>}
       </div>
     </Section>}
 
+    <OverageDisclosure quote={quote} />
     {equipment.length > 0 && <Section title={isLease ? "Equipment included in lease" : "Equipment & materials"}>
       {content.equipmentIntro && <p className="cp-preserve-lines">{content.equipmentIntro}</p>}
       <table className={"cp-table " + (isLease ? "cp-equipment-lease" : "")}><caption>Included equipment</caption><colgroup><col className="cp-col-item" /><col className="cp-col-qty" />{!isLease && <col className="cp-col-price" />}<col className="cp-col-price" /></colgroup><thead><tr><th>Equipment / item</th><th>Qty</th>{!isLease && <th>Unit price</th>}<th>{isLease ? "Billing" : "Line total"}</th></tr></thead><tbody>

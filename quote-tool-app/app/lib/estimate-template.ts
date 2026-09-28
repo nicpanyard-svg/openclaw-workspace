@@ -22,7 +22,7 @@ export type EstimateTemplateLineItem = {
   unit?: string | null;
   rate: number;
   amount: number;
-  schedule: "one_time" | "monthly";
+  schedule: "one_time" | "monthly" | "usage_based";
 };
 
 export type EstimateTemplateModel = {
@@ -88,7 +88,9 @@ function buildEstimateLineItems(quote: QuoteRecord): EstimateTemplateLineItem[] 
   const sectionARows = getIncludedSectionARows(quote);
   if (quote.sections.sectionA.enabled) {
     sectionARows.forEach((row) => {
-      const amount = row.totalMonthlyRate ?? row.monthlyRate ?? row.unitPrice ?? 0;
+      const usageBased = row.rowType === "overage";
+      const rate = row.monthlyRate ?? row.unitPrice ?? row.totalMonthlyRate ?? 0;
+      const amount = usageBased ? 0 : row.totalMonthlyRate ?? rate;
       if (!amount && !row.description.trim()) {
         return;
       }
@@ -99,9 +101,9 @@ function buildEstimateLineItems(quote: QuoteRecord): EstimateTemplateLineItem[] 
         description: joinDescription([...(row.includedText ?? []), row.sourceLabel]),
         quantity: row.quantity ?? null,
         unit: row.unitLabel ?? null,
-        rate: row.monthlyRate ?? row.unitPrice ?? amount,
+        rate,
         amount,
-        schedule: "monthly",
+        schedule: usageBased ? "usage_based" : "monthly",
       });
     });
   }

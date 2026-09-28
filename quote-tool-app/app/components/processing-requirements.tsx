@@ -7,6 +7,7 @@ import { getOrderProcessing } from "../lib/order-processing";
 import { getIncludedEquipmentRows } from "../lib/proposal-commercial-summary";
 import { prefillStarlinkRates, requiredProcessingRates, normalizeProcessingRequirements } from "../lib/processing-requirements";
 import { getQuoteSetupSteps, type QuoteSetupStepId } from "../lib/quote-setup";
+import { OveragePricingFields } from "./overage-pricing-fields";
 import "./quote-setup.css";
 
 export function ProcessingRequirementsForm({ quote: source, onChange, onEditItems, onEditCustomer, onComplete, blockedMessage, initialStep }: {
@@ -51,8 +52,8 @@ export function ProcessingRequirementsForm({ quote: source, onChange, onEditItem
   const summaries: Record<QuoteSetupStepId, string> = {
     contact: [quote.customer.name, quote.customer.contactName, quote.customer.contactPhone, quote.customer.addressLines.join(", "), value.subAccountStatus === "yes" ? `Sub account: ${value.subAccount}` : "No sub account"].filter(Boolean).join(" · "),
     equipment: rows.length ? `${rows.length} items · ${rows.reduce((n, row) => n + row.quantity, 0)} units · ${new Intl.NumberFormat("en-US", { style: "currency", currency: quote.metadata.currencyCode || "USD" }).format(rows.reduce((n, row) => n + row.totalPrice, 0))}` : "No equipment needed",
-    pricing: [quote.orderProcessing?.dataPlanDetails, value.corporatePricing === "yes" ? "Corporate pricing" : value.pricingStructure === "pool" ? "Pool pricing" : "Individual pricing"].filter(Boolean).join(" · "),
-    delivery: [quote.orderProcessing?.shippingRequired === "yes" ? "Shipping required" : "No shipping", `Overages: ${quote.orderProcessing?.overageOptIn === "yes" ? "opted in" : quote.orderProcessing?.overageOptIn === "no" ? "opted out" : "not applicable"}`, `Public IP: ${value.publicIp}`, quote.orderProcessing?.notes].filter(Boolean).join(" · "),
+    pricing: [quote.orderProcessing?.dataPlanDetails, value.corporatePricing === "yes" ? "Corporate pricing" : value.pricingStructure === "pool" ? "Pool pricing" : "Individual pricing", `Overages: ${quote.orderProcessing?.overageOptIn === "yes" ? "opted in" : "opted out"}`].filter(Boolean).join(" · "),
+    delivery: [quote.orderProcessing?.shippingRequired === "yes" ? "Shipping required" : "No shipping", `Public IP: ${value.publicIp}`, quote.orderProcessing?.notes].filter(Boolean).join(" · "),
     review: "",
   };
   return <section className="builder-panel rq-setup" aria-label="Required quote information">
@@ -91,9 +92,9 @@ export function ProcessingRequirementsForm({ quote: source, onChange, onEditItem
       <label className="builder-field"><span>{label}</span><select value={value.rates[key].status} onChange={e => update({ rates: { ...value.rates, [key]: { ...value.rates[key], status: e.target.value } } })}><option value="pending">Choose an answer</option><option value="priced">Specify price</option><option value="included">Included</option><option value="not_applicable">Not applicable</option></select></label>
       {value.rates[key].status === "priced" && <><label className="builder-field"><span>{label} price ({quote.metadata.currencyCode})</span><input type="number" min="0" step="0.01" required value={value.rates[key].amount ?? ""} onChange={e => update({ rates: { ...value.rates, [key]: { ...value.rates[key], amount: e.target.value === "" ? null : Number(e.target.value) } } })} /></label><label className="builder-field"><span>{label} billing basis</span><input required value={value.rates[key].basis} onChange={e => update({ rates: { ...value.rates, [key]: { ...value.rates[key], basis: e.target.value } } })} /></label></>}
     </div>)}</fieldset>}
+    <OveragePricingFields quote={quote} onChange={onChange} />
     </>}
     {current.id === "delivery" && <div className="rq-detail-fields">
-      <label className="builder-field"><span>Opt in or out of overages</span><select value={quote.orderProcessing?.overageOptIn || "pending"} onChange={e => updateOrder({ overageOptIn: e.target.value as NonNullable<QuoteRecord["orderProcessing"]>["overageOptIn"] })}><option value="pending">Choose an answer</option><option value="yes">Opt in</option><option value="no">Opt out</option><option value="not_applicable">Not applicable</option></select></label>
       <label className="builder-field"><span>Public IP?</span><select value={value.publicIp} onChange={e => update({ publicIp: e.target.value as ProcessingRequirements["publicIp"] })}><option value="pending">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option></select></label>
       <label className="builder-field"><span>Shipping required?</span><select value={quote.orderProcessing?.shippingRequired || "pending"} onChange={e => updateOrder({ shippingRequired: e.target.value as NonNullable<QuoteRecord["orderProcessing"]>["shippingRequired"] })}><option value="pending">Choose an answer</option><option value="yes">Yes</option><option value="no">No shipping needed</option></select></label>
       {quote.orderProcessing?.shippingRequired === "yes" && <>

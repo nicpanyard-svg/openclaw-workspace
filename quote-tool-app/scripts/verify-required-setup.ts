@@ -116,7 +116,7 @@ async function main() {
     assert.equal(await fieldValue('Assembly details (optional)'), 'Radar assembly QA');
     await next('Continue to Plan & rates');
     await waitForField('Data Plan/Pool');
-    await expectFields(['Data Plan/Pool', 'Corporate pricing?'], ['POC name', 'Radar hardware package: assembly?', 'Shipping required?']);
+    await expectFields(['Data Plan/Pool', 'Corporate pricing?', 'Opt in or out of overages'], ['POC name', 'Radar hardware package: assembly?', 'Shipping required?']);
     await fill('Data Plan/Pool', '500GB pool');
     await fill('Corporate pricing?', 'no');
     await fill('Non-corporate pricing structure', 'individual');
@@ -127,13 +127,13 @@ async function main() {
     assert.equal(await fieldValue('Pool TAC price (USD)'), '42');
     await fill('Non-corporate pricing structure', 'individual');
     assert.equal(await fieldValue('50GB price (USD)'), '30');
+    await fill('Opt in or out of overages', 'no');
     await page.setViewport({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, 'Plan and rates should fit on mobile');
     await page.screenshot({ path: path.join(output, 'required-setup-rates-mobile.png'), fullPage: true });
     await next('Continue to Delivery');
     await waitForField('Shipping required?');
-    await expectFields(['Shipping required?', 'Opt in or out of overages', 'Public IP?', 'Special instructions'], ['POC name', '50GB price (USD)', 'Radar hardware package: assembly?']);
-    await fill('Opt in or out of overages', 'no');
+    await expectFields(['Shipping required?', 'Public IP?', 'Special instructions'], ['POC name', '50GB price (USD)', 'Radar hardware package: assembly?', 'Opt in or out of overages']);
     await fill('Public IP?', 'no');
     await fill('Shipping required?', 'no');
     await fill('Special instructions', 'None');

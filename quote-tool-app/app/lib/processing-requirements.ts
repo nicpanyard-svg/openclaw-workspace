@@ -1,6 +1,7 @@
 import { applyMajorProjectToQuote } from "./major-project";
 import type { ProcessingRateKey, ProcessingRequirements, QuoteRecord } from "./quote-record";
 import { getIncludedEquipmentRows } from "./proposal-commercial-summary";
+import { resolveOverageTerms } from "./overage-terms";
 
 export const PROCESSING_RATES: { key: ProcessingRateKey; label: string; basis: string }[] = [
   { key: "managementSupport", label: "Management and support fee", basis: "per month" },
@@ -54,7 +55,9 @@ export function missingProcessingRequirements(source: QuoteRecord): string[] {
     const rate = details.rates[key];
     if (rate.status === "pending" || (rate.status === "priced" && (rate.amount === null || !rate.basis))) missing.push(`${label} pricing`);
   }
-  if (!quote.orderProcessing?.overageOptIn || quote.orderProcessing.overageOptIn === "pending") missing.push("Overage opt-in decision");
+  const overages = resolveOverageTerms(quote);
+  if (overages.decision === "pending") missing.push("Overage opt-in decision");
+  if (overages.decision === "yes" && (overages.amount === null || !overages.basis || overages.conflict)) missing.push("Overage price");
   if (details.publicIp === "pending") missing.push("Public IP decision");
   const shipping = quote.shippingSameAsBillTo ? quote.billTo : quote.shipTo;
   if (!quote.orderProcessing?.shippingRequired || quote.orderProcessing.shippingRequired === "pending") missing.push("Shipping decision");
@@ -70,7 +73,7 @@ export function missingProcessingRequirements(source: QuoteRecord): string[] {
   return missing;
 }
 export function requiredProcessingRates(details: ProcessingRequirements) {
-  return PROCESSING_RATES.filter(({ key }) => details.pricingStructure === "pool" ? ["poolTac", "managementSupport"].includes(key) : details.pricingStructure === "individual" ? key !== "poolTac" : false);
+  return PROCESSING_RATES.filter(({ key }) => details.pricingStructure === "pool" ? ["poolTac", "managementSupport"].includes(key) : details.pricingStructure === "individual" ? key !== "poolTac" && key !== "overages" : false);
 }
 export function formatProcessingRate(rate: ProcessingRequirements["rates"][ProcessingRateKey], currency = "USD") {
   if (rate.status === "included") return "Included";

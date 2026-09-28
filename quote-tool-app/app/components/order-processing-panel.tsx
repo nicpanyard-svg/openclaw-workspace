@@ -3,6 +3,7 @@
 import { AlertCircle, Check, Download, Pencil } from "lucide-react";
 import type { QuoteOrderProcessing, QuoteRecord } from "@/app/lib/quote-record";
 import { getOrderProcessing, getOrderProcessingSummary } from "@/app/lib/order-processing";
+import { OveragePricingFields } from "./overage-pricing-fields";
 
 function formatCurrency(value: number, currency: string) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
@@ -59,12 +60,12 @@ export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditIt
 
     <div className="rq-order-section">
       <div className="rq-section-heading"><h3>Subscriptions</h3><button type="button" className="rq-button rq-button-quiet" onClick={onEditItems}><Pencil size={14} aria-hidden="true" />Edit line items</button></div>
-      <div className="rq-order-table-wrap"><table className="rq-order-table"><caption className="sr-only">Subscriptions and quoted fees</caption><thead><tr><th>Subscription / fee</th><th>Unit rate</th><th>Quoted total</th></tr></thead><tbody>{summary.subscriptionRows.length ? summary.subscriptionRows.map((row) => <tr key={row.id}><td><strong>{row.description}</strong><span>{row.kind}{row.quantity != null ? ` / Qty ${row.quantity}` : ""}</span></td><td>{formatCurrency(row.unitPrice, currency)}<span>{row.billingLabel}</span></td><td>{formatCurrency(row.total, currency)}</td></tr>) : <tr><td colSpan={3}>No subscriptions quoted.</td></tr>}</tbody></table></div>
+      <div className="rq-order-table-wrap"><table className="rq-order-table"><caption className="sr-only">Subscriptions and quoted fees</caption><thead><tr><th>Subscription / fee</th><th>Unit rate</th><th>Quoted total</th></tr></thead><tbody>{summary.subscriptionRows.length ? summary.subscriptionRows.map((row) => <tr key={row.id}><td><strong>{row.description}</strong><span>{row.kind}{row.quantity != null ? ` / Qty ${row.quantity}` : ""}</span></td><td>{formatCurrency(row.unitPrice, currency)}<span>{row.billingLabel}</span></td><td>{row.kind === "Overage" ? "Usage-based" : formatCurrency(row.total, currency)}</td></tr>) : <tr><td colSpan={3}>No subscriptions quoted.</td></tr>}</tbody></table></div>
       <div className="rq-detail-fields">
         <label className="builder-field"><span>Data plan / allocation</span><input value={details.dataPlanDetails} onChange={(event) => updateDetails({ dataPlanDetails: event.target.value })} placeholder="Pool / 1 TB across 4 terminals" /></label>
         <label className="builder-field"><span>Monitoring &amp; support arrangement</span><input value={details.monitoringSupportDetails} onChange={(event) => updateDetails({ monitoringSupportDetails: event.target.value })} placeholder="Quoted, included, or not applicable" /></label>
         <label className="builder-field"><span>Terminal access charge (TAC / TAF) arrangement</span><input value={details.terminalAccessFeeDetails} onChange={(event) => updateDetails({ terminalAccessFeeDetails: event.target.value })} placeholder="Quoted, included, or not applicable" /></label>
-        <label className="builder-field"><span>Opted into overages?</span><select value={details.overageOptIn} onChange={(event) => updateDetails({ overageOptIn: event.target.value as QuoteOrderProcessing["overageOptIn"] })}><option value="pending">Not confirmed</option><option value="yes">Yes - opted in</option><option value="no">No - opted out</option><option value="not_applicable">Not applicable</option></select></label>
+        <OveragePricingFields quote={quote} onChange={onChange} />
       </div>
     </div>
 

@@ -27,8 +27,8 @@ test("a blank order gives each missing requirement one actionable step and prese
   assert.deepEqual(steps.map(step => step.title), ["Contact & site", "Equipment", "Plan & rates", "Delivery", "Review"]);
   assert.deepEqual(missingFor(quote, "contact"), ["Customer", "Sub-account decision", "Service address", "POC name", "POC phone number"]);
   assert.deepEqual(missingFor(quote, "equipment"), ["Equipment needed decision"]);
-  assert.deepEqual(missingFor(quote, "pricing"), ["Data plan / allocation details", "Corporate pricing decision"]);
-  assert.deepEqual(missingFor(quote, "delivery"), ["Overage opt-in decision", "Public IP decision", "Shipping decision", "Special instructions (or None)"]);
+  assert.deepEqual(missingFor(quote, "pricing"), ["Data plan / allocation details", "Corporate pricing decision", "Overage opt-in decision"]);
+  assert.deepEqual(missingFor(quote, "delivery"), ["Public IP decision", "Shipping decision", "Special instructions (or None)"]);
   const canonical = missingProcessingRequirements(quote);
   assert.deepEqual(missingFor(quote, "review"), canonical);
   assert.deepEqual(steps.filter(step => step.id !== "review").flatMap(step => step.missing).sort(), [...canonical].sort());
@@ -56,13 +56,23 @@ test("the pricing step follows corporate, individual, and pool choices and retai
   details.corporatePricing = "no";
   assert.deepEqual(missingFor(quote, "pricing"), ["Individual or pool pricing decision"]);
   details.pricingStructure = "individual";
-  assert.deepEqual(missingFor(quote, "pricing"), ["Management and support fee pricing", "TAC (terminal access charge) pricing", "50GB pricing", "500GB pricing", "Overages pricing"]);
+  assert.deepEqual(missingFor(quote, "pricing"), ["Management and support fee pricing", "TAC (terminal access charge) pricing", "50GB pricing", "500GB pricing"]);
   details.pricingStructure = "pool";
   assert.deepEqual(missingFor(quote, "pricing"), ["Management and support fee pricing", "Pool TAC pricing"]);
   quote.orderProcessing!.requirements = prefillStarlinkRates(details);
   quote.orderProcessing!.requirements.rates.poolTac.amount = null;
   assert.deepEqual(missingFor(quote, "pricing"), ["Pool TAC pricing"]);
   quote.orderProcessing!.requirements.rates.poolTac.amount = 39;
+  assert.deepEqual(missingFor(quote, "review"), []);
+});
+
+test("opted-in overage price stays on the same pricing step as its decision", () => {
+  const quote = readyQuote();
+  quote.orderProcessing!.overageOptIn = "yes";
+  assert.deepEqual(missingFor(quote, "pricing"), ["Overage price"]);
+  assert.deepEqual(missingFor(quote, "delivery"), []);
+  assert.deepEqual(missingFor(quote, "review"), ["Overage price"]);
+  quote.orderProcessing!.requirements!.rates.overages = { status: "priced", amount: 0.47, basis: "per GB" };
   assert.deepEqual(missingFor(quote, "review"), []);
 });
 

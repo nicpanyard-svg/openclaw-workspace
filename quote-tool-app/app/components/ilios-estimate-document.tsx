@@ -2,6 +2,7 @@
 
 import { buildEstimateTemplateModel } from "@/app/lib/estimate-template";
 import type { QuoteRecord } from "@/app/lib/quote-record";
+import { OverageDisclosure } from "./overage-disclosure";
 
 function formatCurrency(value: number, currencyCode = "USD") {
   return new Intl.NumberFormat("en-US", {
@@ -77,9 +78,9 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
               </tr>
             </thead>
             <tbody>
-              {model.lineItems.map((item, index) => (
+              {model.lineItems.filter(item => item.schedule !== "usage_based").map((item, index) => (
                 <tr key={item.id} className={index % 2 === 0 ? "bg-white" : "bg-[#f8fbfc]"}>
-                  <td className="px-4 py-3 align-top font-medium text-[#1f2d3a]">{item.sequence}.</td>
+                  <td className="px-4 py-3 align-top font-medium text-[#1f2d3a]">{index + 1}.</td>
                   <td className="px-4 py-3 align-top font-medium text-[#1f2d3a]">{item.label}</td>
                   <td className="px-4 py-3 align-top text-[#526573]">{item.description || "—"}</td>
                   <td className="px-4 py-3 align-top text-[#526573]">{item.quantity ?? "—"}{item.unit ? ` ${item.unit}` : ""}</td>
@@ -92,6 +93,8 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
           </table>
         </div>
 
+
+        <OverageDisclosure quote={quote} />
         {model.annual.items.length > 0 && <section className="cp-section">
           <h2>Annual subscriptions &amp; renewals</h2>
           <table className="cp-table"><thead><tr><th>Subscription</th><th>Quantity</th><th>Year 1 prepaid</th><th>Annual renewal</th></tr></thead><tbody>
