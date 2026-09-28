@@ -13,6 +13,8 @@ import { deserializeQuoteRecord, serializeQuoteRecord } from "./proposal-state";
 import { createProposalFromQuote, deserializeProposalStore, serializeProposalStore } from "./proposal-store";
 import type { PoolPricingRow, QuoteOrderProcessing, QuoteRecord } from "./quote-record";
 import { createBlankQuoteRecord } from "./quote-template";
+import { setOveragePrice } from "./overage-terms";
+import { getRecurringMonthlyTotal, getCustomerFacingOneTimeTotal } from "./proposal-commercial-summary";
 
 const defaults: QuoteOrderProcessing = {
   requirements: normalizeProcessingRequirements(undefined),
@@ -215,7 +217,7 @@ test("corporate pricing covers support while an opted-in overage rate remains ex
   assert.match(buildOrderProcessingText(quote), /Terminal access fee definition: Covered by corporate pricing/);
 });
 
-test("noncorporate structured rates complete the handoff without duplicate subscription fee rows", () => {
+test("noncorporate individual blocks and explicit pool rates complete handoff without changing base 50GB pricing", () => {
   for (const pricingStructure of ["individual", "pool"] as const) {
     const quote = createOrderQuote();
     const details = getOrderProcessing(quote);
@@ -223,7 +225,8 @@ test("noncorporate structured rates complete the handoff without duplicate subsc
     requirements.rates.terminalAccess.amount = 44;
     requirements.rates.poolTac.amount = 45;
     quote.orderProcessing = { ...details, requirements, overageOptIn: "yes", terminals: [], terminalsStatus: "pending" };
-    quote.sections.sectionA.mode = pricingStructure === "pool" ? "pool" : "per_kit";
+    // An explicit noncorporate pool choice takes precedence over the editor's per-kit mode.
+    quote.sections.sectionA.mode = "per_kit";
     quote.sections.sectionA.poolRows = quote.sections.sectionA.poolRows.filter((row) => row.id === "data");
     assert.deepEqual(getOrderProcessingSummary(quote).missingFields, [], pricingStructure);
     const output = buildOrderProcessingText(quote);
@@ -233,7 +236,12 @@ test("noncorporate structured rates complete the handoff without duplicate subsc
       ? /Terminal access fee definition: \$45\.00 per terminal \/ month/
       : /Terminal access fee definition: \$44\.00 per terminal \/ month/);
     assert.doesNotMatch(output, /Monitoring \/ support fee definition|Overage pricing/);
-    assert.match(output, /Overage rate: \$0\.55 per GB/);
+    assert.match(output, pricingStructure === "pool"
+      ? /Overage rate: \$0\.55 per GB — billed on actual usage; excluded from quoted totals/
+      : /Overage rate: \$32\.50 per 50GB block — billed per additional 50GB block; excluded from quoted totals/);
+    assert.equal(requirements.rates.data50.amount, 27.5);
+    assert.match(output, /Quoted recurring total: \$999\.00\/month/);
+    assert.match(output, /Customer one-time total: \$700\.00/);
     requirements.rates.overages.status = "pending";
     assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage price"]);
     assert.throws(() => buildOrderProcessingText(quote), /Complete these order details before exporting: Overage price/);
@@ -243,6 +251,43 @@ test("noncorporate structured rates complete the handoff without duplicate subsc
       assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Pool TAC pricing"]);
       assert.throws(() => buildOrderProcessingText(quote), /Complete these order details before exporting: Pool TAC pricing/);
     }
+  }
+});
+
+test("corporate per-kit overages are additional 50GB blocks with editable price and no fixed total", () => {
+  let quote = createOrderQuote();
+  quote.sections.sectionA.mode = "per_kit";
+  quote.orderProcessing!.overageOptIn = "yes";
+  const monthly = getRecurringMonthlyTotal(quote), oneTime = getCustomerFacingOneTimeTotal(quote);
+  quote = setOveragePrice(quote, 32.5);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
+  let output = buildOrderProcessingText(quote);
+  assert.match(output, /Corporate pricing: Yes/);
+  assert.match(output, /Overage rate: \$32\.50 per 50GB block — billed per additional 50GB block; excluded from quoted totals/);
+  assert.doesNotMatch(output, /Overage rate: .* per GB/);
+  quote = setOveragePrice(quote, 35);
+  output = buildOrderProcessingText(quote);
+  assert.match(output, /Overage rate: \$35\.00 per 50GB block/);
+  assert.equal(quote.sections.sectionA.perKitRows.length, 1);
+  assert.equal(getRecurringMonthlyTotal(quote), monthly);
+  assert.equal(getCustomerFacingOneTimeTotal(quote), oneTime);
+});
+
+test("incompatible overage billing bases block the handoff until corrected for the selected plan", () => {
+  for (const plan of ["corporate-individual", "noncorporate-pool"] as const) {
+    let quote = createOrderQuote();
+    quote.sections.sectionA.mode = "per_kit";
+    quote.orderProcessing!.overageOptIn = "yes";
+    if (plan === "noncorporate-pool") quote.orderProcessing!.requirements = prefillStarlinkRates({ ...quote.orderProcessing!.requirements, corporatePricing: "no", pricingStructure: "pool" });
+    const incompatible = plan === "corporate-individual" ? { amount: 0.55, basis: "per GB" } : { amount: 32.5, basis: "per 50GB block" };
+    quote = setOveragePrice(quote, incompatible.amount, incompatible.basis);
+    const restored = deserializeQuoteRecord(serializeQuoteRecord(quote))!;
+    assert.deepEqual(getOrderProcessingSummary(restored).missingFields, ["Overage price"], plan);
+    assert.throws(() => buildOrderProcessingText(restored), /Complete these order details before exporting: Overage price/, plan);
+    quote = setOveragePrice(restored, plan === "corporate-individual" ? 32.5 : 0.55);
+    assert.deepEqual(getOrderProcessingSummary(quote).missingFields, [], plan);
+    assert.match(buildOrderProcessingText(quote), /Quoted recurring total: \$999\.00\/month/);
+    assert.match(buildOrderProcessingText(quote), /Customer one-time total: \$700\.00/);
   }
 });
 

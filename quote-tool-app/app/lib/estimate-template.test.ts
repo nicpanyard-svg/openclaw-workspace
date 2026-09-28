@@ -6,6 +6,7 @@ import { IliosEstimateDocument } from "../components/ilios-estimate-document";
 import { buildEstimateTemplateModel } from "./estimate-template";
 import { createBlankQuoteRecord } from "./quote-template";
 import { getOrderProcessing } from "./order-processing";
+import { setOveragePrice } from "./overage-terms";
 
 function estimateWithOverage() {
   const quote = createBlankQuoteRecord();
@@ -55,6 +56,30 @@ test("compact customer output hides a saved overage price when opted out", () =>
   quote.orderProcessing!.overageOptIn = "no";
   const html = renderToStaticMarkup(createElement(IliosEstimateDocument, { quote }));
   assert.match(html, /Opted out/);
+  assert.doesNotMatch(html, /\$0\.55/);
+  assert.match(html, /\$610\.00/);
+});
+
+test("compact customer output displays additional 50GB block pricing outside fixed totals", () => {
+  const source = estimateWithOverage();
+  source.orderProcessing!.requirements!.corporatePricing = "no";
+  source.orderProcessing!.requirements!.pricingStructure = "individual";
+  const quote = setOveragePrice(source, 32.5);
+  const html = renderToStaticMarkup(createElement(IliosEstimateDocument, { quote }));
+  assert.match(html, /Overage rate: \$32\.50 per 50GB block/);
+  assert.match(html, /Billed per additional 50GB block/);
+  assert.equal((html.match(/\$32\.50/g) || []).length, 1);
+  assert.match(html, /\$610\.00/);
+  const changed = setOveragePrice(quote, 35);
+  assert.equal(buildEstimateTemplateModel(changed)!.total, 610);
+});
+
+test("compact customer output does not present a mismatched per-GB block rate as confirmed", () => {
+  const quote = estimateWithOverage();
+  quote.orderProcessing!.requirements!.corporatePricing = "no";
+  quote.orderProcessing!.requirements!.pricingStructure = "individual";
+  const html = renderToStaticMarkup(createElement(IliosEstimateDocument, { quote }));
+  assert.match(html, /Overage rate: To be confirmed/);
   assert.doesNotMatch(html, /\$0\.55/);
   assert.match(html, /\$610\.00/);
 });

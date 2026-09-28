@@ -5,12 +5,36 @@ export type OverageTerms = {
   amount: number | null;
   basis: string;
   conflict: boolean;
+  planMismatch: boolean;
 };
+
+export function getOveragePlan(quote: QuoteRecord): "pool" | "blocks" {
+  const requirements = quote.orderProcessing?.requirements;
+  if (requirements?.corporatePricing === "no") {
+    if (requirements.pricingStructure === "pool") return "pool";
+    if (requirements.pricingStructure === "individual") return "blocks";
+  }
+  if (quote.metadata.workflowMode === "major_project" && quote.majorProject?.enabled) {
+    return quote.majorProject.commercial.serviceMix === "starlink-pool" ? "pool" : "blocks";
+  }
+  return quote.sections.sectionA.mode === "pool" ? "pool" : "blocks";
+}
+
+export function getOverageDefault(quote: QuoteRecord): { amount: number; basis: string } {
+  return getOveragePlan(quote) === "pool"
+    ? { amount: 0.55, basis: "per GB" }
+    : { amount: 32.5, basis: "per 50GB block" };
+}
 
 function basisText(value: unknown): string {
   if (typeof value !== "string") return "";
   const unit = value.trim().replace(/^per\s+/i, "").replace(/\s+/g, " ");
-  return unit ? `per ${unit.toLowerCase() === "gb" ? "GB" : unit}` : "";
+  const normalized = /^50\s*gb(?:\s*block)?$/i.test(unit) ? "50GB block" : unit.toLowerCase() === "gb" ? "GB" : unit;
+  return normalized ? `per ${normalized}` : "";
+}
+
+export function isOverageBasisCompatible(quote: QuoteRecord, basis: string): boolean {
+  return basisText(basis) === getOverageDefault(quote).basis;
 }
 
 function validAmount(value: unknown): value is number {
@@ -47,11 +71,12 @@ export function resolveOverageTerms(quote: QuoteRecord): OverageTerms {
     amount: candidate && (structured || !conflict) ? candidate.amount : null,
     basis: candidate?.basis ?? structuredBasis,
     conflict,
+    planMismatch: Boolean(candidate?.basis && !isOverageBasisCompatible(quote, candidate.basis)),
   };
 }
 
 /** Returns a clone. Callers initialize orderProcessing.requirements before editing. */
-export function setOveragePrice(quote: QuoteRecord, amount: number | null, basis = "per GB"): QuoteRecord {
+export function setOveragePrice(quote: QuoteRecord, amount: number | null, basis = getOverageDefault(quote).basis): QuoteRecord {
   if (!quote.orderProcessing?.requirements) throw new Error("Initialize order details before setting an overage price.");
   const next = structuredClone(quote);
   const price = validAmount(amount) ? amount : null;

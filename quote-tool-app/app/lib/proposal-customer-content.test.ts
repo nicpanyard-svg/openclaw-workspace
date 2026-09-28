@@ -6,6 +6,8 @@ import { createBlankQuoteRecord } from "./quote-template";
 import { buildTermsFromPackage } from "./terms-packages";
 import { getOrderProcessing } from "./order-processing";
 import { setOveragePrice } from "./overage-terms";
+import { getRecurringMonthlyTotal } from "./proposal-commercial-summary";
+import { prefillStarlinkRates } from "./processing-requirements";
 
 function customerQuote() {
   const quote = createBlankQuoteRecord();
@@ -99,17 +101,51 @@ test("budgetary implementation and unresolved overages prevent order authorizati
   assert.equal(content.approvalReady, false);
 });
 
-test("customer overage readiness uses the guided price without requiring a monthly line", () => {
+test("customer overage readiness accepts corporate per-kit block pricing without adding a monthly line", () => {
   let quote = customerQuote();
   quote.orderProcessing!.overageOptIn = "yes";
+  quote.orderProcessing!.requirements.corporatePricing = "yes";
   assert.ok(getCustomerQuoteContent(quote).warnings.includes("Opted-in overage pricing has not been specified."));
-  quote = setOveragePrice(quote, 0.73);
+  quote = setOveragePrice(quote, 32.5);
   assert.ok(!getCustomerQuoteContent(quote).warnings.includes("Opted-in overage pricing has not been specified."));
+  assert.equal(getCustomerQuoteContent(quote).approvalReady, true);
+  assert.equal(quote.orderProcessing!.requirements.rates.overages.basis, "per 50GB block");
+  assert.equal(getRecurringMonthlyTotal(quote), 100);
   assert.equal(quote.sections.sectionA.perKitRows.length, 1);
   quote = setOveragePrice(quote, null);
   assert.ok(getCustomerQuoteContent(quote).warnings.includes("Opted-in overage pricing has not been specified."));
   quote.orderProcessing!.overageOptIn = "no";
   assert.ok(!getCustomerQuoteContent(quote).warnings.includes("Opted-in overage pricing has not been specified."));
+});
+
+test("noncorporate explicit pool pricing stays per GB even when the service editor is in per-kit mode", () => {
+  let quote = customerQuote();
+  quote.orderProcessing!.overageOptIn = "yes";
+  quote.orderProcessing!.requirements = prefillStarlinkRates({ ...quote.orderProcessing!.requirements, corporatePricing: "no", pricingStructure: "pool" });
+  quote = setOveragePrice(quote, 0.55);
+  const restored = deserializeQuoteRecord(serializeQuoteRecord(quote))!;
+  assert.equal(restored.orderProcessing!.requirements.rates.overages.basis, "per GB");
+  assert.equal(restored.orderProcessing!.requirements.rates.data50.amount, 27.5);
+  assert.equal(getCustomerQuoteContent(restored).approvalReady, true);
+  assert.equal(getRecurringMonthlyTotal(restored), 100);
+});
+
+test("a legacy rate with an incompatible basis prevents customer approval until its plan basis is corrected", () => {
+  for (const plan of ["corporate-individual", "noncorporate-pool"] as const) {
+    let quote = customerQuote();
+    quote.orderProcessing!.overageOptIn = "yes";
+    quote.orderProcessing!.requirements.corporatePricing = "yes";
+    if (plan === "noncorporate-pool") quote.orderProcessing!.requirements = prefillStarlinkRates({ ...quote.orderProcessing!.requirements, corporatePricing: "no", pricingStructure: "pool" });
+    quote = setOveragePrice(quote, plan === "corporate-individual" ? 0.55 : 32.5, plan === "corporate-individual" ? "per GB" : "per 50GB block");
+    const restored = deserializeQuoteRecord(serializeQuoteRecord(quote))!;
+    const incomplete = getCustomerQuoteContent(restored);
+    assert.equal(incomplete.approvalReady, false, plan);
+    assert.ok(incomplete.warnings.includes("Opted-in overage pricing has not been specified."), plan);
+    const corrected = setOveragePrice(restored, plan === "corporate-individual" ? 32.5 : 0.55);
+    assert.equal(getCustomerQuoteContent(corrected).approvalReady, true, plan);
+    assert.equal(getRecurringMonthlyTotal(corrected), 100);
+    assert.equal(getRecurringMonthlyTotal(restored), 100);
+  }
 });
 
 test("budgetary pricing note follows included unconfirmed services in Quick and Major quotes", () => {

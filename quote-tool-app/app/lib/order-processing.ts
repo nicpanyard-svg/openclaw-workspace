@@ -1,5 +1,5 @@
 import { normalizeProcessingRequirements, missingProcessingRequirements, requiredProcessingRates, formatProcessingRate } from "./processing-requirements";
-import { resolveOverageTerms } from "./overage-terms";
+import { getOveragePlan, resolveOverageTerms } from "./overage-terms";
 import {
   getCombinedOneTimeTotal,
   getCustomerFacingEquipmentTotal,
@@ -209,7 +209,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     `Terminal access fee definition: ${feeDefinition("Terminal access fee", details.terminalAccessFeeDetails)}`,
     `Terminal access fee annotation: ${provided(details.terminalAccessFeeDetails)}`,
     `Overage opt-in: ${stateLabel(details.overageOptIn)}${details.overageOptIn === "pending" ? " (not authorized)" : ""}`,
-    ...(overages.decision === "yes" && overages.amount !== null ? [`Overage rate: ${money(overages.amount)} ${overages.basis} — billed on actual usage; excluded from quoted totals`] : []),
+    ...(overages.decision === "yes" && overages.amount !== null ? [`Overage rate: ${money(overages.amount)} ${overages.basis} — ${getOveragePlan(quote) === "pool" ? "billed on actual usage" : "billed per additional 50GB block"}; excluded from quoted totals`] : []),
     "Included subscription lines:",
     ...subscriptionRows.map((row) =>
       `- [${row.id}] ${row.kind}: ${row.description} | Qty: ${row.quantity ?? "Not specified"} | Rate: ${money(row.unitPrice)} (${row.billingLabel}) | Quoted line total: ${row.kind === "Overage" ? "Usage-based; excluded from totals" : money(row.total)}`),
