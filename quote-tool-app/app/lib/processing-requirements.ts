@@ -57,7 +57,7 @@ export function missingProcessingRequirements(source: QuoteRecord): string[] {
   }
   const overages = resolveOverageTerms(quote);
   if (overages.decision === "pending") missing.push("Overage opt-in decision");
-  if (overages.decision === "yes" && (overages.amount === null || !overages.basis || overages.conflict)) missing.push("Overage price");
+  if (overages.decision === "yes" && (overages.amount === null || !overages.basis || overages.conflict || overages.planMismatch)) missing.push("Overage price");
   if (details.publicIp === "pending") missing.push("Public IP decision");
   const shipping = quote.shippingSameAsBillTo ? quote.billTo : quote.shipTo;
   if (!quote.orderProcessing?.shippingRequired || quote.orderProcessing.shippingRequired === "pending") missing.push("Shipping decision");
@@ -85,6 +85,11 @@ export function formatProcessingRate(rate: ProcessingRequirements["rates"][Proce
 // Starlink-only price sheet dated 2025-12-29. User confirmed the listed $27.50
 // for 50GB and the same $42 terminal access charge for pooled service.
 export function prefillStarlinkRates(details: ProcessingRequirements, reset = false): ProcessingRequirements {
-  const amounts: Record<ProcessingRateKey, number> = { managementSupport: details.starlinkService === "mini_vehicle" ? 5 : 10, terminalAccess: 42, data50: 27.5, data500: 131.25, overages: 0.55, poolTac: 42 };
-  return { ...details, rates: Object.fromEntries(PROCESSING_RATES.map(({ key, basis }) => [key, reset || details.rates[key].status === "pending" ? { status: "priced", amount: amounts[key], basis } : { ...details.rates[key] }])) as ProcessingRequirements["rates"] };
+  const amounts: Record<ProcessingRateKey, number> = { managementSupport: details.starlinkService === "mini_vehicle" ? 5 : 10, terminalAccess: 42, data50: 27.5, data500: 131.25, overages: details.pricingStructure === "individual" ? 32.5 : 0.55, poolTac: 42 };
+  return { ...details, rates: Object.fromEntries(PROCESSING_RATES.map(({ key, basis }) => {
+    const previous = details.rates[key];
+    if (key === "overages" && details.pricingStructure === "pending") return [key, { ...previous }];
+    const billingBasis = key === "overages" && details.pricingStructure === "individual" ? "per 50GB block" : basis;
+    return [key, reset || previous.status === "pending" ? { status: "priced", amount: amounts[key], basis: billingBasis } : { ...previous }];
+  })) as ProcessingRequirements["rates"] };
 }

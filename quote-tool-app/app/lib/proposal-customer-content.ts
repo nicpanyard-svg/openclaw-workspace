@@ -115,7 +115,7 @@ export function getCustomerQuoteContent(quote: QuoteRecord) {
   }
   const overages = resolveOverageTerms(quote);
   if (overages.decision === "pending") warnings.push("The overage election has not been confirmed.");
-  if (overages.decision === "yes" && (overages.amount === null || !overages.basis || overages.conflict)) warnings.push("Opted-in overage pricing has not been specified.");
+  if (overages.decision === "yes" && (overages.amount === null || !overages.basis || overages.conflict || overages.planMismatch)) warnings.push("Opted-in overage pricing has not been specified.");
   if (!fieldServicePricingConfirmed && fieldServices.some((row) => row.pricingStage === "budgetary" && !isSoftwareLine(row))) warnings.push("Implementation and service pricing is budgetary and subject to confirmation based on final site count, configuration, and deployment requirements.");
   if (!fieldServicePricingConfirmed && fieldServices.some((row) => row.pricingStage === "budgetary" && isSoftwareLine(row))) warnings.push("Software pricing is budgetary and subject to confirmation of the final license scope and configuration.");
 

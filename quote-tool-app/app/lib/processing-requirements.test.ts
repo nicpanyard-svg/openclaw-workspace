@@ -83,11 +83,12 @@ test("Quick Quote save/load retains prices and required details but ignores stal
   details.subAccountStatus = "yes"; details.subAccount = "WEST-123"; details.corporatePricing = "no";
   quote.orderProcessing!.overageOptIn = "yes";
   for (const { key, basis } of PROCESSING_RATES) details.rates[key] = { status: "priced", amount: 25, basis };
+  details.rates.overages.basis = "per 50GB block";
   const restored = deserializeQuoteRecord(serializeQuoteRecord(quote))!;
   assert.deepEqual(restored.orderProcessing!.requirements, details);
   assert.deepEqual(restored.sections.sectionB.lineItems, quote.sections.sectionB.lineItems);
   const output = buildOrderProcessingText(restored);
-  for (const text of ["Sub account: WEST-123", "Corporate pricing: No", "Data Plan/Pool: Shared 500GB pool", "Assembly: No (standalone)", "TAC (terminal access charge): $25.00", "50GB: $25.00", "500GB: $25.00", "$25.00 per GB"]) assert.ok(output.includes(text), text);
+  for (const text of ["Sub account: WEST-123", "Corporate pricing: No", "Data Plan/Pool: Shared 500GB pool", "Assembly: No (standalone)", "TAC (terminal access charge): $25.00", "50GB: $25.00", "500GB: $25.00", "$25.00 per 50GB block"]) assert.ok(output.includes(text), text);
   assert.ok(!output.includes("Assembly: Yes"));
   assert.ok(!output.includes("Assembly details:"));
   assert.ok(!output.includes("Router + antenna"));
@@ -109,7 +110,13 @@ test("pool pricing requires only Pool TAC and management/support, plus explicit 
 });
 test("Starlink prices match the supplied sheet and user corrections; edits survive prefill and save", () => {
   const original = normalizeProcessingRequirements(undefined);
-  const fixed = prefillStarlinkRates(original);
+  assert.equal(prefillStarlinkRates(original).rates.overages.status, "pending", "no overage plan is guessed before selection");
+  const blocks = prefillStarlinkRates({ ...original, pricingStructure: "individual" });
+  assert.deepEqual(blocks.rates.overages, { status: "priced", amount: 32.5, basis: "per 50GB block" });
+  assert.equal(blocks.rates.data50.amount, 27.5, "base 50GB plan remains unchanged by the overage correction");
+  blocks.rates.overages.amount = 37.25;
+  assert.equal(prefillStarlinkRates(blocks).rates.overages.amount, 37.25);
+  const fixed = prefillStarlinkRates({ ...original, pricingStructure: "pool" });
   assert.deepEqual(PROCESSING_RATES.map(({ key }) => fixed.rates[key].amount), [10, 42, 27.5, 131.25, 0.55, 42]);
   assert.equal(original.rates.data50.status, "pending");
   fixed.rates.data50.amount = 30;
@@ -126,6 +133,7 @@ test("Starlink prices match the supplied sheet and user corrections; edits survi
 test("every pricing structure requires an explicit overage decision and an opted-in price", () => {
   for (const corporatePricing of ["yes", "no"] as const) for (const pricingStructure of ["individual", "pool"] as const) {
     const quote = readyQuote();
+    quote.sections.sectionA.mode = pricingStructure === "pool" ? "pool" : "per_kit";
     quote.orderProcessing!.requirements = prefillStarlinkRates({ ...quote.orderProcessing!.requirements!, corporatePricing, pricingStructure });
     const rate = quote.orderProcessing!.requirements!.rates.overages;
     for (const decision of ["pending", "not_applicable"] as const) {
@@ -158,4 +166,23 @@ test("conflicting structured and legacy overage prices block completion until co
   assert.deepEqual(missingProcessingRequirements(quote), ["Overage price"]);
   quote.orderProcessing!.requirements!.rates.overages.amount = 0.42;
   assert.deepEqual(missingProcessingRequirements(quote), []);
+});
+
+test("overage billing basis must match the selected plan without relabeling saved prices", () => {
+  const quote = readyQuote();
+  quote.orderProcessing!.overageOptIn = "yes";
+  quote.orderProcessing!.requirements = prefillStarlinkRates({ ...quote.orderProcessing!.requirements!, corporatePricing: "no", pricingStructure: "individual" });
+  const rate = quote.orderProcessing!.requirements.rates.overages;
+  rate.amount = 0.55;
+  rate.basis = "per GB";
+  assert.deepEqual(missingProcessingRequirements(quote), ["Overage price"]);
+  assert.equal(rate.amount, 0.55);
+  assert.equal(rate.basis, "per GB");
+  rate.amount = 32.5;
+  rate.basis = "per 50GB block";
+  assert.deepEqual(missingProcessingRequirements(quote), []);
+  quote.orderProcessing!.requirements.pricingStructure = "pool";
+  assert.deepEqual(missingProcessingRequirements(quote), ["Overage price"]);
+  quote.orderProcessing!.overageOptIn = "no";
+  assert.deepEqual(missingProcessingRequirements(quote), [], "opted-out quotes preserve inactive saved rates");
 });
