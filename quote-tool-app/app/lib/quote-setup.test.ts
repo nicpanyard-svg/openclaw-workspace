@@ -13,6 +13,8 @@ function missingFor(quote: QuoteRecord, id: QuoteSetupStepId) {
 
 function readyQuote() {
   const quote = createBlankQuoteRecord();
+  quote.sections.sectionA.poolRows = [{ id: "plan", rowType: "service", description: "Starlink data", quantity: 1, monthlyRate: 100, totalMonthlyRate: 100 }];
+  quote.sections.sectionA.perKitRows = [{ ...quote.sections.sectionA.poolRows[0], rowType: "service" }];
   Object.assign(quote.customer, { name: "North site", addressLines: ["10 Service Rd"], contactName: "Pat", contactPhone: "555-0100" });
   quote.orderProcessing = {
     ...getOrderProcessing(quote), dataPlanDetails: "500GB shared pool", shippingRequired: "no", overageOptIn: "no", notes: "None",
@@ -27,8 +29,8 @@ test("a blank order gives each missing requirement one actionable step and prese
   assert.deepEqual(steps.map(step => step.title), ["Contact & site", "Equipment", "Plan & rates", "Delivery", "Review"]);
   assert.deepEqual(missingFor(quote, "contact"), ["Customer", "Sub-account decision", "Service address", "POC name", "POC phone number"]);
   assert.deepEqual(missingFor(quote, "equipment"), ["Equipment needed decision"]);
-  assert.deepEqual(missingFor(quote, "pricing"), ["Data plan / allocation details", "Corporate pricing decision", "Overage opt-in decision"]);
-  assert.deepEqual(missingFor(quote, "delivery"), ["Public IP decision", "Shipping decision", "Special instructions (or None)"]);
+  assert.deepEqual(missingFor(quote, "pricing"), []);
+  assert.deepEqual(missingFor(quote, "delivery"), ["Shipping decision", "Special instructions (or None)"]);
   const canonical = missingProcessingRequirements(quote);
   assert.deepEqual(missingFor(quote, "review"), canonical);
   assert.deepEqual(steps.filter(step => step.id !== "review").flatMap(step => step.missing).sort(), [...canonical].sort());

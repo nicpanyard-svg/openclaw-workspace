@@ -1,3 +1,4 @@
+import { hasStarlinkService } from "./starlink-service";
 import { normalizeProcessingRequirements, missingProcessingRequirements, requiredProcessingRates, formatProcessingRate } from "./processing-requirements";
 import { getOveragePlan, resolveOverageTerms } from "./overage-terms";
 import {
@@ -133,6 +134,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     throw new Error(`Complete these order details before exporting: ${summary.missingFields.join("; ")}. You can still save a draft.`);
   }
   const { details, subscriptionRows, equipmentRows, serviceRows } = summary;
+  const starlink = hasStarlinkService(quote);
   const requirements = normalizeProcessingRequirements(details.requirements);
   const overages = resolveOverageTerms(quote);
   const currency = new Intl.NumberFormat("en-US", {
@@ -173,11 +175,11 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     `Quote date: ${provided(quote.metadata.proposalDate)}`,
     `Customer: ${provided(quote.customer.name)}`,
     `Sub account: ${requirements.subAccountStatus === "no" ? "Not applicable" : requirements.subAccountStatus === "yes" ? provided(requirements.subAccount) : "Not confirmed"}`,
-    `Corporate pricing: ${stateLabel(requirements.corporatePricing)}`,
-    ...(requirements.corporatePricing === "no" ? [`Pricing structure: ${stateLabel(requirements.pricingStructure)}`] : []),
-    `Public IP?: ${stateLabel(requirements.publicIp)}`,
-    ...(requirements.corporatePricing === "yes" ? [`Corporate pricing reference: ${provided(requirements.corporatePricingReference)}`, "Individual rate confirmations: covered by corporate pricing"] : []),
-    ...(requirements.corporatePricing === "no" ? requiredProcessingRates(requirements).map(({ key, label }) => `${label}: ${formatProcessingRate(requirements.rates[key], quote.metadata.currencyCode || "USD")}`) : []),
+    ...(starlink ? [`Corporate pricing: ${stateLabel(requirements.corporatePricing)}`,
+    ...(starlink && requirements.corporatePricing === "no" ? [`Pricing structure: ${stateLabel(requirements.pricingStructure)}`] : []),
+    `Public IP?: ${stateLabel(requirements.publicIp)}`] : []),
+    ...(starlink && requirements.corporatePricing === "yes" ? [`Corporate pricing reference: ${provided(requirements.corporatePricingReference)}`, "Individual rate confirmations: covered by corporate pricing"] : []),
+    ...(starlink && requirements.corporatePricing === "no" ? requiredProcessingRates(requirements).map(({ key, label }) => `${label}: ${formatProcessingRate(requirements.rates[key], quote.metadata.currencyCode || "USD")}`) : []),
     `Customer account ID: ${provided(quote.metadata.accountId)}`,
     `Saved customer ID: ${provided(quote.internal.savedCustomerProfileId)}`,
     `POC name: ${provided(quote.customer.contactName)}`,
@@ -192,7 +194,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     "",
     "Service address:",
     ...(summary.serviceAddress.length ? summary.serviceAddress : ["Not provided"]),
-    `Terminal identifiers / names (optional): ${details.terminals.join("; ") || (details.terminalsStatus === "not_applicable" ? "Not applicable" : "Not available yet — can be added later")}`,
+    ...(starlink ? [`Terminal identifiers / names (optional): ${details.terminals.join("; ") || (details.terminalsStatus === "not_applicable" ? "Not applicable" : "Not available yet — can be added later")}`] : []),
     "",
     `Shipping required: ${stateLabel(details.shippingRequired)}`,
     `Shipping address source: ${quote.shippingSameAsBillTo ? "Bill to" : "Ship to"}`,
@@ -201,7 +203,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     `Shipping contact: ${provided(summary.shippingContactName)}`,
     `Shipping phone: ${provided(details.shippingContactPhone)}`,
     "",
-    `Subscription mode: ${quote.sections.sectionA.mode === "pool" ? "Pool" : "Per kit"}`,
+    ...(starlink ? [`Subscription mode: ${quote.sections.sectionA.mode === "pool" ? "Pool" : "Per kit"}`,
     `Data Plan/Pool: ${provided(details.dataPlanDetails)}`,
     `Data plan details (explicit annotation): ${provided(details.dataPlanDetails)}`,
     `Monitoring & support definition: ${feeDefinition("Monitoring & support", details.monitoringSupportDetails)}`,
@@ -210,6 +212,7 @@ export function buildOrderProcessingText(quote: QuoteRecord): string {
     `Terminal access fee annotation: ${provided(details.terminalAccessFeeDetails)}`,
     `Overage opt-in: ${stateLabel(details.overageOptIn)}${details.overageOptIn === "pending" ? " (not authorized)" : ""}`,
     ...(overages.decision === "yes" && overages.amount !== null ? [`Overage rate: ${money(overages.amount)} ${overages.basis} — ${getOveragePlan(quote) === "pool" ? "billed on actual usage" : "billed per additional 50GB block"}; excluded from quoted totals`] : []),
+    ] : []),
     "Included subscription lines:",
     ...subscriptionRows.map((row) =>
       `- [${row.id}] ${row.kind}: ${row.description} | Qty: ${row.quantity ?? "Not specified"} | Rate: ${money(row.unitPrice)} (${row.billingLabel}) | Quoted line total: ${row.kind === "Overage" ? "Usage-based; excluded from totals" : money(row.total)}`),

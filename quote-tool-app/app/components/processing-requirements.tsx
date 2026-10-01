@@ -8,6 +8,7 @@ import { getIncludedEquipmentRows } from "../lib/proposal-commercial-summary";
 import { prefillStarlinkRates, requiredProcessingRates, normalizeProcessingRequirements } from "../lib/processing-requirements";
 import { getQuoteSetupSteps, type QuoteSetupStepId } from "../lib/quote-setup";
 import { OveragePricingFields } from "./overage-pricing-fields";
+import { hasStarlinkService } from "../lib/starlink-service";
 import "./quote-setup.css";
 
 export function ProcessingRequirementsForm({ quote: source, onChange, onEditItems, onEditCustomer, onComplete, blockedMessage, initialStep }: {
@@ -20,6 +21,7 @@ export function ProcessingRequirementsForm({ quote: source, onChange, onEditItem
   initialStep?: number;
 }) {
   const quote = useMemo(() => source.metadata.workflowMode === "major_project" && source.majorProject?.enabled ? applyMajorProjectToQuote(source) : source, [source]);
+  const starlink = hasStarlinkService(source);
   const value = normalizeProcessingRequirements(quote.orderProcessing?.requirements);
   const steps = getQuoteSetupSteps(quote);
   const firstMissing = steps.findIndex(step => step.missing.length > 0);
@@ -52,7 +54,7 @@ export function ProcessingRequirementsForm({ quote: source, onChange, onEditItem
   const summaries: Record<QuoteSetupStepId, string> = {
     contact: [quote.customer.name, quote.customer.contactName, quote.customer.contactPhone, quote.customer.addressLines.join(", "), value.subAccountStatus === "yes" ? `Sub account: ${value.subAccount}` : "No sub account"].filter(Boolean).join(" · "),
     equipment: rows.length ? `${rows.length} items · ${rows.reduce((n, row) => n + row.quantity, 0)} units · ${new Intl.NumberFormat("en-US", { style: "currency", currency: quote.metadata.currencyCode || "USD" }).format(rows.reduce((n, row) => n + row.totalPrice, 0))}` : "No equipment needed",
-    pricing: [quote.orderProcessing?.dataPlanDetails, value.corporatePricing === "yes" ? "Corporate pricing" : value.pricingStructure === "pool" ? "Pool pricing" : "Individual pricing", `Overages: ${quote.orderProcessing?.overageOptIn === "yes" ? "opted in" : "opted out"}`].filter(Boolean).join(" · "),
+    pricing: !starlink ? "No Starlink service included" : [quote.orderProcessing?.dataPlanDetails, value.corporatePricing === "yes" ? "Corporate pricing" : value.pricingStructure === "pool" ? "Pool pricing" : "Individual pricing", `Overages: ${quote.orderProcessing?.overageOptIn === "yes" ? "opted in" : "opted out"}`].filter(Boolean).join(" · "),
     delivery: [quote.orderProcessing?.shippingRequired === "yes" ? "Shipping required" : "No shipping", `Public IP: ${value.publicIp}`, quote.orderProcessing?.notes].filter(Boolean).join(" · "),
     review: "",
   };
@@ -81,7 +83,8 @@ export function ProcessingRequirementsForm({ quote: source, onChange, onEditItem
     </div>
 
     </>}
-    {current.id === "pricing" && <><div className="rq-detail-fields">
+    {current.id === "pricing" && !starlink && <p>No Starlink service is included. Equipment and service prices are set in Line Items.</p>}
+    {current.id === "pricing" && starlink && <><div className="rq-detail-fields">
       <label className="builder-field"><span>Data Plan/Pool</span><input required value={quote.orderProcessing?.dataPlanDetails || ""} placeholder="Plan / pool name and allowance, or Not applicable" onChange={e => onChange(draft => { draft.orderProcessing = { ...getOrderProcessing(draft), dataPlanDetails: e.target.value }; return draft; })} /></label>
       <label className="builder-field"><span>Corporate pricing?</span><select value={value.corporatePricing} onChange={e => update(e.target.value === "no" ? prefillStarlinkRates({ ...value, corporatePricing: "no" }) : { corporatePricing: e.target.value as ProcessingRequirements["corporatePricing"] })}><option value="pending">Choose an answer</option><option value="yes">Yes</option><option value="no">No — specify rates below</option></select></label>
       {value.corporatePricing === "yes" && <label className="builder-field"><span>Corporate pricing reference (optional)</span><input value={value.corporatePricingReference} onChange={e => update({ corporatePricingReference: e.target.value })} placeholder="Agreement / rate card" /></label>}
@@ -95,7 +98,7 @@ export function ProcessingRequirementsForm({ quote: source, onChange, onEditItem
     <OveragePricingFields quote={quote} onChange={onChange} />
     </>}
     {current.id === "delivery" && <div className="rq-detail-fields">
-      <label className="builder-field"><span>Public IP?</span><select value={value.publicIp} onChange={e => update({ publicIp: e.target.value as ProcessingRequirements["publicIp"] })}><option value="pending">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+      {starlink && <label className="builder-field"><span>Public IP?</span><select value={value.publicIp} onChange={e => update({ publicIp: e.target.value as ProcessingRequirements["publicIp"] })}><option value="pending">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option></select></label>}
       <label className="builder-field"><span>Shipping required?</span><select value={quote.orderProcessing?.shippingRequired || "pending"} onChange={e => updateOrder({ shippingRequired: e.target.value as NonNullable<QuoteRecord["orderProcessing"]>["shippingRequired"] })}><option value="pending">Choose an answer</option><option value="yes">Yes</option><option value="no">No shipping needed</option></select></label>
       {quote.orderProcessing?.shippingRequired === "yes" && <>
         <label className="builder-field"><span>Shipping address</span><textarea required rows={3} value={(quote.shippingSameAsBillTo ? quote.billTo.lines : quote.shipTo.lines).join("\n")} onChange={e => onChange(draft => { const shipping = draft.shippingSameAsBillTo ? draft.billTo : draft.shipTo; shipping.lines = e.target.value.split("\n"); return draft; })} /></label>

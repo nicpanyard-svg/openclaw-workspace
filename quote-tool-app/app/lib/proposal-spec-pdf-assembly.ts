@@ -3,6 +3,8 @@ import { getMajorProjectSpecAttachmentFile } from "@/app/lib/major-project-spec-
 import { getProposalAttachments, type ProposalAttachment } from "@/app/lib/proposal-attachments";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { convertProposalImageToPng } from "@/app/lib/proposal-image-conversion";
+import { loadAnnotatedPdf, renderAnnotatedPage } from "./proposal-pdf-annotations";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 
 export type ProposalAttachmentLoader = (storageKey: string) => Promise<Blob | undefined>;
 
@@ -61,42 +63,55 @@ function sourceRotation(page: PDFPage) {
 async function appendPdf(target: PDFDocument, blob: Blob, entry: ProposalAttachment, font: PDFFont) {
   const source = await PDFDocument.load(await blob.arrayBuffer(), { throwOnInvalidObject: true });
   if (!source.getPageCount()) throw new Error("PDF has no pages");
-
-  for (const [index, sourcePage] of source.getPages().entries()) {
-    const annotations = sourcePage.node.Annots();
-    for (let annotationIndex = 0; annotationIndex < (annotations?.size() ?? 0); annotationIndex += 1) {
-      const annotation = source.context.lookup(annotations!.get(annotationIndex));
-      // Form embedding preserves page artwork, not annotation appearances.
-      // Reject these explicitly rather than silently dropping stamps or form values.
-      if (!(annotation instanceof PDFDict && annotation.get(PDFName.of("Subtype")) === PDFName.of("Link"))) {
-        throw new Error("unsupported PDF annotations; export a flattened PDF before attaching");
+  // Flatten fields on this in-memory copy. Other annotation types are rendered below.
+  try { source.getForm().flatten(); } catch { /* PDF.js can render forms that pdf-lib cannot flatten. */ }
+  let renderedSource: PDFDocumentProxy | undefined;
+  try {
+    for (const [index, sourcePage] of source.getPages().entries()) {
+      const annotations = sourcePage.node.Annots();
+      let needsRendering = false;
+      for (let annotationIndex = 0; annotationIndex < (annotations?.size() ?? 0); annotationIndex += 1) {
+        const annotation = source.context.lookup(annotations!.get(annotationIndex));
+        // pdf-lib can leave dangling widget references after flattening their appearances.
+        if (!annotation) continue;
+        // Page embedding omits annotation appearances. Render those pages instead.
+        if (!(annotation instanceof PDFDict && annotation.get(PDFName.of("Subtype")) === PDFName.of("Link"))) {
+          needsRendering = true;
+        }
       }
+      if (needsRendering) {
+        renderedSource ??= await loadAnnotatedPdf(new Uint8Array(await blob.arrayBuffer()));
+        await appendImage(target, await renderAnnotatedPage(renderedSource, index + 1), "png", entry, font, index + 1, source.getPageCount());
+        continue;
+      }
+      const { x, y, width, height } = sourcePage.getMediaBox();
+      if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) throw new Error("invalid PDF page dimensions");
+      const rotation = sourceRotation(sourcePage);
+      const sideways = rotation === 90 || rotation === 270;
+      const scale = Math.min((LETTER_WIDTH - SIDE_MARGIN * 2) / (sideways ? height : width), (CONTENT_TOP - CONTENT_BOTTOM) / (sideways ? width : height));
+      const displayWidth = (sideways ? height : width) * scale;
+      const displayHeight = (sideways ? width : height) * scale;
+      const left = (LETTER_WIDTH - displayWidth) / 2;
+      const bottom = CONTENT_BOTTOM + (CONTENT_TOP - CONTENT_BOTTOM - displayHeight) / 2;
+      sourcePage.pushOperators(); // Materialize a contents stream for valid blank pages.
+      const embedded = await target.embedPage(sourcePage, { left: x, bottom: y, right: x + width, top: y + height });
+      await embedded.embed(); // Surface corrupt content streams before final save.
+      const page = target.addPage([LETTER_WIDTH, LETTER_HEIGHT]);
+      page.drawPage(embedded, {
+        x: left + (rotation === 180 ? width * scale : rotation === 270 ? height * scale : 0),
+        y: bottom + (rotation === 90 ? width * scale : rotation === 180 ? height * scale : 0),
+        width: width * scale,
+        height: height * scale,
+        rotate: degrees(-rotation),
+      });
+      attachmentHeader(page, entry, font, index + 1, source.getPageCount());
     }
-    const { x, y, width, height } = sourcePage.getMediaBox();
-    if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) throw new Error("invalid PDF page dimensions");
-    const rotation = sourceRotation(sourcePage);
-    const sideways = rotation === 90 || rotation === 270;
-    const scale = Math.min((LETTER_WIDTH - SIDE_MARGIN * 2) / (sideways ? height : width), (CONTENT_TOP - CONTENT_BOTTOM) / (sideways ? width : height));
-    const displayWidth = (sideways ? height : width) * scale;
-    const displayHeight = (sideways ? width : height) * scale;
-    const left = (LETTER_WIDTH - displayWidth) / 2;
-    const bottom = CONTENT_BOTTOM + (CONTENT_TOP - CONTENT_BOTTOM - displayHeight) / 2;
-    sourcePage.pushOperators(); // Materialize a contents stream for valid blank pages.
-    const embedded = await target.embedPage(sourcePage, { left: x, bottom: y, right: x + width, top: y + height });
-    await embedded.embed(); // Surface corrupt content streams before final save.
-    const page = target.addPage([LETTER_WIDTH, LETTER_HEIGHT]);
-    page.drawPage(embedded, {
-      x: left + (rotation === 180 ? width * scale : rotation === 270 ? height * scale : 0),
-      y: bottom + (rotation === 90 ? width * scale : rotation === 180 ? height * scale : 0),
-      width: width * scale,
-      height: height * scale,
-      rotate: degrees(-rotation),
-    });
-    attachmentHeader(page, entry, font, index + 1, source.getPageCount());
+  } finally {
+    await renderedSource?.destroy();
   }
 }
 
-async function appendImage(target: PDFDocument, bytes: Uint8Array, format: "png" | "jpeg", entry: ProposalAttachment, font: PDFFont) {
+async function appendImage(target: PDFDocument, bytes: Uint8Array, format: "png" | "jpeg", entry: ProposalAttachment, font: PDFFont, pageNumber = 1, pageCount = 1) {
   const embedded = format === "png" ? await target.embedPng(bytes) : await target.embedJpg(bytes);
   await embedded.embed();
   if (embedded.width <= 0 || embedded.height <= 0) throw new Error("invalid image dimensions");
@@ -108,7 +123,7 @@ async function appendImage(target: PDFDocument, bytes: Uint8Array, format: "png"
     width: embedded.width * scale,
     height: embedded.height * scale,
   });
-  attachmentHeader(page, entry, font, 1, 1);
+  attachmentHeader(page, entry, font, pageNumber, pageCount);
 }
 
 function attachmentFormat(entry: ProposalAttachment, blob: Blob): "pdf" | "png" | "jpeg" | "webp" | "gif" | undefined {

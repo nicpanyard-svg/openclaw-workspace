@@ -2,6 +2,7 @@ import { applyMajorProjectToQuote } from "./major-project";
 import type { ProcessingRateKey, ProcessingRequirements, QuoteRecord } from "./quote-record";
 import { getIncludedEquipmentRows } from "./proposal-commercial-summary";
 import { resolveOverageTerms } from "./overage-terms";
+import { hasStarlinkService } from "./starlink-service";
 
 export const PROCESSING_RATES: { key: ProcessingRateKey; label: string; basis: string }[] = [
   { key: "managementSupport", label: "Management and support fee", basis: "per month" },
@@ -37,11 +38,12 @@ export function missingProcessingRequirements(source: QuoteRecord): string[] {
   const quote = source.metadata.workflowMode === "major_project" && source.majorProject?.enabled ? applyMajorProjectToQuote(source) : source;
   const details = normalizeProcessingRequirements(quote.orderProcessing?.requirements);
   const missing: string[] = [];
+  const starlink = hasStarlinkService(source);
   if (!text(quote.customer.name)) missing.push("Customer");
   if (details.subAccountStatus === "pending") missing.push("Sub-account decision");
   if (details.subAccountStatus === "yes" && !details.subAccount) missing.push("Sub-account name / ID");
-  if (!text(quote.orderProcessing?.dataPlanDetails)) missing.push("Data plan / allocation details");
-  if (details.corporatePricing === "pending") missing.push("Corporate pricing decision");
+  if (starlink && !text(quote.orderProcessing?.dataPlanDetails)) missing.push("Data plan / allocation details");
+  if (starlink && details.corporatePricing === "pending") missing.push("Corporate pricing decision");
   const equipment = quote.sections.sectionB.enabled ? getIncludedEquipmentRows(quote) : [];
   if (!equipment.length && details.equipmentRequired === "pending") missing.push("Equipment needed decision");
   if (!equipment.length && details.equipmentRequired === "yes") missing.push("Equipment items, quantities and pricing");
@@ -50,15 +52,15 @@ export function missingProcessingRequirements(source: QuoteRecord): string[] {
     if (!Number.isFinite(row.quantity) || row.quantity <= 0) missing.push(`${row.itemName}: equipment quantity`);
     if (![row.unitPrice, row.totalPrice].every(value => Number.isFinite(value) && value >= 0)) missing.push(`${row.itemName}: equipment pricing`);
   }
-  if (details.corporatePricing === "no" && details.pricingStructure === "pending") missing.push("Individual or pool pricing decision");
-  if (details.corporatePricing === "no") for (const { key, label } of requiredProcessingRates(details)) {
+  if (starlink && details.corporatePricing === "no" && details.pricingStructure === "pending") missing.push("Individual or pool pricing decision");
+  if (starlink && details.corporatePricing === "no") for (const { key, label } of requiredProcessingRates(details)) {
     const rate = details.rates[key];
     if (rate.status === "pending" || (rate.status === "priced" && (rate.amount === null || !rate.basis))) missing.push(`${label} pricing`);
   }
   const overages = resolveOverageTerms(quote);
-  if (overages.decision === "pending") missing.push("Overage opt-in decision");
-  if (overages.decision === "yes" && (overages.amount === null || !overages.basis || overages.conflict || overages.planMismatch)) missing.push("Overage price");
-  if (details.publicIp === "pending") missing.push("Public IP decision");
+  if (starlink && overages.decision === "pending") missing.push("Overage opt-in decision");
+  if (starlink && overages.decision === "yes" && (overages.amount === null || !overages.basis || overages.conflict || overages.planMismatch)) missing.push("Overage price");
+  if (starlink && details.publicIp === "pending") missing.push("Public IP decision");
   const shipping = quote.shippingSameAsBillTo ? quote.billTo : quote.shipTo;
   if (!quote.orderProcessing?.shippingRequired || quote.orderProcessing.shippingRequired === "pending") missing.push("Shipping decision");
   if (quote.orderProcessing?.shippingRequired === "yes") {

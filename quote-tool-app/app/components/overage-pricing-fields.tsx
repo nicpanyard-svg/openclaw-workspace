@@ -1,5 +1,6 @@
 "use client";
 
+import { hasStarlinkService } from "../lib/starlink-service";
 import type { QuoteRecord } from "../lib/quote-record";
 import { getOrderProcessing } from "../lib/order-processing";
 import { getOverageDefault, getOveragePlan, resolveOverageTerms, setOveragePrice } from "../lib/overage-terms";
@@ -8,6 +9,7 @@ export function OveragePricingFields({ quote, onChange }: {
   quote: QuoteRecord;
   onChange: (updater: (quote: QuoteRecord) => QuoteRecord) => void;
 }) {
+  if (!hasStarlinkService(quote)) return null;
   const terms = resolveOverageTerms(quote);
   const standard = getOverageDefault(quote);
   const pool = getOveragePlan(quote) === "pool";

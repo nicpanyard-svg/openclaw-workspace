@@ -3,6 +3,7 @@
 import { AlertCircle, Check, Download, Pencil } from "lucide-react";
 import type { QuoteOrderProcessing, QuoteRecord } from "@/app/lib/quote-record";
 import { getOrderProcessing, getOrderProcessingSummary } from "@/app/lib/order-processing";
+import { hasStarlinkService } from "../lib/starlink-service";
 import { OveragePricingFields } from "./overage-pricing-fields";
 
 function formatCurrency(value: number, currency: string) {
@@ -19,6 +20,7 @@ type OrderProcessingPanelProps = {
 };
 
 export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditItems, onExport, onEditSetup }: OrderProcessingPanelProps) {
+  const starlink = hasStarlinkService(quote);
   const summary = getOrderProcessingSummary(quote);
   const details = { ...getOrderProcessing(quote), ...quote.orderProcessing };
   const currency = quote.metadata.currencyCode || "USD";
@@ -44,8 +46,8 @@ export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditIt
       <div className="rq-section-heading"><h3>Service location and terminals</h3><button type="button" className="rq-button rq-button-quiet" onClick={onEditCustomer}><Pencil size={14} aria-hidden="true" />Edit customer</button></div>
       <div className="rq-order-address"><span>Service address</span>{summary.serviceAddress.length ? summary.serviceAddress.map((line, index) => <div key={index}>{line}</div>) : <strong>Not specified</strong>}</div>
       <div className="rq-detail-fields">
-        <label className="builder-field"><span>Terminal names / identifiers (optional)</span><select value={details.terminalsStatus} onChange={(event) => updateDetails({ terminalsStatus: event.target.value as QuoteOrderProcessing["terminalsStatus"] })}><option value="pending">Not available yet — add later</option><option value="listed">Listed below</option><option value="not_applicable">Not applicable</option></select></label>
-        {details.terminalsStatus === "listed" && <label className="builder-field"><span>Terminal list</span><textarea rows={3} value={details.terminals.join("\n")} onChange={(event) => updateDetails({ terminals: event.target.value.split("\n") })} placeholder="Site A - Terminal 1" /></label>}
+        {starlink && <label className="builder-field"><span>Terminal names / identifiers (optional)</span><select value={details.terminalsStatus} onChange={(event) => updateDetails({ terminalsStatus: event.target.value as QuoteOrderProcessing["terminalsStatus"] })}><option value="pending">Not available yet — add later</option><option value="listed">Listed below</option><option value="not_applicable">Not applicable</option></select></label>}
+        {starlink && details.terminalsStatus === "listed" && <label className="builder-field"><span>Terminal list</span><textarea rows={3} value={details.terminals.join("\n")} onChange={(event) => updateDetails({ terminals: event.target.value.split("\n") })} placeholder="Site A - Terminal 1" /></label>}
       </div>
     </div>
 
@@ -62,9 +64,9 @@ export function OrderProcessingPanel({ quote, onChange, onEditCustomer, onEditIt
       <div className="rq-section-heading"><h3>Subscriptions</h3><button type="button" className="rq-button rq-button-quiet" onClick={onEditItems}><Pencil size={14} aria-hidden="true" />Edit line items</button></div>
       <div className="rq-order-table-wrap"><table className="rq-order-table"><caption className="sr-only">Subscriptions and quoted fees</caption><thead><tr><th>Subscription / fee</th><th>Unit rate</th><th>Quoted total</th></tr></thead><tbody>{summary.subscriptionRows.length ? summary.subscriptionRows.map((row) => <tr key={row.id}><td><strong>{row.description}</strong><span>{row.kind}{row.quantity != null ? ` / Qty ${row.quantity}` : ""}</span></td><td>{formatCurrency(row.unitPrice, currency)}<span>{row.billingLabel}</span></td><td>{row.kind === "Overage" ? "Usage-based" : formatCurrency(row.total, currency)}</td></tr>) : <tr><td colSpan={3}>No subscriptions quoted.</td></tr>}</tbody></table></div>
       <div className="rq-detail-fields">
-        <label className="builder-field"><span>Data plan / allocation</span><input value={details.dataPlanDetails} onChange={(event) => updateDetails({ dataPlanDetails: event.target.value })} placeholder="Pool / 1 TB across 4 terminals" /></label>
+        {starlink && <label className="builder-field"><span>Data plan / allocation</span><input value={details.dataPlanDetails} onChange={(event) => updateDetails({ dataPlanDetails: event.target.value })} placeholder="Pool / 1 TB across 4 terminals" /></label>}
         <label className="builder-field"><span>Monitoring &amp; support arrangement</span><input value={details.monitoringSupportDetails} onChange={(event) => updateDetails({ monitoringSupportDetails: event.target.value })} placeholder="Quoted, included, or not applicable" /></label>
-        <label className="builder-field"><span>Terminal access charge (TAC / TAF) arrangement</span><input value={details.terminalAccessFeeDetails} onChange={(event) => updateDetails({ terminalAccessFeeDetails: event.target.value })} placeholder="Quoted, included, or not applicable" /></label>
+        {starlink && <label className="builder-field"><span>Terminal access charge (TAC / TAF) arrangement</span><input value={details.terminalAccessFeeDetails} onChange={(event) => updateDetails({ terminalAccessFeeDetails: event.target.value })} placeholder="Quoted, included, or not applicable" /></label>}
         <OveragePricingFields quote={quote} onChange={onChange} />
       </div>
     </div>
