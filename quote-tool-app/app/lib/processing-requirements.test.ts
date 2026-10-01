@@ -5,9 +5,62 @@ import { createBlankQuoteRecord } from "./quote-template";
 import { getOrderProcessing, buildOrderProcessingText } from "./order-processing";
 import { serializeQuoteRecord, deserializeQuoteRecord } from "./proposal-state";
 import { applyMajorProjectToQuote, convertQuickQuoteToMajorProject } from "./major-project";
+import { hasStarlinkService } from "./starlink-service";
+
+test("equipment-only quotes ignore saved Starlink answers without changing prices or uploaded data", () => {
+  const quote = readyQuote();
+  quote.sections.sectionA.poolRows = [];
+  quote.sections.sectionA.perKitRows = [];
+  quote.orderProcessing!.dataPlanDetails = "";
+  quote.orderProcessing!.overageOptIn = "yes";
+  quote.orderProcessing!.requirements = {
+    ...normalizeProcessingRequirements(undefined), subAccountStatus: "no", corporatePricing: "no",
+  };
+  const before = structuredClone(quote);
+  assert.equal(hasStarlinkService(quote), false);
+  assert.deepEqual(missingProcessingRequirements(quote), []);
+  const text = buildOrderProcessingText(quote);
+  assert.doesNotMatch(text, /TAC|Overage|Data Plan|Public IP|Pricing structure/);
+  assert.match(text, /Remote kit/);
+  assert.deepEqual(quote, before);
+  const major = convertQuickQuoteToMajorProject(quote);
+  major.orderProcessing!.requirements!.equipment = {};
+  const missing = missingProcessingRequirements(major);
+  assert.equal(hasStarlinkService(major), false);
+  assert.ok(missing.length > 0 && missing.every(item => item.includes("assembly or standalone")));
+});
+
+test("disabled, inactive and optional subscription lines do not enable Starlink setup", () => {
+  const quote = readyQuote();
+  quote.sections.sectionA.mode = "pool";
+  quote.sections.sectionA.enabled = false;
+  assert.equal(hasStarlinkService(quote), false);
+  quote.sections.sectionA.enabled = true;
+  quote.sections.sectionA.poolRows.forEach(row => { row.optional = true; });
+  assert.equal(hasStarlinkService(quote), false);
+  quote.sections.sectionA.poolRows[0].optional = false;
+  assert.equal(hasStarlinkService(quote), true);
+});
+
+test("managed-network Major Projects do not inherit Starlink-only questions", () => {
+  const quote = convertQuickQuoteToMajorProject(readyQuote());
+  quote.majorProject.commercial.serviceMix = "managed-network";
+  const option = quote.majorProject.options.find(option => option.id === quote.majorProject.activeOptionId)!;
+  for (const component of option.components ?? []) {
+    if (component.schedule === "recurring") component.customerFacingLabel = "Managed firewall";
+  }
+  assert.equal(hasStarlinkService(quote), false);
+  quote.orderProcessing!.requirements!.corporatePricing = "pending";
+  quote.orderProcessing!.requirements!.publicIp = "pending";
+  quote.orderProcessing!.overageOptIn = "pending";
+  quote.orderProcessing!.dataPlanDetails = "";
+  assert.ok(!missingProcessingRequirements(quote).some(item => /pricing|Overage|Public IP|Data plan/.test(item)));
+});
 
 function readyQuote() {
   const quote = createBlankQuoteRecord();
+  quote.sections.sectionA.poolRows = [{ id: "plan", rowType: "service", description: "Starlink data", quantity: 1, monthlyRate: 100, totalMonthlyRate: 100 }];
+  quote.sections.sectionA.perKitRows = [{ ...quote.sections.sectionA.poolRows[0], rowType: "service" }];
   quote.customer.name = "Processing QA";
   quote.customer.addressLines = ["10 Service Rd"];
   quote.customer.contactName = "Pat"; quote.customer.contactPhone = "555-0100";
@@ -20,7 +73,7 @@ function readyQuote() {
 }
 test("all requirements start unconfirmed and prevent quote creation", () => {
   const quote = createBlankQuoteRecord();
-  assert.deepEqual(missingProcessingRequirements(quote), ["Customer", "Sub-account decision", "Data plan / allocation details", "Corporate pricing decision", "Equipment needed decision", "Overage opt-in decision", "Public IP decision", "Shipping decision", "Service address", "POC name", "POC phone number", "Special instructions (or None)"]);
+  assert.deepEqual(missingProcessingRequirements(quote), ["Customer", "Sub-account decision", "Equipment needed decision", "Shipping decision", "Service address", "POC name", "POC phone number", "Special instructions (or None)"]);
 });
 test("corporate pricing skips individual rates, applicable sub-accounts require an ID", () => {
   const quote = readyQuote();

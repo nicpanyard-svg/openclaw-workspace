@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createCanvas } from "@napi-rs/canvas";
-import { degrees, PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { degrees, PDFDocument, PDFName, rgb, StandardFonts } from "pdf-lib";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { applyMajorProjectToQuote } from "./major-project";
 import { getProposalAttachments } from "./proposal-attachments";
@@ -217,15 +217,63 @@ test("valid blank attachment pages are preserved, not treated as failed embeds",
   assert.ok(pages[1].some((item) => item.text === "A1 - System drawing - blank.pdf"));
 });
 
-test("rejects form/annotation PDFs rather than silently discarding visible field values", async () => {
+test("automatically flattens forms while preserving visible field values and the original upload", async () => {
   const annotated = await PDFDocument.create();
   const page = annotated.addPage();
   const field = annotated.getForm().createTextField("terminal");
   field.setText("Terminal 123");
   field.addToPage(page);
-  await assert.rejects(assembleFinalProposalPdf(await makePdf(["BASE"]), drawingQuote([file("form")]), {
-    loadAttachment: async () => pdfBlob(annotated),
-  }), /form.pdf: unsupported PDF annotations; export a flattened PDF/);
+  const original = await pdfBlob(annotated);
+  const result = await assembleFinalProposalPdf(await makePdf(["BASE"]), drawingQuote([file("form")]), {
+    loadAttachment: async () => original,
+  });
+  const pages = await textPages(result);
+  assert.equal(pages.length, 2);
+  assert.ok(pages[1].some(item => item.text === "Terminal 123"));
+  const unchanged = await PDFDocument.load(await original.arrayBuffer());
+  assert.equal(unchanged.getForm().getTextField("terminal").getText(), "Terminal 123");
+});
+
+test("automatically renders stamp appearances on multipage PDFs with final headers and numbering", async (t) => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const canvases: Array<{ width: number; height: number }> = [];
+  Object.defineProperty(globalThis, "document", { configurable: true, value: { createElement: () => {
+    const canvas = createCanvas(1, 1);
+    canvases.push(canvas);
+    return Object.assign(canvas, { toBlob: (done: (blob: Blob) => void) => done(new Blob([new Uint8Array(canvas.toBuffer("image/png"))], { type: "image/png" })) });
+  } } });
+  t.after(() => {
+    if (previous) Object.defineProperty(globalThis, "document", previous);
+    else Reflect.deleteProperty(globalThis, "document");
+  });
+  const source = await PDFDocument.create();
+  source.addPage().drawText("SEARCHABLE FIRST PAGE");
+  const page = source.addPage([612, 792]);
+  page.drawRectangle({ x: 80, y: 80, width: 60, height: 60, color: rgb(0, 1, 0) });
+  const appearance = source.context.register(source.context.flateStream("1 0 0 rg 0 0 100 100 re f", {
+    Type: "XObject", Subtype: "Form", BBox: [0, 0, 100, 100], Resources: {},
+  }));
+  page.node.set(PDFName.of("Annots"), source.context.obj([source.context.register(source.context.obj({
+    Type: "Annot", Subtype: "Stamp", Rect: [250, 350, 350, 450], F: 4, AP: { N: appearance },
+  }))]));
+  const result = await assembleFinalProposalPdf(await makePdf(["BASE"]), drawingQuote([file("stamp")]), { loadAttachment: async () => pdfBlob(source) });
+  const pages = await textPages(result);
+  assert.equal(pages.length, 3);
+  assert.ok(pages[1].some(item => item.text === "SEARCHABLE FIRST PAGE"));
+  assert.ok(pages[2].some(item => item.text === "2/2"));
+  assert.ok(pages[2].some(item => item.text === "Page 3 of 3"));
+  const document = await readPdf(result);
+  try {
+    const output = await document.getPage(3);
+    const canvas = createCanvas(612, 792);
+    const context = canvas.getContext("2d");
+    await output.render({ canvas: null, canvasContext: context as unknown as CanvasRenderingContext2D, viewport: output.getViewport({ scale: 1 }) }).promise;
+    const [red, green, blue] = context.getImageData(300, 392, 1, 1).data;
+    assert.ok(red > 240 && green < 15 && blue < 15, "stamp appearance must survive export");
+    const [r, g, b] = context.getImageData(130, 647, 1, 1).data;
+    assert.ok(r < 15 && g > 240 && b < 15, "underlying page artwork must survive export");
+  } finally { await document.destroy(); }
+  assert.ok(canvases.every(canvas => canvas.width === 1 && canvas.height === 1), "render canvases are released");
 });
 
 for (const rotation of [0, 90, 180, 270]) {

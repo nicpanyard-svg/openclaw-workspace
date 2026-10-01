@@ -95,7 +95,7 @@ test("legacy order details default to explicit pending decisions without mutatin
   assert.equal(serializeQuoteRecord(quote), before);
   details.terminals.push("Changed copy");
   assert.deepEqual(getOrderProcessing(quote), defaults);
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Customer", "Sub-account decision", "Data plan / allocation details", "Corporate pricing decision", "Equipment needed decision", "Overage opt-in decision", "Public IP decision", "Shipping decision", "Service address", "POC name", "POC phone number", "Special instructions (or None)"]);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Customer", "Sub-account decision", "Equipment needed decision", "Shipping decision", "Service address", "POC name", "POC phone number", "Special instructions (or None)"]);
   const restored = deserializeQuoteRecord(before);
   assert.ok(restored);
   assert.deepEqual(restored.orderProcessing, defaults);
@@ -187,8 +187,8 @@ test("recurring service needs explicit data allocation even when its prose menti
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Data plan / allocation details"]);
   assert.throws(() => buildOrderProcessingText(quote), /Complete these order details before exporting: Data plan \/ allocation details/);
   quote.sections.sectionA.enabled = false;
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Data plan / allocation details"]);
-  assert.throws(() => buildOrderProcessingText(quote), /Data plan \/ allocation details/);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
+  assert.doesNotThrow(() => buildOrderProcessingText(quote));
 });
 
 test("corporate pricing covers support while an opted-in overage rate remains explicit", () => {
@@ -214,7 +214,7 @@ test("corporate pricing covers support while an opted-in overage rate remains ex
   assert.doesNotMatch(output, /DRAFT|Terminal decision|Monitoring \/ support fee definition|Overage pricing/);
   quote.sections.sectionA.enabled = false;
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
-  assert.match(buildOrderProcessingText(quote), /Terminal access fee definition: Covered by corporate pricing/);
+  assert.doesNotMatch(buildOrderProcessingText(quote), /Terminal access fee definition|Overage rate/);
 });
 
 test("noncorporate individual blocks and explicit pool rates complete handoff without changing base 50GB pricing", () => {
@@ -440,8 +440,8 @@ test("disabled sections suppress their rows, totals, optional items, and recurri
   assert.deepEqual(summary.subscriptionRows, []);
   assert.deepEqual(summary.equipmentRows, []);
   assert.deepEqual(summary.serviceRows, []);
-  assert.deepEqual(summary.missingFields, ["Equipment items, quantities and pricing", "Overage opt-in decision"]);
-  assert.throws(() => buildOrderProcessingText(quote), /Equipment items, quantities and pricing; Overage opt-in decision/);
+  assert.deepEqual(summary.missingFields, ["Equipment items, quantities and pricing"]);
+  assert.throws(() => buildOrderProcessingText(quote), /Equipment items, quantities and pricing/);
   quote.orderProcessing.requirements.equipmentRequired = "no";
   quote.orderProcessing.overageOptIn = "no";
   const output = buildOrderProcessingText(quote);
@@ -453,11 +453,11 @@ test("disabled sections suppress their rows, totals, optional items, and recurri
   assert.doesNotMatch(output, /Managed monitoring|Fleet access|Optional spare|Install and permit/);
 });
 
-test("optional-only recurring rows do not change the required overage decision or corporate fee coverage", () => {
+test("optional-only recurring rows do not require Starlink setup until included", () => {
   const quote = createOrderQuote();
   quote.orderProcessing = { ...getOrderProcessing(quote), overageOptIn: "pending" };
   quote.sections.sectionA.poolRows.forEach((row) => { row.optional = true; });
-  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage opt-in decision"]);
+  assert.deepEqual(getOrderProcessingSummary(quote).missingFields, []);
   quote.sections.sectionA.poolRows[0].optional = false;
   assert.deepEqual(getOrderProcessingSummary(quote).missingFields, ["Overage opt-in decision"]);
 });
