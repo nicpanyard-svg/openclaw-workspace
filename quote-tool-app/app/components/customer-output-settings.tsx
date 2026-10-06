@@ -1,10 +1,38 @@
 "use client";
 
+import { useState } from "react";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { getCustomerQuoteContent, getFieldServiceConfirmationKey, normalizeCustomerOutput } from "@/app/lib/proposal-customer-content";
 import { getIncludedServiceRows } from "@/app/lib/proposal-commercial-summary";
 import { finalReviewComplete, finalReviewConfirmed, finalReviewKey, getFinalPaymentTerms, needsShippingActivation, setFinalPaymentTerms } from "@/app/lib/final-quote-review";
 import { OveragePricingFields } from "./overage-pricing-fields";
+
+const PAYMENT_TERMS_OPTIONS = ["Net 30", "Net 60", "Prepaid"];
+
+function PaymentTermsField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [editingCustom, setEditingCustom] = useState(false);
+  const preset = PAYMENT_TERMS_OPTIONS.find(option => option.toLowerCase() === value.trim().toLowerCase());
+  const custom = editingCustom || Boolean(value && !preset);
+
+  return <div className="builder-field">
+    <label className="builder-field">
+      <span>What are the payment terms?</span>
+      <select value={custom ? "custom" : preset ?? ""} onChange={event => {
+        const selected = event.target.value;
+        setEditingCustom(selected === "custom");
+        if (selected !== "custom") onChange(selected);
+      }}>
+        <option value="" disabled>Choose payment terms</option>
+        {PAYMENT_TERMS_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+        <option value="custom">Custom terms</option>
+      </select>
+    </label>
+    {custom && <label className="builder-field">
+      <span>Custom payment terms</span>
+      <input value={value} onChange={event => onChange(event.target.value)} placeholder="Enter the agreed payment terms" />
+    </label>}
+  </div>;
+}
 
 export function CustomerOutputSettings({ quote, onChange }: {
   quote: QuoteRecord;
@@ -26,7 +54,7 @@ export function CustomerOutputSettings({ quote, onChange }: {
         if (draft.metadata.workflowMode === "major_project") draft.majorProject.commercial.termMonths = months;
         return draft;
       })} /><datalist id="review-agreement-months"><option value="12" /><option value="24" /><option value="36" /></datalist></label>
-      <label className="builder-field"><span>What are the payment terms?</span><input list="review-payment-terms" value={getFinalPaymentTerms(quote)} onChange={event => onChange(draft => setFinalPaymentTerms(draft, event.target.value))} placeholder="Choose or enter custom terms" /><datalist id="review-payment-terms"><option value="Net 30" /><option value="Net 60" /><option value="Prepaid" /></datalist></label>
+      <PaymentTermsField key={quote.internal.quoteId} value={getFinalPaymentTerms(quote)} onChange={value => onChange(draft => setFinalPaymentTerms(draft, value))} />
       <label className="builder-field"><span>When does billing start?</span><input list="review-billing-start" value={settings.billingStart} onChange={(event) => update("billingStart", event.target.value)} placeholder="Choose or enter a date" /><datalist id="review-billing-start"><option value="On activation" /><option value="On installation" /></datalist></label>
       {needsShippingActivation(quote) && <label className="builder-field"><span>Should the equipment ship activated?</span><select value={settings.shipsActivated ?? ""} onChange={event => onChange(draft => {
         draft.customerOutput = { ...normalizeCustomerOutput(draft.customerOutput), shipsActivated: event.target.value === "yes" ? "yes" : event.target.value === "no" ? "no" : undefined };
