@@ -1,4 +1,5 @@
 import { buildExecutiveSummaryRenderBlocks } from "@/app/lib/executive-summary";
+import { resolveQuotePricingTerms } from "./quote-pricing-terms";
 import {
   buildProposalCommercialSummary,
   getCombinedOneTimeTotal,
@@ -207,7 +208,7 @@ export function buildProposalPdfViewModel(quote: QuoteRecord): ProposalPdfViewMo
     leaseHardwareMonthly: leasePricing.hardwareMonthly,
     leaseHasActiveDataAgreement: leasePricing.hasActiveDataAgreement,
     currencyCode: quote.metadata.currencyCode || "USD",
-    terms: quote.terms,
+    terms: { ...quote.terms, pricingTerms: resolveQuotePricingTerms(quote) },
     approval: quote.approval,
     documentation: quote.documentation,
     revisionVersion: quote.metadata.revisionVersion,

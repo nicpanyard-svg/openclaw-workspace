@@ -1,6 +1,7 @@
 import type { QuoteRecord } from "./quote-record";
 import { normalizeCustomerOutput } from "./proposal-customer-content";
 import { getIncludedEquipmentRows } from "./proposal-commercial-summary";
+import { resolveQuotePricingTerms } from "./quote-pricing-terms";
 
 export function needsShippingActivation(quote: QuoteRecord) {
   return quote.orderProcessing?.shippingRequired !== "no" && getIncludedEquipmentRows(quote).length > 0;
@@ -26,7 +27,7 @@ export function finalReviewKey(quote: QuoteRecord) {
     billing: quote.customerOutput?.billingStart?.trim() ?? "",
     activation: needsShippingActivation(quote) ? quote.customerOutput?.shipsActivated ?? "" : null,
     lease: quote.metadata.quoteType === "lease" ? [quote.metadata.leaseTermMonths, quote.customerOutput?.leaseEndTerms, quote.customerOutput?.postLeaseTerms] : null,
-    terms: quote.terms,
+    terms: { ...quote.terms, pricingTerms: resolveQuotePricingTerms(quote) },
     project: quote.metadata.workflowMode === "major_project" ? [quote.majorProject.summary.paymentTerms, quote.majorProject.summary.billingStart] : null,
   });
 }

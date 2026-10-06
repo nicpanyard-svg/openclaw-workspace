@@ -14,6 +14,7 @@ import { getAnnualSubscriptionSummary, getLineBilling, isAnnualLine } from "@/ap
 import { OrderProcessingPanel } from "@/app/components/order-processing-panel";
 import { CustomerOutputSettings } from "@/app/components/customer-output-settings";
 import { finalReviewConfirmed } from "@/app/lib/final-quote-review";
+import { resolveQuotePricingTerms } from "@/app/lib/quote-pricing-terms";
 import { ProcessingRequirementsForm } from "./processing-requirements";
 import { missingProcessingRequirements } from "../lib/processing-requirements";
 import { QuoteExportMenu } from "@/app/components/quote-export-menu";
@@ -6231,7 +6232,7 @@ return {
               <span>Pricing terms in proposal body</span>
               <textarea
                 rows={8}
-                value={quote.terms.pricingTerms.join("\n")}
+                value={resolveQuotePricingTerms(quote).join("\n")}
                 onChange={(event) => updateQuote((draft) => {
                   draft.terms.pricingTerms = event.target.value.split("\n");
                   if (draft.customerOutput) draft.customerOutput.paymentTerms = undefined;
@@ -6240,7 +6241,7 @@ return {
                 aria-describedby="pricing-terms-help"
               />
               <span id="pricing-terms-help" className="text-[12px] text-[#60707f]">
-                Edit the payment sentence and other pricing terms shown in the proposal body. Use one paragraph per line. Choosing another terms package replaces this text.
+                Agreement length, payment terms, expiration, and currency follow your quote settings. Edit other wording here, one paragraph per line. Choosing another terms package replaces this text.
               </span>
             </label>
           </div>

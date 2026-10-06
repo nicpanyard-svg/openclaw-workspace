@@ -2,6 +2,7 @@ import type { QuoteCustomerOutput, QuoteRecord } from "./quote-record";
 import { getIncludedEquipmentRows, getIncludedSectionARows, getIncludedServiceRows } from "./proposal-commercial-summary";
 import { isSoftwareLine } from "./quote-software";
 import { resolveOverageTerms } from "./overage-terms";
+import { isManagedServiceTerm, resolveQuotePricingTerms } from "./quote-pricing-terms";
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -57,8 +58,6 @@ function isPlaceholder(value: string) {
   return /\bplaceholder\b|legal terms are still being finalized|must be replaced with approved|replace.*approved final|must be reviewed before (?:customer )?release/i.test(value);
 }
 
-const legacyServiceTerm = "Pricing for Pool for Starlink Service is based upon a 12 Month Term upon date of agreement between both parties.";
-
 export function getFieldServiceConfirmationKey(quote: QuoteRecord) {
   return JSON.stringify(getIncludedServiceRows(quote).map((row) => ({
     id: row.id, description: row.description, quantity: row.quantity, unitLabel: row.unitLabel,
@@ -73,7 +72,7 @@ export function getCustomerQuoteContent(quote: QuoteRecord) {
   const fieldServices = getIncludedServiceRows(quote);
   const fieldServicePricingConfirmed = quote.metadata.workflowMode === "major_project" && fieldServices.length > 0
     && settings.fieldServiceConfirmation === getFieldServiceConfirmationKey(quote);
-  const serviceTermMonths = Math.max(1, quote.sections.sectionA.termMonths || 12);
+  const serviceTermMonths = Math.max(1, (quote.metadata.workflowMode === "major_project" ? quote.majorProject.commercial.termMonths : quote.sections.sectionA.termMonths) || 12);
   const warnings: string[] = [];
   const rawTerms = [...quote.terms.generalStarlinkServiceTerms, ...quote.terms.pricingTerms];
   const placeholderTerms = rawTerms.some(isPlaceholder)
@@ -82,20 +81,14 @@ export function getCustomerQuoteContent(quote: QuoteRecord) {
   if (placeholderTerms) warnings.push("Applicable terms require confirmation.");
   if (!services.length && !equipment.length && !fieldServices.length) warnings.push("No included scope has been selected.");
 
-  const pricingTerms = quote.terms.pricingTerms.flatMap((value) => {
+  const pricingTerms = resolveQuotePricingTerms(quote).flatMap((value) => {
     const line = customerCopy(value);
-    if (settings.paymentTerms && /^payment terms?\b/i.test(line)) return [];
     if (!line || isPlaceholder(line)) return [];
-    if (line === legacyServiceTerm) {
-      return services.length ? [`Recurring service pricing is based on a ${serviceTermMonths}-month subscription commitment.`] : [];
-    }
+    if (isManagedServiceTerm(line) && !services.length) return [];
     if (/^Term for individual Kits is specific to individual Service Order/i.test(line)) return [];
     if (!services.length && /^Starlink reserves the right to modify its pricing at any time with 30 days/i.test(line)) return [];
-    if (/^This quote is valid for 30 days/i.test(line) && text(quote.metadata.expirationDate)) return [];
-    if (/^Pricing is in US Dollars\.$/i.test(line)) return [];
     return [line];
   });
-  if (settings.paymentTerms) pricingTerms.push(`Payment terms: ${settings.paymentTerms}`);
   if (equipment.length && quote.orderProcessing?.shippingRequired !== "no" && settings.shipsActivated) {
     pricingTerms.push(settings.shipsActivated === "yes" ? "Equipment will ship activated." : "Equipment will ship unactivated.");
   }
