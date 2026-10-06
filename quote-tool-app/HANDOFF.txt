@@ -2,6 +2,24 @@ RAPIDQUOTE — PROGRAM AND DEPLOYMENT HANDOFF
 Updated: October 5, 2026 (America/Chicago)
 
 CURRENT STATUS
+UPDATE: Production deployment succeeded on October 5, 2026.
+Vercel deployment: dpl_3pTUVCjo9r93BcJfiwiavjfH2wGP (READY, production).
+Production URL: https://quote-tool-app.vercel.app
+Deployment URL: https://quote-tool-3vgmh72an-nicpanyard-svgs-projects.vercel.app
+Published directly through the Vercel API; GitHub was NOT updated.
+Includes final review plus local commit 3cf1d11, which scopes Next.js Turbopack
+and output tracing to the app root. Local production build passed after that fix.
+Direct source upload must retain the quote-tool-app/ prefix because the existing
+Vercel project root is quote-tool-app. 274 tracked app/config/asset files uploaded.
+Connection discovery: get_project and create_deployment worked WITHOUT explicit
+teamId; passing teamId produced 403. Log and protected-page fetch APIs still deny
+access. READY and production aliases were verified, but live UI inspection was
+not completed (local HTTP was network-blocked, public fetch was inaccessible,
+and Vercel protected fetch returned 403). Browser smoke testing remains.
+
+The following original handoff records the pre-deployment history. Statements
+below saying deployment is blocked/not published are superseded by this update.
+
 The requested final quote review is implemented and committed locally.
 Local application commit: d233c7e — Add final quote questions and shipping activation confirmation.
 Production build passed. 23 focused tests passed.
