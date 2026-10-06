@@ -30,6 +30,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
 import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { assignQuoteOwner, saveProposalToWorkspace } from "@/app/lib/proposal-saving";
 import { resolvePreferredQuote } from "@/app/lib/active-proposal";
 import {
   PROPOSAL_STORAGE_FALLBACK_KEY,
@@ -1799,7 +1800,7 @@ function WorkflowSummaryStat({
 }
 
 export default function QuotePreview() {
-  const { user } = useAuth();
+  const { user, directoryUsers } = useAuth();
   const router = useRouter();
   const [isHydrated, setIsHydrated] = useState(false);
   const [editorTab, setEditorTab] = useState<"customer" | "items" | "pricing" | "documents" | "review">("items");
@@ -1833,6 +1834,7 @@ export default function QuotePreview() {
   const [showMajorProjectBomColumnMapping, setShowMajorProjectBomColumnMapping] = useState(false);
   const [isMajorProjectVendorQuoteDragging, setIsMajorProjectVendorQuoteDragging] = useState(false);
   const [majorProjectVendorQuoteCaptureError, setMajorProjectVendorQuoteCaptureError] = useState<MajorProjectVendorQuoteCaptureError | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
   const [majorProjectImportedMarginPercent, setMajorProjectImportedMarginPercent] = useState(String(DEFAULT_IMPORTED_MARGIN_PERCENT));
 
@@ -1901,6 +1903,7 @@ export default function QuotePreview() {
           fallbackQuote: createBlankQuoteRecord(undefined, existingNumbers),
         }).quote;
     let nextQuote = ensureMajorProjectState(cloneQuote(resolvedQuote));
+    if (!nextQuote.metadata.ownerUserId) assignQuoteOwner(nextQuote, sessionUser);
 
     if (requestedCustomerProfile) {
       applyCustomerProfileToQuote(nextQuote, requestedCustomerProfile);
@@ -1922,7 +1925,8 @@ export default function QuotePreview() {
 
     setActiveProposal(matchedProposal);
     setQuote(nextQuote);
-    setLastSavedQuote(nextQuote);
+    const matchesSavedRecord = matchedProposal && JSON.stringify(resolvedQuote) === JSON.stringify(matchedProposal.quote);
+    setLastSavedQuote(matchesSavedRecord && !requestedCustomerProfile && !entryIntent ? nextQuote : null);
     setCustomSectionFields(nextQuote.customFields ?? []);
     setCustomerProfiles(savedCustomerProfiles);
     setSelectedCustomerProfileId(requestedCustomerProfile?.id ?? nextQuote.internal.savedCustomerProfileId ?? "");
@@ -4353,6 +4357,13 @@ export default function QuotePreview() {
     window.scrollTo({ top: 0, behavior: "instant" });
   };
 
+  const proposalOwners = [...new Map([
+    ...(user ? [{ id: user.id, name: user.name, email: user.email, role: user.title, team: user.team }] : []),
+    ...directoryUsers.map((entry) => ({ id: entry.id, name: entry.name, email: entry.email, role: entry.title, team: entry.team })),
+    ...(activeProposal ? [activeProposal.owner] : []),
+    ...mockUsers,
+  ].map((owner) => [owner.id, owner])).values()];
+
   const persistProposalState = (options: { draft?: boolean } = {}) => {
     if (typeof window === "undefined") return null;
 
@@ -4388,78 +4399,98 @@ export default function QuotePreview() {
       setWorkflowNotice("Finish the highlighted setup step to create your quote.");
       return null;
     }
-    persistQuoteRecord(nextQuote);
+    setSaveError(null);
+    try {
+      const storedValue = window.localStorage.getItem(PROPOSAL_STORE_KEY);
+      const savedStore = deserializeProposalStore(storedValue);
+      if (storedValue && !savedStore) throw new Error("Saved quotes could not be read. Reload Workspace before saving again.");
+      const baseStore = savedStore ?? getDefaultProposalStore(
+        createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }),
+      );
 
-    const currentStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY)) ?? getDefaultProposalStore(
-      createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }),
-    );
+      const currentStore = {
+        ...baseStore,
+        currentUser: user ? { id: user.id, name: user.name, email: user.email, role: user.title, team: user.team } : baseStore.currentUser,
+      };
+      const proposalId = activeProposal?.id ?? nextQuote.internal.savedProposalId ?? nextQuote.internal.quoteId;
+      const owner = proposalOwners.find((entry) => entry.id === (nextQuote.metadata.ownerUserId ?? activeProposal?.owner.id))
+        ?? activeProposal?.owner ?? currentStore.currentUser;
+      assignQuoteOwner(nextQuote, owner);
+      const now = new Date().toISOString();
+      const updatedProposal = createProposalFromQuote({ quote: nextQuote, owner, currentUser: currentStore.currentUser });
+      updatedProposal.id = proposalId;
+      updatedProposal.createdAt = activeProposal?.createdAt ?? now;
+      updatedProposal.updatedAt = now;
+      updatedProposal.status = nextQuote.metadata.status;
+      updatedProposal.stageLabel = statusToStageLabel(nextQuote.metadata.status);
+      updatedProposal.owner = owner;
+      updatedProposal.createdBy = activeProposal?.createdBy ?? currentStore.currentUser;
+      const previousStatus = activeProposal?.status ?? nextQuote.metadata.status;
+      const statusChanged = previousStatus !== nextQuote.metadata.status;
+      updatedProposal.activity = [
+        ...(activeProposal?.activity ?? []),
+        {
+          id: `activity_${statusChanged ? "status" : "updated"}_${Date.now()}`,
+          type: statusChanged ? "status_changed" : "updated",
+          message: statusChanged
+            ? `Proposal moved from ${statusToStageLabel(previousStatus)} to ${statusToStageLabel(nextQuote.metadata.status)}`
+            : "Proposal saved from builder",
+          at: now,
+          by: { id: currentStore.currentUser.id, name: currentStore.currentUser.name },
+        },
+      ];
+      updatedProposal.quote.internal.savedProposalId = proposalId;
+      updatedProposal.quote.internal.workspaceOwnerId = owner.id;
+      updatedProposal.quote.internal.workspaceOwnerName = owner.name;
+      updatedProposal.quote.metadata.ownerUserId = owner.id;
+      updatedProposal.quote.metadata.ownerName = owner.name;
 
-    const proposalId = activeProposal?.id ?? nextQuote.internal.savedProposalId ?? nextQuote.internal.quoteId;
-    const owner = currentStore.users.find((user) => user.id === (nextQuote.metadata.ownerUserId ?? activeProposal?.owner.id)) ?? currentStore.currentUser;
-    const now = new Date().toISOString();
-    const updatedProposal = createProposalFromQuote({ quote: nextQuote, owner, currentUser: currentStore.currentUser });
-    updatedProposal.id = proposalId;
-    updatedProposal.createdAt = activeProposal?.createdAt ?? now;
-    updatedProposal.updatedAt = now;
-    updatedProposal.status = nextQuote.metadata.status;
-    updatedProposal.stageLabel = statusToStageLabel(nextQuote.metadata.status);
-    updatedProposal.owner = owner;
-    updatedProposal.createdBy = activeProposal?.createdBy ?? currentStore.currentUser;
-    const previousStatus = activeProposal?.status ?? nextQuote.metadata.status;
-    const statusChanged = previousStatus !== nextQuote.metadata.status;
-    updatedProposal.activity = [
-      ...(activeProposal?.activity ?? []),
-      {
-        id: `activity_${statusChanged ? "status" : "updated"}_${Date.now()}`,
-        type: statusChanged ? "status_changed" : "updated",
-        message: statusChanged
-          ? `Proposal moved from ${statusToStageLabel(previousStatus)} to ${statusToStageLabel(nextQuote.metadata.status)}`
-          : "Proposal saved from builder",
-        at: now,
-        by: { id: currentStore.currentUser.id, name: currentStore.currentUser.name },
-      },
-    ];
-    updatedProposal.quote.internal.savedProposalId = proposalId;
-    updatedProposal.quote.internal.workspaceOwnerId = owner.id;
-    updatedProposal.quote.internal.workspaceOwnerName = owner.name;
-    updatedProposal.quote.metadata.ownerUserId = owner.id;
-    updatedProposal.quote.metadata.ownerName = owner.name;
+      let profileWarning = "";
+      try {
+        if (autoUpdateCustomerProfile && (selectedCustomerProfileId || nextQuote.customer.name.trim())) {
+          const nextProfile = createCustomerProfileFromQuote(nextQuote, selectedCustomerProfileId || undefined);
+          const nextProfiles = upsertCustomerProfile(customerProfiles, nextProfile);
+          persistCustomerProfiles(nextProfiles);
+          setCustomerProfiles(nextProfiles);
+          nextQuote.internal.savedCustomerProfileId = nextProfile.id;
+          updatedProposal.quote.internal.savedCustomerProfileId = nextProfile.id;
+          setSelectedCustomerProfileId(nextProfile.id);
+        }
+      } catch { profileWarning = " The customer profile could not be updated."; }
 
-    const nextStore = upsertProposal(currentStore, updatedProposal);
+      const nextStore = saveProposalToWorkspace(window.localStorage, currentStore, updatedProposal);
+      // Session shortcuts must not turn a successful Workspace save into a failure.
+      try {
+        window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, proposalId);
+        persistQuoteRecord(nextQuote);
+      } catch { /* The verified Workspace record is still available by proposalId. */ }
 
-    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
-    window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, proposalId);
+      const nextUrl = `/new?proposalId=${proposalId}`;
+      if (window.location.pathname !== "/new" || window.location.search !== `?proposalId=${proposalId}`) {
+        window.history.replaceState({}, "", nextUrl);
+      }
 
-    if (autoUpdateCustomerProfile && (selectedCustomerProfileId || nextQuote.customer.name.trim())) {
-      const nextProfile = createCustomerProfileFromQuote(nextQuote, selectedCustomerProfileId || undefined);
-      const nextProfiles = upsertCustomerProfile(customerProfiles, nextProfile);
-      persistCustomerProfiles(nextProfiles);
-      setCustomerProfiles(nextProfiles);
-      nextQuote.internal.savedCustomerProfileId = nextProfile.id;
-      updatedProposal.quote.internal.savedCustomerProfileId = nextProfile.id;
-      setSelectedCustomerProfileId(nextProfile.id);
+      setActiveProposal(updatedProposal);
+      setQuote(nextQuote);
+      setLastSavedQuote(nextQuote);
+      const savedMessage = saveAsDraft
+        ? "Draft saved to Workspace in this browser. You can finish the missing details later."
+        : statusChanged
+        ? `Saved to Workspace in this browser. Quote is now ${statusToStageLabel(nextQuote.metadata.status)} on revision ${governanceState.revisionLabel}.`
+        : `Saved ${nextQuote.metadata.proposalNumber} to Workspace in this browser.`;
+      setWorkflowNotice(
+        majorProjectHasBlockingErrors
+          ? `${savedMessage} Major Project validation still has ${majorProjectMetrics.validation.errorCount} blocking error${majorProjectMetrics.validation.errorCount === 1 ? "" : "s"}.`
+          : savedMessage + profileWarning,
+      );
+
+      return { proposal: updatedProposal, store: nextStore };
+    } catch (error) {
+      setSaveError(error instanceof Error && error.name !== "QuotaExceededError" && error.name !== "SecurityError"
+        ? error.message : "Quote was not saved. Browser storage is full or unavailable. Keep this page open and try again.");
+      setWorkflowNotice(null);
+      return null;
     }
-
-    const nextUrl = `/new?proposalId=${proposalId}`;
-    if (window.location.pathname !== "/new" || window.location.search !== `?proposalId=${proposalId}`) {
-      window.history.replaceState({}, "", nextUrl);
-    }
-
-    setActiveProposal(updatedProposal);
-    setQuote(nextQuote);
-    setLastSavedQuote(nextQuote);
-    const savedMessage = saveAsDraft
-      ? "Draft saved. You can return to finish the missing details later."
-      : statusChanged
-      ? `Draft saved. Quote is now ${statusToStageLabel(nextQuote.metadata.status)} on revision ${governanceState.revisionLabel}.`
-      : `Draft saved for ${nextQuote.metadata.proposalNumber} on revision ${governanceState.revisionLabel}.`;
-    setWorkflowNotice(
-      majorProjectHasBlockingErrors
-        ? `${savedMessage} Major Project validation still has ${majorProjectMetrics.validation.errorCount} blocking error${majorProjectMetrics.validation.errorCount === 1 ? "" : "s"}.`
-        : savedMessage,
-    );
-
-    return { proposal: updatedProposal, store: nextStore };
   };
 
   const handleDownloadOrderSummary = () => {
@@ -4549,6 +4580,7 @@ export default function QuotePreview() {
   const setupIncomplete = missingProcessingRequirements(quote).length > 0;
   const visibleEditorTab = customerEntryComplete ? editorTab : "customer";
   const hasUnsavedChanges = lastSavedQuote !== quote;
+  const saveStatus = saveError ? "Save failed" : !activeProposal ? "Not saved to Workspace" : hasUnsavedChanges ? "Unsaved changes" : "Saved to Workspace";
 
   return isHydrated ? (
     <main className="rq-editor">
@@ -4570,7 +4602,7 @@ export default function QuotePreview() {
       <header className="rq-editor-header">
         <div className="rq-editor-identity">
           <button type="button" className="rq-icon-button" aria-label="Back to quotes" data-tooltip="Back to quotes" onClick={() => router.push("/workspace")}><ArrowLeft size={18} aria-hidden="true" /></button>
-          <div><h1>{quote.metadata.documentTitle || "New quote"}</h1><div className="rq-editor-meta"><span>{quote.customer.name}</span><span>{quote.metadata.proposalNumber}</span><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span><span role="status" className={hasUnsavedChanges ? "rq-unsaved" : "rq-saved"}>{hasUnsavedChanges ? "Unsaved changes" : "Saved"}</span></div></div>
+          <div><h1>{quote.metadata.documentTitle || "New quote"}</h1><div className="rq-editor-meta"><span>{quote.customer.name}</span><span>{quote.metadata.proposalNumber}</span><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span><span role="status" className={hasUnsavedChanges || saveError ? "rq-unsaved" : "rq-saved"}>{saveStatus}</span></div></div>
         </div>
         <div className="rq-editor-actions">
           <button type="button" className="rq-button" onClick={() => persistProposalState({ draft: true })} disabled={!customerEntryComplete} title={!customerEntryComplete ? "Choose or enter a customer first" : undefined}><Save size={16} aria-hidden="true" /><span>Save draft</span></button>
@@ -4590,7 +4622,8 @@ export default function QuotePreview() {
             { key: "review", label: "Review", icon: ClipboardCheck },
           ] as const).map(({ key, label, icon: Icon }) => <button key={key} id={`rq-nav-${key}`} type="button" aria-current={visibleEditorTab === key ? "page" : undefined} disabled={!customerEntryComplete && key !== "customer"} onClick={() => { setEditorTab(key); window.scrollTo({ top: 0, behavior: "instant" }); }}><Icon size={16} aria-hidden="true" />{label}</button>)}
         </nav>
-        {workflowNotice && <div className="rq-notice" role="status"><span>{workflowNotice}</span><button type="button" className="rq-icon-button" aria-label="Dismiss notice" onClick={() => setWorkflowNotice(null)}><X size={16} aria-hidden="true" /></button></div>}
+        {saveError && <div className="rq-notice" role="alert"><AlertCircle size={18} aria-hidden="true" /><span>{saveError}</span></div>}
+        {workflowNotice && <div className="rq-notice" role="status"><span>{workflowNotice}</span>{activeProposal && !hasUnsavedChanges && <button type="button" className="rq-button" onClick={() => router.push("/workspace")}>View in Workspace</button>}<button type="button" className="rq-icon-button" aria-label="Dismiss notice" onClick={() => setWorkflowNotice(null)}><X size={16} aria-hidden="true" /></button></div>}
         <div className="rq-editor-grid" data-customer-ready={customerEntryComplete}>
           <div className="rq-editor-main">
             <div hidden={visibleEditorTab !== "customer"} aria-labelledby="rq-nav-customer">
@@ -6155,7 +6188,7 @@ return {
               </div>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <label className="builder-field"><span>Proposal owner</span><select value={quote.metadata.ownerUserId ?? activeProposal?.owner.id ?? mockUsers[0].id} onChange={(e) => updateQuote((draft) => { const owner = mockUsers.find((user) => user.id === e.target.value) ?? mockUsers[0]; draft.metadata.ownerUserId = owner.id; draft.metadata.ownerName = owner.name; draft.internal.workspaceOwnerId = owner.id; draft.internal.workspaceOwnerName = owner.name; draft.internal.crmOwnerLabel = owner.name; return draft; })}>{mockUsers.map((user) => <option key={user.id} value={user.id}>{user.name} — {user.role}</option>)}</select></label>
+                <label className="builder-field"><span>Proposal owner</span><select value={quote.metadata.ownerUserId ?? activeProposal?.owner.id ?? user?.id ?? mockUsers[0].id} onChange={(e) => updateQuote((draft) => { const owner = proposalOwners.find((entry) => entry.id === e.target.value); return owner ? assignQuoteOwner(draft, owner) : draft; })}>{proposalOwners.map((user) => <option key={user.id} value={user.id}>{user.name} — {user.role}</option>)}</select></label>
                 <label className="builder-field"><span>Owner display name</span><input value={quote.metadata.ownerName ?? activeProposal?.owner.name ?? ""} onChange={(e) => updateQuote((draft) => { draft.metadata.ownerName = e.target.value; draft.internal.workspaceOwnerName = e.target.value; draft.internal.crmOwnerLabel = e.target.value; return draft; })} /></label>
                 <label className="builder-field"><span>Account name</span><input value={quote.metadata.accountName ?? quote.customer.name} onChange={(e) => updateQuote((draft) => { draft.metadata.accountName = e.target.value; return draft; })} /></label>
               </div>

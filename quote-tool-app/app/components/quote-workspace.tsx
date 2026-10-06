@@ -6,11 +6,12 @@ import { Check, Copy, Eye, FileText, MoreHorizontal, Plus, Search, Trash2, X } f
 import { useAuth } from "./auth-shell";
 import { QuoteMasterExport } from "./quote-master-export";
 import { buildProposalPreviewPath } from "../lib/proposal-navigation";
-import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getActiveProposalId, getDefaultProposalStore, isOpenQuoteStatus, mockUsers, serializeProposalStore, upsertProposal, type ProposalStoreData, type SavedProposalRecord } from "../lib/proposal-store";
+import { PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, isOpenQuoteStatus, mockUsers, serializeProposalStore, upsertProposal, type ProposalStoreData, type SavedProposalRecord } from "../lib/proposal-store";
 import { ensureEnvironmentProposalStore } from "../lib/environment-samples";
 import { sampleQuoteRecord } from "../lib/sample-quote-record";
 import { deleteProposalFromBrowserState } from "../lib/proposal-delete";
 import { customerGroupKey, getWorkspaceQuoteSummary } from "../lib/workspace-quote-summary";
+import { isProposalOwner } from "../lib/proposal-saving";
 import "./quote-workspace.css";
 
 function money(value: number, currency = "USD") {
@@ -51,7 +52,7 @@ export function QuoteWorkspace() {
   const { user } = useAuth();
   const [store, setStore] = useState<ProposalStoreData | null>(null);
   const [search, setSearch] = useState("");
-  const [owner, setOwner] = useState("mine");
+  const [owner, setOwner] = useState("all");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState("updated");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -61,11 +62,11 @@ export function QuoteWorkspace() {
     const read = () => {
       try {
         const fallback = getDefaultProposalStore(createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }));
-        const saved = deserializeProposalStore(localStorage.getItem(PROPOSAL_STORE_KEY)) || fallback;
+        const storedValue = localStorage.getItem(PROPOSAL_STORE_KEY);
+        const parsed = deserializeProposalStore(storedValue);
+        if (storedValue && !parsed) throw new Error("Saved quotes could not be read.");
+        const saved = parsed || fallback;
         const next = ensureEnvironmentProposalStore({ ...saved, currentUser: user ? { id: user.id, name: user.name, email: user.email, role: user.title, team: user.team } : saved.currentUser });
-        localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(next));
-        const active = getActiveProposalId(next, localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY));
-        if (active) localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, active);
         setStore(next);
         setStorageError("");
       } catch { setStorageError("Unable to open saved quotes in this browser. Check browser storage and reload."); }
@@ -73,11 +74,17 @@ export function QuoteWorkspace() {
     read();
     const sync = (event: StorageEvent) => { if (event.key === PROPOSAL_STORE_KEY || event.key === null) read(); };
     window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
+    window.addEventListener("focus", read);
+    window.addEventListener("pageshow", read);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("focus", read);
+      window.removeEventListener("pageshow", read);
+    };
   }, [user]);
   const visible = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    return (store?.proposals || []).filter((p) => (owner === "all" || p.owner.id === store?.currentUser.id) && (status === "all" || p.status === status) && (!query || [p.quote.customer.name, p.quote.metadata.documentTitle, p.quote.metadata.proposalNumber, p.owner.name].some((value) => value.toLocaleLowerCase().includes(query))))
+    return (store?.proposals || []).filter((p) => (owner === "all" || Boolean(store && isProposalOwner(p.owner, store.currentUser))) && (status === "all" || p.status === status) && (!query || [p.quote.customer.name, p.quote.metadata.documentTitle, p.quote.metadata.proposalNumber, p.owner.name].some((value) => value.toLocaleLowerCase().includes(query))))
       .sort((a, b) => sort === "title" ? a.quote.metadata.documentTitle.localeCompare(b.quote.metadata.documentTitle) : new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [store, owner, status, search, sort]);
   const groups = useMemo(() => {

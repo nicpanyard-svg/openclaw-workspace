@@ -689,13 +689,13 @@ export function ensureIliosSampleProfiles(profiles: SavedCustomerProfile[]) {
 
 export function ensureIliosSampleProposalStore(store: ProposalStoreData): ProposalStoreData {
   const sampleProposals = getIliosSampleProposals();
-  const sampleIds = new Set(sampleProposals.map((proposal) => proposal.id));
-  const remaining = store.proposals.filter((proposal) => !sampleIds.has(proposal.id));
+  const existingIds = new Set(store.proposals.map((proposal) => proposal.id));
+  const missingSamples = sampleProposals.filter((proposal) => !existingIds.has(proposal.id));
   const nextUsers = mockUsers.filter((user) => !store.users.some((entry) => entry.id === user.id));
 
   return {
     ...store,
     users: [...store.users, ...nextUsers],
-    proposals: [...sampleProposals, ...remaining],
+    proposals: [...store.proposals, ...missingSamples],
   };
 }

@@ -408,13 +408,13 @@ export function ensureNickTrainingDemoProposalStore(store: ProposalStoreData): P
     return store;
   }
   const demoProposals = getNickTrainingDemoProposals();
-  const demoIds = new Set(demoProposals.map((proposal) => proposal.id));
-  const existingWithoutDemo = store.proposals.filter((proposal) => !demoIds.has(proposal.id));
+  const existingIds = new Set(store.proposals.map((proposal) => proposal.id));
+  const missingDemos = demoProposals.filter((proposal) => !existingIds.has(proposal.id));
   const nextUsers = store.users.some((entry) => entry.id === mockUsers[0].id) ? store.users : [mockUsers[0], ...store.users];
 
   return {
     ...store,
     users: nextUsers,
-    proposals: [...demoProposals, ...existingWithoutDemo],
+    proposals: [...store.proposals, ...missingDemos],
   };
 }
