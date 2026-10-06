@@ -13,7 +13,7 @@ import { comparisonLeaseTerms, getPricingReviewItems } from "@/app/lib/quote-exp
 import { getAnnualSubscriptionSummary, getLineBilling, isAnnualLine } from "@/app/lib/quote-line-billing";
 import { OrderProcessingPanel } from "@/app/components/order-processing-panel";
 import { CustomerOutputSettings } from "@/app/components/customer-output-settings";
-import { finalReviewConfirmed } from "@/app/lib/final-quote-review";
+import { finalReviewConfirmed, getFinalPaymentTerms, setFinalPaymentTerms } from "@/app/lib/final-quote-review";
 import { resolveQuotePricingTerms } from "@/app/lib/quote-pricing-terms";
 import { ProcessingRequirementsForm } from "./processing-requirements";
 import { missingProcessingRequirements } from "../lib/processing-requirements";
@@ -5055,12 +5055,11 @@ export default function QuotePreview() {
                   </div>
 
                   <details className="rq-disclosure rq-project-setup"><summary>Project settings, drawings and BOM import</summary>
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <label className="builder-field compact"><span>Project name</span><input value={majorProjectState.summary.projectName} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.projectName = e.target.value; return draft; })} /></label>
                       <label className="builder-field compact"><span>Active option</span><select value={majorProjectState.activeOptionId} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.activeOptionId = e.target.value; return draft; })}>{majorProjectState.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
                       <label className="builder-field compact"><span>Sites</span><input type="number" value={activeMajorOption?.siteCount ?? 0} onChange={(e) => updateActiveMajorOption("siteCount", Math.max(parseNumber(e.target.value), 0))} /></label>
                       <label className="builder-field compact"><span>Term (months)</span><input type="number" min="1" value={majorProjectState.commercial.termMonths} onChange={(e) => updateMajorCommercialField("termMonths", Math.max(parseNumber(e.target.value), 1))} /></label>
-                      <label className="builder-field compact"><span>Payment terms</span><input value={majorProjectState.summary.paymentTerms} onChange={(e) => updateMajorProjectQuote((draft) => { if (draft.majorProject) draft.majorProject.summary.paymentTerms = e.target.value; return draft; })} /></label>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
                       <label className="builder-field compact"><span>Option label</span><input value={activeMajorOption?.label ?? ""} onChange={(e) => updateActiveMajorOption("label", e.target.value)} /></label>
@@ -6229,19 +6228,19 @@ return {
               {TERMS_PACKAGES.find((entry) => entry.key === (quote.terms.selectedPackageKey ?? "starlink_only"))?.description ?? TERMS_PACKAGES[0].description}
             </div>
             <label className="builder-field mt-4">
-              <span>Pricing terms in proposal body</span>
+              <span>Other pricing terms in proposal body</span>
               <textarea
                 rows={8}
-                value={resolveQuotePricingTerms(quote).join("\n")}
+                value={resolveQuotePricingTerms(quote).filter(line => !/^payment terms?\b/i.test(line.trim())).join("\n")}
                 onChange={(event) => updateQuote((draft) => {
+                  const paymentTerms = getFinalPaymentTerms(draft);
                   draft.terms.pricingTerms = event.target.value.split("\n");
-                  if (draft.customerOutput) draft.customerOutput.paymentTerms = undefined;
-                  return draft;
+                  return setFinalPaymentTerms(draft, paymentTerms);
                 })}
                 aria-describedby="pricing-terms-help"
               />
               <span id="pricing-terms-help" className="text-[12px] text-[#60707f]">
-                Agreement length, payment terms, expiration, and currency follow your quote settings. Edit other wording here, one paragraph per line. Choosing another terms package replaces this text.
+                Choose payment terms in Review. Agreement length, expiration, and currency follow your quote settings. Edit other wording here, one paragraph per line. Choosing another terms package replaces this text.
               </span>
             </label>
           </div>

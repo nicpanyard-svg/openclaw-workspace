@@ -11,7 +11,8 @@ const PAYMENT_TERMS_OPTIONS = ["Net 30", "Net 60", "Prepaid"];
 
 function PaymentTermsField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const [editingCustom, setEditingCustom] = useState(false);
-  const preset = PAYMENT_TERMS_OPTIONS.find(option => option.toLowerCase() === value.trim().toLowerCase());
+  const legacyNet30 = /^net 30(?: days from invoice date unless stated otherwise in Master Service Agreement| unless otherwise stated in the governing agreement)\.$/i.test(value.trim());
+  const preset = legacyNet30 ? "Net 30" : PAYMENT_TERMS_OPTIONS.find(option => option.toLowerCase() === value.trim().toLowerCase());
   const custom = editingCustom || Boolean(value && !preset);
 
   return <div className="builder-field">
@@ -28,7 +29,7 @@ function PaymentTermsField({ value, onChange }: { value: string; onChange: (valu
       </select>
     </label>
     {custom && <label className="builder-field">
-      <span>Custom payment terms</span>
+      <span>Custom terms</span>
       <input value={value} onChange={event => onChange(event.target.value)} placeholder="Enter the agreed payment terms" />
     </label>}
   </div>;
