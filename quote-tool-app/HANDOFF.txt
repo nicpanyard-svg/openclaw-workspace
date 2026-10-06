@@ -1,0 +1,168 @@
+RAPIDQUOTE — PROGRAM AND DEPLOYMENT HANDOFF
+Updated: October 5, 2026 (America/Chicago)
+
+CURRENT STATUS
+The requested final quote review is implemented and committed locally.
+Local application commit: d233c7e — Add final quote questions and shipping activation confirmation.
+Production build passed. 23 focused tests passed.
+This chat has NOT published these changes to GitHub or Vercel.
+The next task is deployment to the existing Vercel project, followed by live verification.
+
+WORKSPACE
+Project: C:\Users\NickPanyard\Documents\RapidQuote\openclaw-workspace\quote-tool-app
+Git repository is the enclosing openclaw-workspace repository.
+Remote: https://github.com/nicpanyard-svg/openclaw-workspace.git
+Local branch: master
+Read AGENTS.md in the app before working. Its old C:\Users\IkeFl path is stale;
+the active checkout is the NickPanyard path above. Keep work scoped to this app.
+No application edits were pending when this handoff was created.
+
+PROGRAM OVERVIEW
+RapidQuote builds customer proposals for equipment, recurring connectivity,
+services, and major projects. It supports purchase and equipment lease quotes,
+pricing review, terms, customer proposal previews, PDF output, workbook exports,
+and internal order summaries.
+
+Stack: Next.js 16.2.1 App Router, React 19.2.4, TypeScript, Tailwind CSS 4.
+PDF tooling includes browser-rendered HTML, pdf-lib, PDF.js, and Puppeteer.
+Workbook tooling includes ExcelJS, XLSX, and formula calculation libraries.
+Quote and proposal persistence includes browser storage; do not assume records
+on one browser automatically appear in another browser or machine.
+
+MAIN CODE MAP (paths relative to app root)
+- app/components/quote-preview.tsx: main quote editor and save/export actions.
+- app/components/customer-output-settings.tsx: final commercial questions.
+- app/lib/quote-record.ts: quote data types.
+- app/lib/quote-template.ts: blank quote defaults.
+- app/lib/proposal-state.ts and proposal-store.ts: quote/proposal persistence.
+- app/lib/major-project.ts: major-project pricing and proposal projection.
+- app/lib/proposal-customer-content.ts: customer-facing wording and warnings.
+- app/components/proposal-document.tsx: current customer HTML proposal.
+- app/api/proposal-pdf/route.tsx: PDF export endpoint using HTML rendering.
+- app/lib/proposal-spec-pdf-assembly.ts: combines proposal and attachments.
+- app/lib/terms-packages.ts: package defaults, including legacy Net 30 wording.
+- app/lib/order-processing.ts: internal order summary and readiness checks.
+- app/lib/processing-requirements.ts: required intake details.
+- app/lib/estimate-template.ts: estimate output model.
+- app/lib/auth.ts: existing application authentication/access logic.
+- scripts/ensure-vercel-routes-manifest.cjs: deployment build compatibility step.
+
+USER REQUIREMENTS / DECISIONS
+Nick prefers short, simple workflows. A long commercial questionnaire was rejected.
+At the end of quote creation, ask:
+1. How long is the agreement? Common suggestions: 12, 24, 36 months; custom allowed.
+2. What are the payment terms? Net 30, Net 60, prepaid, or custom.
+3. When does billing start? Activation, installation, or a specific date/custom text.
+4. Should equipment ship activated? Yes/No, only when included equipment may ship.
+Other details should be collapsed by default. Lease and overage fields should
+appear only where applicable. Answers must drive proposal wording.
+
+COMPLETED IN d233c7e
+- Moved CustomerOutputSettings from Pricing to the final Review tab.
+- Added the three main questions and conditional shipping activation question.
+- Added collapsed Optional details: expiration, lead time, conditional lease
+  details, conditional overages, and existing field-service confirmation.
+- Added an explicit confirmation checkbox. The main editor redirects preview,
+  presentation, and non-draft save/export flows through final confirmation.
+- Draft saves remain available without final confirmation.
+- Confirmation becomes stale when tracked commercial answers or terms change.
+- Payment choices replace the stock payment-terms paragraph in customer output.
+- Payment settings survive save/load and take precedence over package defaults.
+- Billing start and payment changes update major-project summary fields too.
+- Shipping activation is saved and appears in customer proposal pricing terms
+  and the internal order summary. No activation answer is silently assumed.
+- Added Documents > Terms and warranty > Pricing terms in proposal body so
+  authors can edit the previously inaccessible Net 30 paragraph.
+- Added app/lib/final-quote-review.ts and final-quote-review.test.ts.
+
+IMPORTANT BEHAVIOR / LIMITS TO CHECK
+- Quote term and equipment lease term are distinct; lease term remains in the
+  conditional optional details and Pricing settings.
+- The final-review gate is implemented in the main editor's persistProposalState;
+  it is not a universal new API authorization rule.
+- Custom prose with a conflicting service term is flagged by existing warnings;
+  arbitrary contract prose is not automatically rewritten.
+- Native datalist inputs offer common choices while permitting custom values.
+- Equipment shipping activation is omitted when shippingRequired is "no".
+- Changing the terms package replaces the editable body text, while an explicit
+  final payment answer still governs customer payment wording.
+- No browser/UI end-to-end test or production deployment was completed in this chat.
+
+VALIDATION ALREADY COMPLETED
+1. Production build including TypeScript and route generation passed:
+   node node_modules/next/dist/bin/next build
+2. All 23 tests passed across:
+   app/lib/final-quote-review.test.ts
+   app/lib/proposal-customer-content.test.ts
+   Coverage includes saved-answer round trips, payment overrides, conditional
+   activation, order output, major-project projection, and stale confirmation.
+3. git diff --check passed before commit.
+
+Standard commands when npm is available:
+   npm run dev
+   npm run build
+   npm run build:vercel
+   npm run start
+   npm run lint
+The current execution shell had node but no npm executable on PATH. The direct
+Next.js command above ran successfully. Tests were run with a temporary in-memory
+TypeScript CommonJS transpile hook, resolving @/ to the app root, then requiring
+the two node:test files. No permanent test runner script was added.
+
+VERCEL DESTINATION
+Existing project name: quote-tool-app
+Project ID: prj_RKGj0kCH0iVdltrZp0ZlXKPsgmYe
+Team ID: team_uyDpMPM2BWxYlg7QN2pULSFz
+Team slug: nicpanyard-svgs-projects
+These identifiers come from .vercel/project.json and Vercel's permission response.
+vercel.json sets framework nextjs, installCommand "npm install", and
+buildCommand "npm run build:vercel".
+Do not create a duplicate project or assume the latest remote deployment contains
+the local final-review change. Verify project root settings before uploading.
+
+DEPLOYMENT AUTHORIZATION AND BLOCKERS
+Nick authorized publishing, then clarified Vercel as the destination.
+The Vercel plugin is installed, but repeated get_project calls returned:
+403 Forbidden — Not authorized to access scope "nicpanyard-svgs-projects";
+re-authenticate to this scope or use a token with access to this scope.
+The connected tool's list_teams response was empty when checked.
+
+Nick says he is logged into Vercel in Chrome. The browser automation inventory
+exposed only the Codex in-app browser and MCP Apps. Opening Chrome returned
+"Browser is not available: chrome". Browser login and connector access are
+separate; the active browser connection cannot currently inspect his Chrome login.
+No Vercel CLI deployment login or VERCEL_TOKEN was available in the inspected
+execution environment. Do not print credentials or ask him to paste tokens in chat.
+
+GITHUB STATE / CAUTION
+Local master and the cached origin/master have diverged. Earlier changes were
+published as different commit IDs; do not force-push local master.
+Git fetch failed because the bundled Git lacks its remote-https helper.
+Using the GitHub connector, the last verified remote master was:
+dcdb82654b491a9a4c231ac52ef2624625f71659
+"Fix service-specific setup and automatically flatten annotated PDF attachments"
+This corresponds to local bbbba82. Therefore those earlier fixes were already
+on GitHub; the final-review commit was still local.
+The six existing files changed by the final-review commit matched the remote
+base (order-processing.ts differed only in line endings). Two new files were added.
+An attempted GitHub tree upload was rejected by automatic approval review because
+the reviewer required explicit approval of the GitHub destination. No tree upload,
+remote commit, or ref update succeeded. Nick responded "vercel" rather than
+explicitly approving that GitHub destination. Do not bypass that rejection.
+
+NEXT ACTIONS
+1. Recheck the existing Vercel project using its IDs; the user may have repaired access.
+2. If still 403, resolve the Vercel connection's team authorization. If using Chrome,
+   first establish the supported browser connection; do not claim access prematurely.
+3. Deploy the tested current source to the existing Vercel project. A redeploy of
+   the old GitHub commit alone will NOT include the final-review work.
+4. Inspect build status and logs until READY or a concrete failure is known.
+5. Verify the production URL and test a synthetic quote: change 12 to 24 months,
+   Net 30 to Net 60, set billing start, choose activated/unactivated, confirm,
+   preview/export, reload the saved quote, and check consistent output.
+6. Check no-shipping/no-equipment and lease/overage conditional paths.
+7. Report the actual deployment URL and status. Do not say pushed/live until verified.
+
+HANDOFF NOTE
+This file contains no passwords or access tokens. The last user request was to
+create this handoff, not to make further program changes or retry deployment.
