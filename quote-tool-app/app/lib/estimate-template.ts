@@ -64,6 +64,7 @@ function joinDescription(parts: Array<string | null | undefined>) {
 }
 
 function extractPaymentTerms(quote: QuoteRecord) {
+  if (quote.customerOutput?.paymentTerms?.trim()) return quote.customerOutput.paymentTerms.trim();
   const explicitPaymentTerms = quote.majorProject?.summary?.paymentTerms?.trim();
   if (explicitPaymentTerms) {
     return explicitPaymentTerms;

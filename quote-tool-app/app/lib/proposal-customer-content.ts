@@ -10,6 +10,9 @@ function text(value: unknown) {
 export function normalizeCustomerOutput(value: unknown): QuoteCustomerOutput {
   const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
   return {
+    ...(text(source.paymentTerms) ? { paymentTerms: text(source.paymentTerms) } : {}),
+    ...(source.shipsActivated === "yes" || source.shipsActivated === "no" ? { shipsActivated: source.shipsActivated } : {}),
+    ...(text(source.commercialConfirmation) ? { commercialConfirmation: text(source.commercialConfirmation) } : {}),
     ...(text(source.fieldServiceConfirmation) ? { fieldServiceConfirmation: text(source.fieldServiceConfirmation) } : {}),
     leaseEndTerms: text(source.leaseEndTerms),
     postLeaseTerms: text(source.postLeaseTerms),
@@ -81,6 +84,7 @@ export function getCustomerQuoteContent(quote: QuoteRecord) {
 
   const pricingTerms = quote.terms.pricingTerms.flatMap((value) => {
     const line = customerCopy(value);
+    if (settings.paymentTerms && /^payment terms?\b/i.test(line)) return [];
     if (!line || isPlaceholder(line)) return [];
     if (line === legacyServiceTerm) {
       return services.length ? [`Recurring service pricing is based on a ${serviceTermMonths}-month subscription commitment.`] : [];
@@ -91,6 +95,10 @@ export function getCustomerQuoteContent(quote: QuoteRecord) {
     if (/^Pricing is in US Dollars\.$/i.test(line)) return [];
     return [line];
   });
+  if (settings.paymentTerms) pricingTerms.push(`Payment terms: ${settings.paymentTerms}`);
+  if (equipment.length && quote.orderProcessing?.shippingRequired !== "no" && settings.shipsActivated) {
+    pricingTerms.push(settings.shipsActivated === "yes" ? "Equipment will ship activated." : "Equipment will ship unactivated.");
+  }
   const serviceTerms = services.length ? quote.terms.generalStarlinkServiceTerms
     .map(customerCopy).filter((line) => line && !isPlaceholder(line)) : [];
   const serviceIntro = customerCopy(quote.sections.sectionA.introText)

@@ -13,6 +13,7 @@ import { comparisonLeaseTerms, getPricingReviewItems } from "@/app/lib/quote-exp
 import { getAnnualSubscriptionSummary, getLineBilling, isAnnualLine } from "@/app/lib/quote-line-billing";
 import { OrderProcessingPanel } from "@/app/components/order-processing-panel";
 import { CustomerOutputSettings } from "@/app/components/customer-output-settings";
+import { finalReviewConfirmed } from "@/app/lib/final-quote-review";
 import { ProcessingRequirementsForm } from "./processing-requirements";
 import { missingProcessingRequirements } from "../lib/processing-requirements";
 import { QuoteExportMenu } from "@/app/components/quote-export-menu";
@@ -2401,7 +2402,8 @@ export default function QuotePreview() {
     [currencyCode, firstImportedMajorProjectCost, majorProjectImportedMarginPercent],
   );
   const editorNeedsAttention = useMemo(() => {
-    const items: { message: string; tab: "customer" | "items" | "pricing" | "documents" }[] = getCustomerQuoteContent(quote).warnings.map((message) => ({ message, tab: "documents" }));
+    const items: { message: string; tab: "customer" | "items" | "pricing" | "documents" | "review" }[] = getCustomerQuoteContent(quote).warnings.map((message) => ({ message, tab: "documents" }));
+    if (!finalReviewConfirmed(quote)) items.push({ message: "Confirm the final quote details.", tab: "review" });
     items.push(...missingProcessingRequirements(quote).map(message => ({ message, tab: "customer" as const })));
     if (!customerEntryComplete) items.push({ message: "Complete the customer details.", tab: "customer" });
     if (!quote.metadata.documentTitle.trim()) items.push({ message: "Add a quote title.", tab: "pricing" });
@@ -4359,6 +4361,12 @@ export default function QuotePreview() {
     }
 
     const preparedQuote = isMajorProject ? applyMajorProjectToQuote(quote) : quote;
+    if (!options.draft && !finalReviewConfirmed(preparedQuote)) {
+      setEditorTab("review");
+      setWorkflowNotice("Confirm the quote details on the Review step before creating the customer proposal.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return null;
+    }
     const missingRequired = missingProcessingRequirements(preparedQuote);
     const saveAsDraft = Boolean(options.draft && (missingRequired.length || majorProjectHasBlockingErrors));
     const nextQuote = {
@@ -6115,7 +6123,6 @@ return {
               {!isMajorProject && !quote.sections.sectionA.enabled && !quote.sections.sectionB.enabled && !quote.sections.sectionC.enabled && <p className="rq-empty">Choose a section to add line items.</p>}
             </div>
             <div hidden={visibleEditorTab !== "pricing"} aria-labelledby="rq-nav-pricing">
-              <CustomerOutputSettings quote={quote} onChange={updateQuote} />
               <section className="builder-panel">
   <div className="rq-section-heading"><h2>Pricing</h2><span>{currencyCode}</span></div>
   <div className="rq-pricing-compare"><button type="button" className="rq-button rq-compare-trigger" onClick={() => setExperiencePanel("compare")}><Columns3 size={16} aria-hidden="true" />Compare options</button></div>
@@ -6220,6 +6227,22 @@ return {
             <div className="mt-3 rounded-[14px] border border-[#e3e8ee] bg-white px-3 py-3 text-[13px] text-[#435160]">
               {TERMS_PACKAGES.find((entry) => entry.key === (quote.terms.selectedPackageKey ?? "starlink_only"))?.description ?? TERMS_PACKAGES[0].description}
             </div>
+            <label className="builder-field mt-4">
+              <span>Pricing terms in proposal body</span>
+              <textarea
+                rows={8}
+                value={quote.terms.pricingTerms.join("\n")}
+                onChange={(event) => updateQuote((draft) => {
+                  draft.terms.pricingTerms = event.target.value.split("\n");
+                  if (draft.customerOutput) draft.customerOutput.paymentTerms = undefined;
+                  return draft;
+                })}
+                aria-describedby="pricing-terms-help"
+              />
+              <span id="pricing-terms-help" className="text-[12px] text-[#60707f]">
+                Edit the payment sentence and other pricing terms shown in the proposal body. Use one paragraph per line. Choosing another terms package replaces this text.
+              </span>
+            </label>
           </div>
 
           <div className="mt-4 rounded-[18px] border border-[#d8e0e8] bg-[#fbfcfe] px-4 py-4">
@@ -6461,7 +6484,9 @@ return {
 
 
             </div>
-            <div hidden={visibleEditorTab !== "review"} aria-labelledby="rq-nav-review"><section className="builder-panel">
+            <div hidden={visibleEditorTab !== "review"} aria-labelledby="rq-nav-review">
+              <CustomerOutputSettings quote={quote} onChange={updateQuote} />
+              <section className="builder-panel">
   <div className="rq-section-heading"><h2>Quote review</h2><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span></div>
   <dl className="rq-review-details">
     <div><dt>Customer</dt><dd>{quote.customer.name}</dd></div>

@@ -669,6 +669,9 @@ export type QuoteOrderProcessing = {
 };
 
 export type QuoteCustomerOutput = {
+  paymentTerms?: string;
+  shipsActivated?: "yes" | "no";
+  commercialConfirmation?: string;
   fieldServiceConfirmation?: string;
   leaseEndTerms: string;
   postLeaseTerms: string;
