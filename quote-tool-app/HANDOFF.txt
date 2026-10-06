@@ -2,6 +2,14 @@ RAPIDQUOTE — PROGRAM AND DEPLOYMENT HANDOFF
 Updated: October 5, 2026 (America/Chicago)
 
 CURRENT STATUS
+LATEST UPDATE: Payment dropdown and dynamic body terms are deployed (READY).
+Deployment: dpl_CXpUKdgJyQW3DxDwv5AJNR5Ea6qj
+URL: https://quote-tool-app.vercel.app
+Code commits: 6eefcd1 (Net 30 / Net 60 / Prepaid / Custom dropdown),
+a6e30f3 (template agreement length, payment, expiry and currency follow quote settings).
+New resolver: app/lib/quote-pricing-terms.ts; used by body editor, HTML and PDF model.
+26 focused tests and production build passed. GitHub remains unchanged.
+
 UPDATE: Production deployment succeeded on October 5, 2026.
 Vercel deployment: dpl_3pTUVCjo9r93BcJfiwiavjfH2wGP (READY, production).
 Production URL: https://quote-tool-app.vercel.app
