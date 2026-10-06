@@ -1,8 +1,29 @@
 RAPIDQUOTE — PROGRAM AND DEPLOYMENT HANDOFF
-Updated: October 5, 2026 (America/Chicago)
+Updated: October 6, 2026 (America/Chicago)
 
 CURRENT STATUS
-LATEST UPDATE: One payment terms control in Review is deployed (READY).
+LATEST UPDATE (October 6, 2026): Workspace save fixes deployed (READY).
+Deployment: dpl_CwDrbNkP4QRvTdBpZQ5hsTmdeSko
+Production: https://quote-tool-app.vercel.app
+Code commit: 48621a0 - Keep saved quotes visible and preserve workspace edits.
+Root causes: blank quotes inherited Nick's ownership while Workspace defaulted
+ to My quotes; opening Workspace also replaced saved sample edits with seed data.
+New quotes clear inherited ownership and use the signed-in creator; the owner
+selector includes directory users. Workspace defaults to All owners, recognizes
+legacy owner IDs by email, and refreshes on focus/pageshow. Existing ownership
+is preserved; prior misassigned quotes are accessible using All owners.
+Sample records are now seeded only when missing, preserving saved edits.
+New drafts say Not saved to Workspace until actually saved. Save validates that
+Workspace can read the record and verifies the browser write, displays failures,
+and offers View in Workspace after success. Session-cache failures do not
+invalidate a verified Workspace save. No cloud/cross-device sync was added.
+Validation: 8 new save regression tests plus 6 commercial-term tests passed;
+Next.js production build/typecheck passed. Isolated Chrome launch timed out twice,
+so live browser verification remains incomplete. Vercel READY and both production
+aliases were verified. GitHub remains unchanged; direct source deployment used.
+New files: app/lib/proposal-saving.ts and app/lib/proposal-saving.test.ts.
+
+PREVIOUS UPDATE:One payment terms control in Review is deployed (READY).
 Deployment: dpl_4KjCAtjftAZuWsfTZG5CaunNT3g4
 URL: https://quote-tool-app.vercel.app
 Code commits: 6eefcd1 (Net 30 / Net 60 / Prepaid / Custom dropdown),
@@ -195,3 +216,4 @@ NEXT ACTIONS
 HANDOFF NOTE
 This file contains no passwords or access tokens. The last user request was to
 create this handoff, not to make further program changes or retry deployment.
+
