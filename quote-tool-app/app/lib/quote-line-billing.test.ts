@@ -10,6 +10,19 @@ import { createBlankQuoteRecord } from "./quote-template";
 import type { MajorProjectComponent, QuoteRecord } from "./quote-record";
 import { getProposalAttachments } from "./proposal-attachments";
 import { buildEstimateTemplateModel } from "./estimate-template";
+import { normalizeProcessingRequirements, missingProcessingRequirements } from "./processing-requirements";
+
+function completeOrderDetails(quote: QuoteRecord) {
+  quote.customer.name = "Annual billing test";
+  quote.customer.addressLines = ["10 Test Road"];
+  quote.customer.contactName = "Test Contact";
+  quote.customer.contactPhone = "555-0100";
+  quote.orderProcessing = { ...quote.orderProcessing!, shippingRequired: "no", notes: "None", requirements: {
+    ...normalizeProcessingRequirements(quote.orderProcessing?.requirements), subAccountStatus: "no", equipmentRequired: "yes",
+    equipment: Object.fromEntries(quote.sections.sectionB.lineItems.map((row) => [row.id, { kind: "standalone" as const, assemblyDetails: "" }])),
+  } };
+  return quote;
+}
 
 function vendorQuote() {
   const quote = createBlankQuoteRecord();
@@ -137,7 +150,8 @@ test("included first-year renewal has no Year 1 charge and stays out of lease eq
   assert.equal(getQuoteContentPresence(quote).hasAnnualContent, true);
 });
 test("annual values remain visible in internal handoff and commercial totals", () => {
-  const quote = vendorQuote();
+  const quote = completeOrderDetails(vendorQuote());
+  assert.deepEqual(missingProcessingRequirements(quote), []);
   const output = buildOrderProcessingText(quote);
   assert.match(output, /Year 1 prepaid annual subscriptions: \$1,600.00/);
   assert.match(output, /Excluded optional annual total: \$750.00\/year/);
@@ -205,7 +219,7 @@ test("mixed-billing approval workbook has separate annual and optional schedules
 
 test("PDF endpoint rejects a customer line hiding different annual billing terms", async () => {
   const { POST } = await import("../api/proposal-pdf/route");
-  const quote = majorQuote(true);
+  const quote = completeOrderDetails(majorQuote(true));
   const option = quote.majorProject.options[0];
   option.customerQuoteLines![0].includedRevenueComponentIds = [option.components![0].id, option.components![4].id];
   const response = await POST(new Request("http://localhost:3017/api/proposal-pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quote }) }));

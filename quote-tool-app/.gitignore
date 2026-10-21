@@ -5,7 +5,10 @@ coverage
 playwright-report
 test-results
 tmp
-docs
+.env*
+!.env.example
+!docs/
+!docs/**
 *.log
 *.tmp
 *.tsbuildinfo
@@ -17,3 +20,4 @@ RQ-*.pdf
 RQ-*.docx
 qa-*.png
 rapidquote-*.png
+rapidquote-backup-*.zip

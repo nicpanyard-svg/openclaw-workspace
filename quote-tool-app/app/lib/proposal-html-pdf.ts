@@ -111,17 +111,27 @@ async function primePageStorage(
 
 export async function renderHtmlPdf(url: string, options?: PDFOptions, storageState?: BrowserStorageState) {
   return withPdfPage(async (page) => {
+    const origin = new URL(url).origin;
+    await page.setRequestInterception(true);
+    page.on("request", (request) => {
+      const target = new URL(request.url());
+      if (target.protocol === "data:" || target.protocol === "blob:") { void request.continue(); return; }
+      if (target.origin !== origin) { void request.abort(); return; }
+      const headers = { ...request.headers() };
+      if (process.env.RAPIDQUOTE_ACCESS_MODE === "restricted") {
+        headers.authorization = `Basic ${Buffer.from(`${process.env.RAPIDQUOTE_ACCESS_USER}:${process.env.RAPIDQUOTE_ACCESS_PASSWORD}`).toString("base64")}`;
+      }
+      if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) headers["x-vercel-protection-bypass"] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+      void request.continue({ headers });
+    });
     await primePageStorage(page, storageState);
-    await page.goto(url, { waitUntil: "networkidle0" });
+    const response = await page.goto(url, { waitUntil: "networkidle0", timeout: 45_000 });
+    if (!response?.ok() || new URL(page.url()).pathname !== "/proposal/print") throw new Error("The proposal print page could not be loaded.");
     await page.evaluateHandle("document.fonts.ready");
-    try {
-      await page.waitForFunction(
+    await page.waitForFunction(
         () => document.querySelector(".proposal-shell")?.getAttribute("data-attachments-ready") === "true",
-        { timeout: 5000 },
+        { timeout: 30_000 },
       );
-    } catch {
-      // Fall through when there are no async attachments or when the page does not expose the marker.
-    }
     return page.pdf(buildPdfOptions(options));
   });
 }

@@ -8,6 +8,9 @@ const EXPORT_CACHE_DIR = path.join(os.tmpdir(), "proposal-pdf-cache");
 const MAX_EXPORT_AGE_MS = 1000 * 60 * 10;
 
 function buildCachePath(token: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(token)) {
+    throw new Error("Invalid export token.");
+  }
   return path.join(EXPORT_CACHE_DIR, `${token}.json`);
 }
 

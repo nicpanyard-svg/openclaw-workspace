@@ -33,7 +33,7 @@ test("shipping activation is conditional, explicit, and included in customer and
   quote.customerOutput!.billingStart = "On activation";
   assert.equal(needsShippingActivation(quote), false);
   quote.sections.sectionB.enabled = true;
-  quote.sections.sectionB.lineItems = [{ id: "kit", itemName: "Terminal", quantity: 1, unitPrice: 500, totalPrice: 500 }];
+  quote.sections.sectionB.lineItems = [{ id: "kit", sourceType: "custom", itemName: "Terminal", quantity: 1, unitPrice: 500, totalPrice: 500 }];
   quote.customer.name = "Test customer";
   quote.customer.contactName = "Test contact";
   quote.customer.contactPhone = "555-0100";

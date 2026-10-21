@@ -1,0 +1,25 @@
+HYDRA PRODUCT FAMILY WORDING FOR QUOTES
+Prepared October 21, 2026 from the requested product positioning.
+
+HydraNet - GXC network connectivity.
+
+HydraEdge - Cameras and edge sensors for site visibility and field data collection.
+
+HydraLink - Wireless integration for legacy RS-485 sensors, connecting existing
+field instrumentation to the wireless network.
+
+HydraGauge - Monitoring, reporting, and control integrated with wireless
+backhaul. Connect field measurements and equipment status to a central
+application so teams can review readings, track operating conditions, generate
+reports, and perform supported remote control actions over the wireless network.
+
+QUOTE CONFIGURATION NOTES
+These descriptions express the requested positioning, not a certified technical
+specification or a new priced SKU catalog. Before quoting, define the included
+devices, compatible interfaces/protocols, backhaul equipment, software/reporting,
+installation, commissioning, and support. For HydraGauge, identify the actual
+measurements, reporting intervals, control actions, permissions, and local
+interlocks required for the project. Confirm supported capabilities with the
+product owner; do not imply every sensor or controller is supported.
+
+This handoff does not rename existing quote lines or change saved prices.

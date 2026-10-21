@@ -221,7 +221,7 @@ test("noncorporate individual blocks and explicit pool rates complete handoff wi
   for (const pricingStructure of ["individual", "pool"] as const) {
     const quote = createOrderQuote();
     const details = getOrderProcessing(quote);
-    const requirements = prefillStarlinkRates({ ...details.requirements, corporatePricing: "no", pricingStructure });
+    const requirements = prefillStarlinkRates({ ...details.requirements!, corporatePricing: "no", pricingStructure });
     requirements.rates.terminalAccess.amount = 44;
     requirements.rates.poolTac.amount = 45;
     quote.orderProcessing = { ...details, requirements, overageOptIn: "yes", terminals: [], terminalsStatus: "pending" };
@@ -278,7 +278,7 @@ test("incompatible overage billing bases block the handoff until corrected for t
     let quote = createOrderQuote();
     quote.sections.sectionA.mode = "per_kit";
     quote.orderProcessing!.overageOptIn = "yes";
-    if (plan === "noncorporate-pool") quote.orderProcessing!.requirements = prefillStarlinkRates({ ...quote.orderProcessing!.requirements, corporatePricing: "no", pricingStructure: "pool" });
+    if (plan === "noncorporate-pool") quote.orderProcessing!.requirements = prefillStarlinkRates({ ...quote.orderProcessing!.requirements!, corporatePricing: "no", pricingStructure: "pool" });
     const incompatible = plan === "corporate-individual" ? { amount: 0.55, basis: "per GB" } : { amount: 32.5, basis: "per 50GB block" };
     quote = setOveragePrice(quote, incompatible.amount, incompatible.basis);
     const restored = deserializeQuoteRecord(serializeQuoteRecord(quote))!;
@@ -309,7 +309,7 @@ test("lease without an active data agreement cannot export an order summary", ()
 test("customer, corporate pricing, shipping, and POC requirements block order summary exports", () => {
   const cases: { label: string; field: string; makeIncomplete: (quote: QuoteRecord) => void }[] = [
     { label: "customer", field: "Customer", makeIncomplete: (quote) => { quote.customer.name = " "; } },
-    { label: "corporate decision", field: "Corporate pricing decision", makeIncomplete: (quote) => { quote.orderProcessing!.requirements.corporatePricing = "pending"; } },
+    { label: "corporate decision", field: "Corporate pricing decision", makeIncomplete: (quote) => { quote.orderProcessing!.requirements!.corporatePricing = "pending"; } },
     { label: "shipping address", field: "Shipping address", makeIncomplete: (quote) => { quote.shipTo.lines = []; } },
     { label: "shipping contact", field: "Shipping contact name", makeIncomplete: (quote) => { quote.shipTo.attention = ""; } },
     { label: "shipping phone", field: "Shipping contact phone", makeIncomplete: (quote) => { quote.orderProcessing!.shippingContactPhone = ""; } },
@@ -442,7 +442,7 @@ test("disabled sections suppress their rows, totals, optional items, and recurri
   assert.deepEqual(summary.serviceRows, []);
   assert.deepEqual(summary.missingFields, ["Equipment items, quantities and pricing"]);
   assert.throws(() => buildOrderProcessingText(quote), /Equipment items, quantities and pricing/);
-  quote.orderProcessing.requirements.equipmentRequired = "no";
+  quote.orderProcessing.requirements!.equipmentRequired = "no";
   quote.orderProcessing.overageOptIn = "no";
   const output = buildOrderProcessingText(quote);
   assert.match(output, /Quoted recurring total: \$0\.00\/month/);
@@ -496,7 +496,7 @@ test("export excludes internal economics, source metadata, and generated support
 
 test("Major Project saved output supplies categories without exporting generated internal costs", () => {
   const quote = createOrderQuote();
-  quote.orderProcessing = { ...getOrderProcessing(quote), requirements: { ...getOrderProcessing(quote).requirements, equipmentRequired: "no" } };
+  quote.orderProcessing = { ...getOrderProcessing(quote), requirements: { ...getOrderProcessing(quote).requirements!, equipmentRequired: "no" } };
   quote.metadata.workflowMode = "major_project";
   quote.majorProject.enabled = true;
   quote.majorProject.builderMode = "simple";

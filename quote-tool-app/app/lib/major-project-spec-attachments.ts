@@ -91,8 +91,10 @@ function runAttachmentTransaction<T>(
   return openAttachmentDatabase().then((database) => new Promise<T>((resolve, reject) => {
     const transaction = database.transaction(ATTACHMENT_STORE_NAME, mode);
     const store = transaction.objectStore(ATTACHMENT_STORE_NAME);
+    let result: T;
 
-    transaction.oncomplete = () => database.close();
+    // A successful request is not durable until its transaction commits.
+    transaction.oncomplete = () => { database.close(); resolve(result); };
     transaction.onabort = () => {
       database.close();
       reject(transaction.error ?? new Error("Attachment transaction was aborted."));
@@ -102,7 +104,7 @@ function runAttachmentTransaction<T>(
       reject(transaction.error ?? new Error("Attachment transaction failed."));
     };
 
-    executor(store, resolve, reject);
+    executor(store, (value) => { result = value; }, reject);
   }));
 }
 

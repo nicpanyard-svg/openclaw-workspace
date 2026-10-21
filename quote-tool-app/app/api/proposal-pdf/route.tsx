@@ -8,27 +8,30 @@ import { renderHtmlPdf } from "@/app/lib/proposal-html-pdf";
 import { buildProposalPdfContentDisposition } from "@/app/lib/proposal-file-name";
 import { buildMajorProjectMetrics } from "@/app/lib/major-project";
 import type { QuoteRecord } from "@/app/lib/quote-record";
+import { apiErrorResponse, ApiInputError, readJsonBody } from "@/app/lib/api-input";
+import { checkServerAccess, getPdfOrigin } from "@/app/lib/server-access";
 import {
   PROPOSAL_STORAGE_FALLBACK_KEY,
   PROPOSAL_STORAGE_KEY,
   serializeQuoteRecord,
+  deserializeQuoteRecord,
 } from "@/app/lib/proposal-state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const denied = checkServerAccess(request);
+  if (denied) return denied;
   try {
-    const body = (await request.json()) as { quote?: QuoteRecord; proposalId?: string | null };
-    const quote = body.quote;
+    const body = (await readJsonBody(request)) as { quote?: QuoteRecord; proposalId?: string | null } | null;
+    const quote = body?.quote && deserializeQuoteRecord(JSON.stringify(body.quote));
+    if (!body || (body.proposalId !== undefined && body.proposalId !== null && typeof body.proposalId !== "string")) throw new ApiInputError("Invalid proposal payload.");
     const proposalId = body.proposalId ?? null;
 
     if (!quote) {
       return NextResponse.json({ error: "Missing quote payload." }, { status: 400 });
     }
-
-    const missingFields = missingProcessingRequirements(quote);
-    if (missingFields.length) return NextResponse.json({ error: "Complete required quote information before creating the quote.", missingFields }, { status: 422 });
 
     const quoteProposalId = quote.internal?.savedProposalId ?? quote.internal?.quoteId ?? null;
     if (proposalId && quoteProposalId && proposalId !== quoteProposalId) {
@@ -40,13 +43,16 @@ export async function POST(request: Request) {
       if (billingIssues.length) return NextResponse.json({ error: billingIssues.map((issue) => issue.message).join(" ") }, { status: 400 });
     }
 
-    const requestUrl = new URL(request.url);
+    const missingFields = missingProcessingRequirements(quote);
+    if (missingFields.length) return NextResponse.json({ error: "Complete required quote information before creating the quote.", missingFields }, { status: 422 });
+
+    const origin = getPdfOrigin(request);
     const serializedQuote = serializeQuoteRecord(quote);
     const token = await cacheProposalPdfQuote(quote, proposalId ?? quoteProposalId);
 
     try {
       const pdf = await renderHtmlPdf(
-        `${requestUrl.origin}/proposal/print?autoprint=0&pdf=1&token=${encodeURIComponent(token)}&proposalId=${encodeURIComponent(proposalId ?? quoteProposalId ?? "")}`,
+        `${origin}/proposal/print?autoprint=0&pdf=1&token=${encodeURIComponent(token)}&proposalId=${encodeURIComponent(proposalId ?? quoteProposalId ?? "")}`,
         undefined,
         {
           localStorage: {
@@ -69,7 +75,6 @@ export async function POST(request: Request) {
       await cleanupCachedProposalPdfQuote(token);
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to generate proposal PDF.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiErrorResponse(error, "generate the proposal PDF");
   }
 }

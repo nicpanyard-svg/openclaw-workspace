@@ -1,0 +1,55 @@
+RAPIDQUOTE HANDOFF VALIDATION
+Package finalized October 21, 2026. Local Windows verification, Node.js 24.19.0.
+
+RESULT: Ready for DevOps review and controlled interim-workflow evaluation.
+Company-wide production release remains gated by the requirements below.
+
+COMPLETED CHECKS
+- Automated tests: 394 passed, 0 failed, 0 skipped.
+  Command: node scripts/run-tests.cjs (also exposed as npm test).
+- TypeScript: tsc --noEmit --incremental false passed.
+- ESLint: 0 errors, 28 warnings. Warnings remain for existing unused code,
+  hook dependencies, and image usage; these were not silently suppressed.
+- Production build: Next.js 16.4.2 webpack build passed, including TypeScript
+  and route prerendering. Deterministic Vercel routes manifest generated.
+- Lockfile: npm ci --dry-run --ignore-scripts --offline completed successfully.
+  This was a lockfile dry-run, not a fresh-machine clean installation.
+- git diff --check passed.
+- Browser smoke against the local production server passed in a fresh,
+  synthetic browser session: workspace render; quote ZIP download; restore
+  skips an existing ID and preserves a newer edit; no uncaught page errors.
+- API browser smoke passed: health 200; malformed PDF request 400; CSV BOM
+  import 200 with parsed sheets. Public-host origin regression is covered by
+  an automated test as well as this browser check.
+- Backup unit coverage includes attachment bytes and hashes, missing files,
+  cross-company rejection, corrupt archives, safe merging, concurrent saves,
+  and storage failure cleanup.
+- Hosted configuration preflight rejects an unconfigured restricted-pilot
+  environment. Real hosting credentials have not been provisioned here.
+
+REMAINING ACCEPTANCE WORK
+- Dependency audit captured in dependency-audit.json: 15 findings, including
+  13 high and 2 moderate; 0 critical. Security review and supported patched
+  versions are required before public production release.
+- Replace client-controlled accounts, password seeds, roles, resets, approvals,
+  and audit authority with company identity and server authorization.
+- Provision central quote storage, private attachment storage, durable audit,
+  backup/restore operations, and tested migration of existing browser records.
+- Leave optional AI extraction unconfigured until its API/schema handling is
+  corrected and verified. See DEVOPS-HANDOFF.md.
+- Perform a clean npm ci on the target CI/runtime and rerun release checks.
+- Verify actual hosting: HTTPS/access gates, PDF browser startup and successful
+  customer PDF generation, attachment exports, workbook outputs, size limits,
+  monitoring, rate limits, business acceptance, and rollback.
+
+SCOPE AND EVIDENCE
+No live deployment was made, no customer browser data was cleared, and no
+production records were copied into the source handoff ZIP. Browser checks used
+synthetic records. The source ZIP is separate from the quote backup ZIP that
+each user can download from the running application after the change is deployed.
+
+Local execution logs and synthetic browser screenshots are under tmp/ and are
+excluded from the deliverable. Reproduce the checks with the commands in
+README.md and scripts/verify-handoff.ts. The package script reopens the completed
+archive and verifies SHA-256 for every source/documentation payload against
+MANIFEST.sha256 before reporting success.

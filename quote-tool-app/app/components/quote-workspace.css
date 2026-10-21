@@ -123,3 +123,6 @@ body:has(.qw-workspace) .app-shell-header { position: static; box-shadow: none; 
   .qw-button, .qw-icon, .qw-edit { min-height: 44px; }
   .qw-icon { width: 44px; }
 }
+.qw-backup { margin: 0 0 20px; padding: 14px 18px; border: 1px solid #dce3e9; border-radius: 12px; background: #fff; }
+.qw-backup summary { cursor: pointer; font-weight: 600; }
+.qw-backup p { margin: 12px 0; max-width: 85ch; font-size: 14px; line-height: 1.5; }

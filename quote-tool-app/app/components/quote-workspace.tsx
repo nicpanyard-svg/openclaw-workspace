@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Eye, FileText, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
 import { useAuth } from "./auth-shell";
 import { QuoteMasterExport } from "./quote-master-export";
+import { QuoteBackupControls } from "./quote-backup-controls";
 import { buildProposalPreviewPath } from "../lib/proposal-navigation";
 import { PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, isOpenQuoteStatus, mockUsers, serializeProposalStore, upsertProposal, type ProposalStoreData, type SavedProposalRecord } from "../lib/proposal-store";
 import { ensureEnvironmentProposalStore } from "../lib/environment-samples";
@@ -140,6 +141,7 @@ export function QuoteWorkspace() {
   };
   return <main className="qw-workspace">
     <header className="qw-heading"><div><h1>Quotes</h1><p>{store?.proposals.length ?? 0} saved quotes <span className="qw-storage">Saved in this browser</span></p></div><div className="qw-heading-actions"><Link className="qw-button" href="/new?mode=new&entry=major-project"><Plus size={16} />Major Project</Link><Link className="qw-button qw-primary" href="/new?mode=new"><Plus size={16} />Quick Quote</Link></div></header>
+    {store && !storageError && <QuoteBackupControls store={store} onRestored={setStore} />}
     <div className="qw-filters">
       <label className="qw-search"><Search size={18} /><input type="search" placeholder="Search customer, quote, or number" aria-label="Search quotes" value={search} onChange={(event) => filter(() => setSearch(event.target.value))} /></label>
       <label>Owner<select value={owner} onChange={(event) => filter(() => setOwner(event.target.value))}><option value="mine">My quotes</option><option value="all">All owners</option></select></label>

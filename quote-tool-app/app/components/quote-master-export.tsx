@@ -34,14 +34,16 @@ export function QuoteMasterExport({ quote, className = "proposal-secondary-butto
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
-    if (open && !dialog.current?.open) dialog.current?.showModal();
+    if (open && !dialog.current?.open) {
+      returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      dialog.current?.showModal();
+    }
     else if (!open && dialog.current?.open) dialog.current.close();
   }, [open]);
   const restoreFocus = () => window.setTimeout(() => { if (onClosed) onClosed(); else returnFocus.current?.focus(); }, 0);
   const close = () => { if (busy) return; setOpen(false); restoreFocus(); };
   const start = () => {
     if (disabled) return;
-    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     try {
       const source = getQuote ? getQuote() : quote;
       if (!source) throw new Error("Complete the customer details before exporting.");
@@ -94,7 +96,7 @@ export function QuoteMasterExport({ quote, className = "proposal-secondary-butto
     finally { setBusy(false); }
   };
   return <>
-    {renderTrigger ? renderTrigger(start) : <button type="button" className={`${className} qm-trigger`} disabled={disabled} onClick={start} title="Export internal Quote Master workbook with line-item costs and pricing"><FileSpreadsheet size={16} aria-hidden="true" />{label}</button>}
+    {renderTrigger ? renderTrigger(() => start()) : <button type="button" className={`${className} qm-trigger`} disabled={disabled} onClick={start} title="Export internal Quote Master workbook with line-item costs and pricing"><FileSpreadsheet size={16} aria-hidden="true" />{label}</button>}
     {open && createPortal(<dialog ref={dialog} onCancel={(event) => { event.preventDefault(); close(); }} className="qm-dialog" aria-labelledby="quote-master-heading">
       <header className="qm-header">
         <div><h2 id="quote-master-heading">Quote Master Workbook</h2><p>{quote.customer.name} <span>Internal approval</span></p></div>
