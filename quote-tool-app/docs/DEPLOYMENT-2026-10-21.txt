@@ -1,0 +1,56 @@
+RAPIDQUOTE: NO-DATA-SERVICE OVERAGE WARNING FIX
+Deployed October 21, 2026
+
+LIVE STATUS
+Production: https://quote-tool-app.vercel.app
+Vercel project: prj_RKGj0kCH0iVdltrZp0ZlXKPsgmYe (quote-tool-app)
+Deployment: dpl_Dz429WVFdmq39eTMgNXURE33CBtk
+Deployment URL: https://quote-tool-m8p9myszu-nicpanyard-svgs-projects.vercel.app
+Vercel status: READY; aliasError null.
+Production aliases confirmed:
+- quote-tool-app.vercel.app
+- quote-tool-app-nicpanyard-svgs-projects.vercel.app
+
+EXACT SCOPE
+Applied the runtime change from local commit
+fbd649b549ee60c90f2fe377f3ede473666dff92 to the prior production file set.
+Previous production deployment: dpl_CwDrbNkP4QRvTdBpZQ5hsTmdeSko.
+Only app/lib/proposal-customer-content.ts changed in the deployed files.
+Its deployed source SHA-1 is 0aee5ec1d684e991f4c40ce566e3211d60aedbfe.
+Vercel returned the source file under that identifier for the new deployment.
+The other 278 files were reused from the previous release by content hash.
+
+Quotes without an included data service no longer show overage-election or
+overage-price warnings. Existing hasStarlinkService logic also handles included
+cellular/data rows and the Major Project service mix. Saved selections and
+prices are unchanged. Applicable pricing warnings and final confirmation remain.
+
+The full DevOps handoff source includes additional changes that were not shipped
+in this narrow release: backup/restore, dependency upgrades, PDF/API hardening,
+optional access controls, and related configuration. Do not assume those features
+are live. Their acceptance and migration requirements remain in DEVOPS-HANDOFF.md.
+
+VERIFICATION
+- Local regression suite: 396 passed. Local production build passed.
+- Live browser check used a fresh headless Chrome session with a synthetic
+  hardware ($200) and installation ($100) quote and no data service.
+- Customer Proposal PDF initially directed the unconfirmed quote to Review.
+- Review displayed no overage warning.
+- Checking "I confirm these quote details" and exporting again returned
+  HTTP 200 application/pdf and completed a PDF download with a valid PDF header.
+- Synthetic quote number: RQ-2FLR-5N5W.
+- Evidence: tmp/live-export-qa-1792591118052 (excluded from the handoff ZIP).
+- This verified the production flow, not the user's browser-local IMMI record.
+- Vercel build/event log access returned 403; no clean-log claim is made.
+
+OPERATIONS
+The connector successfully read the exact project, created this deployment, and
+retrieved deployment status without an optional teamId. Supplying teamId failed
+for those operations; event-log access failed independently. No reconnect or
+permission change was needed to publish this fix. Keep the verified project ID
+explicit and do not change deployment protection as a workaround.
+
+For users: save any open draft, refresh the existing site in the same browser
+profile, open Review, confirm the quote details, and export Customer Proposal PDF.
+Do not clear site data; quote records are still stored in the user's browser.
+The previous deployment above identifies the rollback target if required.

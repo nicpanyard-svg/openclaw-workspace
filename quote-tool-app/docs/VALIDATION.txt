@@ -52,13 +52,17 @@ The rebuilt production server was verified with a synthetic hardware/installatio
 quote and no data service: no overage review warning appeared; the unconfirmed
 export directed the user to Review; checking final confirmation then produced an
 HTTP 200 PDF response and a completed PDF download. This did not test the user's
-live browser record. Live deployment/log access returned Vercel 403 for the
-configured team; no live update was attempted.
+live browser record. The same synthetic browser flow subsequently passed at
+https://quote-tool-app.vercel.app after deploying the narrow warning fix.
+Vercel confirmed READY and both production aliases. See DEPLOYMENT-2026-10-21.txt.
+Build/log access still returned 403; a clean runtime-log review was not obtained.
 
-No live deployment was made, no customer browser data was cleared, and no
-production records were copied into the source handoff ZIP. Browser checks used
-synthetic records. The source ZIP is separate from the quote backup ZIP that
-each user can download from the running application after the change is deployed.
+Only the one-file warning fix was deployed. The broader handoff features and
+dependency/API/access-control changes were not part of that deployment.
+No customer browser data was cleared, and no production records were copied
+into the source handoff ZIP. Browser checks used synthetic records. The source
+ZIP is separate from the quote backup ZIP available once DevOps deploys the
+broader handoff changes.
 
 Local execution logs and synthetic browser screenshots are under tmp/ and are
 excluded from the deliverable. Reproduce the checks with the commands in

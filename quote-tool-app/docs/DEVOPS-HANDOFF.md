@@ -2,7 +2,7 @@
 
 Prepared October 21, 2026 for the DevOps and application engineering teams.
 
-RapidQuote is being handed over as an interim quoting application with a defined path to managed production operation. Keep the existing quote workflow and records usable during the transition. This package contains source, configuration, templates, tests, and operating instructions. It does not extract live users' browser data or change the currently deployed site.
+RapidQuote is being handed over as an interim quoting application with a defined path to managed production operation. Keep the existing quote workflow and records usable during the transition. This package contains source, configuration, templates, tests, and operating instructions. It does not extract live users' browser data. The October 21 follow-up deployed only the no-data-service overage warning fix to the existing site; the broader handoff changes still require DevOps acceptance and deployment. See `DEPLOYMENT-2026-10-21.txt` for the exact release scope and live verification.
 
 ## Why the interim design uses browser records
 
