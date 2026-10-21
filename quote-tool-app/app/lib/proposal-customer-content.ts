@@ -3,6 +3,7 @@ import { getIncludedEquipmentRows, getIncludedSectionARows, getIncludedServiceRo
 import { isSoftwareLine } from "./quote-software";
 import { resolveOverageTerms } from "./overage-terms";
 import { isManagedServiceTerm, resolveQuotePricingTerms } from "./quote-pricing-terms";
+import { hasStarlinkService } from "./starlink-service";
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -114,9 +115,11 @@ export function getCustomerQuoteContent(quote: QuoteRecord) {
     if (!settings.leaseEndTerms) warnings.push("End-of-lease equipment arrangements are to be confirmed.");
     if (!settings.postLeaseTerms) warnings.push("Pricing after the equipment lease is to be confirmed.");
   }
-  const overages = resolveOverageTerms(quote);
-  if (overages.decision === "pending") warnings.push("The overage election has not been confirmed.");
-  if (overages.decision === "yes" && (overages.amount === null || !overages.basis || overages.conflict || overages.planMismatch)) warnings.push("Opted-in overage pricing has not been specified.");
+  if (hasStarlinkService(quote)) {
+    const overages = resolveOverageTerms(quote);
+    if (overages.decision === "pending") warnings.push("The overage election has not been confirmed.");
+    if (overages.decision === "yes" && (overages.amount === null || !overages.basis || overages.conflict || overages.planMismatch)) warnings.push("Opted-in overage pricing has not been specified.");
+  }
   if (!fieldServicePricingConfirmed && fieldServices.some((row) => row.pricingStage === "budgetary" && !isSoftwareLine(row))) warnings.push("Implementation and service pricing is budgetary and subject to confirmation based on final site count, configuration, and deployment requirements.");
   if (!fieldServicePricingConfirmed && fieldServices.some((row) => row.pricingStage === "budgetary" && isSoftwareLine(row))) warnings.push("Software pricing is budgetary and subject to confirmation of the final license scope and configuration.");
 

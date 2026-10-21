@@ -14,6 +14,7 @@ The browser is the interim record location. Records belong to one browser profil
 
 ## What was prepared
 
+- Corrected customer review so quotes without an included data service do not display overage-decision or overage-price warnings. Saved answers and prices remain unchanged. Final quote confirmation and applicable pricing warnings still apply.
 - Preserved existing storage keys and record structure. No browser data was reset or migrated.
 - Added quote backup and restore with saved quote records plus available attachment bytes. Restore preserves existing records and skips matching IDs. SHA-256 checks detect attachment corruption; company-environment checks prevent accidental cross-company restore. These checks do not establish the trustworthiness of a backup's author.
 - Wait for IndexedDB transaction completion before reporting an attachment save as successful.

@@ -8,6 +8,7 @@ import { getOrderProcessing } from "./order-processing";
 import { setOveragePrice } from "./overage-terms";
 import { getRecurringMonthlyTotal } from "./proposal-commercial-summary";
 import { prefillStarlinkRates } from "./processing-requirements";
+import { convertQuickQuoteToMajorProject } from "./major-project";
 
 function customerQuote() {
   const quote = createBlankQuoteRecord();
@@ -85,6 +86,39 @@ test("disabled subscriptions do not introduce a commitment or service terms", ()
   assert.deepEqual(content.serviceTerms, []);
   assert.ok(!content.pricingTerms.some((line) => /subscription commitment|Starlink/i.test(line)));
   assert.ok(content.warnings.includes("No included scope has been selected."));
+});
+
+test("quotes without data service omit overage warnings without changing saved answers", () => {
+  const quote = customerQuote();
+  quote.sections.sectionA.enabled = false;
+  quote.sections.sectionB.enabled = true;
+  quote.sections.sectionB.lineItems = [{ id: "camera", sourceType: "custom", itemName: "Camera", quantity: 1, unitPrice: 100, totalPrice: 100 }];
+  quote.sections.sectionC.enabled = true;
+  quote.sections.sectionC.lineItems = [{ id: "install", sourceType: "custom", description: "Installation", quantity: 1, unitPrice: 50, totalPrice: 50, pricingStage: "budgetary" }];
+  for (const source of [quote, convertQuickQuoteToMajorProject(quote)]) {
+    for (const decision of ["pending", "not_applicable", "yes"] as const) {
+      source.orderProcessing = { ...getOrderProcessing(source), overageOptIn: decision };
+      const before = JSON.stringify(source);
+      const content = getCustomerQuoteContent(source);
+      assert.ok(!content.warnings.some(line => /overage/i.test(line)));
+      assert.ok(content.warnings.some(line => /budgetary/.test(line)), "real pricing warnings are retained");
+      assert.equal(JSON.stringify(source), before);
+      const restored = deserializeQuoteRecord(serializeQuoteRecord(source))!;
+      assert.ok(!getCustomerQuoteContent(restored).warnings.some(line => /overage/i.test(line)));
+      assert.equal(restored.orderProcessing!.overageOptIn, decision);
+    }
+  }
+});
+
+test("overage warnings return when an included data service is added", () => {
+  const quote = customerQuote();
+  quote.orderProcessing = { ...getOrderProcessing(quote), overageOptIn: "pending" };
+  quote.sections.sectionA.perKitRows[0].optional = true;
+  assert.ok(!getCustomerQuoteContent(quote).warnings.some(line => /overage/i.test(line)));
+  quote.sections.sectionA.perKitRows[0].optional = false;
+  assert.ok(getCustomerQuoteContent(quote).warnings.includes("The overage election has not been confirmed."));
+  quote.orderProcessing.overageOptIn = "yes";
+  assert.ok(getCustomerQuoteContent(quote).warnings.includes("Opted-in overage pricing has not been specified."));
 });
 
 test("budgetary implementation and unresolved overages prevent order authorization", () => {

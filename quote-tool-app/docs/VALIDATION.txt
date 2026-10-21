@@ -5,7 +5,7 @@ RESULT: Ready for DevOps review and controlled interim-workflow evaluation.
 Company-wide production release remains gated by the requirements below.
 
 COMPLETED CHECKS
-- Automated tests: 394 passed, 0 failed, 0 skipped.
+- Automated tests: 396 passed, 0 failed, 0 skipped.
   Command: node scripts/run-tests.cjs (also exposed as npm test).
 - TypeScript: tsc --noEmit --incremental false passed.
 - ESLint: 0 errors, 28 warnings. Warnings remain for existing unused code,
@@ -43,6 +43,18 @@ REMAINING ACCEPTANCE WORK
   monitoring, rate limits, business acceptance, and rollback.
 
 SCOPE AND EVIDENCE
+The October 21 export follow-up fixes an unconditional overage review warning
+on quotes without data service. Regression coverage includes Quick Quote and
+Major Project, saved unanswered/stale overage choices, reload, optional service,
+and restoration of warnings when an included service is added. Final commercial
+confirmation remains required; applicable budgetary pricing warnings remain.
+The rebuilt production server was verified with a synthetic hardware/installation
+quote and no data service: no overage review warning appeared; the unconfirmed
+export directed the user to Review; checking final confirmation then produced an
+HTTP 200 PDF response and a completed PDF download. This did not test the user's
+live browser record. Live deployment/log access returned Vercel 403 for the
+configured team; no live update was attempted.
+
 No live deployment was made, no customer browser data was cleared, and no
 production records were copied into the source handoff ZIP. Browser checks used
 synthetic records. The source ZIP is separate from the quote backup ZIP that
