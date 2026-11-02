@@ -1,0 +1,37 @@
+RapidQuote follow-up release - 2026-11-02
+
+User requested removal of the pro forma invoice signature lines.
+This supersedes the signature-block behavior in DEPLOYMENT-2026-11-02.txt.
+
+Production URL: https://quote-tool-app.vercel.app
+Deployment: dpl_2TSYhGacJDLguH5TgrcAURD5bp5d
+Deployment URL: https://quote-tool-j780qs2nt-nicpanyard-svgs-projects.vercel.app
+Project: prj_RKGj0kCH0iVdltrZp0ZlXKPsgmYe
+Team: team_uyDpMPM2BWxYlg7QN2pULSFz
+Verified READY on the production alias; aliasError null.
+Rollback baseline: dpl_HMfiV1rPddYZ7SQVeqqSxYTEtLVt
+Feature commit: 766975bb426a5b6944a661b9a1f6fd00e4d84931
+
+Scope
+- Removed the Internal sign-off heading, Sales and Accounting signature/date
+  lines, and their CSS from the shared HTML/PDF invoice template.
+- Retained invoice pricing, notes, payment terms, and pro forma disclaimer.
+- Ruthie's DocuSign request workflow is unchanged. Microsoft setup remains
+  required before email sending can be enabled; no email was sent in testing.
+- Only three source files changed from the previous production deployment:
+  app/lib/pro-forma-html.ts, app/lib/pro-forma.test.ts, scripts/verify-pro-forma.ts.
+- Existing unpublished local work was not deployed. Same production dependencies.
+- Request snapshot: tmp/pro-forma-no-signatures-request.json (296 files).
+
+Verification
+- Exact production-source npm run build: passed.
+- Focused invoice/email tests: 23 passed in both main and release trees.
+- Main full suite: 419 passed, 0 failed.
+- Local browser/PDF QA: tmp/pro-forma-qa-1793662213635/result.json.
+- Live browser/PDF QA: tmp/pro-forma-qa-1793662369571/result.json.
+- Preview and purchase, lease, and multi-page PDFs contain no signature block.
+- Disclaimer retained; totals unchanged; mobile/desktop overflow checks pass.
+- Live PDF screenshots inspected. Live invoice downloads returned HTTP 200.
+- Synthetic isolated browser records only; no changes to user quote records.
+- Build/runtime log access remains unavailable through the Vercel connector
+  (previous 403); this release was verified through build, browser, and API tests.
