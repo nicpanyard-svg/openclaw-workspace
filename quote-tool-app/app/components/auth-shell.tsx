@@ -508,7 +508,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 export function AppFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, signOut, isReady, accessRequests } = useAuth();
-  const isChromeFreeRoute = pathname.startsWith("/proposal/print");
+  const isChromeFreeRoute = pathname.startsWith("/proposal/print") || pathname === "/outlook-callback";
   const showChrome = isReady && user && !authRoutes.includes(pathname) && !isChromeFreeRoute;
   const pendingAccessCount = accessRequests.filter((request) => request.status === "pending").length;
 

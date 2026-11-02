@@ -1,4 +1,5 @@
 .pf-panel { min-width: 0; }
+.pf-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .pf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
 .pf-notes { grid-column: 1 / -1; }
 .pf-validation { padding: 14px 0; margin-bottom: 20px; color: #805a21; border-block: 1px solid #e5d9be; font-size: 13px; }
@@ -6,3 +7,26 @@
 .pf-preview { display: block; width: 100%; height: 850px; border: 1px solid #dde2e6; background: #fff; }
 .rq-editor-grid[data-invoice="true"] { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 600px) { .pf-fields { grid-template-columns: minmax(0, 1fr); } .pf-preview { height: 760px; } }
+.qx-dialog.pf-email-dialog { width: min(760px, calc(100vw - 32px)); }
+.pf-email-body { padding: 20px 24px; display: grid; gap: 16px; }
+.pf-email-addresses { margin: 0; display: grid; gap: 14px; }
+.pf-email-addresses > div { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; }
+.pf-email-addresses dt { color: #596570; }
+.pf-email-addresses dd { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; overflow-wrap: anywhere; }
+.pf-email-addresses dd > span:last-child { flex-basis: 100%; }
+.pf-email-field { display: grid; gap: 5px; font-size: 13px; color: #4e5d67; min-width: 0; }
+.pf-email-field textarea { resize: vertical; width: 100%; min-width: 0; padding: 10px; border: 1px solid #cbd3d9; border-radius: 5px; font: 14px/1.5 Arial, sans-serif; color: #28353d; }
+.pf-email-field textarea:focus-visible { outline: 2px solid #18797d; outline-offset: 3px; }
+.pf-email-attachment { display: flex; gap: 10px; align-items: start; border-block: 1px solid #dfe4e7; padding: 12px 0; }
+.pf-email-attachment svg { flex-shrink: 0; }
+.pf-email-attachment > div { min-width: 0; display: grid; gap: 4px; overflow-wrap: anywhere; }
+.pf-email-attachment span { font-size: 12px; color: #596570; }
+.pf-email-warning { margin: 0; padding-block: 12px; border-block: 1px solid #e5d9be; color: #805a21; }
+.pf-email-error { margin: 0; color: #ac2626; display: grid; gap: 8px; }
+.pf-email-retry { display: flex; align-items: start; gap: 8px; }
+.pf-email-retry input { margin-top: 5px; }
+.pf-email-success { display: flex; align-items: start; gap: 10px; color: #216a51; }
+.pf-email-success p { margin: 0; display: grid; gap: 4px; }
+.pf-email-success svg { flex-shrink: 0; }
+.pf-email-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #dfe4e7; background: #fff; position: sticky; bottom: 0; }
+@media (max-width: 600px) { .pf-actions { width: 100%; } .pf-actions .rq-button { flex: 1 1 160px; } .pf-email-body { padding: 16px; } .pf-email-footer { padding: 14px 16px; } }

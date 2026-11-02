@@ -1,11 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, LoaderCircle } from "lucide-react";
+import { Download, LoaderCircle, Send } from "lucide-react";
+import dynamic from "next/dynamic";
 import { buildProFormaFileName, buildProFormaInvoice } from "../lib/pro-forma";
 import { buildProFormaHtml } from "../lib/pro-forma-html";
 import type { ProFormaSettings, QuoteRecord } from "../lib/quote-record";
+import { requestProFormaPdf } from "../lib/pro-forma-pdf-client";
 import "./pro-forma.css";
+
+const ProFormaEmailDialog = dynamic(() => import("./pro-forma-email-dialog").then(module => module.ProFormaEmailDialog));
 
 type Props = {
   quote: QuoteRecord;
@@ -19,6 +23,8 @@ export function ProFormaPanel({ quote, onChange, getQuote, onReview }: Props) {
   const html = useMemo(() => buildProFormaHtml(invoice), [invoice]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [requestQuote, setRequestQuote] = useState<QuoteRecord | null>(null);
+  const [emailStatus, setEmailStatus] = useState("");
   const update = (key: keyof ProFormaSettings, value: string) => {
     setError("");
     onChange(draft => { draft.proForma = { ...invoice.settings, [key]: value }; return draft; });
@@ -30,12 +36,7 @@ export function ProFormaPanel({ quote, onChange, getQuote, onReview }: Props) {
     if (!saved) return;
     setBusy(true);
     try {
-      const response = await fetch("/api/pro-forma-pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quote: saved }) });
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({})) as { error?: string; missingFields?: string[] };
-        throw new Error(result.missingFields?.join("; ") || result.error || "The PDF could not be generated. Please try again.");
-      }
-      const url = URL.createObjectURL(await response.blob());
+      const url = URL.createObjectURL(await requestProFormaPdf(saved));
       const link = document.createElement("a");
       link.href = url; link.download = buildProFormaFileName(saved);
       document.body.appendChild(link); link.click(); link.remove();
@@ -44,7 +45,7 @@ export function ProFormaPanel({ quote, onChange, getQuote, onReview }: Props) {
     finally { setBusy(false); }
   };
   return <section className="pf-panel" aria-labelledby="pf-heading">
-    <div className="rq-section-heading"><h2 id="pf-heading">Pro Forma Invoice</h2><button type="button" className="rq-button rq-button-primary" disabled={busy || invoice.errors.length > 0} onClick={() => void download()}>{busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}{busy ? "Generating PDF..." : "Download invoice PDF"}</button></div>
+    <div className="rq-section-heading"><h2 id="pf-heading">Pro Forma Invoice</h2><div className="pf-actions"><button type="button" className="rq-button" disabled={busy || invoice.errors.length > 0} onClick={() => { const saved = getQuote(); if (saved) { setEmailStatus(""); setRequestQuote(structuredClone(saved)); } }}><Send size={16} aria-hidden="true" />Send for DocuSign</button><button type="button" className="rq-button rq-button-primary" disabled={busy || invoice.errors.length > 0} onClick={() => void download()}>{busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}{busy ? "Generating PDF..." : "Download invoice PDF"}</button></div></div>
     <div className="pf-fields">
       <label className="builder-field"><span>Invoice reference</span><input maxLength={100} value={invoice.settings.reference} onChange={event => update("reference", event.target.value)} /></label>
       <label className="builder-field"><span>Invoice date</span><input type="date" value={invoice.settings.issueDate} onChange={event => update("issueDate", event.target.value)} /></label>
@@ -54,6 +55,8 @@ export function ProFormaPanel({ quote, onChange, getQuote, onReview }: Props) {
     </div>
     {invoice.errors.length > 0 && <div className="pf-validation"><strong>Before downloading</strong><ul>{invoice.errors.map(message => <li key={message}>{message}</li>)}</ul><button type="button" className="rq-button" onClick={onReview}>Review quote</button></div>}
     {error && <p className="rq-notice rq-notice-warning" role="alert">{error}</p>}
+    {emailStatus && <p className="rq-notice" role="status">{emailStatus}</p>}
     <iframe className="pf-preview" title="Pro forma invoice preview" sandbox="allow-same-origin" srcDoc={html} />
+    {requestQuote && <ProFormaEmailDialog quote={requestQuote} onClose={() => setRequestQuote(null)} onSubmitted={setEmailStatus} />}
   </section>;
 }

@@ -26,6 +26,17 @@ async function main() {
   const browser = await puppeteer.launch({ executablePath, headless: true });
   try {
     const page = await browser.newPage();
+    let failInvoicePdf = false;
+    let attemptedEmails = 0;
+    await page.setRequestInterception(true);
+    page.on("request", request => {
+      if (new URL(request.url()).hostname === "graph.microsoft.com") { attemptedEmails++; void request.abort(); return; }
+      if (failInvoicePdf && request.url().endsWith("/api/pro-forma-pdf")) {
+        void request.respond({ status: 422, contentType: "application/json", body: JSON.stringify({ missingFields: ["Confirm the quote details before attaching the PDF."] }) });
+        return;
+      }
+      void request.continue();
+    });
     const downloads = await browser.target().createCDPSession();
     await downloads.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: output });
     const errors: string[] = [];
@@ -124,6 +135,37 @@ async function main() {
     assert.equal(buildProFormaInvoice(saved).total, 2692.25);
     assert.equal(saved.proForma.customerPo, "PO-2401");
     assert.ok(saved.proForma.issueDate);
+
+    failInvoicePdf = true;
+    await page.click(".pf-actions button:first-child");
+    await page.waitForSelector(".pf-email-dialog[open]");
+    await page.waitForFunction(() => document.querySelector(".pf-email-error")?.textContent?.includes("Confirm the quote details"));
+    assert.equal(await page.$eval(".pf-email-footer button[type=submit]", element => (element as HTMLButtonElement).disabled), true);
+    failInvoicePdf = false;
+    await page.click(".pf-email-error button");
+    await page.waitForFunction(() => document.querySelector(".pf-email-attachment")?.textContent?.includes("PDF attached"), { timeout: 120_000 });
+    assert.match(await page.$eval(".pf-email-addresses", element => element.textContent || ""), /Ruthie Ramay[\s\S]*Inside Sales[\s\S]*ruthie\.ramay@inetlte\.com/);
+    assert.match(await page.$eval(".pf-email-field textarea", element => (element as HTMLTextAreaElement).value), /Sales and Accounting sign-off/);
+    assert.match(await page.$eval(".pf-email-warning", element => element.textContent || ""), /not configured yet/);
+    for (const width of [1440, 785, 390, 320]) {
+      await page.setViewport({ width, height: 1050 });
+      const layout = await page.$eval(".pf-email-dialog", element => {
+        const rect = element.getBoundingClientRect();
+        const footer = element.querySelector(".pf-email-footer")!.getBoundingClientRect();
+        return { overflow: element.scrollWidth > element.clientWidth + 1, left: rect.left, right: rect.right, footerBottom: footer.bottom };
+      });
+      assert.equal(layout.overflow, false);
+      assert.ok(layout.left >= 0 && layout.right <= width + 1 && layout.footerBottom <= 1050);
+      await page.screenshot({ path: path.join(output, `email-${width}.png`) });
+    }
+    await page.keyboard.press("Escape");
+    await page.waitForSelector(".pf-email-dialog", { hidden: true });
+    assert.equal(attemptedEmails, 0, "Preview and PDF preparation never send mail");
+    const callback = await browser.newPage();
+    await callback.goto(new URL("/outlook-callback", base).href, { waitUntil: "networkidle0" });
+    assert.equal(new URL(callback.url()).pathname, "/outlook-callback", "Microsoft callback is not redirected to application login");
+    assert.equal(await callback.$("nav"), null, "Microsoft callback has no app navigation");
+    await callback.close();
 
     const lease = proFormaFixture();
     Object.assign(lease.metadata, { quoteType: "lease", hasActiveDataAgreement: true, leaseTermMonths: 3, leaseMarginPercent: 25 });

@@ -15,6 +15,7 @@
     "test:smoke": "tsx scripts/verify-handoff.ts"
   },
   "dependencies": {
+    "@azure/msal-browser": "5.27.0",
     "@formulajs/formulajs": "4.5.6",
     "@react-pdf/renderer": "^4.5.1",
     "@sparticuz/chromium": "^147.0.1",

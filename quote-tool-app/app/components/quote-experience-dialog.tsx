@@ -10,11 +10,13 @@ export function QuoteExperienceDialog({
   onClose,
   children,
   className = "",
+  closeDisabled = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  closeDisabled?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const onCloseRef = useRef(onClose);
@@ -40,7 +42,7 @@ export function QuoteExperienceDialog({
       aria-label={title}
       onCancel={(event) => {
         event.preventDefault();
-        onCloseRef.current();
+        if (!closeDisabled) onCloseRef.current();
       }}
     >
       <header className="qx-dialog-header">
@@ -50,6 +52,7 @@ export function QuoteExperienceDialog({
           type="button"
           aria-label={`Close ${title}`}
           title="Close"
+          disabled={closeDisabled}
           onClick={onClose}
         >
           <X size={20} />
