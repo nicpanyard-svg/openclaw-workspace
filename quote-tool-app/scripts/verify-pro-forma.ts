@@ -84,12 +84,13 @@ async function main() {
         frame.scrollIntoView({ block: "start" });
         frame.contentWindow!.scrollTo(0, frame.contentDocument!.documentElement.scrollHeight);
       });
-      const signoff = await page.$eval(".pf-preview", element => {
+      const closing = await page.$eval(".pf-preview", element => {
         const doc = (element as HTMLIFrameElement).contentDocument!;
-        return [...doc.querySelectorAll(".signoff-row")].map(row => row.querySelector("strong")?.textContent);
+        return { signatureFields: doc.querySelectorAll(".signoff, .signoff-row, .signoff-field").length, disclaimer: doc.querySelector(".disclaimer")?.textContent };
       });
-      assert.deepEqual(signoff, ["Sales", "Accounting"]);
-      await page.screenshot({ path: path.join(output, `signoff-${width}.png`) });
+      assert.equal(closing.signatureFields, 0);
+      assert.match(closing.disclaimer || "", /PRO FORMA ONLY/);
+      await page.screenshot({ path: path.join(output, `invoice-ending-${width}.png`) });
     }
     await page.setViewport({ width: 1440, height: 1050 });
     const responsePromise = page.waitForResponse(response => response.url().endsWith("/api/pro-forma-pdf"), { timeout: 120_000 });
@@ -104,7 +105,6 @@ async function main() {
     const inspectPdf = async (data: Uint8Array, name: string, expectedTotal: string) => {
       const pdf = await getDocument({ data: new Uint8Array(data), useSystemFonts: true }).promise;
       let text = "";
-      let signoffPages = 0;
       for (let index = 1; index <= pdf.numPages; index++) {
         const pdfPage = await pdf.getPage(index);
         const content = await pdfPage.getTextContent();
@@ -112,13 +112,7 @@ async function main() {
         assert.match(pageText, /Pro Forma Invoice \| Page/);
         // Linux PDF fonts can emit the "ff" ligature as a separate text span.
         const joinedText = content.items.filter(item => "str" in item).map(item => item.str).join("").normalize("NFKC");
-        if (joinedText.includes("Internal sign-off")) {
-          signoffPages++;
-          assert.match(pageText, /Sales/);
-          assert.match(pageText, /Accounting/);
-          assert.match(pageText, /PRO FORMA ONLY/, "The invoice disclaimer stays with the sign-off lines");
-          assert.equal(pageText.match(/Name \/ signature/g)?.length, 2, "Both signature lines stay together on one page");
-        }
+        assert.doesNotMatch(joinedText, /Internal sign-off|Name \/ signature|Accounting/, "Invoice PDF omits the internal signature block");
         text += pageText + "\n";
         const viewport = pdfPage.getViewport({ scale: 1.4 });
         const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
@@ -126,7 +120,6 @@ async function main() {
         await writeFile(path.join(output, `${name}-${index}.png`), canvas.toBuffer("image/png"));
       }
       assert.ok(text.includes(expectedTotal));
-      assert.equal(signoffPages, 1, "Invoice includes one internal sign-off section");
       assert.match(text, /PRO FORMA ONLY/);
       assert.doesNotMatch(text, /INTERNAL_COST_SECRET|vendor cost|gross profit|target margin/i);
       await pdf.destroy();

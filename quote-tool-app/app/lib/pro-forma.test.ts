@@ -119,18 +119,14 @@ test("invalid invoice fields, unresolved quote setup, and unconfirmed leases blo
   assert.ok(invoice.errors.includes("Confirm the quote details on the Review tab."));
 });
 
-test("purchase and lease invoices include blank Sales and Accounting sign-off lines", () => {
+test("purchase and lease invoices omit signature lines but retain the disclaimer", () => {
   for (const quoteType of ["purchase", "lease"] as const) {
     const quote = proFormaFixture();
     quote.metadata.quoteType = quoteType;
     const html = buildProFormaHtml(buildProFormaInvoice(quote));
-    const signoff = html.match(/<section class="signoff"[\s\S]*?<\/section>/)?.[0] ?? "";
-    assert.match(signoff, /Internal sign-off/);
-    assert.match(signoff, /<strong>Sales<\/strong>/);
-    assert.match(signoff, /<strong>Accounting<\/strong>/);
-    assert.equal(signoff.match(/<span>Name \/ signature<\/span>/g)?.length, 2);
-    assert.equal(signoff.match(/<span>Date<\/span>/g)?.length, 2);
-    assert.doesNotMatch(signoff, /Approved|Signed|2026-/);
+    assert.doesNotMatch(html, /signoff|Internal sign-off|Name \/ signature|<strong>Sales<\/strong>|<strong>Accounting<\/strong>/);
+    assert.match(html, /PRO FORMA ONLY/);
+    assert.match(html, /Final invoicing is subject to the agreed order and payment terms/);
   }
 });
 
