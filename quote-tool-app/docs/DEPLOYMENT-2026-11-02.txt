@@ -1,0 +1,66 @@
+RapidQuote production release - 2026-11-02
+
+User requested: push the pro forma invoice and Outlook handoff update.
+
+Production URL: https://quote-tool-app.vercel.app
+Project: prj_RKGj0kCH0iVdltrZp0ZlXKPsgmYe (quote-tool-app)
+Team: team_uyDpMPM2BWxYlg7QN2pULSFz (nicpanyard-svgs-projects)
+Deployment: dpl_HMfiV1rPddYZ7SQVeqqSxYTEtLVt
+Deployment URL: https://quote-tool-9q35htluy-nicpanyard-svgs-projects.vercel.app
+State: READY; stable production alias verified; aliasError null.
+Rollback deployment: dpl_Dz429WVFdmq39eTMgNXURE33CBtk
+
+Published scope
+- Pro Forma Invoice tab, editable invoice details, and PDF download.
+- Sales and Accounting signature/date lines kept together in the PDF.
+- Send for DocuSign request addressed to Ruthie Ramay, Inside Sales.
+- Attached invoice PDF, editable message, delegated Microsoft 365 sender flow.
+- Missing Microsoft configuration disables sending; no email was sent in QA.
+
+Source and Git
+- Feature commits: d4a5de1, a7a4fe5, d6ffd3c.
+- GitHub branch: codex/pro-forma-outlook-2026-11-02.
+- Local master and remote master diverged; neither was force-pushed or reset.
+- Release reconstructed from the exact previous production source and the
+  three feature commits, not the entire local working tree. Older unpublished
+  DevOps/authentication changes were deliberately not released.
+- Existing production Next.js 16.2.1 and dependency versions retained; added
+  @azure/msal-browser 5.27.0 and its lockfile records only.
+- New PDF route includes api-input and server-access helpers. Existing routes
+  and global authentication behavior were not changed.
+- Two existing annual-billing test fixtures were completed with required order
+  details, including generated Major Project equipment IDs. Assertions retained.
+- Payload: 296 source files; 29 changed/new files; 1,313,579 JSON bytes.
+- Local release files: tmp/pro-forma-release-request.json and
+  tmp/pro-forma-publish/manifest.json. Unchanged files referenced prior hashes.
+- Do not deploy local HEAD wholesale without separately reviewing unpublished
+  changes. Use this deployment as the production baseline for a narrow release.
+
+Verification
+- Exact release build: npm run build passed (Next.js 16.2.1).
+- Exact release unit tests: 402 passed, 0 failed.
+- Main working tree unit tests: 419 passed, 0 failed; main build passed.
+- Exact release local browser/PDF QA: tmp/pro-forma-qa-1793659525260.
+- Production browser/PDF QA: tmp/pro-forma-qa-1793660028090/result.json.
+- Live purchase, lease, and multi-page PDFs returned HTTP 200 and correct totals.
+- Invoice fields persisted through save/reload; both sign-off lines and invoice
+  disclaimer stayed together; internal cost/margin data absent from PDFs.
+- Desktop/mobile widths: 1440, 1024, 785, 390, and 320. No page overflow.
+- Ruthie's recipient/Inside Sales label, PDF attachment preparation, error/retry
+  state, disabled unconfigured sending, and callback route checked live.
+- Invalid invoice date: HTTP 422; invalid payload: HTTP 400.
+- Isolated synthetic browser records only; Nick's actual records not modified.
+- Microsoft Graph requests intercepted in browser QA; zero email attempts.
+- Live PDF fonts split the ff ligature into separate text spans. QA now checks
+  joined text spans for the sign-off heading; rendered output was correct.
+- Vercel build-log and runtime-log APIs returned 403. Server logs could not be
+  inspected. Deployment state and live browser/API/PDF checks were verified.
+- Baseline dependency audit findings remain; this was not a security upgrade.
+
+Remaining external setup
+Outlook sending is not enabled until an authorized Microsoft 365 administrator
+registers the Entra SPA and configures the client and tenant IDs in Vercel.
+See docs/outlook-docusign-setup.md. No client secret or Microsoft password is
+required by this integration. Rebuild after setting the public IDs, then verify
+consent, sender identity, Sent Items, and receipt with an authorized test send.
+Ruthie creates the DocuSign envelope; RapidQuote does not create or sign it.

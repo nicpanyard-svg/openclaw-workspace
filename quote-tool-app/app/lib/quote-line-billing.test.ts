@@ -13,13 +13,14 @@ import { buildEstimateTemplateModel } from "./estimate-template";
 import { normalizeProcessingRequirements, missingProcessingRequirements } from "./processing-requirements";
 
 function completeOrderDetails(quote: QuoteRecord) {
+  const output = quote.metadata.workflowMode === "major_project" ? applyMajorProjectToQuote(quote) : quote;
   quote.customer.name = "Annual billing test";
   quote.customer.addressLines = ["10 Test Road"];
   quote.customer.contactName = "Test Contact";
   quote.customer.contactPhone = "555-0100";
   quote.orderProcessing = { ...quote.orderProcessing!, shippingRequired: "no", notes: "None", requirements: {
     ...normalizeProcessingRequirements(quote.orderProcessing?.requirements), subAccountStatus: "no", equipmentRequired: "yes",
-    equipment: Object.fromEntries(quote.sections.sectionB.lineItems.map((row) => [row.id, { kind: "standalone" as const, assemblyDetails: "" }])),
+    equipment: Object.fromEntries(output.sections.sectionB.lineItems.map((row) => [row.id, { kind: "standalone" as const, assemblyDetails: "" }])),
   } };
   return quote;
 }

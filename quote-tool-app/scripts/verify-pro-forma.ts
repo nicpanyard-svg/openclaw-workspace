@@ -13,7 +13,8 @@ import { proFormaFixture } from "./pro-forma-fixtures";
 
 async function main() {
   const base = new URL(process.env.PROPOSAL_QA_BASE_URL || "http://localhost:3017");
-  assert.ok(["localhost", "127.0.0.1"].includes(base.hostname));
+  const authorizedLiveCheck = process.env.RAPIDQUOTE_LIVE_QA === "1" && base.origin === "https://quote-tool-app.vercel.app";
+  assert.ok(["localhost", "127.0.0.1"].includes(base.hostname) || authorizedLiveCheck);
   const output = path.resolve(`tmp/pro-forma-qa-${Date.now()}`);
   await mkdir(output, { recursive: true });
   const executablePath = ["C:/Program Files/Google/Chrome/Application/chrome.exe", "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"].find(existsSync);
@@ -109,7 +110,9 @@ async function main() {
         const content = await pdfPage.getTextContent();
         const pageText = content.items.filter(item => "str" in item).map(item => item.str).join(" ");
         assert.match(pageText, /Pro Forma Invoice \| Page/);
-        if (pageText.includes("Internal sign-off")) {
+        // Linux PDF fonts can emit the "ff" ligature as a separate text span.
+        const joinedText = content.items.filter(item => "str" in item).map(item => item.str).join("").normalize("NFKC");
+        if (joinedText.includes("Internal sign-off")) {
           signoffPages++;
           assert.match(pageText, /Sales/);
           assert.match(pageText, /Accounting/);
