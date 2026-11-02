@@ -7,7 +7,8 @@ import { LaborBreakdown } from "./labor-breakdown";
 import { QuoteLineTable } from "@/app/components/quote-line-table";
 import { QuoteBillingSelect } from "@/app/components/quote-billing-select";
 import dynamic from "next/dynamic";
-import { Columns3, Package, Presentation } from "lucide-react";
+import { Columns3, Package, Presentation, ReceiptText } from "lucide-react";
+import { createProFormaSettings } from "@/app/lib/pro-forma-settings";
 import { addLibraryProduct } from "@/app/lib/quote-product-library";
 import { comparisonLeaseTerms, getPricingReviewItems } from "@/app/lib/quote-experience";
 import { getAnnualSubscriptionSummary, getLineBilling, isAnnualLine } from "@/app/lib/quote-line-billing";
@@ -123,6 +124,7 @@ import { createBlankQuoteRecord } from "@/app/lib/quote-template";
 const QuoteProductPicker = dynamic(() => import("./quote-product-picker").then((module) => module.QuoteProductPicker));
 const QuoteComparison = dynamic(() => import("./quote-comparison").then((module) => module.QuoteComparison));
 const CustomerPresentation = dynamic(() => import("./customer-presentation").then((module) => module.CustomerPresentation));
+const ProFormaPanel = dynamic(() => import("./pro-forma-panel").then((module) => module.ProFormaPanel));
 
 type EquipmentDraft = {
   itemName: string;
@@ -1803,7 +1805,7 @@ export default function QuotePreview() {
   const { user, directoryUsers } = useAuth();
   const router = useRouter();
   const [isHydrated, setIsHydrated] = useState(false);
-  const [editorTab, setEditorTab] = useState<"customer" | "items" | "pricing" | "documents" | "review">("items");
+  const [editorTab, setEditorTab] = useState<"customer" | "items" | "pricing" | "documents" | "review" | "invoice">("items");
   const [setupRequest, setSetupRequest] = useState(0);
   const [setupInitialStep, setSetupInitialStep] = useState<number | undefined>(undefined);
   const [editingSetupItems, setEditingSetupItems] = useState(false);
@@ -4620,11 +4622,12 @@ export default function QuotePreview() {
             { key: "pricing", label: "Pricing", icon: Calculator },
             { key: "documents", label: "Documents", icon: Files },
             { key: "review", label: "Review", icon: ClipboardCheck },
-          ] as const).map(({ key, label, icon: Icon }) => <button key={key} id={`rq-nav-${key}`} type="button" aria-current={visibleEditorTab === key ? "page" : undefined} disabled={!customerEntryComplete && key !== "customer"} onClick={() => { setEditorTab(key); window.scrollTo({ top: 0, behavior: "instant" }); }}><Icon size={16} aria-hidden="true" />{label}</button>)}
+            { key: "invoice", label: "Pro Forma Invoice", icon: ReceiptText },
+          ] as const).map(({ key, label, icon: Icon }) => <button key={key} id={`rq-nav-${key}`} type="button" aria-current={visibleEditorTab === key ? "page" : undefined} disabled={!customerEntryComplete && key !== "customer"} onClick={() => { if (key === "invoice" && !quote.proForma) updateQuote(draft => { draft.proForma = createProFormaSettings(draft); return draft; }); setEditorTab(key); window.scrollTo({ top: 0, behavior: "instant" }); }}><Icon size={16} aria-hidden="true" />{label}</button>)}
         </nav>
         {saveError && <div className="rq-notice" role="alert"><AlertCircle size={18} aria-hidden="true" /><span>{saveError}</span></div>}
         {workflowNotice && <div className="rq-notice" role="status"><span>{workflowNotice}</span>{activeProposal && !hasUnsavedChanges && <button type="button" className="rq-button" onClick={() => router.push("/workspace")}>View in Workspace</button>}<button type="button" className="rq-icon-button" aria-label="Dismiss notice" onClick={() => setWorkflowNotice(null)}><X size={16} aria-hidden="true" /></button></div>}
-        <div className="rq-editor-grid" data-customer-ready={customerEntryComplete}>
+        <div className="rq-editor-grid" data-customer-ready={customerEntryComplete} data-invoice={visibleEditorTab === "invoice"}>
           <div className="rq-editor-main">
             <div hidden={visibleEditorTab !== "customer"} aria-labelledby="rq-nav-customer">
                           <section className="builder-panel" hidden={customerEntryComplete}>
@@ -6538,8 +6541,9 @@ return {
 </section>
 <OrderProcessingPanel onEditSetup={openQuoteSetup} quote={quote} onChange={updateQuote} onEditCustomer={() => { setCustomerEntryMode("create"); setEditorTab("customer"); }} onEditItems={() => setEditorTab("items")} onExport={handleDownloadOrderSummary} />
 </div>
+{visibleEditorTab === "invoice" && <ProFormaPanel quote={quote} onChange={updateQuote} getQuote={() => persistProposalState()?.proposal.quote} onReview={() => { setEditorTab("review"); window.scrollTo({ top: 0, behavior: "instant" }); }} />}
           </div>
-          <aside className="rq-totals" aria-label="Quote totals" hidden={!customerEntryComplete} data-expanded={showMobileTotals}>
+          <aside className="rq-totals" aria-label="Quote totals" hidden={!customerEntryComplete || visibleEditorTab === "invoice"} data-expanded={showMobileTotals}>
   <div className="rq-totals-main">
     <span className="rq-total-label">Total monthly payment</span>
     <strong className="rq-monthly-total">{isLeaseQuote && !hasActiveDataAgreement ? "Agreement required" : formatCurrency(isLeaseQuote ? leaseMonthly : recurringMonthlyTotal, currencyCode)}</strong>

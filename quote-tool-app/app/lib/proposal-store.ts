@@ -252,6 +252,7 @@ export function createProposalCopy(params: {
     recordVersion: 1,
     quote: {
       ...sourceQuote,
+      proForma: undefined,
       governance: createCopiedQuoteGovernanceState({
         newQuoteId: id,
         accountKey: sourceQuote.metadata.accountId || sourceQuote.metadata.accountName || undefined,

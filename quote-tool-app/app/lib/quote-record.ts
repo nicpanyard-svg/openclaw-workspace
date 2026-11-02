@@ -679,6 +679,14 @@ export type QuoteCustomerOutput = {
   billingStart: string;
 };
 
+export type ProFormaSettings = {
+  reference: string;
+  issueDate: string;
+  customerPo: string;
+  billingPeriod: string;
+  notes: string;
+};
+
 export type QuoteRecord = {
   metadata: QuoteMetadata;
   governance?: QuoteGovernanceState;
@@ -696,6 +704,7 @@ export type QuoteRecord = {
   shippingSameAsBillTo: boolean;
   orderProcessing?: QuoteOrderProcessing;
   customerOutput?: QuoteCustomerOutput;
+  proForma?: ProFormaSettings;
   executiveSummary: QuoteTextBlock;
   customFields?: QuoteCustomField[];
   sections: {

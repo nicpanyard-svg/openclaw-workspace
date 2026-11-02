@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
   outputFileTracingIncludes: {
     "/api/proposal-pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
+    "/api/pro-forma-pdf": ["./node_modules/@sparticuz/chromium/bin/**", "./public/inet-logo.png", "./public/ilios-logo.svg"],
   },
 };
 

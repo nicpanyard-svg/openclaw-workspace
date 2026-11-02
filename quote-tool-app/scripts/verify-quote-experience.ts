@@ -216,7 +216,7 @@ async function main() {
       const navigation = await page.$eval(".rq-editor-nav", (el) => el.getBoundingClientRect().bottom);
       const editor = await page.$eval(".rq-editor-grid", (el) => el.getBoundingClientRect().top);
       assert.ok(navigation <= editor, "Section navigation stays above the editor");
-      assert.equal(await page.$$eval(".rq-editor-nav button", (els) => els.length), 5);
+      assert.equal(await page.$$eval(".rq-editor-nav button", (els) => els.length), 6);
       assert.equal(await page.$('.rq-editor-actions [aria-label="Present to customer"]'), null);
       assert.equal(await page.$(".rq-totals .rq-summary-compare"), null);
       await page.screenshot({ path: path.join(output, `editor-${width}.png`) });

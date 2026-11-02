@@ -10,6 +10,7 @@ import { createDefaultQuoteServiceAgreementState, normalizeQuoteServiceAgreement
 import { normalizeQuoteWarrantyDetails } from "@/app/lib/quote-warranty";
 import { normalizeOrderProcessing } from "@/app/lib/order-processing";
 import { normalizeCustomerOutput } from "@/app/lib/proposal-customer-content";
+import { normalizeProFormaSettings } from "./pro-forma-settings";
 import { normalizeQuoteSoftware } from "./quote-software";
 import { normalizeQuoteItemWording } from "./quote-item-wording";
 import type { LeaseTermMonths, QuoteCustomField, QuoteRecord } from "@/app/lib/quote-record";
@@ -357,6 +358,7 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
       shippingSameAsBillTo,
       orderProcessing: normalizeOrderProcessing(parsed.orderProcessing),
       customerOutput: normalizeCustomerOutput(parsed.customerOutput),
+      ...(parsed.proForma === undefined ? {} : { proForma: normalizeProFormaSettings(parsed.proForma) }),
       executiveSummary: {
         enabled: parsed.executiveSummary?.enabled ?? false,
         heading: parsed.executiveSummary?.heading ?? "Executive Summary",
