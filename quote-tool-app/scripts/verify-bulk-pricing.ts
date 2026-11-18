@@ -39,7 +39,8 @@ async function savedQuote(page: Page, id: string): Promise<QuoteRecord> {
 
 async function main() {
   const base = new URL(process.env.PROPOSAL_QA_BASE_URL || "http://localhost:3018");
-  assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(base.hostname));
+  const authorizedLiveCheck = process.env.RAPIDQUOTE_LIVE_QA === "1" && base.origin === "https://quote-tool-app.vercel.app";
+  assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(base.hostname) || authorizedLiveCheck);
   const output = path.resolve(`tmp/bulk-pricing-qa/${Date.now()}`);
   await mkdir(output, { recursive: true });
   const executablePath = ["C:/Program Files/Google/Chrome/Application/chrome.exe", "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"].find(existsSync);
