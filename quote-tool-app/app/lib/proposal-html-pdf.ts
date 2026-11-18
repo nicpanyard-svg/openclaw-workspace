@@ -184,11 +184,19 @@ export async function renderHtmlPdf(url: string, options?: PDFOptions, storageSt
 export async function renderHtmlContentPdf(html: string, options?: PDFOptions) {
   return withPdfPage(async (page) => {
     await page.setJavaScriptEnabled(false);
-    await page.setOfflineMode(true);
-    await restrictPageRequests(page);
-    await page.setContent(html, { waitUntil: "load" });
-    const pdf = await page.pdf(buildPdfOptions(options));
-    if (page.url() !== "about:blank") throw new Error("The HTML document changed during rendering.");
-    return pdf;
+    const network = await page.createCDPSession();
+    try {
+      // Serverless Chromium trails desktop Chrome. The newer rule-based offline
+      // API is not portable across those versions; this command fails closed.
+      await network.send("Network.enable");
+      await network.send("Network.emulateNetworkConditions", {
+        offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0,
+      });
+      await restrictPageRequests(page);
+      await page.setContent(html, { waitUntil: "load" });
+      const pdf = await page.pdf(buildPdfOptions(options));
+      if (page.url() !== "about:blank") throw new Error("The HTML document changed during rendering.");
+      return pdf;
+    } finally { await network.detach(); }
   });
 }

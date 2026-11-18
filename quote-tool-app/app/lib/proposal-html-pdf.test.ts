@@ -24,7 +24,16 @@ function mockBrowser(t: TestContext) {
     setViewport: async () => {},
     setRequestInterception: async (value: boolean) => { events.push(`interception:${value}`); },
     setJavaScriptEnabled: async (value: boolean) => { events.push(`javascript:${value}`); },
-    setOfflineMode: async (value: boolean) => { events.push(`offline:${value}`); },
+    setOfflineMode: async () => { throw new Error("New offline protocol is unavailable on serverless Chromium"); },
+    createCDPSession: async () => ({
+      send: async (method: string, params?: Record<string, unknown>) => {
+        if (method === "Network.emulateNetworkConditions") {
+          assert.deepEqual(params, { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
+          events.push("offline:true");
+        } else assert.equal(method, "Network.enable");
+      },
+      detach: async () => { events.push("network-detach"); },
+    }),
     on: (event: string, handler: typeof requestHandler) => {
       assert.equal(event, "request");
       requestHandler = handler;
@@ -198,6 +207,20 @@ test("raw HTML is offline and script-free before parsing while retaining inline 
     assert.equal(browser.request(url, { navigation: true }).action, "abort");
   }
   assert.ok(browser.events.includes("pdf"));
+  assert.ok(browser.events.includes("network-detach"));
+});
+
+test("raw HTML fails closed when offline isolation cannot be established", async (t) => {
+  const browser = mockBrowser(t);
+  t.mock.method(browser.page, "createCDPSession", async () => ({
+    send: async () => { throw new Error("Offline isolation unavailable"); },
+    detach: async () => { browser.events.push("network-detach"); },
+  }));
+  await assert.rejects(renderHtmlContentPdf("<h1>Invoice</h1>"), /Offline isolation unavailable/);
+  assert.equal(browser.events.includes("content"), false);
+  assert.equal(browser.events.includes("pdf"), false);
+  assert.ok(browser.events.includes("network-detach"));
+  assert.equal(browser.events.at(-1), "browser-close");
 });
 
 test("a changed document fails closed and closes the browser", async (t) => {
