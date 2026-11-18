@@ -56,6 +56,14 @@ export function setQuoteLinePriceStatus<T extends QuotePriceSource>(line: T, sta
   return { ...line, priceStatus: normalizeQuoteLinePriceStatus(status) ?? "tbd" };
 }
 
+export function confirmEditedQuotePrice<T extends QuotePriceSource>(previous: T, next: T): T {
+  const before = priceValues(previous);
+  const after = priceValues(next);
+  if (before.unit === after.unit || getQuoteLinePriceStatus(next) !== "tbd") return next;
+  const confirmed = { ...next, priceStatus: "confirmed" as const };
+  return getQuoteLinePriceProblem(confirmed) === null ? confirmed : next;
+}
+
 export function quotePriceLineLabel(line: QuotePriceSource) {
   return line.customerFacingLabel?.trim() || line.label?.trim() || line.itemName?.trim()
     || line.internalName?.trim() || line.description?.trim() || "Unnamed item";

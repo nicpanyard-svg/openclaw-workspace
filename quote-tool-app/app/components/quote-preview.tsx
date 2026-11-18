@@ -7,9 +7,12 @@ import { LaborBreakdown } from "./labor-breakdown";
 import { QuoteLineTable } from "@/app/components/quote-line-table";
 import { QuoteBillingSelect } from "@/app/components/quote-billing-select";
 import { QuotePriceStatusSelect } from "@/app/components/quote-price-status-select";
+import { QuotePriceLock } from "@/app/components/quote-price-lock";
+import { applyBulkMargin, preserveLockedUnitPrice, setBulkPriceLocks, type BulkMarginPreview } from "@/app/lib/quote-bulk-pricing";
+import { QuoteBulkPricing } from "@/app/components/quote-bulk-pricing";
 import { QuoteCopyDialog } from "@/app/components/quote-copy-dialog";
 import type { QuoteCopyReviewOptions } from "@/app/lib/quote-copy-review";
-import { formatQuoteLinePrice, getQuotePricingSummary } from "@/app/lib/quote-price-status";
+import { confirmEditedQuotePrice, formatQuoteLinePrice, getQuotePricingSummary } from "@/app/lib/quote-price-status";
 import dynamic from "next/dynamic";
 import { Columns3, Package, Presentation, ReceiptText } from "lucide-react";
 import { createProFormaSettings } from "@/app/lib/pro-forma-settings";
@@ -1849,6 +1852,7 @@ export default function QuotePreview() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
   const [majorProjectImportedMarginPercent, setMajorProjectImportedMarginPercent] = useState(String(DEFAULT_IMPORTED_MARGIN_PERCENT));
+  const [bulkSelection, setBulkSelection] = useState<{ scope: string; ids: string[] }>({ scope: "", ids: [] });
 
   useEffect(() => {
     let cancelled = false;
@@ -2132,6 +2136,25 @@ export default function QuotePreview() {
       return matchesSchedule && matchesSearch;
     });
   }, [activeMajorOptionComponents, majorProjectComponentScheduleFilter, majorProjectComponentSearch]);
+  const bulkSelectionScope = JSON.stringify([quote.internal.quoteId, workflowMode, activeMajorOption?.id, majorProjectState.builderMode, majorProjectEditorTab, majorProjectComponentSearch, majorProjectComponentScheduleFilter]);
+  useEffect(() => { setBulkSelection(current => current.scope === bulkSelectionScope ? current : { scope: bulkSelectionScope, ids: [] }); }, [bulkSelectionScope]);
+  const bulkVisibleIds = (majorProjectState.builderMode === "simple" ? activeMajorOptionSimpleRows : filteredMajorProjectComponents).map(row => row.id);
+  const bulkSelectedIds = bulkSelection.scope === bulkSelectionScope ? bulkSelection.ids.filter(id => bulkVisibleIds.includes(id)) : [];
+  const clearBulkSelection = () => setBulkSelection({ scope: bulkSelectionScope, ids: [] });
+  const selectBulkRow = (id: string, selected: boolean) => setBulkSelection(current => {
+    const ids = current.scope === bulkSelectionScope ? current.ids.filter(value => bulkVisibleIds.includes(value)) : [];
+    return { scope: bulkSelectionScope, ids: selected ? [...new Set([...ids, id])] : ids.filter(value => value !== id) };
+  });
+  const handleBulkApply = (preview: BulkMarginPreview) => {
+    const result = applyBulkMargin(quote, preview);
+    updateQuote(() => applyMajorProjectToQuote(result.quote));
+    clearBulkSelection();
+    setWorkflowNotice(`Updated ${result.updatedCount} item${result.updatedCount === 1 ? "" : "s"}.${result.skippedCount ? ` ${result.skippedCount} skipped; their prices are unchanged.` : ""}`);
+  };
+  const handleBulkLocks = (locked: boolean) => {
+    updateQuote(current => setBulkPriceLocks(current, bulkSelectedIds, locked));
+    setWorkflowNotice(`${locked ? "Locked" : "Unlocked"} unit prices for ${bulkSelectedIds.length} selected item${bulkSelectedIds.length === 1 ? "" : "s"}.`);
+  };
   const filteredMajorProjectBundles = useMemo(() => {
     const search = normalizeSearchValue(majorProjectBundleSearch);
     return activeMajorOptionBundles.filter((bundle) => {
@@ -2725,7 +2748,7 @@ export default function QuotePreview() {
   };
 
   const seedImportedMajorProjectPricingFromCost = () => {
-    const importedWithoutPricing = importedMajorProjectComponents.filter((component) => component.customerUnitPrice <= 0 && component.vendorUnitCost > 0);
+    const importedWithoutPricing = importedMajorProjectComponents.filter((component) => component.customerUnitPrice <= 0 && component.vendorUnitCost > 0 && !component.priceLocked && component.priceStatus !== "included" && !component.passThrough && component.resaleBasis !== "pass_through");
     if (!importedWithoutPricing.length) {
       setWorkflowNotice("Imported components already have starter pricing, or there is no vendor cost available to seed from.");
       return;
@@ -2737,17 +2760,18 @@ export default function QuotePreview() {
       option.components = option.components.map((component) => {
         if (
           !(component.notes ?? "").startsWith(MAJOR_PROJECT_BOM_IMPORT_SOURCE_PREFIX)
+          || component.priceLocked || component.priceStatus === "included" || component.passThrough || component.resaleBasis === "pass_through"
           || component.customerUnitPrice > 0
           || component.vendorUnitCost <= 0
         ) {
           return component;
         }
         const customerUnitPrice = applyMarginToCost(component.vendorUnitCost, DEFAULT_IMPORTED_MARGIN_PERCENT);
-        return {
+        return confirmEditedQuotePrice(component, {
           ...component,
           customerUnitPrice,
           customerExtendedPrice: Number((component.quantity * customerUnitPrice).toFixed(2)),
-        };
+        });
       });
       return draft;
     });
@@ -2757,7 +2781,7 @@ export default function QuotePreview() {
 
   const applyImportedMajorProjectMarginFromCost = () => {
     const marginPercent = Math.max(parseNumber(majorProjectImportedMarginPercent), 0);
-    const importedWithoutPricing = importedMajorProjectComponents.filter((component) => component.customerUnitPrice <= 0 && component.vendorUnitCost > 0);
+    const importedWithoutPricing = importedMajorProjectComponents.filter((component) => component.customerUnitPrice <= 0 && component.vendorUnitCost > 0 && !component.priceLocked && component.priceStatus !== "included" && !component.passThrough && component.resaleBasis !== "pass_through");
     if (!importedWithoutPricing.length) {
       setWorkflowNotice("Imported components already have customer pricing, or there is no vendor cost available to price from.");
       return;
@@ -2769,17 +2793,18 @@ export default function QuotePreview() {
       option.components = option.components.map((component) => {
         if (
           !(component.notes ?? "").startsWith(MAJOR_PROJECT_BOM_IMPORT_SOURCE_PREFIX)
+          || component.priceLocked || component.priceStatus === "included" || component.passThrough || component.resaleBasis === "pass_through"
           || component.customerUnitPrice > 0
           || component.vendorUnitCost <= 0
         ) {
           return component;
         }
         const customerUnitPrice = applyMarginToCost(component.vendorUnitCost, marginPercent);
-        return {
+        return confirmEditedQuotePrice(component, {
           ...component,
           customerUnitPrice,
           customerExtendedPrice: Number((component.quantity * customerUnitPrice).toFixed(2)),
-        };
+        });
       });
       return draft;
     });
@@ -3044,7 +3069,7 @@ export default function QuotePreview() {
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option?.simpleRows) return draft;
-      option.simpleRows = option.simpleRows.map((row) => row.id === rowId ? updater(row) : row);
+      option.simpleRows = option.simpleRows.map((row) => row.id === rowId ? confirmEditedQuotePrice(row, preserveLockedUnitPrice(row, updater(row))) : row);
       return draft;
     });
   };
@@ -3634,7 +3659,7 @@ export default function QuotePreview() {
     updateMajorProjectQuote((draft) => {
       const option = draft.majorProject?.options.find((entry) => entry.id === draft.majorProject?.activeOptionId);
       if (!option?.components) return draft;
-      option.components = option.components.map((component) => component.id === componentId ? updater(component) : component);
+      option.components = option.components.map((component) => component.id === componentId ? confirmEditedQuotePrice(component, preserveLockedUnitPrice(component, updater(component))) : component);
       return draft;
     });
   };
@@ -4037,7 +4062,7 @@ export default function QuotePreview() {
       if (field === "unitLabel") row.unitLabel = textValue;
       if (field === "includedText") row.includedText = textValue.split("\n").filter(Boolean);
 
-      rows[index] = computeSectionARow(row);
+      rows[index] = confirmEditedQuotePrice(rows[index], computeSectionARow(row));
       if (row.rowType === "overage" && !row.optional && ["unitPrice", "monthlyRate", "unitLabel"].includes(field)) {
         draft.orderProcessing = getOrderProcessing(draft);
         return setOveragePrice(draft, textValue === "" && field !== "unitLabel" ? null : row.monthlyRate ?? row.unitPrice ?? null, row.unitLabel?.trim() ? `per ${row.unitLabel}` : "");
@@ -4195,7 +4220,7 @@ export default function QuotePreview() {
     if (field === "unitPrice") row.unitPrice = Math.max(parseNumber(textValue), 0);
     if (field === "description") row.description = textValue;
     if (field === "sourceLabel") row.sourceLabel = textValue;
-    draft.sections.sectionB.lineItems[index] = computeEquipmentRow(row);
+    draft.sections.sectionB.lineItems[index] = confirmEditedQuotePrice(draft.sections.sectionB.lineItems[index], computeEquipmentRow(row));
     return draft;
   });
 
@@ -4234,7 +4259,7 @@ export default function QuotePreview() {
     if (field === "unitPrice") row.unitPrice = Math.max(parseNumber(textValue), 0);
     if (field === "notes") row.notes = textValue;
     if (field === "pricingStage") row.pricingStage = textValue as ServiceStage;
-    draft.sections.sectionC.lineItems[index] = computeServiceRow(row);
+    draft.sections.sectionC.lineItems[index] = confirmEditedQuotePrice(draft.sections.sectionC.lineItems[index], computeServiceRow(row));
     return draft;
   });
 
@@ -5725,6 +5750,7 @@ export default function QuotePreview() {
                           </details>
                         ) : null}
 
+<QuoteBulkPricing key={bulkSelectionScope} quote={quote} selectedIds={bulkSelectedIds} onApply={handleBulkApply} onClear={clearBulkSelection} onSetLocks={handleBulkLocks} />
 <QuoteLineTable label="Major quote line items" rows={activeMajorOptionSimpleRows.map((row, index) => {
                               const rowRevenue = row.customerExtendedPrice;
                               const rowCost = row.ourExtendedCost;
@@ -5733,10 +5759,11 @@ export default function QuotePreview() {
 
 return {
   id: row.id, accessibleName: row.label || `Item ${index + 1}`,
+  selected: bulkSelectedIds.includes(row.id), onSelectedChange: (selected: boolean) => selectBulkRow(row.id, selected),
   pricingStatus: <QuotePriceStatusSelect line={row} label={`Major item ${index + 1} pricing status`} onChange={(priceStatus) => updateActiveMajorSimpleRow(row.id, current => ({ ...current, priceStatus }))} />,
   description: <input aria-label={`Major item ${index + 1} name`} value={row.label} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, label: event.target.value }))} />,
   quantity: <input aria-label={`Major item ${index + 1} quantity`} type="number" min="0" step="0.01" value={row.quantity} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => { const quantity = Math.max(parseNumber(event.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), ourExtendedCost: Number((quantity * current.ourUnitCost).toFixed(2)) }; })} />,
-  rate: <input aria-label={`Major item ${index + 1} unit price`} type="number" min="0" step="0.01" value={row.customerUnitPrice} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} />,
+  rate: <div className="rq-price-control"><input aria-label={`Major item ${index + 1} unit price`} disabled={row.priceLocked === true} type="number" min="0" step="0.01" value={row.customerUnitPrice} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /><QuotePriceLock locked={row.priceLocked === true} label={row.label || `Item ${index + 1}`} onChange={(priceLocked) => updateActiveMajorSimpleRow(row.id, current => ({ ...current, priceLocked }))} /></div>,
   cadence: row.bucket === "hardware" || row.bucket === "install" ? "One-time" : "Monthly",
   total: formatQuoteLinePrice(row, formatCurrency(rowRevenue, currencyCode)), optional: row.optional === true, onOptionalChange: (checked) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, optional: checked })),
   actions: <RowActions totalRows={activeMajorOptionSimpleRows.length} rowNumber={index + 1} onMoveUp={() => moveMajorProjectSimpleRow(row.id, -1)} onMoveDown={() => moveMajorProjectSimpleRow(row.id, 1)} onMoveTo={(position) => moveMajorProjectSimpleRowToPosition(row.id, position)} onDuplicate={() => duplicateMajorProjectSimpleRow(row.id)} onRemove={() => removeMajorProjectSimpleRow(row.id)} />,
@@ -5761,7 +5788,7 @@ return {
                                     <label className="builder-field compact"><span>Bucket</span><select value={row.bucket} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, bucket: e.target.value as MajorProjectSimpleBucket }))}>{majorProjectBucketOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
                                     <label className="builder-field compact"><span>Qty</span><input type="number" step="0.01" value={row.quantity} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => { const quantity = Math.max(parseNumber(e.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), ourExtendedCost: Number((quantity * current.ourUnitCost).toFixed(2)) }; })} /></label>
                                     <label className="builder-field compact"><span>Unit</span><input value={row.unit ?? ""} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, unit: e.target.value }))} /></label>
-                                    <label className="builder-field compact"><span>Customer price</span><input type="number" step="0.01" value={row.customerUnitPrice} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => { const customerUnitPrice = Math.max(parseNumber(e.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /></label>
+                                    <label className="builder-field compact"><span>Customer price</span><input disabled={row.priceLocked === true} title={row.priceLocked ? "Unlock the unit price to edit" : undefined} type="number" step="0.01" value={row.customerUnitPrice} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => { const customerUnitPrice = Math.max(parseNumber(e.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /></label>
                                     <label className="builder-field compact"><span>Our cost</span><input type="number" step="0.01" value={row.ourUnitCost} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => { const ourUnitCost = Math.max(parseNumber(e.target.value), 0); return { ...current, ourUnitCost, ourExtendedCost: Number((current.quantity * ourUnitCost).toFixed(2)) }; })} /></label>
                                   </div>
                                   <label className="builder-field compact mt-3"><span>Description</span><textarea rows={2} value={row.description ?? ""} onChange={(e) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, description: e.target.value }))} /></label>
@@ -5854,6 +5881,7 @@ return {
                           <div className="major-project-toolbar-stat"><strong>{activeMajorOptionComponents.length}</strong><span>total</span></div>
                         </div>
 
+<QuoteBulkPricing key={bulkSelectionScope} quote={quote} selectedIds={bulkSelectedIds} onApply={handleBulkApply} onClear={clearBulkSelection} onSetLocks={handleBulkLocks} />
 <QuoteLineTable label="Major quote components" emptyMessage={activeMajorOptionComponents.length ? "No components match your search." : "No components added."} rows={filteredMajorProjectComponents.map((component) => {
                           const index = activeMajorOptionComponents.findIndex((entry) => entry.id === component.id);
                           const componentRevenue = component.quickQuoteSource?.usageBased ? 0 : component.customerExtendedPrice;
@@ -5866,10 +5894,11 @@ return {
 
 return {
   id: component.id, accessibleName: component.internalName || `Component ${index + 1}`,
+  selected: bulkSelectedIds.includes(component.id), onSelectedChange: (selected: boolean) => selectBulkRow(component.id, selected),
   description: <input aria-label={`Component ${index + 1} name`} value={component.internalName} onChange={(event) => updateActiveMajorComponent(component.id, (current) => renameQuoteItem(current, event.target.value))} />,
   pricingStatus: <QuotePriceStatusSelect line={component} label={`Component ${index + 1} pricing status`} onChange={(priceStatus) => updateActiveMajorComponent(component.id, current => ({ ...current, priceStatus }))} />,
   quantity: <input aria-label={`Component ${index + 1} quantity`} type="number" min="0" step="0.01" value={component.quantity} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const quantity = Math.max(parseNumber(event.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), vendorExtendedCost: Number((quantity * current.vendorUnitCost).toFixed(2)) }; })} />,
-  rate: <input aria-label={`Component ${index + 1} unit price`} type="number" min="0" step="0.01" value={component.customerUnitPrice} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} />,
+  rate: <div className="rq-price-control"><input aria-label={`Component ${index + 1} unit price`} disabled={component.priceLocked === true} type="number" min="0" step="0.01" value={component.customerUnitPrice} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /><QuotePriceLock locked={component.priceLocked === true} label={component.internalName || `Component ${index + 1}`} onChange={(priceLocked) => updateActiveMajorComponent(component.id, current => ({ ...current, priceLocked }))} /></div>,
   cadence: component.quickQuoteSource?.usageBased ? `Per ${component.unit || "GB"}` : <QuoteBillingSelect label={`Component ${index + 1} billing`} billing={getLineBilling(component, component.schedule === "recurring" ? "monthly" : "one_time")} onChange={(billing) => updateActiveMajorComponent(component.id, (current) => ({ ...current, billing, schedule: billing.cadence === "monthly" ? "recurring" : "one_time" }))} />,
   total: formatQuoteLinePrice(component, component.quickQuoteSource?.usageBased ? "Usage-based" : formatCurrency(componentRevenue, currencyCode)),
   optional: component.optional === true, onOptionalChange: (checked) => updateActiveMajorComponent(component.id, (current) => ({ ...current, optional: checked })),
@@ -5932,7 +5961,7 @@ return {
                             <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
                               <label className="builder-field compact"><span>Qty</span><input type="number" step="0.01" value={component.quantity} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const quantity = Math.max(parseNumber(e.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), vendorExtendedCost: Number((quantity * current.vendorUnitCost).toFixed(2)) }; })} /></label>
                               <label className="builder-field compact"><span>Unit</span><input value={component.unit} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, unit: e.target.value }))} /></label>
-                              <label className="builder-field compact"><span>Customer unit price</span><input type="number" step="0.01" value={component.customerUnitPrice} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(e.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /></label>
+                              <label className="builder-field compact"><span>Customer unit price</span><input disabled={component.priceLocked === true} title={component.priceLocked ? "Unlock the unit price to edit" : undefined} type="number" step="0.01" value={component.customerUnitPrice} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(e.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /></label>
                               <label className="builder-field compact"><span>Vendor unit cost{component.laborTasks?.length && ["installation", "internal_labor"].includes(component.lineType) ? " (from labor tasks)" : ""}</span><input readOnly={Boolean(component.laborTasks?.length && ["installation", "internal_labor"].includes(component.lineType))} type="number" step="0.01" value={component.vendorUnitCost} onChange={(e) => updateActiveMajorComponent(component.id, (current) => { const vendorUnitCost = Math.max(parseNumber(e.target.value), 0); return { ...current, vendorUnitCost, vendorExtendedCost: Number((current.quantity * vendorUnitCost).toFixed(2)) }; })} /></label>
                             </div>
                             {["installation", "internal_labor"].includes(component.lineType) && <LaborBreakdown component={component} onChange={(updated) => updateActiveMajorComponent(component.id, () => updated)} />}

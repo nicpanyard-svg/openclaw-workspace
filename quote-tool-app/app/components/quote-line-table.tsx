@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useId, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import "./quote-line-table.css";
 
@@ -17,15 +17,49 @@ export type QuoteLineTableRow = {
   onOptionalChange: (checked: boolean) => void;
   details?: ReactNode;
   actions?: ReactNode;
+  selected?: boolean;
+  onSelectedChange?: (checked: boolean) => void;
 };
 
 export type QuoteLineTableProps = {
   label: string;
   rows: QuoteLineTableRow[];
   emptyMessage?: string;
+  onSelectAll?: (checked: boolean) => void;
 };
 
-function QuoteLine({ row }: { row: QuoteLineTableRow }) {
+function SelectAllCheckbox({
+  label,
+  checked,
+  mixed,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  mixed: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = mixed;
+  }, [mixed]);
+  return (
+    <input
+      ref={ref}
+      className="rq-line-table__checkbox"
+      type="checkbox"
+      aria-label={label}
+      aria-checked={mixed ? "mixed" : checked}
+      checked={checked}
+      disabled={disabled}
+      onChange={(event) => onChange(event.currentTarget.checked)}
+    />
+  );
+}
+
+function QuoteLine({ row, selectionEnabled }: { row: QuoteLineTableRow; selectionEnabled: boolean }) {
   // The parent's row key keeps expansion with the item when rows reorder.
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
@@ -39,7 +73,23 @@ function QuoteLine({ row }: { row: QuoteLineTableRow }) {
         role="row"
         data-optional={row.optional}
         data-expanded={hasDetails && expanded}
+        data-selected={selectionEnabled && Boolean(row.selected)}
       >
+        {selectionEnabled && (
+          <td className="rq-line-table__cell rq-line-table__selection" role="cell">
+            {row.onSelectedChange && (
+              <label className="rq-line-table__selection-label">
+                <input
+                  className="rq-line-table__checkbox"
+                  type="checkbox"
+                  checked={Boolean(row.selected)}
+                  aria-label={`Select ${row.accessibleName} for bulk pricing`}
+                  onChange={(event) => row.onSelectedChange?.(event.currentTarget.checked)}
+                />
+              </label>
+            )}
+          </td>
+        )}
         <td className="rq-line-table__cell rq-line-table__expansion" role="cell">
           {hasDetails && (
             <button
@@ -112,7 +162,7 @@ function QuoteLine({ row }: { row: QuoteLineTableRow }) {
           role="row"
           hidden={!expanded}
         >
-          <td className="rq-line-table__details-cell" colSpan={8} role="cell">
+          <td className="rq-line-table__details-cell" colSpan={selectionEnabled ? 9 : 8} role="cell">
             <div className="rq-line-table__details">{row.details}</div>
           </td>
         </tr>
@@ -125,13 +175,40 @@ export function QuoteLineTable({
   label,
   rows,
   emptyMessage = "No items added.",
+  onSelectAll,
 }: QuoteLineTableProps) {
+  const selectableRows = rows.filter((row) => row.onSelectedChange);
+  const selectionEnabled = selectableRows.length > 0 || Boolean(onSelectAll);
+  const selectedCount = selectableRows.filter((row) => row.selected).length;
+  const allSelected = selectableRows.length > 0 && selectedCount === selectableRows.length;
+  const mixed = selectedCount > 0 && !allSelected;
+  const selectAll = (checked: boolean) => {
+    if (onSelectAll) onSelectAll(checked);
+    else selectableRows.forEach((row) => row.onSelectedChange?.(checked));
+  };
+  const selectAllControl = (
+    <SelectAllCheckbox
+      label={`Select all items in ${label}`}
+      checked={allSelected}
+      mixed={mixed}
+      disabled={selectableRows.length === 0}
+      onChange={selectAll}
+    />
+  );
   return (
     <div className="rq-line-table-container">
       {/* Explicit roles preserve table semantics when mobile CSS changes display. */}
-      <table className="rq-line-table" role="table">
-        <caption className="rq-line-table__caption">{label}</caption>
+      <table className="rq-line-table" role="table" data-selection-enabled={selectionEnabled}>
+        <caption className="rq-line-table__caption">
+          <span>{label}</span>
+          {selectionEnabled && (
+            <label className="rq-line-table__mobile-select-all">
+              {selectAllControl}<span>Select all</span>
+            </label>
+          )}
+        </caption>
         <colgroup>
+          {selectionEnabled && <col className="rq-line-table__col-selection" />}
           <col className="rq-line-table__col-expansion" />
           <col />
           <col className="rq-line-table__col-quantity" />
@@ -143,6 +220,12 @@ export function QuoteLineTable({
         </colgroup>
         <thead className="rq-line-table__head" role="rowgroup">
           <tr role="row">
+            {selectionEnabled && (
+              <th className="rq-line-table__selection" scope="col" role="columnheader">
+                <span className="rq-line-table__sr-only">Selection</span>
+                <label className="rq-line-table__selection-label">{selectAllControl}</label>
+              </th>
+            )}
             <th scope="col" role="columnheader"><span className="rq-line-table__sr-only">Details</span></th>
             <th scope="col" role="columnheader">Item</th>
             <th className="rq-line-table__numeric-heading" scope="col" role="columnheader">Qty</th>
@@ -156,10 +239,10 @@ export function QuoteLineTable({
         <tbody role="rowgroup">
           {rows.length === 0 ? (
             <tr className="rq-line-table__empty-row" role="row">
-              <td className="rq-line-table__empty" colSpan={8} role="cell">{emptyMessage}</td>
+              <td className="rq-line-table__empty" colSpan={selectionEnabled ? 9 : 8} role="cell">{emptyMessage}</td>
             </tr>
           ) : (
-            rows.map((row) => <QuoteLine key={row.id} row={row} />)
+            rows.map((row) => <QuoteLine key={row.id} row={row} selectionEnabled={selectionEnabled} />)
           )}
         </tbody>
       </table>

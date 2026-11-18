@@ -14,7 +14,7 @@ import { normalizeOrderProcessing } from "./order-processing";
 import { fixtureComponent, fixtureQuote } from "../../scripts/quote-master-fixtures";
 import { proFormaFixture } from "../../scripts/pro-forma-fixtures";
 import type { EquipmentPricingRow, QuotePriceStatus } from "./quote-record";
-import { formatQuoteLinePrice, getQuoteLinePriceProblem, getQuoteLinePriceStatus, getQuotePricingSummary, setQuoteLinePriceStatus } from "./quote-price-status";
+import { confirmEditedQuotePrice, formatQuoteLinePrice, getQuoteLinePriceProblem, getQuoteLinePriceStatus, getQuotePricingSummary, setQuoteLinePriceStatus } from "./quote-price-status";
 
 const equipment = (price = 0, changes: Partial<EquipmentPricingRow> = {}): EquipmentPricingRow => ({
   id: "radar", itemName: "Radar", sourceType: "custom", quantity: 1, unitPrice: price, totalPrice: price, ...changes,
@@ -50,6 +50,20 @@ test("status changes do not alter money, quantity, or the original row", () => {
     assert.deepEqual(next, { ...row, priceStatus: status });
     assert.equal(row.priceStatus, undefined);
   }
+});
+
+test("a valid deliberate price edit clears stale TBD without confirming other edits", () => {
+  const before = equipment(0, { priceStatus: "tbd" });
+  assert.equal(confirmEditedQuotePrice(before, { ...before, unitPrice: 40, totalPrice: 40 }).priceStatus, "confirmed");
+  const pending = equipment(30, { priceStatus: "tbd" });
+  assert.equal(confirmEditedQuotePrice(pending, { ...pending, itemName: "New label" }).priceStatus, "tbd");
+  for (const status of ["included", "allowance"] as const) {
+    const row = equipment(0, { priceStatus: status });
+    assert.equal(confirmEditedQuotePrice(row, { ...row, unitPrice: 40, totalPrice: 40 }).priceStatus, status);
+  }
+  assert.equal(confirmEditedQuotePrice(pending, { ...pending, unitPrice: 0, totalPrice: 0 }).priceStatus, "tbd");
+  assert.equal(confirmEditedQuotePrice(before, { ...before, unitPrice: NaN, totalPrice: NaN }).priceStatus, "tbd");
+  assert.equal(confirmEditedQuotePrice(before, { ...before, unitPrice: 40, totalPrice: 0 }).priceStatus, "tbd");
 });
 
 test("Included is explicit, allowances are visible, and contradictions require action", () => {

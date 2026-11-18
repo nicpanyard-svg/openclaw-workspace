@@ -381,6 +381,7 @@ export type MajorProjectResaleBasis = "fixed_fee" | "cost_plus" | "target_margin
 export type LaborTask = { id: string; task: string; role: string; people: number; hours: number; hourlyCost: number };
 
 export type MajorProjectComponent = {
+  priceLocked?: boolean;
   priceStatus?: QuotePriceStatus;
   customerLabelOverride?: boolean;
   laborTasks?: LaborTask[];
@@ -475,6 +476,7 @@ export type MajorProjectSimpleRowImportSource = {
 };
 
 export type MajorProjectSimpleRow = {
+  priceLocked?: boolean;
   priceStatus?: QuotePriceStatus;
   billing?: QuoteLineBilling;
   id: string;

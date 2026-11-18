@@ -27,6 +27,12 @@ body:has(.rq-editor) .app-shell-brand-copy { display: none; }
 .rq-linked-label { min-width: 0; display: grid; gap: 8px; }
 .rq-linked-label > label:first-child { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .rq-linked-label input:disabled { background: #f5f6f8; color: #55616d; }
+.rq-price-control { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.rq-price-control > input { flex: 1; min-width: 0; }
+.rq-price-control > input:disabled, .rq-editor .builder-field input:disabled { background: #f4f6f8; color: #54616c; }
+.rq-price-lock[data-locked="true"] { color: #296146; background: #eef5f0; }
+.rq-price-control .rq-price-lock { width: 25px; height: 30px; }
+.rq-price-lock[data-tooltip]::after { left: auto; right: 0; transform: none; max-width: 240px; white-space: normal; }
 .rq-editor-actions, .rq-review-actions, .rq-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .rq-editor-actions { flex-shrink: 0; }
 .rq-button, .rq-icon-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; font: inherit; font-weight: 500; border: 1px solid #cfd5db; border-radius: 5px; background: #fff; color: #303a44; cursor: pointer; }

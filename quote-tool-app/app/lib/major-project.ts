@@ -336,6 +336,7 @@ function normalizeComponent(component: Partial<MajorProjectComponent> | undefine
   return normalizeSoftwareComponent(applyLaborCosts({
     ...defaults,
     ...component,
+    priceLocked: typeof component?.priceLocked === "boolean" ? component.priceLocked : undefined,
     priceStatus: normalizeQuoteLinePriceStatus(component?.priceStatus),
     billing,
     schedule: billing.cadence === "monthly" ? "recurring" : "one_time",
@@ -449,6 +450,7 @@ function normalizeSimpleRow(row: Partial<MajorProjectSimpleRow> | undefined, ind
   return {
     ...defaults,
     ...row,
+    priceLocked: typeof row?.priceLocked === "boolean" ? row.priceLocked : undefined,
     priceStatus: normalizeQuoteLinePriceStatus(row?.priceStatus),
     id: row?.id ?? `major-simple-row-${index + 1}`,
     label: row?.label ?? defaults.label,
@@ -626,6 +628,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
 
     return normalizeComponent({
       id: `quick-builder-component-${row.id}`,
+      priceLocked: row.priceLocked,
       priceStatus: row.priceStatus,
       internalName: label,
       customerFacingLabel: row.label?.trim() || label,

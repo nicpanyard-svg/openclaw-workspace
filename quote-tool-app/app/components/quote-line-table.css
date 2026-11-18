@@ -32,6 +32,7 @@
   text-align: left;
 }
 
+.rq-line-table__col-selection { width: 38px; }
 .rq-line-table__col-expansion { width: 40px; }
 .rq-line-table__col-quantity { width: 64px; }
 .rq-line-table__col-rate { width: 104px; }
@@ -39,6 +40,8 @@
 .rq-line-table__col-optional { width: 102px; }
 .rq-line-table__col-total { width: 112px; }
 .rq-line-table__col-actions { width: 84px; }
+
+.rq-editor .rq-line-table[data-selection-enabled="true"] .rq-line-table__col-rate { width: 120px; }
 
 .rq-line-table__head th {
   padding: 7px 6px;
@@ -122,6 +125,31 @@
 
 .rq-line-table__expansion {
   padding-inline: 3px;
+}
+
+.rq-line-table__selection,
+.rq-line-table__head .rq-line-table__selection {
+  padding-inline: 2px;
+  text-align: center;
+}
+
+.rq-line-table__selection-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  min-height: 34px;
+  cursor: pointer;
+}
+
+.rq-line-table__mobile-select-all { display: none; }
+
+.rq-line-table__row[data-selected="true"] > .rq-line-table__cell {
+  background: #f0f7f4;
+}
+
+.rq-line-table[data-selection-enabled="true"] .rq-line-table__details-cell {
+  padding-left: 84px;
 }
 
 .rq-line-table__expand-button,
@@ -237,10 +265,12 @@
 }
 
 @media (pointer: coarse) {
+  .rq-line-table__col-selection { width: 48px; }
   .rq-line-table__col-expansion { width: 50px; }
   .rq-line-table__col-actions { width: 104px; }
 
   .rq-line-table__expand-button,
+  .rq-line-table__selection-label,
   .rq-line-table__action-list :is(button, a),
   .rq-line-table__optional-label {
     min-width: 44px;
@@ -268,6 +298,27 @@
 
   .rq-line-table > colgroup { display: none; }
 
+  .rq-line-table__mobile-select-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    margin-left: 16px;
+    font-weight: 400;
+    cursor: pointer;
+  }
+
+  .rq-editor .rq-line-table[data-selection-enabled="true"] .rq-line-table__caption {
+    position: static;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 0 0 4px;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+
   .rq-line-table__head {
     position: absolute;
     width: 1px;
@@ -276,6 +327,8 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
+
+  .rq-line-table__head .rq-line-table__selection-label { display: none; }
 
   .rq-line-table__row {
     display: grid;
@@ -295,6 +348,19 @@
     padding: 0;
     border: 0;
   }
+
+  .rq-line-table[data-selection-enabled="true"] .rq-line-table__row {
+    grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr) 44px;
+    grid-template-areas:
+      "select item item expand"
+      "quantity quantity rate rate"
+      "cadence cadence optional optional"
+      "actions actions total total";
+  }
+
+  .rq-line-table__selection { grid-area: select; }
+
+  .rq-line-table[data-selection-enabled="true"] .rq-line-table__details-cell { padding-left: 0; }
 
   .rq-line-table__expansion { grid-area: expand; }
   .rq-line-table__item { grid-area: item; }
@@ -342,6 +408,27 @@
 
   .rq-line-table > colgroup { display: none; }
 
+  .rq-line-table__mobile-select-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    margin-left: 16px;
+    font-weight: 400;
+    cursor: pointer;
+  }
+
+  .rq-editor .rq-line-table[data-selection-enabled="true"] .rq-line-table__caption {
+    position: static;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 0 0 4px;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+
   .rq-line-table__head {
     position: absolute;
     width: 1px;
@@ -350,6 +437,8 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
+
+  .rq-line-table__head .rq-line-table__selection-label { display: none; }
 
   .rq-line-table__row {
     display: grid;
@@ -369,6 +458,19 @@
     padding: 0;
     border: 0;
   }
+
+  .rq-line-table[data-selection-enabled="true"] .rq-line-table__row {
+    grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr) 44px;
+    grid-template-areas:
+      "select item item expand"
+      "quantity quantity rate rate"
+      "cadence cadence optional optional"
+      "actions actions total total";
+  }
+
+  .rq-line-table__selection { grid-area: select; }
+
+  .rq-line-table[data-selection-enabled="true"] .rq-line-table__details-cell { padding-left: 0; }
 
   .rq-line-table__expansion { grid-area: expand; }
   .rq-line-table__item { grid-area: item; }
