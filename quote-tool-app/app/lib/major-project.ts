@@ -18,6 +18,7 @@ import { getLineBilling, isAnnualLine } from "./quote-line-billing";
 import { buildQuickQuoteComponents, preserveQuickQuoteOutput, sameQuickQuoteContent } from "./major-project-quick-quote";
 import { IOTEDGE_KINNECT_DESCRIPTION, IOTEDGE_KINNECT_LABEL, isIoTEdgeKinnect, normalizeQuoteSoftware, normalizeSoftwareComponent } from "./quote-software";
 import { normalizeQuoteItemWording } from "./quote-item-wording";
+import { getMappedQuotePriceStatus, hasQuotePriceContent, isQuickQuoteCostAllocation, normalizeQuoteLinePriceStatus } from "./quote-price-status";
 
 export type MajorProjectServiceMix = "managed-network" | "starlink-pool" | "starlink-per-site" | "hybrid";
 export type MajorProjectValidationSeverity = "error" | "warning";
@@ -335,6 +336,7 @@ function normalizeComponent(component: Partial<MajorProjectComponent> | undefine
   return normalizeSoftwareComponent(applyLaborCosts({
     ...defaults,
     ...component,
+    priceStatus: normalizeQuoteLinePriceStatus(component?.priceStatus),
     billing,
     schedule: billing.cadence === "monthly" ? "recurring" : "one_time",
     id: component?.id ?? `major-component-${index + 1}`,
@@ -363,6 +365,7 @@ function normalizeBundle(bundle: Partial<MajorProjectBundle> | undefined, index:
   return {
     ...defaults,
     ...bundle,
+    priceStatus: normalizeQuoteLinePriceStatus(bundle?.priceStatus),
     ...(isIoTEdgeKinnect(bundle?.customerFacingLabel) ? { customerFacingLabel: IOTEDGE_KINNECT_LABEL } : {}),
     id: bundle?.id ?? `major-bundle-${index + 1}`,
     optional: bundle?.optional === true,
@@ -380,6 +383,7 @@ function normalizeCustomerQuoteLine(line: Partial<MajorProjectCustomerQuoteLine>
   return {
     ...defaults,
     ...line,
+    priceStatus: normalizeQuoteLinePriceStatus(line?.priceStatus),
     ...(isIoTEdgeKinnect(line?.label) ? { label: IOTEDGE_KINNECT_LABEL, description: line?.description?.trim() || IOTEDGE_KINNECT_DESCRIPTION } : {}),
     id: line?.id ?? `major-quote-line-${index + 1}`,
     lineItemNumber: normalizeLineItemNumber(line?.lineItemNumber, index, line?.label),
@@ -445,6 +449,7 @@ function normalizeSimpleRow(row: Partial<MajorProjectSimpleRow> | undefined, ind
   return {
     ...defaults,
     ...row,
+    priceStatus: normalizeQuoteLinePriceStatus(row?.priceStatus),
     id: row?.id ?? `major-simple-row-${index + 1}`,
     label: row?.label ?? defaults.label,
     optional: row?.optional === true,
@@ -607,7 +612,7 @@ function quickBuilderPresentationCategoryForRow(row: MajorProjectSimpleRow): Maj
 }
 
 function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorProjectOption {
-  const simpleRows = option.simpleRows ?? [];
+  const simpleRows = (option.simpleRows ?? []).filter(hasQuotePriceContent);
   const existingComponents = option.components ?? [];
   const existingBundles = option.bundles ?? [];
   const existingQuoteLines = option.customerQuoteLines ?? [];
@@ -621,6 +626,7 @@ function buildMappedOptionFromQuickBuilder(option: MajorProjectOption): MajorPro
 
     return normalizeComponent({
       id: `quick-builder-component-${row.id}`,
+      priceStatus: row.priceStatus,
       internalName: label,
       customerFacingLabel: row.label?.trim() || label,
       optional: row.optional,
@@ -909,6 +915,7 @@ function buildMajorProjectPresentation(option: MajorProjectOption) {
 
     return {
       ...bundle,
+      priceStatus: getMappedQuotePriceStatus(bundle, dedupeComponents([...defaultComponents, ...costComponents, ...revenueComponents])),
       annualRevenue: annualComponentTotal(revenueComponents.length ? revenueComponents : defaultComponents, "revenue"),
       annualCost: annualComponentTotal(costComponents.length ? costComponents : defaultComponents, "cost"),
       resolvedComponentIds,
@@ -940,12 +947,19 @@ function buildMajorProjectPresentation(option: MajorProjectOption) {
     const costComponents = dedupeComponents([...bundledCostComponents, ...explicitCostComponents, ...fallbackCostComponents]);
     const revenueComponents = dedupeComponents([...bundledRevenueComponents, ...explicitRevenueComponents, ...fallbackRevenueComponents]);
     const pricedComponents = revenueComponents.filter((component) => component.customerExtendedPrice !== 0);
-    const annualBilling = pricedComponents.length && pricedComponents.every(isAnnualLine) ? getLineBilling(pricedComponents[0]) : undefined;
-    const sourceBilling = pricedComponents.length && pricedComponents.every((component) => !isAnnualLine(component))
-      ? getLineBilling(pricedComponents[0], pricedComponents[0].schedule === "recurring" ? "monthly" : "one_time") : undefined;
+    const billingComponents = pricedComponents.length ? pricedComponents : revenueComponents.filter(hasQuotePriceContent);
+    const annualBilling = billingComponents.length && billingComponents.every(isAnnualLine) ? getLineBilling(billingComponents[0]) : undefined;
+    const sourceBilling = billingComponents.length && billingComponents.every((component) => !isAnnualLine(component))
+      ? getLineBilling(billingComponents[0], billingComponents[0].schedule === "recurring" ? "monthly" : "one_time") : undefined;
 
     return {
       ...line,
+      priceStatus: getMappedQuotePriceStatus(line, [
+        ...dedupeComponents([...costComponents, ...revenueComponents]),
+        ...bundlesWithMetrics.filter(bundle => resolvedBundleIds.includes(bundle.id)).map(bundle => ({
+          ...bundle, totalPrice: bundle.oneTimeRevenue + bundle.recurringRevenue + bundle.annualRevenue, sourceLabel: "Major Project customer bundle",
+        })),
+      ]),
       billing: annualBilling ? { ...annualBilling, unitLabel: pricedComponents.length > 1 ? "bundle" : annualBilling.unitLabel } : sourceBilling ?? line.billing,
       presentationCategory: annualBilling && line.presentationCategory === "recurring" ? "services" : line.presentationCategory,
       annualRevenue: annualComponentTotal(revenueComponents, "revenue"),
@@ -976,6 +990,12 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
   const components = option.components ?? [];
   const bundles = option.bundles ?? [];
   const quoteLines = presentation.quoteLinesWithMetrics;
+  const bundlesById = new Map(bundles.map(bundle => [bundle.id, bundle]));
+  const hasBackingEconomics = (line: MajorProjectCustomerQuoteLineMetrics) =>
+    line.resolvedCostComponentIds.length + line.resolvedRevenueComponentIds.length > 0
+    && (line.revenueComponents.some(component => component.customerExtendedPrice !== 0)
+      || line.costComponents.some(component => component.vendorExtendedCost !== 0)
+      || line.priceStatus === "included" || quoteLineIsOptional(line, bundlesById));
   const issues: MajorProjectValidationIssue[] = [];
   for (const line of quoteLines) {
     const priced = line.revenueComponents.filter((component) => component.customerExtendedPrice !== 0);
@@ -1153,7 +1173,7 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
       componentToQuoteLineIds.set(componentId, [...(componentToQuoteLineIds.get(componentId) ?? []), quoteLine.id]);
     }
 
-    if (!coveredIds.length || (quoteLine.annualRevenue + quoteLine.annualCost + quoteLine.oneTimeRevenue + quoteLine.recurringRevenue + quoteLine.oneTimeCost + quoteLine.recurringCost) <= 0) {
+    if (!hasBackingEconomics(quoteLine)) {
       issues.push({
         code: "quote_line_without_backing_economics",
         severity: "error",
@@ -1204,7 +1224,7 @@ function buildMajorProjectValidation(option: MajorProjectOption, presentation: R
       .map((component) => component.id);
 
   const quoteLinesWithoutEconomics = quoteLines
-    .filter((quoteLine) => (quoteLine.annualRevenue + quoteLine.annualCost + quoteLine.oneTimeRevenue + quoteLine.recurringRevenue + quoteLine.oneTimeCost + quoteLine.recurringCost) <= 0)
+    .filter((quoteLine) => !hasBackingEconomics(quoteLine))
     .map((quoteLine) => quoteLine.id);
 
   const errorCount = issues.filter((issue) => issue.severity === "error").length;
@@ -1572,7 +1592,7 @@ export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): Ma
   const useDirectComponentPath = usesDirectComponentOutput(metrics);
   if (useDirectComponentPath) {
     for (const [index, component] of metrics.components.entries()) {
-      if (component.customerExtendedPrice <= 0 && !component.quickQuoteSource) continue;
+      if (!hasQuotePriceContent(component) || (activeOption?.quickQuoteSource && isQuickQuoteCostAllocation(component))) continue;
       const outputSection = component.schedule === "recurring" || (component.quickQuoteSource?.section === "sectionA" && isAnnualLine(component))
         ? "sectionA"
         : isDirectHardwareComponent(component)
@@ -1620,7 +1640,7 @@ export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): Ma
     }
   }
 
-  for (const line of metrics.customerQuoteLines.filter((candidate) => candidate.presentationCategory === "hardware" && candidate.oneTimeRevenue + candidate.annualRevenue > 0)) {
+  for (const line of metrics.customerQuoteLines.filter((candidate) => candidate.presentationCategory === "hardware" && hasQuotePriceContent(candidate))) {
     pushAttachment(createOutputSpecAttachmentEntry({
       attachment: line.specSheetAttachment,
       sourceType: "quote_line",
@@ -1645,7 +1665,7 @@ export function resolveMajorProjectOutputSpecAttachments(quote: QuoteRecord): Ma
     }
   }
 
-  for (const line of metrics.customerQuoteLines.filter((candidate) => candidate.presentationCategory !== "hardware" && candidate.presentationCategory !== "recurring" && candidate.oneTimeRevenue + candidate.annualRevenue > 0)) {
+  for (const line of metrics.customerQuoteLines.filter((candidate) => candidate.presentationCategory !== "hardware" && candidate.presentationCategory !== "recurring" && hasQuotePriceContent(candidate))) {
     pushAttachment(createOutputSpecAttachmentEntry({
       attachment: line.specSheetAttachment,
       sourceType: "quote_line",
@@ -1683,12 +1703,14 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
   const outputBundlesById = new Map<string, MajorProjectBundle>(metrics.bundles.map((bundle) => [bundle.id, bundle]));
   const monthDriverLabel = formatMajorProjectMonthDriver(state.commercial.termMonths);
   const useDirectComponentPath = usesDirectComponentOutput(metrics);
+  const visibleComponent = (component: MajorProjectComponent) => hasQuotePriceContent(component)
+    && !(activeOption?.quickQuoteSource && isQuickQuoteCostAllocation(component));
   const next = JSON.parse(JSON.stringify(safeQuote)) as QuoteRecord;
 
   next.metadata.workflowMode = "major_project";
   if (!activeOption?.quickQuoteSource) next.metadata.documentSubtitle = next.metadata.documentSubtitle || "Major Project Commercial Proposal";
-  const hasOptionalRecurringContent = metrics.components.some((component) => component.schedule === "recurring" && component.customerExtendedPrice > 0)
-    || simpleRows.some((row) => (row.bucket === "mrr" || row.bucket === "other_vendor" || row.bucket === "support_recurring" || row.bucket === "other_recurring") && row.customerExtendedPrice > 0);
+  const hasOptionalRecurringContent = metrics.components.some((component) => component.schedule === "recurring" && visibleComponent(component))
+    || simpleRows.some((row) => (row.bucket === "mrr" || row.bucket === "other_vendor" || row.bucket === "support_recurring" || row.bucket === "other_recurring") && hasQuotePriceContent(row));
   const hasRecurringSectionContent = metrics.recurringRevenue > 0 || hasOptionalRecurringContent || state.commercial.terminalFeePerSite > 0 || state.commercial.overageRatePerGb > 0;
   next.sections.sectionA.enabled = hasRecurringSectionContent;
   next.sections.sectionA.builderLabel = "Major project MRR structure";
@@ -1731,6 +1753,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
 
   const supportRow = {
     id: "major_support",
+    priceStatus: "included" as const,
     rowType: "support" as const,
     description: "Program support and reporting",
     includedText: supportIncludedText,
@@ -1739,9 +1762,10 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
 
   const directRecurringRows = useDirectComponentPath
     ? metrics.components
-      .filter((component) => component.schedule === "recurring" && component.customerExtendedPrice > 0)
+      .filter((component) => component.schedule === "recurring" && visibleComponent(component))
       .map((component, index) => ({
         id: component.id,
+        priceStatus: component.priceStatus,
         rowType: "service" as const,
         description: directComponentDisplayLabel(component, index),
         optional: component.optional,
@@ -1759,9 +1783,10 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
 
   const simpleRecurringRows = !metrics.hasThreeLayerModel
     ? (activeOption?.simpleRows ?? [])
-      .filter((row) => row.bucket === "mrr" || row.bucket === "other_vendor" || row.bucket === "support_recurring" || row.bucket === "other_recurring")
+      .filter((row) => hasQuotePriceContent(row) && (row.bucket === "mrr" || row.bucket === "other_vendor" || row.bucket === "support_recurring" || row.bucket === "other_recurring"))
       .map((row) => ({
         id: row.id,
+        priceStatus: row.priceStatus,
         rowType: row.bucket === "support_recurring" ? "support" as const : "service" as const,
         description: row.label,
         optional: row.optional,
@@ -1781,6 +1806,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
 
   const recurringRow = {
     id: "major_recurring",
+    priceStatus: getMappedQuotePriceStatus({}, metrics.components.filter(component => component.schedule === "recurring" && visibleComponent(component))),
     rowType: "service" as const,
     description: recurringDescription,
     optional: recurringOutputOptional,
@@ -1793,10 +1819,26 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     sourceLabel: metrics.hasThreeLayerModel ? "Major Project model (customer-facing recurring rollup)" : "Major Project model",
   };
 
+  const mappedRecurringRows = metrics.customerQuoteLines.filter(line => line.presentationCategory === "recurring" && hasQuotePriceContent(line)).map(line => ({
+    id: line.id,
+    rowType: line.revenueComponents.length > 0 && line.revenueComponents.every(component => ["support", "managed_service"].includes(component.lineType)) ? "support" as const : "service" as const,
+    description: line.label,
+    priceStatus: line.priceStatus,
+    optional: quoteLineIsOptional(line, outputBundlesById),
+    billing: line.billing,
+    quantity: 1,
+    unitLabel: "bundle",
+    unitPrice: line.recurringRevenue,
+    monthlyRate: line.recurringRevenue,
+    totalMonthlyRate: line.recurringRevenue,
+    includedText: compact([line.description]),
+    specSheetLabel: line.resolvedSpecSheetLabel,
+    sourceLabel: "Major Project customer bundle",
+  }));
   const recurringRows = useDirectComponentPath
     ? directRecurringRows
     : metrics.hasThreeLayerModel
-    ? (metrics.recurringRevenue > 0 ? [recurringRow] : [])
+    ? (mappedRecurringRows.some(row => row.priceStatus !== "confirmed" || row.optional) ? mappedRecurringRows : metrics.recurringRevenue !== 0 ? [recurringRow] : [])
     : simpleRecurringRows.length
       ? simpleRecurringRows
       : (metrics.recurringRevenue > 0 ? [recurringRow] : []);
@@ -1848,11 +1890,11 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
     next.sections.sectionA.poolRows = [];
   }
 
-  const hardwareQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory === "hardware" && line.oneTimeRevenue + line.annualRevenue > 0);
+  const hardwareQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory === "hardware" && hasQuotePriceContent(line));
   const directHardwareComponents = useDirectComponentPath
-    ? metrics.components.filter((component) => isDirectHardwareComponent(component) && component.customerExtendedPrice > 0)
+    ? metrics.components.filter((component) => isDirectHardwareComponent(component) && visibleComponent(component))
     : [];
-  const simpleHardwareRows = activeOption?.simpleRows?.filter((row) => row.bucket === "hardware") ?? [];
+  const simpleHardwareRows = activeOption?.simpleRows?.filter((row) => row.bucket === "hardware" && hasQuotePriceContent(row)) ?? [];
   next.sections.sectionB.enabled = directHardwareComponents.length > 0 || hardwareQuoteLines.length > 0 || simpleHardwareRows.length > 0 || (!metrics.hasThreeLayerModel && metrics.hardwareRevenue > 0);
   next.sections.sectionB.builderLabel = "Major project hardware";
   next.sections.sectionB.title = state.commercial.equipmentLabel;
@@ -1866,6 +1908,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       id: component.id,
       sourceType: "custom" as const,
       itemName: directComponentDisplayLabel(component, index),
+      priceStatus: component.priceStatus,
       optional: component.optional,
       billing: component.billing,
       imageUrl: component.imageUrl,
@@ -1882,6 +1925,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       id: line.id,
       sourceType: "custom" as const,
       itemName: line.label,
+      priceStatus: line.priceStatus,
       optional: quoteLineIsOptional(line, outputBundlesById),
       billing: line.billing,
       itemCategory: line.resolvedBundleIds.length > 1 ? `${line.resolvedBundleIds.length} bundles` : "Bundle",
@@ -1896,6 +1940,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       id: row.id,
       sourceType: "custom" as const,
       itemName: row.label || row.description || "Equipment item",
+      priceStatus: row.priceStatus,
       optional: row.optional,
       billing: row.billing,
       imageUrl: row.imageUrl,
@@ -1918,11 +1963,11 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       sourceLabel: "Major Project model",
     }] : []));
 
-  const serviceQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory !== "hardware" && line.presentationCategory !== "recurring" && line.oneTimeRevenue + line.annualRevenue > 0);
+  const serviceQuoteLines = metrics.customerQuoteLines.filter((line) => line.presentationCategory !== "hardware" && line.presentationCategory !== "recurring" && hasQuotePriceContent(line));
   const directServiceComponents = useDirectComponentPath
-    ? metrics.components.filter((component) => isDirectServiceComponent(component) && component.customerExtendedPrice > 0)
+    ? metrics.components.filter((component) => isDirectServiceComponent(component) && visibleComponent(component))
     : [];
-  const simpleServiceRows = activeOption?.simpleRows?.filter((row) => row.bucket === "install") ?? [];
+  const simpleServiceRows = activeOption?.simpleRows?.filter((row) => row.bucket === "install" && hasQuotePriceContent(row)) ?? [];
   next.sections.sectionC.enabled = directServiceComponents.length > 0 || serviceQuoteLines.length > 0 || simpleServiceRows.length > 0 || (!metrics.hasThreeLayerModel && (metrics.installRevenue > 0 || metrics.otherOneTimeRevenue > 0 || metrics.optionalServicesRevenue > 0));
   next.sections.sectionC.builderLabel = "Major project services";
   next.sections.sectionC.title = "Major project field services";
@@ -1936,6 +1981,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       id: component.id,
       sourceType: "custom" as const,
       description: directComponentDisplayLabel(component, index),
+      priceStatus: component.priceStatus,
       optional: component.optional,
       billing: component.billing,
       quantity: component.quantity,
@@ -1954,6 +2000,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
       id: line.id,
       sourceType: "custom" as const,
       description: line.label,
+      priceStatus: line.priceStatus,
       optional: quoteLineIsOptional(line, outputBundlesById),
       billing: line.billing,
       quantity: annualQuoteLineQuantity(line),
@@ -1971,6 +2018,7 @@ export function applyMajorProjectToQuote(quote: QuoteRecord): QuoteRecord {
         id: row.id,
         sourceType: "custom" as const,
         description: row.label || row.description || "Service item",
+        priceStatus: row.priceStatus,
         optional: row.optional,
         billing: row.billing,
         quantity: row.quantity,

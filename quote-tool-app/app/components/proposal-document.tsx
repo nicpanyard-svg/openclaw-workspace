@@ -14,6 +14,7 @@ import { getSoftwareServicesPresentation, isSoftwareLine, normalizeQuoteSoftware
 import { normalizeQuoteItemWording } from "@/app/lib/quote-item-wording";
 import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
 import type { QuoteRecord } from "@/app/lib/quote-record";
+import { formatQuoteLinePrice, getQuoteLinePriceStatus, getQuotePricingSummary } from "../lib/quote-price-status";
 import "./proposal-customer.css";
 
 type ProposalDocumentProps = {
@@ -44,6 +45,7 @@ function Section({ title, children, className = "" }: { title: string; children:
 function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentProps) {
   const branding = getQuoteBranding(quote);
   const currency = quote.metadata.currencyCode || "USD";
+  const pricing = getQuotePricingSummary(quote);
   const content = getCustomerQuoteContent(quote);
   const services = getIncludedSectionARows(quote).filter(row => row.rowType !== "overage");
   const equipment = getIncludedEquipmentRows(quote);
@@ -86,6 +88,8 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
     </header>
 
     <div className="cp-title"><p>Prepared for {quote.customer.name}</p><h1>{content.title}</h1>{content.subtitle && <p>{content.subtitle}</p>}</div>
+    {!pricing.canExport && <p role="alert"><strong>Draft pricing is incomplete.</strong> {pricing.requiredUnpricedCount} required item(s) need pricing review. Totals are provisional.</p>}
+    {pricing.optionalUnpricedCount > 0 && <p>Options marked TBD need pricing confirmation before ordering.</p>}
 
     <div className="cp-commercial">
       <div><span>Total monthly payment</span><strong>{monthlyConfirmed ? money(monthly, currency) : "Pending agreement"}</strong><small>{isLease ? lease.termMonths + "-month equipment lease" : services.length ? "Recurring services" : annual.items.length ? "No monthly charges quoted" : "No recurring charges quoted"}</small></div>
@@ -125,7 +129,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
       {content.serviceNotes.map((line, index) => <p className="cp-preserve-lines" key={index}>{line}</p>)}
       {quote.orderProcessing?.dataPlanDetails && <p><strong>Data allocation:</strong> {quote.orderProcessing.dataPlanDetails}</p>}
       <table className="cp-table"><caption>Included subscriptions and fees</caption><colgroup><col className="cp-col-item" /><col className="cp-col-qty" /><col className="cp-col-price" /><col className="cp-col-price" /></colgroup><thead><tr><th>Service / fee</th><th>Qty</th><th>Unit rate</th><th>Monthly total</th></tr></thead><tbody>
-        {services.map((row) => <tr key={row.id}><td><ItemCopy title={row.description} />{row.includedText?.map(customerCopy).filter(Boolean).map((line, index) => <p className="cp-row-note" key={index}>{line}</p>)}</td><td>{row.quantity ?? "-"}</td><td>{money(row.monthlyRate ?? row.unitPrice ?? 0, currency)}</td><td>{money(row.totalMonthlyRate ?? 0, currency)}</td></tr>)}
+        {services.map((row) => <tr key={row.id}><td><ItemCopy title={row.description} />{row.includedText?.map(customerCopy).filter(Boolean).map((line, index) => <p className="cp-row-note" key={index}>{line}</p>)}</td><td>{row.quantity ?? "-"}</td><td>{formatQuoteLinePrice(row, money(row.monthlyRate ?? row.unitPrice ?? 0, currency))}</td><td>{formatQuoteLinePrice(row, money(row.totalMonthlyRate ?? 0, currency))}</td></tr>)}
       </tbody><tfoot><tr><td colSpan={3}>Recurring services per month</td><td>{money(recurring, currency)}</td></tr></tfoot></table>
       <div className="cp-service-notes">
         {quote.orderProcessing?.monitoringSupportDetails && <p><strong>Monitoring &amp; support:</strong> {quote.orderProcessing.monitoringSupportDetails}</p>}
@@ -137,7 +141,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
     {equipment.length > 0 && <Section title={isLease ? "Equipment included in lease" : "Equipment & materials"}>
       {content.equipmentIntro && <p className="cp-preserve-lines">{content.equipmentIntro}</p>}
       <table className={"cp-table " + (isLease ? "cp-equipment-lease" : "")}><caption>Included equipment</caption><colgroup><col className="cp-col-item" /><col className="cp-col-qty" />{!isLease && <col className="cp-col-price" />}<col className="cp-col-price" /></colgroup><thead><tr><th>Equipment / item</th><th>Qty</th>{!isLease && <th>Unit price</th>}<th>{isLease ? "Billing" : "Line total"}</th></tr></thead><tbody>
-        {equipment.map((row) => <tr key={row.id}><td><ItemCopy title={row.itemName} description={row.description} image={row.imageUrl} />{row.partNumber && <span className="cp-row-note">Part {row.partNumber}</span>}</td><td>{row.quantity}</td>{!isLease && <td>{money(row.unitPrice, currency)}</td>}<td>{isLease ? "Included in lease" : money(row.totalPrice, currency)}</td></tr>)}
+        {equipment.map((row) => <tr key={row.id}><td><ItemCopy title={row.itemName} description={row.description} image={row.imageUrl} />{row.partNumber && <span className="cp-row-note">Part {row.partNumber}</span>}</td><td>{row.quantity}</td>{!isLease && <td>{formatQuoteLinePrice(row, money(row.unitPrice, currency))}</td>}<td>{isLease ? (getQuoteLinePriceStatus(row) === "tbd" ? "TBD" : getQuoteLinePriceStatus(row) === "allowance" ? "Lease allowance" : "Included in lease") : formatQuoteLinePrice(row, money(row.totalPrice, currency))}</td></tr>)}
       </tbody>{!isLease && <tfoot><tr><td colSpan={3}>One-time equipment total</td><td>{money(equipmentTotal, currency)}</td></tr></tfoot>}</table>
       {isLease && <p className="cp-muted">No separate upfront equipment purchase is charged.</p>}
     </Section>}
@@ -145,14 +149,14 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
     {fieldServices.length > 0 && <Section title={servicePresentation.title}>
       {content.fieldServiceIntro && <p className="cp-preserve-lines">{content.fieldServiceIntro}</p>}
       <table className="cp-table"><caption>{servicePresentation.caption}</caption><colgroup><col className="cp-col-item" /><col className="cp-col-qty" /><col className="cp-col-price" /><col className="cp-col-price" /></colgroup><thead><tr><th>{servicePresentation.itemHeading}</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>
-        {fieldServices.map((row) => <tr key={row.id}><td><ItemCopy title={row.description} description={row.notes} />{isSoftwareLine(row) && <span className="cp-row-note">Software license</span>}{row.pricingStage === "budgetary" && !content.fieldServicePricingConfirmed && <span className="cp-row-note">Estimated</span>}</td><td>{row.quantity}{row.unitLabel ? " " + row.unitLabel : ""}</td><td>{money(row.unitPrice, currency)}</td><td>{money(row.totalPrice, currency)}</td></tr>)}
+        {fieldServices.map((row) => <tr key={row.id}><td><ItemCopy title={row.description} description={row.notes} />{isSoftwareLine(row) && <span className="cp-row-note">Software license</span>}{row.pricingStage === "budgetary" && !content.fieldServicePricingConfirmed && <span className="cp-row-note">Estimated</span>}</td><td>{row.quantity}{row.unitLabel ? " " + row.unitLabel : ""}</td><td>{formatQuoteLinePrice(row, money(row.unitPrice, currency))}</td><td>{formatQuoteLinePrice(row, money(row.totalPrice, currency))}</td></tr>)}
       </tbody><tfoot><tr><td colSpan={3}>{servicePresentation.totalLabel}</td><td>{money(fieldTotal, currency)}</td></tr></tfoot></table>
     </Section>}
     {tax > 0 && <p className="cp-tax"><strong>Quoted sales tax:</strong> {money(tax, currency)} (included in one-time charges).</p>}
 
     {annual.items.length > 0 && <Section title="Annual subscriptions & renewals" className="cp-annual-subscriptions">
       <table className="cp-table cp-annual-table"><caption>Included annual subscriptions and renewal costs</caption><colgroup><col style={{ width: "42%" }} /><col style={{ width: "8%" }} /><col style={{ width: "16%" }} /><col style={{ width: "17%" }} /><col style={{ width: "17%" }} /></colgroup><thead><tr><th>Subscription</th><th>Qty</th><th>Annual unit rate</th><th>Year 1 charge</th><th>Annual renewal</th></tr></thead><tbody>
-        {annual.items.map((item) => <tr key={item.key}><td><ItemCopy title={item.label} description={item.description} /><span className="cp-row-note">{item.startsYear === 2 ? "First year included; paid renewals from Year 2" : "Year 1 prepaid annual subscription"}. Rate per {item.unitLabel}.</span></td><td>{item.quantity ?? "-"}</td><td>{item.unitPrice == null ? "-" : money(item.unitPrice, currency, 4)} / yr</td><td>{money(item.firstYearAmount, currency)}</td><td>{money(item.annualAmount, currency)} / yr</td></tr>)}
+        {annual.items.map((item) => <tr key={item.key}><td><ItemCopy title={item.label} description={item.description} /><span className="cp-row-note">{item.startsYear === 2 ? "First year included; paid renewals from Year 2" : "Year 1 prepaid annual subscription"}. Rate per {item.unitLabel}.</span></td><td>{item.quantity ?? "-"}</td><td>{item.unitPrice == null ? "-" : formatQuoteLinePrice(item, money(item.unitPrice, currency, 4))} / yr</td><td>{item.startsYear === 2 ? "Included" : formatQuoteLinePrice(item, money(item.firstYearAmount, currency))}</td><td>{formatQuoteLinePrice(item, money(item.annualAmount, currency))} / yr</td></tr>)}
       </tbody><tfoot><tr><td colSpan={3}>Included annual subscriptions</td><td>{money(annual.firstYearTotal, currency)}</td><td>{money(annual.renewalTotal, currency)} / yr</td></tr></tfoot></table>
       <p className="cp-muted">Renewal amounts are based on the quoted annual rates. Optional renewals are listed separately under Option Costs.</p>
     </Section>}
@@ -160,7 +164,7 @@ function DetailedProposalDocument({ quote, assetOverrides }: ProposalDocumentPro
     {options.items.length > 0 && <Section title="Option Costs" className="cp-options">
       <p className="cp-muted">Available options only. Excluded from the included scope and all base totals.</p>
       <table className="cp-table cp-option-table"><caption>Available options excluded from base pricing</caption><colgroup><col className="cp-col-ref" /><col className="cp-col-option" /><col className="cp-col-qty" /><col className="cp-col-price" /><col className="cp-col-price" /></colgroup><thead><tr><th>Ref</th><th>Available option</th><th>Qty</th><th>Unit price</th><th>Option total</th></tr></thead><tbody>
-        {options.items.map((item, index) => <tr key={item.key}><td>{"O" + (index + 1)}</td><td><ItemCopy title={item.label} description={item.description} /><span className="cp-row-note">{item.usageBased ? "Usage-based" : item.cadence === "monthly" ? "Monthly" : item.cadence === "annual" ? (item.startsYear === 2 ? "Annual renewal from Year 2; first year included" : "Annual subscription") + ". Rate per " + (item.unitLabel || "subscription") + "." : "One-time"}</span></td><td>{item.usageBased ? "-" : item.quantity ?? "-"}</td><td>{item.unitPrice == null ? "-" : money(item.unitPrice, currency, 4)}{item.usageBased ? " / " + (item.unitLabel || "unit") : item.cadence === "monthly" && item.unitPrice != null ? " / mo" : item.cadence === "annual" ? " / yr" : ""}</td><td>{item.usageBased ? "Usage-based" : money(item.amount, currency)}{!item.usageBased && item.cadence === "monthly" ? " / mo" : item.cadence === "annual" ? " / yr" : ""}</td></tr>)}
+        {options.items.map((item, index) => <tr key={item.key}><td>{"O" + (index + 1)}</td><td><ItemCopy title={item.label} description={item.description} /><span className="cp-row-note">{item.usageBased ? "Usage-based" : item.cadence === "monthly" ? "Monthly" : item.cadence === "annual" ? (item.startsYear === 2 ? "Annual renewal from Year 2; first year included" : "Annual subscription") + ". Rate per " + (item.unitLabel || "subscription") + "." : "One-time"}</span></td><td>{item.usageBased ? "-" : item.quantity ?? "-"}</td><td>{item.unitPrice == null ? "-" : formatQuoteLinePrice(item, money(item.unitPrice, currency, 4))}{item.usageBased ? " / " + (item.unitLabel || "unit") : item.cadence === "monthly" && item.unitPrice != null ? " / mo" : item.cadence === "annual" ? " / yr" : ""}</td><td>{item.usageBased ? "Usage-based" : formatQuoteLinePrice(item, money(item.amount, currency))}{!item.usageBased && item.cadence === "monthly" ? " / mo" : item.cadence === "annual" ? " / yr" : ""}</td></tr>)}
       </tbody><tfoot><tr><td colSpan={4}>Available monthly options</td><td>{money(options.monthlyTotal, currency)} / mo</td></tr><tr><td colSpan={4}>Available one-time options</td><td>{money(options.oneTimeTotal, currency)}</td></tr>{options.items.some((item) => item.cadence === "annual") && <tr><td colSpan={4}>Available annual subscription / renewal options</td><td>{money(options.annualTotal, currency)} / yr</td></tr>}</tfoot></table>
     </Section>}
 

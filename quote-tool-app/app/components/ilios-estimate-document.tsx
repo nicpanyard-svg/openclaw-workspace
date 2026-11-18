@@ -3,6 +3,7 @@
 import { buildEstimateTemplateModel } from "@/app/lib/estimate-template";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { OverageDisclosure } from "./overage-disclosure";
+import { formatQuoteLinePrice, getQuotePricingSummary } from "../lib/quote-price-status";
 
 function formatCurrency(value: number, currencyCode = "USD") {
   return new Intl.NumberFormat("en-US", {
@@ -15,12 +16,15 @@ function formatCurrency(value: number, currencyCode = "USD") {
 
 export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
   const model = buildEstimateTemplateModel(quote);
+  const pricing = getQuotePricingSummary(quote);
   if (!model) {
     return null;
   }
 
   return (
     <div className="ilios-estimate-document mx-auto max-w-[980px] bg-white px-8 py-10 text-[#23313d]">
+      {!pricing.canExport && <p role="alert"><strong>Draft pricing is incomplete.</strong> {pricing.requiredUnpricedCount} required item(s) need pricing review. Totals are provisional.</p>}
+      {pricing.optionalUnpricedCount > 0 && <p>Options marked TBD need pricing confirmation before ordering.</p>}
       <section className="rounded-[28px] border border-[#d9e2ea] bg-white px-8 py-8 shadow-[0_18px_60px_rgba(25,52,78,0.08)]">
         <div className="flex flex-wrap items-start justify-between gap-8 border-b border-[#d8e1e8] pb-8">
           <div className="max-w-[440px] space-y-4">
@@ -85,8 +89,8 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
                   <td className="px-4 py-3 align-top text-[#526573]">{item.description || "—"}</td>
                   <td className="px-4 py-3 align-top text-[#526573]">{item.quantity ?? "—"}{item.unit ? ` ${item.unit}` : ""}</td>
                   <td className="px-4 py-3 align-top text-[#526573]">{item.schedule === "monthly" ? "Monthly" : "One-time"}</td>
-                  <td className="px-4 py-3 align-top text-[#1f2d3a]">{formatCurrency(item.rate, quote.metadata.currencyCode || "USD")}</td>
-                  <td className="px-4 py-3 align-top font-semibold text-[#1f2d3a]">{formatCurrency(item.amount, quote.metadata.currencyCode || "USD")}</td>
+                  <td className="px-4 py-3 align-top text-[#1f2d3a]">{formatQuoteLinePrice(item, formatCurrency(item.rate, quote.metadata.currencyCode || "USD"))}</td>
+                  <td className="px-4 py-3 align-top font-semibold text-[#1f2d3a]">{formatQuoteLinePrice(item, formatCurrency(item.amount, quote.metadata.currencyCode || "USD"))}</td>
                 </tr>
               ))}
             </tbody>
@@ -98,7 +102,7 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
         {model.annual.items.length > 0 && <section className="cp-section">
           <h2>Annual subscriptions &amp; renewals</h2>
           <table className="cp-table"><thead><tr><th>Subscription</th><th>Quantity</th><th>Year 1 prepaid</th><th>Annual renewal</th></tr></thead><tbody>
-            {model.annual.items.map((item) => <tr key={item.key}><td>{item.label}<div>{item.startsYear === 2 ? "First year included; renewal from Year 2" : "Prepaid annual subscription"}</div></td><td>{item.quantity} {item.unitLabel}</td><td>{formatCurrency(item.firstYearAmount, quote.metadata.currencyCode || "USD")}</td><td>{formatCurrency(item.annualAmount, quote.metadata.currencyCode || "USD")} / yr</td></tr>)}
+            {model.annual.items.map((item) => <tr key={item.key}><td>{item.label}<div>{item.startsYear === 2 ? "First year included; renewal from Year 2" : "Prepaid annual subscription"}</div></td><td>{item.quantity} {item.unitLabel}</td><td>{item.startsYear === 2 ? "Included" : formatQuoteLinePrice(item, formatCurrency(item.firstYearAmount, quote.metadata.currencyCode || "USD"))}</td><td>{formatQuoteLinePrice(item, formatCurrency(item.annualAmount, quote.metadata.currencyCode || "USD"))} / yr</td></tr>)}
           </tbody></table>
           <p>Year 1 annual subscriptions: {formatCurrency(model.annual.firstYearTotal, quote.metadata.currencyCode || "USD")}. Renewals from Year 2: {formatCurrency(model.annual.renewalTotal, quote.metadata.currencyCode || "USD")} / year. Billed annually, not monthly; optional renewals excluded.</p>
         </section>}
@@ -127,7 +131,7 @@ export function IliosEstimateDocument({ quote }: { quote: QuoteRecord }) {
                     </td>
                     <td className="px-4 py-3 align-top text-[#526573]">{item.categoryLabel}{item.cadence === "annual" && <div>{item.startsYear === 2 ? "Annual renewal from Year 2; first year included" : "Annual prepaid"}</div>}</td>
                     <td className="px-4 py-3 align-top text-[#526573]">{item.quantity ?? "—"}{item.unitLabel ? ` ${item.unitLabel}` : ""}</td>
-                    <td className="px-4 py-3 align-top font-semibold text-[#1f2d3a]">{item.usageBased ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / ${item.unitLabel || "unit"} (usage-based)` : item.cadence === "monthly" ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / mo` : item.cadence === "annual" ? `${formatCurrency(item.amount, quote.metadata.currencyCode || "USD")} / yr` : formatCurrency(item.amount, quote.metadata.currencyCode || "USD")}</td>
+                    <td className="px-4 py-3 align-top font-semibold text-[#1f2d3a]">{item.usageBased ? `${formatQuoteLinePrice(item, formatCurrency(item.amount, quote.metadata.currencyCode || "USD"))} / ${item.unitLabel || "unit"} (usage-based)` : item.cadence === "monthly" ? `${formatQuoteLinePrice(item, formatCurrency(item.amount, quote.metadata.currencyCode || "USD"))} / mo` : item.cadence === "annual" ? `${formatQuoteLinePrice(item, formatCurrency(item.amount, quote.metadata.currencyCode || "USD"))} / yr` : formatQuoteLinePrice(item, formatCurrency(item.amount, quote.metadata.currencyCode || "USD"))}</td>
                   </tr>
                 ))}
               </tbody>

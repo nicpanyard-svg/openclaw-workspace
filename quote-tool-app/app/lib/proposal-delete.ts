@@ -1,7 +1,6 @@
 import {
   ACTIVE_PROPOSAL_ID_KEY,
   PROPOSAL_STORE_KEY,
-  deserializeProposalStore,
   getActiveProposalId,
   removeProposal,
   serializeProposalStore,
@@ -11,11 +10,13 @@ import {
   PROPOSAL_STORAGE_KEY,
   deserializeQuoteRecord,
 } from "@/app/lib/proposal-state";
+import { deletedProposalKey, markProposalDeleted, readWorkspaceStore } from "./proposal-saving";
+import { createIndexedDbRecoveryStore } from "./quote-recovery";
 
 export function deleteProposalFromBrowserState(proposalId: string) {
   if (typeof window === "undefined") return null;
 
-  const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
+  const savedStore = readWorkspaceStore(window.localStorage);
   if (!savedStore) return null;
 
   const existingProposal = savedStore.proposals.find((proposal) => proposal.id === proposalId);
@@ -28,7 +29,19 @@ export function deleteProposalFromBrowserState(proposalId: string) {
     preferredActiveProposalId === proposalId ? null : preferredActiveProposalId,
   );
 
-  window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
+  const markerKey = deletedProposalKey(proposalId);
+  const previousMarker = window.localStorage.getItem(markerKey);
+  markProposalDeleted(window.localStorage, proposalId);
+  try {
+    const serialized = serializeProposalStore(nextStore);
+    window.localStorage.setItem(PROPOSAL_STORE_KEY, serialized);
+    if (window.localStorage.getItem(PROPOSAL_STORE_KEY) !== serialized) throw new Error("The quote deletion could not be verified.");
+  } catch (error) {
+    // A failed deletion must not lock the still-existing quote out of future saves.
+    if (previousMarker === null) window.localStorage.removeItem(markerKey);
+    throw error;
+  }
+  void createIndexedDbRecoveryStore().remove(proposalId).catch(() => { /* The deletion marker still blocks recovery and saves. */ });
   if (nextActiveProposalId) {
     window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, nextActiveProposalId);
   } else {

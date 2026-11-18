@@ -6,9 +6,14 @@ import { AlertCircle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calculator, Che
 import { LaborBreakdown } from "./labor-breakdown";
 import { QuoteLineTable } from "@/app/components/quote-line-table";
 import { QuoteBillingSelect } from "@/app/components/quote-billing-select";
+import { QuotePriceStatusSelect } from "@/app/components/quote-price-status-select";
+import { QuoteCopyDialog } from "@/app/components/quote-copy-dialog";
+import type { QuoteCopyReviewOptions } from "@/app/lib/quote-copy-review";
+import { formatQuoteLinePrice, getQuotePricingSummary } from "@/app/lib/quote-price-status";
 import dynamic from "next/dynamic";
 import { Columns3, Package, Presentation, ReceiptText } from "lucide-react";
 import { createProFormaSettings } from "@/app/lib/pro-forma-settings";
+import { isCustomerLabelLinked, renameQuoteItem, setCustomerLabelLinked } from "@/app/lib/quote-labels";
 import { addLibraryProduct } from "@/app/lib/quote-product-library";
 import { comparisonLeaseTerms, getPricingReviewItems } from "@/app/lib/quote-experience";
 import { getAnnualSubscriptionSummary, getLineBilling, isAnnualLine } from "@/app/lib/quote-line-billing";
@@ -19,6 +24,9 @@ import { resolveQuotePricingTerms } from "@/app/lib/quote-pricing-terms";
 import { ProcessingRequirementsForm } from "./processing-requirements";
 import { missingProcessingRequirements } from "../lib/processing-requirements";
 import { QuoteExportMenu } from "@/app/components/quote-export-menu";
+import { useQuoteRecovery } from "./use-quote-recovery";
+import { QuoteRecoveryPanel } from "./quote-recovery-panel";
+import { browserSaveError, createIndexedDbRecoveryStore, quoteContentKey, readRecoveryQuote } from "../lib/quote-recovery";
 import { getCustomerQuoteContent } from "@/app/lib/proposal-customer-content";
 import { buildOrderProcessingText, getOrderProcessing } from "@/app/lib/order-processing";
 import { setOveragePrice } from "@/app/lib/overage-terms";
@@ -30,9 +38,8 @@ import * as XLSX from "xlsx";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/app/components/auth-shell";
 import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
-import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, getProposalById, mockUsers, serializeProposalStore, statusToStageLabel, upsertProposal, type SavedProposalRecord } from "@/app/lib/proposal-store";
-import { assignQuoteOwner, saveProposalToWorkspace } from "@/app/lib/proposal-saving";
-import { resolvePreferredQuote } from "@/app/lib/active-proposal";
+import { ACTIVE_PROPOSAL_ID_KEY, QUOTE_STATUS_OPTIONS, createProposalCopy, createProposalFromQuote, getDefaultProposalStore, getProposalById, mockUsers, statusToStageLabel, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { assertProposalRevision, assignQuoteOwner, getProposalRevision, isProposalDeleted, readWorkspaceStore, saveProposalToWorkspace, withWorkspaceSaveLock } from "@/app/lib/proposal-saving";
 import {
   PROPOSAL_STORAGE_FALLBACK_KEY,
   PROPOSAL_STORAGE_KEY,
@@ -65,7 +72,7 @@ import {
   type SavedCustomerProfile,
 } from "@/app/lib/customer-profiles";
 import { RAPIDQUOTE_DEPLOYMENT_BRANDING } from "@/app/lib/app-environment";
-import { ensureEnvironmentCustomerProfiles, ensureEnvironmentProposalStore } from "@/app/lib/environment-samples";
+import { ensureEnvironmentCustomerProfiles } from "@/app/lib/environment-samples";
 import { normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { applyMajorProjectToQuote, buildMajorProjectMetrics, convertQuickQuoteToMajorProject, ensureMajorProjectState, getActiveMajorProjectOption, majorProjectLineTypeLabel } from "@/app/lib/major-project";
 import {
@@ -1805,6 +1812,8 @@ export default function QuotePreview() {
   const { user, directoryUsers } = useAuth();
   const router = useRouter();
   const [isHydrated, setIsHydrated] = useState(false);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
+  const [hydratedRecoveryDraft, setHydratedRecoveryDraft] = useState(false);
   const [editorTab, setEditorTab] = useState<"customer" | "items" | "pricing" | "documents" | "review" | "invoice">("items");
   const [setupRequest, setSetupRequest] = useState(0);
   const [setupInitialStep, setSetupInitialStep] = useState<number | undefined>(undefined);
@@ -1813,6 +1822,7 @@ export default function QuotePreview() {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [showMobileTotals, setShowMobileTotals] = useState(false);
   const [experiencePanel, setExperiencePanel] = useState<"products" | "compare" | "present" | null>(null);
+  const [copySource, setCopySource] = useState<QuoteRecord | null>(null);
   const [quote, setQuote] = useState<QuoteRecord>(() => createBlankQuoteRecord());
   const [activeProposal, setActiveProposal] = useState<SavedProposalRecord | null>(null);
   const [customerProfiles, setCustomerProfiles] = useState<SavedCustomerProfile[]>([]);
@@ -1841,8 +1851,11 @@ export default function QuotePreview() {
   const [majorProjectImportedMarginPercent, setMajorProjectImportedMarginPercent] = useState(String(DEFAULT_IMPORTED_MARGIN_PERCENT));
 
   useEffect(() => {
+    let cancelled = false;
+    const hydrate = async () => {
+    try {
     const activeProposalId = window.localStorage.getItem(ACTIVE_PROPOSAL_ID_KEY);
-    const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
+    const savedStore = readWorkspaceStore(window.localStorage);
     const fallbackStore = getDefaultProposalStore(createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }));
     const sessionUser = user
       ? {
@@ -1854,28 +1867,27 @@ export default function QuotePreview() {
         }
       : fallbackStore.currentUser;
 
-    const baseStore = savedStore
+    const store = savedStore
       ? {
           ...savedStore,
           currentUser: sessionUser,
         }
       : {
           ...fallbackStore,
+          proposals: [],
           currentUser: sessionUser,
         };
-    const store = ensureEnvironmentProposalStore(baseStore);
-
-    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(store));
 
     const searchParams = new URLSearchParams(window.location.search);
     const requestedProposalId = searchParams.get("proposalId");
-    const savedQuote = deserializeQuoteRecord(
-      window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY) ?? window.localStorage.getItem(PROPOSAL_STORAGE_FALLBACK_KEY),
-    );
+    const requestedDraftId = searchParams.get("draftId");
+    let savedQuote: QuoteRecord | null = null;
+    try {
+      savedQuote = deserializeQuoteRecord(window.sessionStorage.getItem(PROPOSAL_STORAGE_KEY) ?? window.localStorage.getItem(PROPOSAL_STORAGE_FALLBACK_KEY));
+    } catch { /* Workspace remains authoritative when session shortcuts are unavailable. */ }
     const savedCustomerProfiles = ensureEnvironmentCustomerProfiles(deserializeCustomerProfiles(
       window.localStorage.getItem(CUSTOMER_PROFILE_STORE_KEY) ?? window.localStorage.getItem(CUSTOMER_PROFILE_STORE_FALLBACK_KEY),
     ));
-    window.localStorage.setItem(CUSTOMER_PROFILE_STORE_KEY, serializeCustomerProfiles(savedCustomerProfiles));
     const forceNewDraft = searchParams.get("mode") === "new";
     const entryIntent = (searchParams.get("entry") as EntryIntent) ?? null;
     const requestedCustomerProfileId = searchParams.get("customerProfileId");
@@ -1885,6 +1897,9 @@ export default function QuotePreview() {
     const requestedProposal = !forceNewDraft && requestedProposalId
       ? getProposalById(store, requestedProposalId)
       : null;
+    if (!forceNewDraft && requestedProposalId && (!requestedProposal || isProposalDeleted(window.localStorage, requestedProposal.id))) {
+      throw new Error("This quote is no longer in this browser's Workspace. It may have been deleted. No other quote has been opened in its place.");
+    }
     const storedActiveProposal = !forceNewDraft && activeProposalId
       ? getProposalById(store, activeProposalId)
       : null;
@@ -1892,18 +1907,26 @@ export default function QuotePreview() {
     const savedQuoteProposal = !forceNewDraft && savedQuoteProposalId
       ? getProposalById(store, savedQuoteProposalId)
       : null;
-    const matchedProposal = forceNewDraft
+    if (savedQuoteProposalId && (isProposalDeleted(window.localStorage, savedQuoteProposalId) || (savedQuote?.internal.savedProposalId && !savedQuoteProposal))) savedQuote = null;
+    const recoveredSavedProposal = requestedDraftId ? store.proposals.find((entry) => entry.id === requestedDraftId) ?? null : null;
+    let recoveredDraft: QuoteRecord | null = null;
+    if (requestedDraftId && !forceNewDraft && !requestedProposalId && !recoveredSavedProposal) {
+      assertProposalRevision(window.localStorage, requestedDraftId, null);
+      const history = await createIndexedDbRecoveryStore().list(requestedDraftId);
+      recoveredDraft = readRecoveryQuote(history[0], requestedDraftId);
+      if (!recoveredDraft) throw new Error("This recovery draft is not available in this browser. No saved quote has been changed.");
+      assertProposalRevision(window.localStorage, requestedDraftId, null);
+    }
+    if (cancelled) return;
+    const matchedProposal = forceNewDraft || recoveredDraft
       ? null
-      : requestedProposal ?? savedQuoteProposal ?? (savedQuote ? null : storedActiveProposal);
+      : requestedProposal ?? recoveredSavedProposal ?? savedQuoteProposal ?? (savedQuote ? null : storedActiveProposal);
+    if (matchedProposal && isProposalDeleted(window.localStorage, matchedProposal.id)) throw new Error("This quote was deleted. Open another quote from Workspace.");
     const existingNumbers = store.proposals.map((proposal) => proposal.quote.metadata.proposalNumber);
     if (savedQuote) existingNumbers.push(savedQuote.metadata.proposalNumber);
     const resolvedQuote = forceNewDraft
       ? createBlankQuoteRecord(undefined, existingNumbers)
-      : requestedProposal?.quote ?? savedQuote ?? resolvePreferredQuote({
-          savedQuote: null,
-          activeProposal: matchedProposal,
-          fallbackQuote: createBlankQuoteRecord(undefined, existingNumbers),
-        }).quote;
+      : recoveredDraft ?? matchedProposal?.quote ?? savedQuote ?? createBlankQuoteRecord(undefined, existingNumbers);
     let nextQuote = ensureMajorProjectState(cloneQuote(resolvedQuote));
     if (!nextQuote.metadata.ownerUserId) assignQuoteOwner(nextQuote, sessionUser);
 
@@ -1915,6 +1938,7 @@ export default function QuotePreview() {
       nextQuote = convertQuickQuoteToMajorProject(nextQuote);
     }
 
+    try {
     if (forceNewDraft) {
       window.localStorage.removeItem(ACTIVE_PROPOSAL_ID_KEY);
     } else if (matchedProposal) {
@@ -1923,7 +1947,7 @@ export default function QuotePreview() {
       window.localStorage.removeItem(ACTIVE_PROPOSAL_ID_KEY);
     }
 
-    persistQuoteRecord(nextQuote);
+    } catch { /* Shortcut failures do not prevent editing or recovery. */ }
 
     setActiveProposal(matchedProposal);
     setQuote(nextQuote);
@@ -1938,6 +1962,16 @@ export default function QuotePreview() {
       savedProfileCount: savedCustomerProfiles.length,
     }));
     setIsHydrated(true);
+    setHydrationError(null);
+    setHydratedRecoveryDraft(Boolean(recoveredDraft));
+    } catch (error) {
+      if (cancelled) return;
+      setHydrationError(browserSaveError(error));
+      setIsHydrated(true);
+    }
+    };
+    void hydrate();
+    return () => { cancelled = true; };
   }, [user]);
 
   useEffect(() => {
@@ -1955,6 +1989,7 @@ export default function QuotePreview() {
   const activeSectionARows = quote.sections.sectionA.mode === "pool" ? quote.sections.sectionA.poolRows : quote.sections.sectionA.perKitRows;
 
   const recurringMonthlyTotal = useMemo(() => getRecurringMonthlyTotal(quote), [quote]);
+  const pricingCompleteness = useMemo(() => getQuotePricingSummary(quote), [quote]);
   const equipmentTotal = useMemo(() => getEquipmentTotal(quote), [quote]);
   const sectionCTotal = useMemo(() => getOptionalServicesTotal(quote), [quote]);
   const optionCostSummary = useMemo(() => getProposalOptionCostSummary(quote), [quote]);
@@ -2410,6 +2445,7 @@ export default function QuotePreview() {
   );
   const editorNeedsAttention = useMemo(() => {
     const items: { message: string; tab: "customer" | "items" | "pricing" | "documents" | "review" }[] = getCustomerQuoteContent(quote).warnings.map((message) => ({ message, tab: "documents" }));
+    items.push(...getQuotePricingSummary(quote).issues.map(issue => ({ message: issue.message, tab: "items" as const })));
     if (!finalReviewConfirmed(quote)) items.push({ message: "Confirm the final quote details.", tab: "review" });
     items.push(...missingProcessingRequirements(quote).map(message => ({ message, tab: "customer" as const })));
     if (!customerEntryComplete) items.push({ message: "Complete the customer details.", tab: "customer" });
@@ -3892,7 +3928,7 @@ export default function QuotePreview() {
         if (synchronizedBundle) {
           option.bundles = (option.bundles ?? []).map((bundle) => (
             bundle.id === synchronizedBundle.id
-              ? { ...bundle, customerFacingLabel: nextQuoteLine.label }
+              ? { ...bundle, customerFacingLabel: nextQuoteLine.label, customerLabelOverride: true }
               : bundle
           ));
         }
@@ -4366,15 +4402,21 @@ export default function QuotePreview() {
     ...mockUsers,
   ].map((owner) => [owner.id, owner])).values()];
 
-  const persistProposalState = (options: { draft?: boolean } = {}) => {
+  const persistProposalState = (options: { draft?: boolean; automatic?: boolean; quoteOverride?: QuoteRecord; expectedRevision?: string | null } = {}) => {
     if (typeof window === "undefined") return null;
 
-    if (!customerEntryComplete) {
+    if (!options.draft && !customerEntryComplete) {
       setWorkflowNotice("Choose or enter a customer before saving. You can fill in the remaining details later.");
       return null;
     }
 
-    const preparedQuote = isMajorProject ? applyMajorProjectToQuote(quote) : quote;
+    const inputQuote = options.quoteOverride ?? quote;
+    const preparedQuote = inputQuote.metadata.workflowMode === "major_project" ? applyMajorProjectToQuote(inputQuote) : cloneQuote(inputQuote);
+    if (!options.draft && !getQuotePricingSummary(preparedQuote).canExport) {
+      setEditorTab("items");
+      setWorkflowNotice("Resolve the required pricing statuses before creating the customer quote. Draft saving is still available.");
+      return null;
+    }
     if (!options.draft && !finalReviewConfirmed(preparedQuote)) {
       setEditorTab("review");
       setWorkflowNotice("Confirm the quote details on the Review step before creating the customer proposal.");
@@ -4387,7 +4429,7 @@ export default function QuotePreview() {
       ...preparedQuote,
       metadata: {
         ...preparedQuote.metadata,
-        status: saveAsDraft ? "draft" as const : preparedQuote.metadata.status,
+        status: preparedQuote.metadata.status,
         lastTouchedAt: new Date().toISOString(),
       },
       internal: {
@@ -4403,44 +4445,51 @@ export default function QuotePreview() {
     }
     setSaveError(null);
     try {
-      const storedValue = window.localStorage.getItem(PROPOSAL_STORE_KEY);
-      const savedStore = deserializeProposalStore(storedValue);
-      if (storedValue && !savedStore) throw new Error("Saved quotes could not be read. Reload Workspace before saving again.");
-      const baseStore = savedStore ?? getDefaultProposalStore(
-        createProposalFromQuote({ quote: sampleQuoteRecord, owner: mockUsers[0], currentUser: mockUsers[0] }),
-      );
+      const savedStore = readWorkspaceStore(window.localStorage);
+      // Synchronous export consumers read the verified saved record; all writes go through the recovery lock.
+      if (options.expectedRevision === undefined) {
+        if (!activeProposal || !lastSavedQuote || quoteContentKey(inputQuote) !== quoteContentKey(lastSavedQuote)) {
+          setWorkflowNotice("Save draft before exporting these changes. Your draft can be saved even with missing details.");
+          return null;
+        }
+        const verified = assertProposalRevision(window.localStorage, activeProposal.id, getProposalRevision(activeProposal));
+        return verified.proposal && verified.store ? { proposal: verified.proposal, store: verified.store } : null;
+      }
+      const baseStore = savedStore ?? { currentUser: mockUsers[0], users: mockUsers, proposals: [] };
 
       const currentStore = {
         ...baseStore,
         currentUser: user ? { id: user.id, name: user.name, email: user.email, role: user.title, team: user.team } : baseStore.currentUser,
       };
       const proposalId = activeProposal?.id ?? nextQuote.internal.savedProposalId ?? nextQuote.internal.quoteId;
+      assertProposalRevision(window.localStorage, proposalId, options.expectedRevision);
+      const previousProposal = savedStore?.proposals.find((entry) => entry.id === proposalId) ?? null;
       const owner = proposalOwners.find((entry) => entry.id === (nextQuote.metadata.ownerUserId ?? activeProposal?.owner.id))
         ?? activeProposal?.owner ?? currentStore.currentUser;
       assignQuoteOwner(nextQuote, owner);
       const now = new Date().toISOString();
       const updatedProposal = createProposalFromQuote({ quote: nextQuote, owner, currentUser: currentStore.currentUser });
       updatedProposal.id = proposalId;
-      updatedProposal.createdAt = activeProposal?.createdAt ?? now;
+      updatedProposal.createdAt = previousProposal?.createdAt ?? now;
       updatedProposal.updatedAt = now;
       updatedProposal.status = nextQuote.metadata.status;
       updatedProposal.stageLabel = statusToStageLabel(nextQuote.metadata.status);
       updatedProposal.owner = owner;
-      updatedProposal.createdBy = activeProposal?.createdBy ?? currentStore.currentUser;
-      const previousStatus = activeProposal?.status ?? nextQuote.metadata.status;
+      updatedProposal.createdBy = previousProposal?.createdBy ?? currentStore.currentUser;
+      const previousStatus = previousProposal?.status ?? nextQuote.metadata.status;
       const statusChanged = previousStatus !== nextQuote.metadata.status;
       updatedProposal.activity = [
-        ...(activeProposal?.activity ?? []),
+        ...(previousProposal?.activity ?? []),
         {
           id: `activity_${statusChanged ? "status" : "updated"}_${Date.now()}`,
           type: statusChanged ? "status_changed" : "updated",
           message: statusChanged
             ? `Proposal moved from ${statusToStageLabel(previousStatus)} to ${statusToStageLabel(nextQuote.metadata.status)}`
-            : "Proposal saved from builder",
+            : options.automatic ? "Draft autosaved in this browser" : "Proposal saved from builder",
           at: now,
           by: { id: currentStore.currentUser.id, name: currentStore.currentUser.name },
         },
-      ];
+      ].slice(-100) as SavedProposalRecord["activity"];
       updatedProposal.quote.internal.savedProposalId = proposalId;
       updatedProposal.quote.internal.workspaceOwnerId = owner.id;
       updatedProposal.quote.internal.workspaceOwnerName = owner.name;
@@ -4449,7 +4498,7 @@ export default function QuotePreview() {
 
       let profileWarning = "";
       try {
-        if (autoUpdateCustomerProfile && (selectedCustomerProfileId || nextQuote.customer.name.trim())) {
+        if (!options.automatic && autoUpdateCustomerProfile && (selectedCustomerProfileId || nextQuote.customer.name.trim())) {
           const nextProfile = createCustomerProfileFromQuote(nextQuote, selectedCustomerProfileId || undefined);
           const nextProfiles = upsertCustomerProfile(customerProfiles, nextProfile);
           persistCustomerProfiles(nextProfiles);
@@ -4460,7 +4509,7 @@ export default function QuotePreview() {
         }
       } catch { profileWarning = " The customer profile could not be updated."; }
 
-      const nextStore = saveProposalToWorkspace(window.localStorage, currentStore, updatedProposal);
+      const nextStore = saveProposalToWorkspace(window.localStorage, currentStore, updatedProposal, { expectedRevision: options.expectedRevision });
       // Session shortcuts must not turn a successful Workspace save into a failure.
       try {
         window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, proposalId);
@@ -4468,19 +4517,19 @@ export default function QuotePreview() {
       } catch { /* The verified Workspace record is still available by proposalId. */ }
 
       const nextUrl = `/new?proposalId=${proposalId}`;
-      if (window.location.pathname !== "/new" || window.location.search !== `?proposalId=${proposalId}`) {
+      try { if (window.location.pathname !== "/new" || window.location.search !== `?proposalId=${proposalId}`) {
         window.history.replaceState({}, "", nextUrl);
-      }
+      } } catch { /* Workspace is saved even when browser navigation shortcuts are unavailable. */ }
 
       setActiveProposal(updatedProposal);
-      setQuote(nextQuote);
-      setLastSavedQuote(nextQuote);
+      setQuote(updatedProposal.quote);
+      setLastSavedQuote(updatedProposal.quote);
       const savedMessage = saveAsDraft
         ? "Draft saved to Workspace in this browser. You can finish the missing details later."
         : statusChanged
         ? `Saved to Workspace in this browser. Quote is now ${statusToStageLabel(nextQuote.metadata.status)} on revision ${governanceState.revisionLabel}.`
         : `Saved ${nextQuote.metadata.proposalNumber} to Workspace in this browser.`;
-      setWorkflowNotice(
+      if (!options.automatic) setWorkflowNotice(
         majorProjectHasBlockingErrors
           ? `${savedMessage} Major Project validation still has ${majorProjectMetrics.validation.errorCount} blocking error${majorProjectMetrics.validation.errorCount === 1 ? "" : "s"}.`
           : savedMessage + profileWarning,
@@ -4488,16 +4537,50 @@ export default function QuotePreview() {
 
       return { proposal: updatedProposal, store: nextStore };
     } catch (error) {
-      setSaveError(error instanceof Error && error.name !== "QuotaExceededError" && error.name !== "SecurityError"
-        ? error.message : "Quote was not saved. Browser storage is full or unavailable. Keep this page open and try again.");
-      setWorkflowNotice(null);
+      setSaveError(browserSaveError(error));
+      if (!options.automatic) setWorkflowNotice(null);
+      if (options.expectedRevision !== undefined) throw error;
       return null;
     }
   };
 
-  const handleDownloadOrderSummary = () => {
+  const recovery = useQuoteRecovery({
+    quote,
+    isHydrated: isHydrated && !hydrationError,
+    savedProposal: activeProposal,
+    startPaused: hydratedRecoveryDraft && !activeProposal,
+    onSave: ({ quote: draft, expectedRevision, reason }) => {
+      // Keep the IndexedDB recovery version addressable even if the first Workspace write fails.
+      try { if (expectedRevision === null) window.history.replaceState({}, "", `/new?draftId=${encodeURIComponent(draft.internal.savedProposalId || draft.internal.quoteId)}`); }
+      catch { /* A navigation shortcut must not prevent the Workspace write. */ }
+      return persistProposalState({ draft: true, automatic: reason === "autosave", quoteOverride: draft, expectedRevision });
+    },
+    onRecover: (draft) => {
+      setQuote(draft);
+      setCustomSectionFields(draft.customFields ?? []);
+      setSelectedCustomerProfileId(draft.internal.savedCustomerProfileId ?? "");
+      setAutoUpdateCustomerProfile(false);
+      setCustomerEntryMode(draft.customer.name.trim() ? "review" : "create");
+      setSaveError(null);
+      setWorkflowNotice("An earlier version is loaded. Save draft to keep it; autosave is paused.");
+    },
+  });
+
+  const saveForCustomerOutput = async () => {
+    const saved = await recovery.saveNow();
+    if (!saved) return null;
+    if (!saved.proposal.quote.customer.name.trim() || !getQuotePricingSummary(saved.proposal.quote).canExport || !finalReviewConfirmed(saved.proposal.quote)
+      || missingProcessingRequirements(saved.proposal.quote).length || majorProjectHasBlockingErrors) {
+      setEditorTab("review");
+      setWorkflowNotice("Draft saved. Finish setup, pricing and final review before creating customer output.");
+      return null;
+    }
+    return saved;
+  };
+
+  const handleDownloadOrderSummary = async () => {
     try {
-      const saved = persistProposalState();
+      const saved = await saveForCustomerOutput();
       if (!saved) return;
       const source = saved.proposal.quote;
       const url = URL.createObjectURL(new Blob([buildOrderProcessingText(source)], { type: "text/plain;charset=utf-8" }));
@@ -4519,7 +4602,7 @@ export default function QuotePreview() {
     if (isDownloadingPdf || majorProjectHasBlockingErrors) return;
     setIsDownloadingPdf(true);
     try {
-      const saved = persistProposalState();
+      const saved = await saveForCustomerOutput();
       if (!saved) return;
       const { quote: savedQuote, id: proposalId } = saved.proposal;
       const response = await fetch("/api/proposal-pdf", {
@@ -4545,8 +4628,8 @@ export default function QuotePreview() {
     }
   };
 
-  const handlePreviewProposal = () => {
-    const persisted = persistProposalState();
+  const handlePreviewProposal = async () => {
+    const persisted = await saveForCustomerOutput();
     if (!persisted) return;
 
     if (majorProjectHasBlockingErrors) {
@@ -4558,34 +4641,45 @@ export default function QuotePreview() {
   };
 
   const copyProposalFromBuilder = () => {
-    const persisted = persistProposalState();
-    if (!persisted || typeof window === "undefined") return;
+    setCopySource(cloneQuote(quote));
+  };
 
-    const copiedProposal = createProposalCopy({
-      proposal: persisted.proposal,
-      owner: persisted.proposal.owner,
-      currentUser: persisted.store.currentUser,
-      existingNumbers: persisted.store.proposals.map((proposal) => proposal.quote.metadata.proposalNumber),
+  const confirmBuilderCopy = async (review: QuoteCopyReviewOptions) => {
+    if (!copySource) return;
+    const copiedProposal = await withWorkspaceSaveLock(() => {
+      const store = readWorkspaceStore(window.localStorage) ?? { currentUser: user ? { id: user.id, name: user.name, email: user.email, role: user.title, team: user.team } : mockUsers[0], users: mockUsers, proposals: [] };
+      if (user) store.currentUser = { id: user.id, name: user.name, email: user.email, role: user.title, team: user.team };
+      const owner = activeProposal?.owner ?? store.currentUser;
+      const source = createProposalFromQuote({ quote: cloneQuote(copySource), owner, currentUser: store.currentUser });
+      const copied = createProposalCopy({ proposal: source, owner, currentUser: store.currentUser, existingNumbers: store.proposals.map((entry) => entry.quote.metadata.proposalNumber), review });
+      saveProposalToWorkspace(window.localStorage, store, copied, { expectedRevision: null });
+      return copied;
     });
-    const nextStore = upsertProposal(persisted.store, copiedProposal);
-
-    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
-    window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
-    window.history.replaceState({}, "", `/new?proposalId=${copiedProposal.id}`);
-    persistQuoteRecord(copiedProposal.quote);
+    try {
+      window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
+      persistQuoteRecord(copiedProposal.quote);
+    } catch { /* The verified Workspace record remains available. */ }
+    window.history.replaceState({}, "", `/new?proposalId=${encodeURIComponent(copiedProposal.id)}`);
     setActiveProposal(copiedProposal);
     setQuote(copiedProposal.quote);
     setLastSavedQuote(copiedProposal.quote);
-    setWorkflowNotice(`Created ${copiedProposal.quote.metadata.proposalNumber} as a new draft copy on revision ${copiedProposal.quote.governance?.revisionLabel || copiedProposal.quote.metadata.revisionVersion || "1.0"}. Review status, pricing, and customer-facing output before sending.`);
+    setSelectedCustomerProfileId("");
+    setAutoUpdateCustomerProfile(false);
+    setCustomerEntryMode(copiedProposal.quote.customer.name.trim() ? "review" : "start");
+    setEditorTab(copiedProposal.quote.customer.name.trim() ? "items" : "customer");
+    setSaveError(null);
+    setCopySource(null);
+    setWorkflowNotice(`Created ${copiedProposal.quote.metadata.proposalNumber} as a new draft. The original quote is unchanged.`);
   };
 
   const setupIncomplete = missingProcessingRequirements(quote).length > 0;
   const visibleEditorTab = customerEntryComplete ? editorTab : "customer";
-  const hasUnsavedChanges = lastSavedQuote !== quote;
-  const saveStatus = saveError ? "Save failed" : !activeProposal ? "Not saved to Workspace" : hasUnsavedChanges ? "Unsaved changes" : "Saved to Workspace";
+  const hasUnsavedChanges = recovery.dirty;
+  const saveStatus = recovery.status === "saved" ? "Saved in this browser" : recovery.status === "saving" ? "Saving..." : recovery.status === "conflict" ? "Save conflict" : recovery.status === "error" ? "Not saved" : "Unsaved changes";
 
-  return isHydrated ? (
+  return isHydrated && hydrationError ? <main className="rq-editor"><div className="rq-notice" role="alert"><span>{hydrationError}</span><button type="button" className="rq-button" onClick={() => router.push("/workspace")}>Open Workspace</button></div></main> : isHydrated ? (
     <main className="rq-editor">
+      {copySource && <QuoteCopyDialog quote={copySource} onCancel={() => setCopySource(null)} onConfirm={confirmBuilderCopy} />}
       {experiencePanel === "products" && <QuoteProductPicker currency={currencyCode} needsCost={isMajorProject} onClose={() => setExperiencePanel(null)} onAdd={(selection) => {
         updateQuote((draft) => addLibraryProduct(draft, selection, `library-${crypto.randomUUID()}`));
         setExperiencePanel(null);
@@ -4603,18 +4697,19 @@ export default function QuotePreview() {
       {experiencePanel === "present" && <CustomerPresentation quote={quote} onClose={() => setExperiencePanel(null)} />}
       <header className="rq-editor-header">
         <div className="rq-editor-identity">
-          <button type="button" className="rq-icon-button" aria-label="Back to quotes" data-tooltip="Back to quotes" onClick={() => router.push("/workspace")}><ArrowLeft size={18} aria-hidden="true" /></button>
+          <button type="button" className="rq-icon-button" aria-label="Back to quotes" data-tooltip="Back to quotes" onClick={() => void recovery.navigate("/workspace")}><ArrowLeft size={18} aria-hidden="true" /></button>
           <div><h1>{quote.metadata.documentTitle || "New quote"}</h1><div className="rq-editor-meta"><span>{quote.customer.name}</span><span>{quote.metadata.proposalNumber}</span><span className="rq-status">{statusToStageLabel(quote.metadata.status)}</span><span role="status" className={hasUnsavedChanges || saveError ? "rq-unsaved" : "rq-saved"}>{saveStatus}</span></div></div>
         </div>
         <div className="rq-editor-actions">
-          <button type="button" className="rq-button" onClick={() => persistProposalState({ draft: true })} disabled={!customerEntryComplete} title={!customerEntryComplete ? "Choose or enter a customer first" : undefined}><Save size={16} aria-hidden="true" /><span>Save draft</span></button>
+          <button type="button" className="rq-button" onClick={() => void recovery.saveNow()} disabled={recovery.status === "saving" || recovery.status === "loading" || recovery.status === "conflict"}><Save size={16} aria-hidden="true" /><span>Save draft</span></button>
           {customerEntryComplete && setupIncomplete ? <button type="button" className="rq-button rq-button-primary" onClick={openQuoteSetup}>Finish setup<ArrowRight size={16} /></button> : <>
           <button type="button" className="rq-button" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" /><span>Preview</span></button>
-          <QuoteExportMenu quote={quote} disabled={!customerEntryComplete} pdfDisabled={majorProjectHasBlockingErrors} downloading={isDownloadingPdf} onPdf={handleDownloadPdf} onOrderSummary={handleDownloadOrderSummary} getQuote={() => persistProposalState()?.proposal.quote} />
+          <QuoteExportMenu quote={quote} disabled={!customerEntryComplete || recovery.status !== "saved" || recovery.dirty} pdfDisabled={majorProjectHasBlockingErrors} downloading={isDownloadingPdf} onPdf={handleDownloadPdf} onOrderSummary={handleDownloadOrderSummary} getQuote={() => persistProposalState()?.proposal.quote} />
           </>}
         </div>
       </header>
       <div className="rq-editor-container">
+        <QuoteRecoveryPanel recovery={recovery} />
         <nav className="rq-editor-nav" aria-label="Quote sections">
           {([
             { key: "customer", label: "Customer", icon: UserRound },
@@ -4625,14 +4720,15 @@ export default function QuotePreview() {
             { key: "invoice", label: "Pro Forma Invoice", icon: ReceiptText },
           ] as const).map(({ key, label, icon: Icon }) => <button key={key} id={`rq-nav-${key}`} type="button" aria-current={visibleEditorTab === key ? "page" : undefined} disabled={!customerEntryComplete && key !== "customer"} onClick={() => { if (key === "invoice" && !quote.proForma) updateQuote(draft => { draft.proForma = createProFormaSettings(draft); return draft; }); setEditorTab(key); window.scrollTo({ top: 0, behavior: "instant" }); }}><Icon size={16} aria-hidden="true" />{label}</button>)}
         </nav>
+        {(pricingCompleteness.requiredUnpricedCount > 0 || pricingCompleteness.optionalUnpricedCount > 0) && <div className="rq-pricing-attention" role="status"><AlertCircle size={18} aria-hidden="true" /><div><strong>{pricingCompleteness.requiredUnpricedCount > 0 ? `${pricingCompleteness.requiredUnpricedCount} required item${pricingCompleteness.requiredUnpricedCount === 1 ? " needs" : "s need"} pricing review` : `${pricingCompleteness.optionalUnpricedCount} optional item${pricingCompleteness.optionalUnpricedCount === 1 ? "" : "s"} awaiting pricing`}</strong>{pricingCompleteness.requiredUnpricedCount > 0 && pricingCompleteness.optionalUnpricedCount > 0 && <span>{pricingCompleteness.optionalUnpricedCount} optional item{pricingCompleteness.optionalUnpricedCount === 1 ? "" : "s"} also awaiting pricing</span>}</div><button type="button" className="rq-button" onClick={() => setEditorTab("items")} disabled={!customerEntryComplete}>Review pricing</button></div>}
         {saveError && <div className="rq-notice" role="alert"><AlertCircle size={18} aria-hidden="true" /><span>{saveError}</span></div>}
-        {workflowNotice && <div className="rq-notice" role="status"><span>{workflowNotice}</span>{activeProposal && !hasUnsavedChanges && <button type="button" className="rq-button" onClick={() => router.push("/workspace")}>View in Workspace</button>}<button type="button" className="rq-icon-button" aria-label="Dismiss notice" onClick={() => setWorkflowNotice(null)}><X size={16} aria-hidden="true" /></button></div>}
+        {workflowNotice && <div className="rq-notice" role="status"><span>{workflowNotice}</span>{activeProposal && !hasUnsavedChanges && <button type="button" className="rq-button" onClick={() => void recovery.navigate("/workspace")}>View in Workspace</button>}<button type="button" className="rq-icon-button" aria-label="Dismiss notice" onClick={() => setWorkflowNotice(null)}><X size={16} aria-hidden="true" /></button></div>}
         <div className="rq-editor-grid" data-customer-ready={customerEntryComplete} data-invoice={visibleEditorTab === "invoice"}>
           <div className="rq-editor-main">
             <div hidden={visibleEditorTab !== "customer"} aria-labelledby="rq-nav-customer">
                           <section className="builder-panel" hidden={customerEntryComplete}>
               <div className="builder-panel-header"><div><div className="builder-eyebrow">Step 1</div><h2 className="builder-title">Customer entry</h2></div></div>
-              <p>Choose or enter a customer to save a draft. Addresses, contacts and other order details can be added later.</p>
+              <p>Choose or enter a customer. Drafts are saved in this browser while you work.</p>
 
               {customerEntryMode === "start" ? (
                 <div className="rq-customer-choices">
@@ -4872,11 +4968,12 @@ export default function QuotePreview() {
   <div className="rq-add-row"><label className="builder-field"><span className="sr-only">Add monthly service</span><select defaultValue="" onChange={(event) => { if (event.target.value) { addSectionARowFromCatalog(event.target.value); event.target.value = ""; } }}><option value="">Add monthly service...</option>{filteredSectionACatalog.map((item) => <option key={item.id} value={item.id}>{item.label} / {formatCurrency(item.defaultUnitPrice, currencyCode)}</option>)}</select></label></div>
   <QuoteLineTable label="Monthly service line items" rows={activeSectionARows.map((row, index) => ({
     id: row.id, accessibleName: row.description || `Service ${index + 1}`,
+    pricingStatus: <QuotePriceStatusSelect line={row} label={`Service ${index + 1} pricing status`} onChange={(priceStatus) => updateQuote(draft => { const rows = draft.sections.sectionA.mode === "pool" ? draft.sections.sectionA.poolRows : draft.sections.sectionA.perKitRows; const target = rows.find(item => item.id === row.id); if (target) target.priceStatus = priceStatus; return draft; })} />,
     description: <input aria-label={`Service ${index + 1} description`} value={row.description} onChange={(event) => updateActiveSectionARow(row.id, "description", event.target.value)} />,
     quantity: <input aria-label={`Service ${index + 1} quantity`} type="number" min="0" value={row.rowType === "overage" ? "" : row.quantity ?? ""} disabled={row.rowType === "support" || row.rowType === "overage"} onChange={(event) => updateActiveSectionARow(row.id, "quantity", event.target.value)} />,
     rate: <input aria-label={`Service ${index + 1} rate`} type="number" min="0" step="0.01" value={row.monthlyRate ?? row.unitPrice ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "monthlyRate", event.target.value)} />,
     cadence: row.rowType === "support" ? "Included" : row.rowType === "overage" ? (row.unitLabel?.trim() ? `Per ${row.unitLabel.trim().replace(/^per\s+/i, "")}` : "Usage-based") : <QuoteBillingSelect label={`Service ${index + 1} billing`} billing={getLineBilling(row, "monthly")} cadences={["monthly", "annual"]} onChange={(billing) => updateQuote((draft) => { const rows = draft.sections.sectionA.mode === "pool" ? draft.sections.sectionA.poolRows : draft.sections.sectionA.perKitRows; const target = rows.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />,
-    total: row.rowType === "support" ? "Included" : row.rowType === "overage" ? "Usage-based" : formatCurrency(row.totalMonthlyRate ?? row.monthlyRate ?? 0, currencyCode),
+    total: formatQuoteLinePrice(row, row.rowType === "overage" ? "Usage-based" : formatCurrency(row.totalMonthlyRate ?? row.monthlyRate ?? 0, currencyCode)),
     optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateActiveSectionARow(row.id, "optional", checked),
     actions: <RowActions totalRows={activeSectionARows.length} rowNumber={index + 1} onMoveUp={() => moveActiveSectionARow(row.id, -1)} onMoveDown={() => moveActiveSectionARow(row.id, 1)} onMoveTo={(position) => moveActiveSectionAToPosition(row.id, position)} onDuplicate={() => duplicateActiveSectionARow(row.id)} onRemove={() => removeActiveSectionARow(row.id)} />,
     details: <div className="rq-detail-fields"><label className="builder-field"><span>Unit label</span><input value={row.unitLabel ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "unitLabel", event.target.value)} /></label>{row.rowType === "support" && <label className="builder-field"><span>Support details</span><textarea rows={3} value={(row.includedText ?? []).join("\n")} onChange={(event) => updateActiveSectionARow(row.id, "includedText", event.target.value)} /></label>}</div>,
@@ -4891,10 +4988,11 @@ export default function QuotePreview() {
   <div className="rq-section-heading"><h2>Hardware</h2><span>{quote.sections.sectionB.lineItems.length} items</span></div>
   <QuoteLineTable label="Hardware line items" rows={quote.sections.sectionB.lineItems.map((row, index) => ({
     id: row.id, accessibleName: row.itemName || `Hardware ${index + 1}`,
+    pricingStatus: <QuotePriceStatusSelect line={row} label={`Hardware ${index + 1} pricing status`} onChange={(priceStatus) => updateQuote(draft => { const target = draft.sections.sectionB.lineItems.find(item => item.id === row.id); if (target) target.priceStatus = priceStatus; return draft; })} />,
     description: <div className="rq-item-name">{row.imageUrl && <img src={row.imageUrl} alt="" width={32} height={32} />}<input aria-label={`Hardware ${index + 1} name`} value={row.itemName} onChange={(event) => updateEquipmentRow(row.id, "itemName", event.target.value)} /></div>,
     quantity: <input aria-label={`Hardware ${index + 1} quantity`} type="number" min="0" value={row.quantity} onChange={(event) => updateEquipmentRow(row.id, "quantity", event.target.value)} />,
     rate: <input aria-label={`Hardware ${index + 1} unit price`} type="number" min="0" step="0.01" value={row.unitPrice} onChange={(event) => updateEquipmentRow(row.id, "unitPrice", event.target.value)} />,
-    cadence: <QuoteBillingSelect label={`Hardware ${index + 1} billing`} billing={getLineBilling(row)} cadences={["one_time", "annual"]} onChange={(billing) => updateQuote((draft) => { const target = draft.sections.sectionB.lineItems.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />, total: formatCurrency(row.totalPrice, currencyCode),
+    cadence: <QuoteBillingSelect label={`Hardware ${index + 1} billing`} billing={getLineBilling(row)} cadences={["one_time", "annual"]} onChange={(billing) => updateQuote((draft) => { const target = draft.sections.sectionB.lineItems.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />, total: formatQuoteLinePrice(row, formatCurrency(row.totalPrice, currencyCode)),
     optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateEquipmentRow(row.id, "optional", checked),
     actions: <RowActions totalRows={quote.sections.sectionB.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveEquipmentRow(row.id, -1)} onMoveDown={() => moveEquipmentRow(row.id, 1)} onMoveTo={(position) => moveEquipmentRowToPosition(row.id, position)} onDuplicate={() => duplicateEquipmentRow(row.id)} onRemove={() => removeEquipmentRow(row.id)} />,
     details: <div className="rq-detail-fields">
@@ -4947,10 +5045,11 @@ export default function QuotePreview() {
   <div className="rq-section-heading"><h2>Field services</h2><button type="button" className="rq-button" onClick={addServiceRow}><Plus size={16} aria-hidden="true" />Add service</button></div>
   <QuoteLineTable label="Field service line items" rows={quote.sections.sectionC.lineItems.map((row, index) => ({
     id: row.id, accessibleName: row.description || `Field service ${index + 1}`,
+    pricingStatus: <QuotePriceStatusSelect line={row} label={`Field service ${index + 1} pricing status`} onChange={(priceStatus) => updateQuote(draft => { const target = draft.sections.sectionC.lineItems.find(item => item.id === row.id); if (target) target.priceStatus = priceStatus; return draft; })} />,
     description: <input aria-label={`Field service ${index + 1} description`} value={row.description} onChange={(event) => updateServiceRow(row.id, "description", event.target.value)} />,
     quantity: <input aria-label={`Field service ${index + 1} quantity`} type="number" min="0" value={row.quantity} onChange={(event) => updateServiceRow(row.id, "quantity", event.target.value)} />,
     rate: <input aria-label={`Field service ${index + 1} unit price`} type="number" min="0" step="0.01" value={row.unitPrice} onChange={(event) => updateServiceRow(row.id, "unitPrice", event.target.value)} />,
-    cadence: <QuoteBillingSelect label={`Field service ${index + 1} billing`} billing={getLineBilling(row)} cadences={["one_time", "annual"]} onChange={(billing) => updateQuote((draft) => { const target = draft.sections.sectionC.lineItems.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />, total: formatCurrency(row.totalPrice, currencyCode),
+    cadence: <QuoteBillingSelect label={`Field service ${index + 1} billing`} billing={getLineBilling(row)} cadences={["one_time", "annual"]} onChange={(billing) => updateQuote((draft) => { const target = draft.sections.sectionC.lineItems.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />, total: formatQuoteLinePrice(row, formatCurrency(row.totalPrice, currencyCode)),
     optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateServiceRow(row.id, "optional", checked),
     actions: <RowActions totalRows={quote.sections.sectionC.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(position) => moveServiceRowToPosition(row.id, position)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} />,
     details: <div className="rq-detail-fields"><label className="builder-field"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(event) => updateServiceRow(row.id, "pricingStage", event.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label><label className="builder-field"><span>Notes</span><textarea rows={2} value={row.notes ?? ""} onChange={(event) => updateServiceRow(row.id, "notes", event.target.value)} /></label></div>,
@@ -5634,11 +5733,12 @@ export default function QuotePreview() {
 
 return {
   id: row.id, accessibleName: row.label || `Item ${index + 1}`,
+  pricingStatus: <QuotePriceStatusSelect line={row} label={`Major item ${index + 1} pricing status`} onChange={(priceStatus) => updateActiveMajorSimpleRow(row.id, current => ({ ...current, priceStatus }))} />,
   description: <input aria-label={`Major item ${index + 1} name`} value={row.label} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, label: event.target.value }))} />,
   quantity: <input aria-label={`Major item ${index + 1} quantity`} type="number" min="0" step="0.01" value={row.quantity} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => { const quantity = Math.max(parseNumber(event.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), ourExtendedCost: Number((quantity * current.ourUnitCost).toFixed(2)) }; })} />,
   rate: <input aria-label={`Major item ${index + 1} unit price`} type="number" min="0" step="0.01" value={row.customerUnitPrice} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} />,
   cadence: row.bucket === "hardware" || row.bucket === "install" ? "One-time" : "Monthly",
-  total: formatCurrency(rowRevenue, currencyCode), optional: row.optional === true, onOptionalChange: (checked) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, optional: checked })),
+  total: formatQuoteLinePrice(row, formatCurrency(rowRevenue, currencyCode)), optional: row.optional === true, onOptionalChange: (checked) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, optional: checked })),
   actions: <RowActions totalRows={activeMajorOptionSimpleRows.length} rowNumber={index + 1} onMoveUp={() => moveMajorProjectSimpleRow(row.id, -1)} onMoveDown={() => moveMajorProjectSimpleRow(row.id, 1)} onMoveTo={(position) => moveMajorProjectSimpleRowToPosition(row.id, position)} onDuplicate={() => duplicateMajorProjectSimpleRow(row.id)} onRemove={() => removeMajorProjectSimpleRow(row.id)} />,
   details: <div className="rq-component-details">                                  {row.bucket === "hardware" ? (
                                     <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
@@ -5766,11 +5866,12 @@ return {
 
 return {
   id: component.id, accessibleName: component.internalName || `Component ${index + 1}`,
-  description: <input aria-label={`Component ${index + 1} name`} value={component.internalName} onChange={(event) => updateActiveMajorComponent(component.id, (current) => ({ ...current, internalName: event.target.value }))} />,
+  description: <input aria-label={`Component ${index + 1} name`} value={component.internalName} onChange={(event) => updateActiveMajorComponent(component.id, (current) => renameQuoteItem(current, event.target.value))} />,
+  pricingStatus: <QuotePriceStatusSelect line={component} label={`Component ${index + 1} pricing status`} onChange={(priceStatus) => updateActiveMajorComponent(component.id, current => ({ ...current, priceStatus }))} />,
   quantity: <input aria-label={`Component ${index + 1} quantity`} type="number" min="0" step="0.01" value={component.quantity} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const quantity = Math.max(parseNumber(event.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), vendorExtendedCost: Number((quantity * current.vendorUnitCost).toFixed(2)) }; })} />,
   rate: <input aria-label={`Component ${index + 1} unit price`} type="number" min="0" step="0.01" value={component.customerUnitPrice} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} />,
   cadence: component.quickQuoteSource?.usageBased ? `Per ${component.unit || "GB"}` : <QuoteBillingSelect label={`Component ${index + 1} billing`} billing={getLineBilling(component, component.schedule === "recurring" ? "monthly" : "one_time")} onChange={(billing) => updateActiveMajorComponent(component.id, (current) => ({ ...current, billing, schedule: billing.cadence === "monthly" ? "recurring" : "one_time" }))} />,
-  total: component.quickQuoteSource?.usageBased ? "Usage-based" : formatCurrency(componentRevenue, currencyCode),
+  total: formatQuoteLinePrice(component, component.quickQuoteSource?.usageBased ? "Usage-based" : formatCurrency(componentRevenue, currencyCode)),
   optional: component.optional === true, onOptionalChange: (checked) => updateActiveMajorComponent(component.id, (current) => ({ ...current, optional: checked })),
   actions: <RowActions rowNumber={index + 1} totalRows={activeMajorOptionComponents.length} onMoveUp={() => moveMajorProjectComponent(component.id, -1)} onMoveDown={() => moveMajorProjectComponent(component.id, 1)} onMoveTo={(position) => moveMajorProjectComponentToPosition(component.id, position)} onDuplicate={() => duplicateMajorProjectComponent(component.id)} onRemove={() => removeMajorProjectComponent(component.id)} />,
   details: <div className="rq-component-details">
@@ -5778,8 +5879,8 @@ return {
     {majorProjectComponentBundleDraft ? <label className="rq-checkbox"><input type="checkbox" checked={isSelectedForBundle} onChange={() => toggleMajorProjectComponentBundleSelection(component.id)} disabled={isBundleSource} />{isBundleSource ? "Starting item" : "Include in bundle"}</label> : <button type="button" className="rq-button" onClick={() => startMajorProjectComponentBundleDraft(component)}>Bundle with this</button>}
     <button type="button" className="rq-button" onClick={() => addMajorProjectComponent(component.bundleAssignmentId ?? "")}>Add similar</button></div>
                                 <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-                              <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Component name</span><input value={component.internalName} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
-                              <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Customer label (optional)</span><input value={component.customerFacingLabel ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, customerFacingLabel: e.target.value }))} /></label>
+                              <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Component name</span><input value={component.internalName} onChange={(e) => updateActiveMajorComponent(component.id, (current) => renameQuoteItem(current, e.target.value))} /></label>
+                              <div className="rq-linked-label lg:col-span-2 xl:col-span-2"><label><input type="checkbox" checked={isCustomerLabelLinked(component)} onChange={(e) => updateActiveMajorComponent(component.id, (current) => setCustomerLabelLinked(current, e.target.checked))} />Use item name for customer</label><label className="builder-field compact"><span>Customer label</span><input disabled={isCustomerLabelLinked(component)} value={isCustomerLabelLinked(component) ? component.internalName : component.customerFacingLabel ?? ""} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, customerFacingLabel: e.target.value, customerLabelOverride: true }))} /></label></div>
                               <label className="builder-field compact">
                                 <span>Vendor</span>
                                 <select
@@ -5939,8 +6040,9 @@ return {
                                 </div>
                               </div>
                               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-                                <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Bundle name</span><input value={bundle.internalName} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, internalName: e.target.value }))} /></label>
-                                <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Customer-facing label</span><input value={bundle.customerFacingLabel} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, customerFacingLabel: e.target.value }))} /></label>
+                                <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Bundle name</span><input value={bundle.internalName} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => renameQuoteItem(current, e.target.value))} /></label>
+                                <label className="builder-field compact"><span>Pricing status</span><QuotePriceStatusSelect line={{ ...bundle, totalPrice: (bundleMetrics?.oneTimeRevenue ?? 0) + (bundleMetrics?.recurringRevenue ?? 0) + (bundleMetrics?.annualRevenue ?? 0) }} label={`Bundle ${index + 1} pricing status`} onChange={(priceStatus) => updateActiveMajorBundle(bundle.id, current => ({ ...current, priceStatus }))} /></label>
+                                <div className="rq-linked-label lg:col-span-2 xl:col-span-2"><label><input type="checkbox" checked={isCustomerLabelLinked(bundle)} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => setCustomerLabelLinked(current, e.target.checked))} />Use bundle name for customer</label><label className="builder-field compact"><span>Customer-facing label</span><input disabled={isCustomerLabelLinked(bundle)} value={isCustomerLabelLinked(bundle) ? bundle.internalName : bundle.customerFacingLabel} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, customerFacingLabel: e.target.value, customerLabelOverride: true }))} /></label></div>
                                 <label className="builder-field compact"><span>Category</span><input value={bundle.category ?? ""} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, category: e.target.value }))} /></label>
                                 <label className="builder-field compact"><span>Schedule</span><select value={bundle.schedule ?? "mixed"} onChange={(e) => updateActiveMajorBundle(bundle.id, (current) => ({ ...current, schedule: e.target.value as MajorProjectBundle["schedule"] }))}><option value="mixed">Mixed</option><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
                               </div>
@@ -6047,6 +6149,7 @@ return {
                               </div>
                               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
                                 <label className="builder-field compact lg:col-span-2 xl:col-span-2"><span>Quote line label</span><input value={line.label} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, label: e.target.value }))} /></label>
+                                <label className="builder-field compact"><span>Pricing status</span><QuotePriceStatusSelect line={{ ...line, totalPrice: (metrics?.oneTimeRevenue ?? 0) + (metrics?.recurringRevenue ?? 0) + (metrics?.annualRevenue ?? 0) }} label={`Customer line ${index + 1} pricing status`} onChange={(priceStatus) => updateActiveMajorQuoteLine(line.id, current => ({ ...current, priceStatus }))} /></label>
                                 <label className="builder-field compact"><span>Presentation category</span><select value={line.presentationCategory ?? "other"} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, presentationCategory: e.target.value as MajorProjectCustomerQuoteLine["presentationCategory"] }))}><option value="recurring">Section A / recurring</option><option value="hardware">Section B / hardware</option><option value="services">Section C / services</option><option value="other">Section C / other</option></select></label>
                                 <label className="builder-field compact"><span>Schedule</span><select value={line.schedule ?? "mixed"} onChange={(e) => updateActiveMajorQuoteLine(line.id, (current) => ({ ...current, schedule: e.target.value as MajorProjectCustomerQuoteLine["schedule"] }))}><option value="mixed">Mixed</option><option value="one_time">One-time</option><option value="recurring">Recurring</option></select></label>
                                 <div className="rounded-[16px] border border-[#e2e7ec] bg-white px-4 py-3 text-[13px] text-[#5e6975]"><div className="font-semibold text-[#16202b]">{line.presentationCategory === "recurring" ? "Downstream MRR" : "Downstream total"}</div><div className="mt-1">{formatCurrency((metrics?.oneTimeRevenue ?? 0) + (metrics?.recurringRevenue ?? 0), currencyCode)}</div></div>
@@ -6535,7 +6638,7 @@ return {
   {majorProjectHasBlockingErrors && <ul className="rq-review-list rq-errors">{majorProjectBlockingIssues.map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}</ul>}
   <div className="rq-review-actions">
     <button type="button" className="rq-button rq-button-primary" onClick={handlePreviewProposal} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Eye size={16} aria-hidden="true" />Customer preview</button>
-    <button type="button" className="rq-button" aria-label="Present to customer" onClick={() => { if (persistProposalState()) setExperiencePanel("present"); }} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Presentation size={16} aria-hidden="true" />Present to customer</button>
+    <button type="button" className="rq-button" aria-label="Present to customer" onClick={async () => { if (await saveForCustomerOutput()) setExperiencePanel("present"); }} disabled={!customerEntryComplete || majorProjectHasBlockingErrors}><Presentation size={16} aria-hidden="true" />Present to customer</button>
     <button type="button" className="rq-button" onClick={copyProposalFromBuilder}><Copy size={16} aria-hidden="true" />Duplicate quote</button>
   </div>
 </section>

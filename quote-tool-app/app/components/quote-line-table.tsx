@@ -8,6 +8,7 @@ export type QuoteLineTableRow = {
   id: string;
   accessibleName: string;
   description: ReactNode;
+  pricingStatus?: ReactNode;
   quantity: ReactNode;
   rate: ReactNode;
   cadence: ReactNode;
@@ -65,6 +66,7 @@ function QuoteLine({ row }: { row: QuoteLineTableRow }) {
         >
           <span className="rq-line-table__mobile-label" aria-hidden="true">Item</span>
           <div className="rq-line-table__value">{row.description}</div>
+          {row.pricingStatus && <div className="rq-line-table__pricing-status">{row.pricingStatus}</div>}
         </th>
         <td className="rq-line-table__cell rq-line-table__quantity" role="cell">
           <span className="rq-line-table__mobile-label" aria-hidden="true">Qty</span>

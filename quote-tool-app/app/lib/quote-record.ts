@@ -7,6 +7,7 @@ export type SectionAMode = "pool" | "per_kit";
 export type QuoteType = "purchase" | "lease";
 export type LeaseTermMonths = 3 | 6 | 9 | 12 | 24 | 36;
 export type QuoteWorkflowMode = "quick_quote" | "major_project";
+export type QuotePriceStatus = "confirmed" | "allowance" | "tbd" | "included";
 
 export type QuoteLineBilling = {
   cadence: "one_time" | "monthly" | "annual";
@@ -86,6 +87,7 @@ export type QuoteSectionState = {
 };
 
 export type PoolPricingRow = {
+  priceStatus?: QuotePriceStatus;
   billing?: QuoteLineBilling;
   id: string;
   rowType: "service" | "overage" | "terminal_fee" | "support";
@@ -102,6 +104,7 @@ export type PoolPricingRow = {
 };
 
 export type PerKitPricingRow = {
+  priceStatus?: QuotePriceStatus;
   billing?: QuoteLineBilling;
   id: string;
   rowType: "service" | "terminal_fee" | "support";
@@ -118,6 +121,7 @@ export type PerKitPricingRow = {
 };
 
 export type EquipmentPricingRow = {
+  priceStatus?: QuotePriceStatus;
   billing?: QuoteLineBilling;
   id: string;
   sourceType: "standard" | "custom";
@@ -136,6 +140,7 @@ export type EquipmentPricingRow = {
 };
 
 export type ServicePricingRow = {
+  priceStatus?: QuotePriceStatus;
   lineType?: MajorProjectLineType;
   billing?: QuoteLineBilling;
   id: string;
@@ -376,6 +381,8 @@ export type MajorProjectResaleBasis = "fixed_fee" | "cost_plus" | "target_margin
 export type LaborTask = { id: string; task: string; role: string; people: number; hours: number; hourlyCost: number };
 
 export type MajorProjectComponent = {
+  priceStatus?: QuotePriceStatus;
+  customerLabelOverride?: boolean;
   laborTasks?: LaborTask[];
   quickQuoteSource?: { section: "sectionA" | "sectionB" | "sectionC"; rowId: string; usageBased?: boolean };
   billing?: QuoteLineBilling;
@@ -409,6 +416,8 @@ export type MajorProjectComponent = {
 };
 
 export type MajorProjectBundle = {
+  priceStatus?: QuotePriceStatus;
+  customerLabelOverride?: boolean;
   billing?: QuoteLineBilling;
   id: string;
   internalName: string;
@@ -426,6 +435,7 @@ export type MajorProjectBundle = {
 };
 
 export type MajorProjectCustomerQuoteLine = {
+  priceStatus?: QuotePriceStatus;
   billing?: QuoteLineBilling;
   id: string;
   lineItemNumber?: number;
@@ -465,6 +475,7 @@ export type MajorProjectSimpleRowImportSource = {
 };
 
 export type MajorProjectSimpleRow = {
+  priceStatus?: QuotePriceStatus;
   billing?: QuoteLineBilling;
   id: string;
   label: string;

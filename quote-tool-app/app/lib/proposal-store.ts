@@ -5,6 +5,7 @@ import { getEquipmentTotal, getOptionalServicesTotal, getRecurringMonthlyTotal }
 import { createCopiedQuoteGovernanceState, normalizeQuoteGovernanceState } from "@/app/lib/cpq-governance";
 import { generateQuoteNumber } from "@/app/lib/quote-template";
 import { RAPIDQUOTE_DEPLOYMENT_KEY, scopeStorageKey } from "@/app/lib/app-environment";
+import { applyQuoteCopyReview, type QuoteCopyReviewOptions } from "./quote-copy-review";
 
 export const PROPOSAL_STORE_KEY = scopeStorageKey("rapidquote:proposal-store");
 export const ACTIVE_PROPOSAL_ID_KEY = scopeStorageKey("rapidquote:active-proposal-id");
@@ -233,12 +234,14 @@ export function createProposalCopy(params: {
   owner?: ProposalOwner;
   currentUser?: ProposalOwner;
   existingNumbers?: Iterable<string>;
+  review?: QuoteCopyReviewOptions;
 }): SavedProposalRecord {
   const currentUser = params.currentUser ?? mockUsers[0];
   const owner = params.owner ?? params.proposal.owner ?? currentUser;
   const now = new Date().toISOString();
-  const sourceQuote = JSON.parse(JSON.stringify(params.proposal.quote)) as QuoteRecord;
-  const sourceTitle = params.proposal.quote.metadata.documentTitle?.trim() || params.proposal.quote.customer.name?.trim() || "Proposal";
+  const sourceQuote = params.review ? applyQuoteCopyReview(params.proposal.quote, params.review) : structuredClone(params.proposal.quote);
+  const sourceTitle = sourceQuote.metadata.documentTitle?.trim() || sourceQuote.customer.name?.trim() || "Proposal";
+  const copyTitle = params.review?.customerMode === "different" ? "New customer quote" : `${sourceTitle} Copy`;
   const id = `proposal_${crypto.randomUUID()}`;
   const proposalDate = new Date().toLocaleDateString("en-US", {
     month: "long",
@@ -255,15 +258,17 @@ export function createProposalCopy(params: {
       proForma: undefined,
       governance: createCopiedQuoteGovernanceState({
         newQuoteId: id,
-        accountKey: sourceQuote.metadata.accountId || sourceQuote.metadata.accountName || undefined,
-        opportunityKey: sourceQuote.metadata.opportunityId || sourceQuote.metadata.opportunityName || undefined,
       }),
       metadata: {
         ...sourceQuote.metadata,
         proposalNumber,
         proposalDate,
         revisionVersion: "1.0",
-        documentTitle: `${sourceTitle} Copy`,
+        documentTitle: copyTitle,
+        expirationDate: undefined,
+        accountId: undefined,
+        opportunityId: undefined,
+        opportunityName: undefined,
         status: "draft",
         ownerUserId: owner.id,
         ownerName: owner.name,
@@ -271,7 +276,7 @@ export function createProposalCopy(params: {
       },
       documentation: {
         ...sourceQuote.documentation,
-        proposalTitle: `${sourceTitle} Copy`,
+        proposalTitle: copyTitle,
         proposalDateLabel: proposalDate,
         proposalNumberLabel: proposalNumber,
       },
@@ -304,8 +309,8 @@ export function createProposalCopy(params: {
         },
       ],
     },
-    owner,
-    createdBy: currentUser,
+    owner: structuredClone(owner),
+    createdBy: structuredClone(currentUser),
     createdAt: now,
     updatedAt: now,
     status: "draft",
@@ -317,7 +322,9 @@ export function createProposalCopy(params: {
       {
         id: `activity_copied_${Date.now()}`,
         type: "created",
-        message: `Proposal copied from ${params.proposal.quote.metadata.proposalNumber || sourceTitle} with customer, pricing, and proposal sections preserved`,
+        message: params.review
+          ? `Proposal copied from ${params.proposal.quote.metadata.proposalNumber || sourceTitle} after scope review (${params.review.customerMode === "different" ? "new customer draft" : "same customer"}; terms: ${params.review.terms}; line specs: ${params.review.attachments}; supporting files: ${params.review.supportingAttachments}).`
+          : `Proposal copied from ${params.proposal.quote.metadata.proposalNumber || sourceTitle} with customer, pricing, and proposal sections preserved`,
         at: now,
         by: { id: currentUser.id, name: currentUser.name },
       },

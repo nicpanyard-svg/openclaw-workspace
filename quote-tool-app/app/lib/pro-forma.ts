@@ -6,9 +6,12 @@ import { getAnnualSubscriptionSummary } from "./quote-line-billing";
 import { getQuoteBranding } from "./quote-branding";
 import { buildProposalPdfFileName } from "./proposal-file-name";
 import { normalizeProFormaSettings } from "./pro-forma-settings";
-import type { QuoteRecord } from "./quote-record";
+import type { QuotePriceStatus, QuoteRecord } from "./quote-record";
+import { getQuoteLinePriceStatus, getQuotePricingSummary, type QuotePriceSource } from "./quote-price-status";
 
 export type ProFormaLine = {
+  priceStatus?: QuotePriceStatus;
+  sourceLabel?: string;
   id: string;
   description: string;
   quantity: number | null;
@@ -22,17 +25,19 @@ export function buildProFormaInvoice(source: QuoteRecord) {
   const quote = major ? applyMajorProjectToQuote(source) : source;
   const settings = normalizeProFormaSettings(quote.proForma) ?? { reference: `PF-${quote.metadata.proposalNumber}`, issueDate: "", customerPo: "", billingPeriod: "", notes: "" };
   const branding = getQuoteBranding(quote);
-  const errors: string[] = [];
+  const errors: string[] = [...getQuotePricingSummary(source).exportErrors];
   const lines: ProFormaLine[] = [];
   const cents = (value: number) => Number(value.toFixed(2));
-  const add = (id: string, description: string, quantity: number | null | undefined, amount: number, billing: ProFormaLine["billing"]) => {
+  const add = (id: string, description: string, quantity: number | null | undefined, amount: number, billing: ProFormaLine["billing"], sourceLine?: QuotePriceSource) => {
     if (!description.trim() && !amount) return;
     if (!description.trim()) errors.push("Every invoice item needs a description.");
     if (!Number.isFinite(amount) || (quantity != null && (!Number.isFinite(quantity) || quantity <= 0))) errors.push(`Review the quantity and price for ${description || "an invoice item"}.`);
     // Preserve the quote's extended amount; unknown quantities must not become invented unit prices.
     const safeAmount = Number.isFinite(amount) ? cents(amount) : 0;
     const safeQuantity = quantity != null && Number.isFinite(quantity) && quantity > 0 ? quantity : null;
-    lines.push({ id, description, quantity: safeQuantity, unitPrice: safeQuantity ? safeAmount / safeQuantity : null, amount: safeAmount, billing });
+    lines.push({ id, description, quantity: safeQuantity, unitPrice: safeQuantity ? safeAmount / safeQuantity : null, amount: safeAmount, billing,
+      priceStatus: sourceLine ? getQuoteLinePriceStatus(sourceLine) : getQuoteLinePriceStatus({ totalPrice: amount }),
+      ...(sourceLine?.sourceLabel === "Major Project customer bundle" ? { sourceLabel: sourceLine.sourceLabel } : {}) });
   };
   const recurring = getIncludedSectionARows(quote);
   const equipment = getIncludedEquipmentRows(quote);
@@ -40,11 +45,18 @@ export function buildProFormaInvoice(source: QuoteRecord) {
   const annual = getAnnualSubscriptionSummary(quote);
   const lease = getLeasePricingSummary(quote);
   const isLease = quote.metadata.quoteType === "lease";
-  if (!isLease) equipment.forEach(row => add(`equipment-${row.id}`, row.itemName, row.quantity, row.totalPrice, "One-time"));
-  services.forEach(row => add(`service-${row.id}`, row.description, row.quantity, row.totalPrice, "One-time"));
+  if (!isLease) equipment.forEach(row => add(`equipment-${row.id}`, row.itemName, row.quantity, row.totalPrice, "One-time", row));
+  services.forEach(row => add(`service-${row.id}`, row.description, row.quantity, row.totalPrice, "One-time", row));
   if (isLease && equipment.length) add("equipment-lease", `Equipment lease (${lease.termMonths}-month term)`, 1, lease.hardwareMonthly, "First month");
-  recurring.filter(row => row.rowType !== "overage").forEach(row => add(`monthly-${row.id}`, row.description, row.quantity, row.totalMonthlyRate ?? 0, "First month"));
-  annual.items.forEach(row => add(`annual-${row.key}`, row.label, row.quantity, row.firstYearAmount, row.startsYear === 2 ? "Year 1 included" : "Year 1 annual"));
+  recurring.filter(row => row.rowType !== "overage").forEach(row => add(`monthly-${row.id}`, row.description, row.quantity, row.totalMonthlyRate ?? 0, "First month", row));
+  annual.items.forEach(row => add(`annual-${row.key}`, row.label, row.quantity, row.firstYearAmount, row.startsYear === 2 ? "Year 1 included" : "Year 1 annual", row));
+  const leasedLine = lines.find(line => line.id === "equipment-lease");
+  if (leasedLine) {
+    const statuses = equipment.map(getQuoteLinePriceStatus);
+    if (statuses.includes("tbd")) leasedLine.priceStatus = "tbd";
+    else if (statuses.includes("allowance")) leasedLine.priceStatus = "allowance";
+    else if (statuses.every(status => status === "included") && leasedLine.amount === 0) leasedLine.priceStatus = "included";
+  }
 
   const date = settings.issueDate;
   const parsedDate = new Date(`${date}T12:00:00Z`);
@@ -76,7 +88,7 @@ export function buildProFormaInvoice(source: QuoteRecord) {
     shipTo: quote.orderProcessing?.shippingRequired === "yes" ? { name: shipping.companyName?.trim() || quote.customer.name, contact: shipping.attention || "", address: address(shipping.lines) } : null,
     logoSrc: branding.logoSrc, accent: branding.primaryColor,
     lines, subtotal, tax, total: cents(subtotal + tax), monthly,
-    renewals: annual.items.map(row => ({ id: row.key, description: row.label, amount: row.annualAmount })), annualRenewal: annual.renewalTotal,
+    renewals: annual.items.map(row => ({ id: row.key, description: row.label, amount: row.annualAmount, priceStatus: row.priceStatus })), annualRenewal: annual.renewalTotal,
     leasedEquipment: isLease ? equipment.map(row => ({ description: row.itemName, quantity: row.quantity })) : [],
     paymentTerms: getFinalPaymentTerms(quote), billingStart: quote.customerOutput?.billingStart || "",
     optionalExcluded: getProposalOptionCostSummary(quote).items.length > 0,

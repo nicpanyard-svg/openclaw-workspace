@@ -13,6 +13,7 @@ import { normalizeCustomerOutput } from "@/app/lib/proposal-customer-content";
 import { normalizeProFormaSettings } from "./pro-forma-settings";
 import { normalizeQuoteSoftware } from "./quote-software";
 import { normalizeQuoteItemWording } from "./quote-item-wording";
+import { normalizeQuotePriceStatuses } from "./quote-price-status";
 import type { LeaseTermMonths, QuoteCustomField, QuoteRecord } from "@/app/lib/quote-record";
 import { RAPIDQUOTE_DEPLOYMENT_KEY, scopeStorageKey } from "@/app/lib/app-environment";
 
@@ -265,7 +266,7 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
     const normalizedLeaseTerm = normalizeLeaseTermMonths(parsed.metadata?.leaseTermMonths);
     const normalizedLeaseMarginPercent = Math.min(Math.max(normalizeNumber(parsed.metadata?.leaseMarginPercent, 35), 0), 95);
 
-    return normalizeQuoteItemWording(normalizeQuoteSoftware(normalizeMajorProjectAttachmentState({
+    return normalizeQuotePriceStatuses(normalizeQuoteItemWording(normalizeQuoteSoftware(normalizeMajorProjectAttachmentState({
       ...parsed,
       customer: {
         ...parsed.customer,
@@ -370,7 +371,7 @@ export function deserializeQuoteRecord(value: string | null | undefined): QuoteR
         blocks: serializedExecutiveSummary.blocks,
       },
       customFields: normalizeCustomFields(parsed.customFields),
-    })));
+    }))));
   } catch {
     return null;
   }

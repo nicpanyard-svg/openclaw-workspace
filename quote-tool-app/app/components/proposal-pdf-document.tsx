@@ -13,6 +13,7 @@ import {
   type ProposalPdfViewModel,
 } from "@/app/lib/proposal-pdf";
 import { IliosEstimatePdfDocument } from "@/app/components/ilios-estimate-pdf-document";
+import { formatQuoteLinePrice, getQuotePricingSummary } from "../lib/quote-price-status";
 import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
 import type { QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
 
@@ -1170,16 +1171,12 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
                 </Cell>
                 <Cell style={styles.colMid}>
                   <Text style={styles.td}>
-                    {row.rowType === "support"
-                      ? "Included with service"
-                      : formatCurrency(row.monthlyRate ?? row.unitPrice ?? 0, model.currencyCode)}
+                    {formatQuoteLinePrice(row, formatCurrency(row.monthlyRate ?? row.unitPrice ?? 0, model.currencyCode))}
                   </Text>
                 </Cell>
                 <Cell style={styles.colMid}>
                   <Text style={styles.td}>
-                    {row.rowType === "support"
-                      ? "Included"
-                      : formatCurrency(row.totalMonthlyRate ?? 0, model.currencyCode)}
+                    {row.rowType === "overage" ? "Usage-based" : formatQuoteLinePrice(row, formatCurrency(row.totalMonthlyRate ?? 0, model.currencyCode))}
                   </Text>
                 </Cell>
               </TableRow>
@@ -1240,8 +1237,8 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
                   </View>
                 </Cell>
                 <Cell style={styles.colNarrow}><Text style={styles.td}>{row.quantity}</Text></Cell>
-                <Cell style={styles.colMid}><Text style={styles.td}>{isLeaseQuote ? "Included in lease" : formatCurrency(row.unitPrice, model.currencyCode)}</Text></Cell>
-                <Cell style={styles.colMid}><Text style={styles.td}>{isLeaseQuote ? formatCurrency(0, model.currencyCode) : formatCurrency(row.totalPrice, model.currencyCode)}</Text></Cell>
+                <Cell style={styles.colMid}><Text style={styles.td}>{isLeaseQuote ? "Included in lease" : formatQuoteLinePrice(row, formatCurrency(row.unitPrice, model.currencyCode))}</Text></Cell>
+                <Cell style={styles.colMid}><Text style={styles.td}>{isLeaseQuote ? formatCurrency(0, model.currencyCode) : formatQuoteLinePrice(row, formatCurrency(row.totalPrice, model.currencyCode))}</Text></Cell>
               </TableRow>
             ))}
 
@@ -1296,8 +1293,8 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
                   </View>
                 </Cell>
                 <Cell style={styles.colNarrow}><Text style={styles.td}>{row.quantity}</Text></Cell>
-                <Cell style={styles.colMid}><Text style={styles.td}>{formatCurrency(row.unitPrice, model.currencyCode)}</Text></Cell>
-                <Cell style={styles.colMid}><Text style={styles.td}>{formatCurrency(row.totalPrice, model.currencyCode)}</Text></Cell>
+                <Cell style={styles.colMid}><Text style={styles.td}>{formatQuoteLinePrice(row, formatCurrency(row.unitPrice, model.currencyCode))}</Text></Cell>
+                <Cell style={styles.colMid}><Text style={styles.td}>{formatQuoteLinePrice(row, formatCurrency(row.totalPrice, model.currencyCode))}</Text></Cell>
               </TableRow>
             ))}
 
@@ -1361,7 +1358,7 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
                 <Cell style={styles.colMid}><Text style={styles.td}>{row.categoryLabel}</Text></Cell>
                 <Cell style={styles.colNarrow}><Text style={styles.td}>{row.quantity ?? "—"}{row.unitLabel ? ` ${row.unitLabel}` : ""}</Text></Cell>
                 <Cell style={styles.colMid}>
-                  <Text style={styles.td}>{row.cadence === "monthly" ? `${formatCurrency(row.amount, model.currencyCode)} / mo` : formatCurrency(row.amount, model.currencyCode)}</Text>
+                  <Text style={styles.td}>{row.cadence === "monthly" ? `${formatQuoteLinePrice(row, formatCurrency(row.amount, model.currencyCode))} / mo` : formatQuoteLinePrice(row, formatCurrency(row.amount, model.currencyCode))}</Text>
                 </Cell>
               </TableRow>
             ))}
@@ -1595,6 +1592,8 @@ function ProposalPdfPages({ model, quote }: { model: ProposalPdfViewModel; quote
 }
 
 export function ProposalPdfDocument({ quote }: { quote: QuoteRecord }) {
+  const pricing = getQuotePricingSummary(quote);
+  if (!pricing.canExport) throw new Error(`Resolve pricing before exporting: ${pricing.exportErrors.join(" ")}`);
   if (resolveQuoteOutputTemplateKey(quote) === "estimate_compact") {
     return <IliosEstimatePdfDocument quote={quote} />;
   }

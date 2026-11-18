@@ -10,10 +10,12 @@ import {
   type ProposalOptionCostItem,
 } from "@/app/lib/proposal-commercial-summary";
 import { getQuoteBranding, resolveQuoteOutputTemplateKey } from "@/app/lib/quote-branding";
-import type { QuoteRecord } from "@/app/lib/quote-record";
+import type { QuotePriceStatus, QuoteRecord } from "@/app/lib/quote-record";
+import { getQuoteLinePriceStatus } from "./quote-price-status";
 import { getAnnualSubscriptionSummary } from "./quote-line-billing";
 
 export type EstimateTemplateLineItem = {
+  priceStatus: QuotePriceStatus;
   id: string;
   sequence: number;
   label: string;
@@ -97,6 +99,7 @@ function buildEstimateLineItems(quote: QuoteRecord): EstimateTemplateLineItem[] 
       }
       lineItems.push({
         id: row.id,
+        priceStatus: getQuoteLinePriceStatus(row),
         sequence: sequence++,
         label: row.description,
         description: joinDescription([...(row.includedText ?? []), row.sourceLabel]),
@@ -113,6 +116,7 @@ function buildEstimateLineItems(quote: QuoteRecord): EstimateTemplateLineItem[] 
     getIncludedEquipmentRows(quote).forEach((row) => {
       lineItems.push({
         id: row.id,
+        priceStatus: getQuoteLinePriceStatus(row),
         sequence: sequence++,
         label: row.itemName,
         description: joinDescription([row.partNumber, row.description, row.sourceLabel]),
@@ -129,6 +133,7 @@ function buildEstimateLineItems(quote: QuoteRecord): EstimateTemplateLineItem[] 
     getIncludedServiceRows(quote).forEach((row) => {
       lineItems.push({
         id: row.id,
+        priceStatus: getQuoteLinePriceStatus(row),
         sequence: sequence++,
         label: row.description,
         description: joinDescription([row.notes, row.sourceLabel]),

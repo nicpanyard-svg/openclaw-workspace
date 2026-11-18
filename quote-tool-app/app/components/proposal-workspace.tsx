@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useState, type ReactNode } from "react";
+import { useAuth } from "./auth-shell";
+import { QuoteCopyDialog } from "./quote-copy-dialog";
+import type { QuoteCopyReviewOptions } from "../lib/quote-copy-review";
+import { assertProposalRevision, getProposalRevision, readWorkspaceStore, saveProposalToWorkspace, withWorkspaceSaveLock } from "../lib/proposal-saving";
 import { buildCommercialMetrics } from "@/app/lib/commercial-model";
 import { deleteProposalFromBrowserState } from "@/app/lib/proposal-delete";
 import { buildProposalPreviewPath } from "@/app/lib/proposal-navigation";
-import { ACTIVE_PROPOSAL_ID_KEY, PROPOSAL_STORE_KEY, buildProposalSummary, createProposalCopy, deserializeProposalStore, serializeProposalStore, statusToStageLabel, upsertProposal, type ProposalOwner, type SavedProposalRecord } from "@/app/lib/proposal-store";
+import { buildProposalSummary, createProposalCopy, statusToStageLabel, type ProposalOwner, type SavedProposalRecord } from "@/app/lib/proposal-store";
 import { getWorkspaceQuoteSummary } from "@/app/lib/workspace-quote-summary";
 
 function formatCurrency(value: number) {
@@ -98,31 +103,44 @@ function WorkspaceReviewCard({
 export { QuoteWorkspace as ProposalWorkspace } from "./quote-workspace";
 
 export function ProposalDetailView({ proposal, users }: { proposal: SavedProposalRecord; users: ProposalOwner[] }) {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [copySource, setCopySource] = useState<SavedProposalRecord | null>(null);
+  const [copyError, setCopyError] = useState("");
   const copyProposal = () => {
-    if (typeof window === "undefined") return;
-
-    const savedStore = deserializeProposalStore(window.localStorage.getItem(PROPOSAL_STORE_KEY));
-    if (!savedStore) return;
-
-    const copiedProposal = createProposalCopy({
-      proposal,
-      owner: proposal.owner,
-      currentUser: savedStore.currentUser,
-      existingNumbers: savedStore.proposals.map((saved) => saved.quote.metadata.proposalNumber),
-    });
-    const nextStore = upsertProposal(savedStore, copiedProposal);
-
-    window.localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
-    window.localStorage.setItem(ACTIVE_PROPOSAL_ID_KEY, copiedProposal.id);
-    window.location.href = `/new?proposalId=${copiedProposal.id}`;
+    try {
+      const store = readWorkspaceStore(window.localStorage);
+      const source = store?.proposals.find((entry) => entry.id === proposal.id);
+      if (!source) throw new Error("Unable to open this saved quote. Reload Workspace and try again.");
+      setCopyError("");
+      setCopySource(source);
+    } catch (cause) { setCopyError(cause instanceof Error ? cause.message : "Unable to open the copy review."); }
   };
-  const deleteProposal = () => {
+  const confirmCopy = async (review: QuoteCopyReviewOptions) => {
+    if (!copySource) return;
+    const copiedProposal = await withWorkspaceSaveLock(() => {
+      const { store: savedStore, proposal: source } = assertProposalRevision(window.localStorage, copySource.id, getProposalRevision(copySource));
+      if (!savedStore || !source) throw new Error("Unable to read the source quote. Close this review and reload Workspace.");
+      if (user) savedStore.currentUser = { id: user.id, name: user.name, email: user.email, role: user.title, team: user.team };
+      const copied = createProposalCopy({
+        proposal: source,
+        owner: source.owner,
+        currentUser: savedStore.currentUser,
+        existingNumbers: savedStore.proposals.map((saved) => saved.quote.metadata.proposalNumber),
+        review,
+      });
+      saveProposalToWorkspace(window.localStorage, savedStore, copied, { expectedRevision: null });
+      return copied;
+    });
+    setCopySource(null);
+    router.push(`/new?proposalId=${encodeURIComponent(copiedProposal.id)}`);
+  };
+  const deleteProposal = async () => {
     if (!confirmDeleteProposal(proposal)) return;
-
-    const deletion = deleteProposalFromBrowserState(proposal.id);
-    if (!deletion) return;
-
-    window.location.href = "/workspace";
+    try {
+      const deletion = await withWorkspaceSaveLock(() => deleteProposalFromBrowserState(proposal.id));
+      if (deletion) router.push("/workspace");
+    } catch (cause) { setCopyError(cause instanceof Error ? cause.message : "Unable to delete this quote."); }
   };
   const summary = buildProposalSummary(proposal);
   const totals = getWorkspaceQuoteSummary(proposal.quote);
@@ -134,6 +152,8 @@ export function ProposalDetailView({ proposal, users }: { proposal: SavedProposa
 
   return (
     <main className="workspace-shell">
+      {copySource && <QuoteCopyDialog key={copySource.id} quote={copySource.quote} onCancel={() => setCopySource(null)} onConfirm={confirmCopy} />}
+      {copyError && <p role="alert" className="qcopy-error">{copyError}</p>}
       <div className="workspace-container detail-layout">
         <section className="workspace-hero detail-hero">
           <div>

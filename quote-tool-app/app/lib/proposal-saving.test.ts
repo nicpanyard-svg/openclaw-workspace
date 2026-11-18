@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createBlankQuoteRecord } from "./quote-template";
 import { createProposalFromQuote, deserializeProposalStore, mockUsers, PROPOSAL_STORE_KEY, type ProposalStoreData } from "./proposal-store";
-import { assignQuoteOwner, isProposalOwner, saveProposalToWorkspace } from "./proposal-saving";
+import { assertProposalRevision, assignQuoteOwner, getProposalRevision, isProposalOwner, markProposalDeleted, readWorkspaceStore, saveProposalToWorkspace } from "./proposal-saving";
 import { ensureNickTrainingDemoProposalStore, getNickTrainingDemoProposals } from "./nick-training-demo";
 import { ensureIliosSampleProposalStore, getIliosSampleProposals } from "./ilios-sample-data";
 
@@ -90,4 +90,61 @@ test("quotes that Workspace cannot read are rejected before overwriting storage"
   proposal.quote.metadata.proposalNumber = "";
   assert.throws(() => saveProposalToWorkspace(storage, emptyStore(), proposal), /quote number/);
   assert.equal(storage.getItem(PROPOSAL_STORE_KEY), null);
+});
+
+test("an older opened revision cannot overwrite a newer saved quote", () => {
+  const storage = memoryStorage();
+  const first = createProposalFromQuote({ quote: createBlankQuoteRecord() });
+  saveProposalToWorkspace(storage, emptyStore(), first, { expectedRevision: null });
+  const opened = deserializeProposalStore(storage.getItem(PROPOSAL_STORE_KEY))!;
+  const stale = structuredClone(opened.proposals[0]);
+  const revision = getProposalRevision(stale);
+  const newer = structuredClone(stale);
+  newer.quote.customer.name = "Newer tab edit";
+  saveProposalToWorkspace(storage, opened, newer, { expectedRevision: revision });
+  stale.quote.customer.name = "Older tab edit";
+  const before = storage.getItem(PROPOSAL_STORE_KEY);
+  assert.throws(() => saveProposalToWorkspace(storage, opened, stale, { expectedRevision: revision }), /changed in another tab/);
+  assert.equal(storage.getItem(PROPOSAL_STORE_KEY), before);
+});
+
+test("saving one quote merges unrelated records added by another tab", () => {
+  const storage = memoryStorage();
+  const first = createProposalFromQuote({ quote: createBlankQuoteRecord() });
+  const second = createProposalFromQuote({ quote: createBlankQuoteRecord() });
+  const staleStore = saveProposalToWorkspace(storage, emptyStore(), first);
+  const firstRevision = getProposalRevision(first);
+  saveProposalToWorkspace(storage, staleStore, second, { expectedRevision: null });
+  first.quote.customer.name = "Updated";
+  saveProposalToWorkspace(storage, staleStore, first, { expectedRevision: firstRevision });
+  assert.equal(readWorkspaceStore(storage)!.proposals.length, 2);
+});
+
+test("new saves cannot reuse existing IDs and deletions cannot be resurrected", () => {
+  const storage = memoryStorage();
+  const proposal = createProposalFromQuote({ quote: createBlankQuoteRecord() });
+  const store = saveProposalToWorkspace(storage, emptyStore(), proposal, { expectedRevision: null });
+  assert.throws(() => saveProposalToWorkspace(storage, store, proposal, { expectedRevision: null }), /changed in another tab/);
+  markProposalDeleted(storage, proposal.id);
+  storage.setItem(PROPOSAL_STORE_KEY, JSON.stringify(emptyStore()));
+  assert.throws(() => saveProposalToWorkspace(storage, emptyStore(), proposal, { expectedRevision: null }), /deleted/);
+});
+
+test("legacy deletion without a marker still conflicts with an opened record", () => {
+  const storage = memoryStorage();
+  const proposal = createProposalFromQuote({ quote: createBlankQuoteRecord() });
+  saveProposalToWorkspace(storage, emptyStore(), proposal);
+  const revision = getProposalRevision(proposal);
+  storage.setItem(PROPOSAL_STORE_KEY, JSON.stringify(emptyStore()));
+  assert.throws(() => assertProposalRevision(storage, proposal.id, revision), /deleted/);
+});
+
+test("corrupt and partially unreadable Workspace data is never overwritten", () => {
+  const storage = memoryStorage();
+  const proposal = createProposalFromQuote({ quote: createBlankQuoteRecord() });
+  for (const damaged of ["{", JSON.stringify({ ...emptyStore(), proposals: [proposal, { id: "damaged", quote: {} }] }), JSON.stringify({ ...emptyStore(), proposals: [proposal, proposal] })]) {
+    storage.setItem(PROPOSAL_STORE_KEY, damaged);
+    assert.throws(() => saveProposalToWorkspace(storage, emptyStore(), proposal), /could not be read/);
+    assert.equal(storage.getItem(PROPOSAL_STORE_KEY), damaged);
+  }
 });

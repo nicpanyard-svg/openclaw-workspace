@@ -20,6 +20,13 @@ body:has(.rq-editor) .app-shell-brand-copy { display: none; }
 .rq-status { display: inline-flex; font-size: 12px; padding: 2px 6px; border-radius: 4px; color: #46505c; background: #eef0f3; }
 .rq-saved { color: #32704d; }
 .rq-unsaved { color: #946315; }
+.rq-pricing-attention { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding: 12px 0; border-block: 1px solid #e4c98e; color: #7c5018; }
+.rq-pricing-attention > div { flex: 1; min-width: 180px; }
+.rq-pricing-attention strong, .rq-pricing-attention span { display: block; }
+.rq-pricing-attention span { margin-top: 4px; font-size: 12px; }
+.rq-linked-label { min-width: 0; display: grid; gap: 8px; }
+.rq-linked-label > label:first-child { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.rq-linked-label input:disabled { background: #f5f6f8; color: #55616d; }
 .rq-editor-actions, .rq-review-actions, .rq-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .rq-editor-actions { flex-shrink: 0; }
 .rq-button, .rq-icon-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; font: inherit; font-weight: 500; border: 1px solid #cfd5db; border-radius: 5px; background: #fff; color: #303a44; cursor: pointer; }

@@ -1,4 +1,5 @@
-import type { QuoteLineBilling, QuoteRecord } from "./quote-record";
+import type { QuoteLineBilling, QuotePriceStatus, QuoteRecord } from "./quote-record";
+import { getQuoteLinePriceStatus } from "./quote-price-status";
 
 type BillingSource = {
   billing?: QuoteLineBilling;
@@ -27,6 +28,7 @@ export function isAnnualLine(row: BillingSource) {
 }
 
 export type AnnualSubscriptionItem = {
+  priceStatus: QuotePriceStatus;
   key: string;
   id: string;
   sourceSection: "sectionA" | "sectionB" | "sectionC";
@@ -54,6 +56,7 @@ export function getAnnualSubscriptionItems(quote: QuoteRecord): AnnualSubscripti
     const quantity = row.quantity != null && Number.isFinite(row.quantity) && row.quantity > 0 ? row.quantity : null;
     return {
       key: `${sourceSection}-${row.id}`, id: row.id, sourceSection, label, description,
+      priceStatus: getQuoteLinePriceStatus(row),
       quantity, unitLabel: billing.unitLabel || unit || "subscription",
       unitPrice: quantity ? Number((annualAmount / quantity).toFixed(4)) : undefined,
       annualAmount, firstYearAmount: billing.startsYear === 2 ? 0 : annualAmount,

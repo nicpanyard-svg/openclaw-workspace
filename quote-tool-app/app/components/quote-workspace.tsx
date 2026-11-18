@@ -6,13 +6,15 @@ import { Check, Copy, Eye, FileText, MoreHorizontal, Plus, Search, Trash2, X } f
 import { useAuth } from "./auth-shell";
 import { QuoteMasterExport } from "./quote-master-export";
 import { QuoteBackupControls } from "./quote-backup-controls";
+import { QuoteCopyDialog } from "./quote-copy-dialog";
+import type { QuoteCopyReviewOptions } from "../lib/quote-copy-review";
 import { buildProposalPreviewPath } from "../lib/proposal-navigation";
-import { PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, isOpenQuoteStatus, mockUsers, serializeProposalStore, upsertProposal, type ProposalStoreData, type SavedProposalRecord } from "../lib/proposal-store";
+import { PROPOSAL_STORE_KEY, QUOTE_STATUS_OPTIONS, createProposalCopy, createProposalFromQuote, deserializeProposalStore, getDefaultProposalStore, isOpenQuoteStatus, mockUsers, type ProposalStoreData, type SavedProposalRecord } from "../lib/proposal-store";
 import { ensureEnvironmentProposalStore } from "../lib/environment-samples";
 import { sampleQuoteRecord } from "../lib/sample-quote-record";
 import { deleteProposalFromBrowserState } from "../lib/proposal-delete";
 import { customerGroupKey, getWorkspaceQuoteSummary } from "../lib/workspace-quote-summary";
-import { isProposalOwner } from "../lib/proposal-saving";
+import { assertProposalRevision, getProposalRevision, isProposalOwner, readWorkspaceStore, saveProposalToWorkspace, withWorkspaceSaveLock } from "../lib/proposal-saving";
 import "./quote-workspace.css";
 
 function money(value: number, currency = "USD") {
@@ -43,7 +45,7 @@ function QuoteActions({ proposal, onCopy, onDelete }: { proposal: SavedProposalR
     {open && <div className="qw-action-menu">
       <Link href={buildProposalPreviewPath(proposal.id)}><Eye size={16} />Customer preview</Link>
       <Link href={`/proposals/${encodeURIComponent(proposal.id)}`}><FileText size={16} />Details and history</Link>
-      <button type="button" onClick={() => { setOpen(false); onCopy(); }}><Copy size={16} />Duplicate quote</button>
+      <button type="button" onClick={() => { trigger.current?.focus(); setOpen(false); onCopy(); }}><Copy size={16} />Duplicate quote</button>
       <button type="button" className="qw-delete" onClick={() => { setOpen(false); onDelete(); }}><Trash2 size={16} />Delete quote</button>
     </div>}
   </div>;
@@ -59,6 +61,7 @@ export function QuoteWorkspace() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const [storageError, setStorageError] = useState("");
+  const [copySource, setCopySource] = useState<SavedProposalRecord | null>(null);
   useEffect(() => {
     const read = () => {
       try {
@@ -118,21 +121,30 @@ export function QuoteWorkspace() {
   const filter = (update: () => void) => { update(); setSelectedIds([]); };
   const copy = (proposal: SavedProposalRecord) => {
     try {
-      const latest = deserializeProposalStore(localStorage.getItem(PROPOSAL_STORE_KEY));
+      const latest = readWorkspaceStore(localStorage);
       if (!latest) throw new Error("Reload Workspace before duplicating this quote.");
       const source = latest.proposals.find((p) => p.id === proposal.id);
       if (!source) throw new Error("This quote was removed in another tab. Reload Workspace.");
-      const next = createProposalCopy({ proposal: source, owner: source.owner, currentUser: latest.currentUser, existingNumbers: latest.proposals.map((p) => p.quote.metadata.proposalNumber) });
-      const nextStore = upsertProposal(latest, next);
-      localStorage.setItem(PROPOSAL_STORE_KEY, serializeProposalStore(nextStore));
-      setStore(nextStore);
-      setNotice(`Created ${next.quote.metadata.proposalNumber}.`);
+      setCopySource(source);
     } catch (error) { setNotice(error instanceof Error ? error.message : "Unable to duplicate this quote."); }
   };
-  const remove = (proposal: SavedProposalRecord) => {
+  const confirmCopy = async (review: QuoteCopyReviewOptions) => {
+    if (!copySource) return;
+    const { next, nextStore } = await withWorkspaceSaveLock(() => {
+      const { store: latest, proposal: source } = assertProposalRevision(localStorage, copySource.id, getProposalRevision(copySource));
+      if (!latest || !source) throw new Error("Unable to read the source quote. Close this review and reload Workspace.");
+      if (user) latest.currentUser = { id: user.id, name: user.name, email: user.email, role: user.title, team: user.team };
+      const next = createProposalCopy({ proposal: source, owner: source.owner, currentUser: latest.currentUser, existingNumbers: latest.proposals.map((proposal) => proposal.quote.metadata.proposalNumber), review });
+      return { next, nextStore: saveProposalToWorkspace(localStorage, latest, next, { expectedRevision: null }) };
+    });
+    setStore(nextStore);
+    setCopySource(null);
+    setNotice(`Created ${next.quote.metadata.proposalNumber}. Saved in this browser.`);
+  };
+  const remove = async (proposal: SavedProposalRecord) => {
     if (!window.confirm(`Delete ${proposal.quote.metadata.proposalNumber} for ${proposal.quote.customer.name}? This removes the saved quote from this browser.`)) return;
     try {
-      const deletion = deleteProposalFromBrowserState(proposal.id);
+      const deletion = await withWorkspaceSaveLock(() => deleteProposalFromBrowserState(proposal.id));
       if (!deletion) return;
       setStore(deletion.nextStore);
       setSelectedIds((ids) => ids.filter((id) => id !== proposal.id));
@@ -140,6 +152,7 @@ export function QuoteWorkspace() {
     } catch { setNotice("Unable to delete this quote. Reload Workspace and try again."); }
   };
   return <main className="qw-workspace">
+    {copySource && <QuoteCopyDialog key={copySource.id} quote={copySource.quote} onCancel={() => setCopySource(null)} onConfirm={confirmCopy} />}
     <header className="qw-heading"><div><h1>Quotes</h1><p>{store?.proposals.length ?? 0} saved quotes <span className="qw-storage">Saved in this browser</span></p></div><div className="qw-heading-actions"><Link className="qw-button" href="/new?mode=new&entry=major-project"><Plus size={16} />Major Project</Link><Link className="qw-button qw-primary" href="/new?mode=new"><Plus size={16} />Quick Quote</Link></div></header>
     {store && !storageError && <QuoteBackupControls store={store} onRestored={setStore} />}
     <div className="qw-filters">

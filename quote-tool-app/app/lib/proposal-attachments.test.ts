@@ -136,5 +136,6 @@ test("active option and source resolver eligibility are respected, including unn
   quote.majorProject.options.push({ ...quote.majorProject.options[0], id: "inactive", components: [component("Inactive", file("inactive"))] });
   assert.deepEqual(getProposalAttachments(quote).map((entry) => [entry.attachment.storageKey, entry.itemLabels]),
     resolveMajorProjectOutputSpecAttachments(quote).map((entry) => [entry.attachment.storageKey, [entry.outputItemLabel]]));
-  assert.deepEqual(getProposalAttachments(quote).map((entry) => entry.attachment.storageKey), ["unnamed"]);
+  // Unpriced required scope stays visible, including its technical documentation.
+  assert.deepEqual(getProposalAttachments(quote).map((entry) => entry.attachment.storageKey), ["zero", "unnamed"]);
 });

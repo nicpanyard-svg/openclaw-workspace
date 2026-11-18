@@ -7,6 +7,7 @@ import {
 import { renderHtmlPdf } from "@/app/lib/proposal-html-pdf";
 import { buildProposalPdfContentDisposition } from "@/app/lib/proposal-file-name";
 import { buildMajorProjectMetrics } from "@/app/lib/major-project";
+import { getQuotePricingSummary } from "@/app/lib/quote-price-status";
 import type { QuoteRecord } from "@/app/lib/quote-record";
 import { apiErrorResponse, ApiInputError, readJsonBody } from "@/app/lib/api-input";
 import { checkServerAccess, getPdfOrigin } from "@/app/lib/server-access";
@@ -42,6 +43,9 @@ export async function POST(request: Request) {
       const billingIssues = buildMajorProjectMetrics(quote).validation.issues.filter((issue) => issue.code === "mixed_annual_billing");
       if (billingIssues.length) return NextResponse.json({ error: billingIssues.map((issue) => issue.message).join(" ") }, { status: 400 });
     }
+
+    const pricing = getQuotePricingSummary(quote);
+    if (!pricing.canExport) return NextResponse.json({ error: `Resolve pricing before exporting: ${pricing.exportErrors.join(" ")}`, pricingIssues: pricing.issues }, { status: 422 });
 
     const missingFields = missingProcessingRequirements(quote);
     if (missingFields.length) return NextResponse.json({ error: "Complete required quote information before creating the quote.", missingFields }, { status: 422 });

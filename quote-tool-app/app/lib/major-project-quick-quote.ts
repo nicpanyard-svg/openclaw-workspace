@@ -44,7 +44,7 @@ export function buildQuickQuoteComponents(quote: QuoteRecord): MajorProjectCompo
       components.push({
         id: uniqueId(row.id), quickQuoteSource: { section, rowId: row.id, usageBased: values.usageBased },
         internalName: values.label, notes: values.description,
-        optional: row.optional, imageUrl: (row as EquipmentPricingRow).imageUrl, specSheetLabel: row.specSheetLabel,
+        optional: row.optional, priceStatus: row.priceStatus, imageUrl: (row as EquipmentPricingRow).imageUrl, specSheetLabel: row.specSheetLabel,
         quantity: values.quantity, unit: values.unit, customerUnitPrice: values.unitPrice,
         customerExtendedPrice: values.usageBased ? 0 : values.totalPrice,
         billing, schedule: billing.cadence === "monthly" ? "recurring" : "one_time",
@@ -106,6 +106,7 @@ function projectSourceRow(component: MajorProjectComponent, original: SourceRow,
     else if (component.customerUnitPrice !== baseline.unitPrice) (row as PoolPricingRow).totalMonthlyRate = component.customerUnitPrice;
   } else (row as EquipmentPricingRow | ServicePricingRow).totalPrice = component.customerExtendedPrice;
   if (Boolean(component.optional) !== Boolean(original.optional)) row.optional = component.optional;
+  if (component.priceStatus !== original.priceStatus) row.priceStatus = component.priceStatus;
   if (JSON.stringify(component.billing) !== JSON.stringify(getLineBilling(row, section === "sectionA" ? "monthly" : "one_time"))) row.billing = component.billing;
   if ((component.specSheetLabel ?? "") !== (original.specSheetLabel ?? "")) row.specSheetLabel = component.specSheetLabel;
   return row;

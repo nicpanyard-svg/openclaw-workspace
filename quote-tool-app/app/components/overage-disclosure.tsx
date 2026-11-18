@@ -1,10 +1,14 @@
 import type { QuoteRecord } from "../lib/quote-record";
 import { getOveragePlan, resolveOverageTerms } from "../lib/overage-terms";
+import { formatQuoteLinePrice, getMappedQuotePriceStatus } from "../lib/quote-price-status";
 
 export function OverageDisclosure({ quote }: { quote: QuoteRecord }) {
   const terms = resolveOverageTerms(quote);
+  const a = quote.sections.sectionA;
+  const rows = a.enabled ? (a.mode === "pool" ? a.poolRows : a.perKitRows).filter(row => row.rowType === "overage" && !row.optional) : [];
+  const source = { unitPrice: terms.amount, usageBased: true, ...(rows.length ? { priceStatus: getMappedQuotePriceStatus({}, rows) } : {}) };
   const rate = terms.amount !== null && !terms.conflict && !terms.planMismatch && terms.basis.trim()
-    ? `${new Intl.NumberFormat("en-US", { style: "currency", currency: quote.metadata.currencyCode || "USD", minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(terms.amount)} ${terms.basis}`
+    ? `${formatQuoteLinePrice(source, new Intl.NumberFormat("en-US", { style: "currency", currency: quote.metadata.currencyCode || "USD", minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(terms.amount))} ${terms.basis}`
     : "To be confirmed";
   return <section className="cp-section cp-overages" aria-label="Overage pricing">
     <h2>Usage-based overages</h2>

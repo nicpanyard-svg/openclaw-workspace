@@ -1,6 +1,7 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { buildEstimateTemplateModel } from "@/app/lib/estimate-template";
 import type { QuoteRecord } from "@/app/lib/quote-record";
+import { formatQuoteLinePrice, getQuotePricingSummary } from "../lib/quote-price-status";
 
 function formatCurrency(value: number, currencyCode = "USD") {
   return new Intl.NumberFormat("en-US", {
@@ -180,6 +181,8 @@ const styles = StyleSheet.create({
 });
 
 export function IliosEstimatePdfDocument({ quote }: { quote: QuoteRecord }) {
+  const pricing = getQuotePricingSummary(quote);
+  if (!pricing.canExport) throw new Error(`Resolve pricing before exporting: ${pricing.exportErrors.join(" ")}`);
   const model = buildEstimateTemplateModel(quote);
   if (!model) {
     return null;
@@ -237,8 +240,8 @@ export function IliosEstimatePdfDocument({ quote }: { quote: QuoteRecord }) {
               <Text style={styles.cellDescription}>{item.description || "-"}</Text>
               <Text style={styles.cellQty}>{item.quantity ?? "-"}{item.unit ? ` ${item.unit}` : ""}</Text>
               <Text style={styles.cellSchedule}>{item.schedule === "usage_based" ? "Usage-based" : item.schedule === "monthly" ? "Monthly" : "One-time"}</Text>
-              <Text style={styles.cellRate}>{formatCurrency(item.rate, currencyCode)}{item.schedule === "usage_based" ? ` / ${item.unit || "GB"}` : ""}</Text>
-              <Text style={styles.cellAmount}>{item.schedule === "usage_based" ? "Usage-based" : formatCurrency(item.amount, currencyCode)}</Text>
+              <Text style={styles.cellRate}>{formatQuoteLinePrice({ ...item, usageBased: item.schedule === "usage_based" }, formatCurrency(item.rate, currencyCode))}{item.schedule === "usage_based" ? ` / ${item.unit || "GB"}` : ""}</Text>
+              <Text style={styles.cellAmount}>{item.schedule === "usage_based" ? "Usage-based" : formatQuoteLinePrice(item, formatCurrency(item.amount, currencyCode))}</Text>
             </View>
           ))}
         </View>

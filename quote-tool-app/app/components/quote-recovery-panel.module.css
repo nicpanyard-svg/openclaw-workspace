@@ -1,0 +1,25 @@
+.panel { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; border-block: 1px solid #d8dee5; padding: 7px 0; color: #26333e; font-size: 13px; letter-spacing: 0; }
+.bar { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.status { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.status svg, .action svg, .history summary svg { flex-shrink: 0; }
+.status span { overflow-wrap: anywhere; }
+.status time { color: #53616b; white-space: nowrap; }
+.localOnly { color: #53616b; }
+.action { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 6px 10px; background: #fff; border: 1px solid #bac5cf; border-radius: 4px; font: inherit; color: #26333e; cursor: pointer; }
+.action:hover:not(:disabled) { background: #f1f5f7; border-color: #667783; }
+.action:disabled { cursor: not-allowed; opacity: .55; }
+.action:focus-visible, .link:focus-visible, .history summary:focus-visible { outline: 2px solid #12608e; outline-offset: 3px; }
+.error { flex-basis: 100%; color: #a82020; margin: 8px 0 0; overflow-wrap: anywhere; }
+.notice { flex-basis: 100%; color: #6c4e14; margin: 8px 0 0; overflow-wrap: anywhere; }
+.link { flex-basis: 100%; display: inline-block; margin-top: 8px; color: #145b84; text-decoration: underline; }
+.history { flex: 0 0 auto; margin-left: auto; }
+.history[open] { flex-basis: 100%; }
+.history[open] summary { margin-left: auto; }
+.history summary { display: flex; align-items: center; gap: 7px; width: fit-content; min-height: 32px; cursor: pointer; font-weight: 600; }
+.history summary::before { content: "+"; width: 10px; }
+.history[open] summary::before { content: "-"; }
+.history ul { list-style: none; padding: 0; margin: 4px 0 0; width: 100%; }
+.history li { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid #e2e6eb; }
+.history li > div { min-width: 0; overflow-wrap: anywhere; }
+.reason { display: block; color: #53616b; font-size: 12px; margin-top: 2px; }
+@media (max-width: 480px) { .bar { align-items: flex-start; } .localOnly { flex-basis: 100%; } .history li { flex-wrap: wrap; } }

@@ -1,4 +1,5 @@
-import type { EquipmentPricingRow, LeaseTermMonths, PerKitPricingRow, PoolPricingRow, QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
+import type { EquipmentPricingRow, LeaseTermMonths, PerKitPricingRow, PoolPricingRow, QuotePriceStatus, QuoteRecord, ServicePricingRow } from "@/app/lib/quote-record";
+import { getQuoteLinePriceStatus, hasQuotePriceContent } from "./quote-price-status";
 import { hasExecutiveSummaryStructuredContent } from "@/app/lib/executive-summary";
 import { getAnnualSubscriptionItems, getAnnualSubscriptionSummary, isAnnualLine } from "./quote-line-billing";
 
@@ -13,6 +14,7 @@ export type ProposalCommercialSummaryItem = {
 };
 
 export type ProposalOptionCostItem = {
+  priceStatus: QuotePriceStatus;
   key: string;
   label: string;
   description?: string;
@@ -59,21 +61,15 @@ export function getIncludedServiceRows(quote: QuoteRecord) {
 }
 
 export function hasSectionARows(rows: Array<PoolPricingRow | PerKitPricingRow>) {
-  return rows.some((row) => {
-    if (row.rowType === "support") {
-      return Boolean(row.description?.trim() || row.includedText?.some((item) => item.trim().length > 0));
-    }
-
-    return Boolean((row.description?.trim().length ?? 0) > 0) && ((row.totalMonthlyRate ?? row.monthlyRate ?? row.unitPrice ?? 0) > 0 || (row.quantity ?? 0) > 0);
-  });
+  return rows.some(hasQuotePriceContent);
 }
 
 export function hasEquipmentRows(rows: EquipmentPricingRow[]) {
-  return rows.some((row) => Boolean(row.itemName?.trim().length) && ((row.totalPrice ?? 0) > 0 || row.quantity > 0));
+  return rows.some(hasQuotePriceContent);
 }
 
 export function hasServiceRows(rows: ServicePricingRow[]) {
-  return rows.some((row) => Boolean(row.description?.trim().length) && ((row.totalPrice ?? 0) > 0 || row.quantity > 0));
+  return rows.some(hasQuotePriceContent);
 }
 
 export function hasExecutiveSummaryContent(quote: QuoteRecord) {
@@ -132,6 +128,7 @@ export function getProposalOptionCostSummary(quote: QuoteRecord): ProposalOption
     .filter((row) => isOptionalLineItem(row) && (row.rowType === "overage" || !isAnnualLine(row)))
     .map((row) => ({
       key: `section-a-${row.id}`,
+      priceStatus: getQuoteLinePriceStatus(row),
       label: row.description,
       sourceSection: "sectionA" as const,
       categoryLabel: "Monthly recurring",
@@ -155,6 +152,7 @@ export function getProposalOptionCostSummary(quote: QuoteRecord): ProposalOption
 
       return {
         key: `section-b-${row.id}`,
+        priceStatus: getQuoteLinePriceStatus(row),
         label: row.itemName,
         description: row.description,
         sourceSection: "sectionB" as const,
@@ -171,6 +169,7 @@ export function getProposalOptionCostSummary(quote: QuoteRecord): ProposalOption
     .filter((row) => isOptionalLineItem(row) && !isAnnualLine(row))
     .map((row) => ({
       key: `section-c-${row.id}`,
+      priceStatus: getQuoteLinePriceStatus(row),
       label: row.description,
       description: row.notes,
       sourceSection: "sectionC" as const,
@@ -183,7 +182,7 @@ export function getProposalOptionCostSummary(quote: QuoteRecord): ProposalOption
     .filter((item) => item.label.trim().length > 0 && Number.isFinite(item.amount));
 
   const annualItems: ProposalOptionCostItem[] = getAnnualSubscriptionItems(quote).filter((item) => item.optional).map((item) => ({
-    key: item.key, label: item.label, description: item.description, sourceSection: item.sourceSection,
+    key: item.key, label: item.label, description: item.description, sourceSection: item.sourceSection, priceStatus: item.priceStatus,
     cadence: "annual", categoryLabel: item.startsYear === 2 ? "Annual renewal option" : "Annual subscription option",
     quantity: item.quantity, unitLabel: item.unitLabel, amount: item.annualAmount, startsYear: item.startsYear,
   }));
