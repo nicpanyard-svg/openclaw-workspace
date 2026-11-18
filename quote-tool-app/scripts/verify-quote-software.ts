@@ -98,7 +98,7 @@ async function main() {
     assert.ok(!pdfText.includes("LoRaWAN EDGE Software: IoTEDGE Kinnect from RAD"));
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ result: "PASS", pdfPages: pdf.numPages, software: 408, storage: 125, installation: 3000, total: 5058.70, screenshots: output }, null, 2));
-    await pdf.destroy();
+    await pdf.loadingTask.destroy();
   } finally { await browser.close(); }
 }
 

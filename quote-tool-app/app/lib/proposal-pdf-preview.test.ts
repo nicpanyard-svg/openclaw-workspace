@@ -35,7 +35,7 @@ async function fixture() {
 test("renders every actual PDF page in order with correct rotation and bounded dimensions", async (t) => {
   const canvases = installCanvas(t);
   const document = await fixture();
-  t.after(() => document.destroy());
+  t.after(() => document.loadingTask.destroy());
   const pages: ProposalPreviewPage[] = [];
   await renderProposalPdfPreview(document, new AbortController().signal, (page) => pages.push(page));
   assert.deepEqual(pages.map((page) => [page.pageNumber, page.pageCount]), [[1, 3], [2, 3], [3, 3]]);
@@ -58,7 +58,7 @@ test("renders every actual PDF page in order with correct rotation and bounded d
 test("cancelling after a page prevents publishing subsequent pages", async (t) => {
   const canvases = installCanvas(t);
   const document = await fixture();
-  t.after(() => document.destroy());
+  t.after(() => document.loadingTask.destroy());
   const controller = new AbortController();
   const pages: number[] = [];
   await assert.rejects(renderProposalPdfPreview(document, controller.signal, (page) => {
@@ -72,7 +72,7 @@ test("cancelling after a page prevents publishing subsequent pages", async (t) =
 test("an already cancelled preview does not allocate canvases", async (t) => {
   const canvases = installCanvas(t);
   const document = await fixture();
-  t.after(() => document.destroy());
+  t.after(() => document.loadingTask.destroy());
   const controller = new AbortController();
   controller.abort();
   await assert.rejects(renderProposalPdfPreview(document, controller.signal, () => assert.fail("No page should be published")), { name: "AbortError" });
@@ -82,7 +82,7 @@ test("an already cancelled preview does not allocate canvases", async (t) => {
 test("failed encoding reports the error and releases the page canvas", async (t) => {
   const canvases = installCanvas(t, true);
   const document = await fixture();
-  t.after(() => document.destroy());
+  t.after(() => document.loadingTask.destroy());
   await assert.rejects(renderProposalPdfPreview(document, new AbortController().signal, () => assert.fail("No page should be published")), /Could not render the spec sheet page/);
   assert.ok(canvases.every((canvas) => canvas.width === 1 && canvas.height === 1));
 });

@@ -113,7 +113,7 @@ async function main() {
     await delay(5000);
     scene("Change quantities. See totals update immediately.");
     const quantity = 'input[aria-label="Component 1 quantity"]';
-    await page.click(quantity, { clickCount: 3 });
+    await page.click(quantity, { count: 3 });
     await page.keyboard.press("Backspace");
     await page.type(quantity, "2", { delay: 150 });
     await page.keyboard.press("Tab");

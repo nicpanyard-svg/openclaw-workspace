@@ -49,7 +49,7 @@ async function main() {
       assert.doesNotMatch(text, /Sales signature|Accounting signature/);
     }
     await writeFile(path.join(output, `${route}.txt`), text);
-    await pdf.destroy();
+    await pdf.loadingTask.destroy();
   }
   console.log(`Pricing PDF checks passed: ${output}`);
 }

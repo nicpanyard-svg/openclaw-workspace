@@ -51,7 +51,7 @@ async function enterLabel(page: Page, label: string, value: string) {
   );
   const input = handle.asElement() as ElementHandle<HTMLInputElement> | null;
   assert.ok(input);
-  await input.click({ clickCount: 3 });
+  await input.click({ count: 3 });
   await page.keyboard.press("Backspace");
   await page.keyboard.type(value);
 }

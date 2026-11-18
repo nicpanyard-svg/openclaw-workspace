@@ -49,7 +49,7 @@ async function textPages(blob: Blob) {
     }
     return pages;
   } finally {
-    await document.destroy();
+    await document.loadingTask.destroy();
   }
 }
 
@@ -272,7 +272,7 @@ test("automatically renders stamp appearances on multipage PDFs with final heade
     assert.ok(red > 240 && green < 15 && blue < 15, "stamp appearance must survive export");
     const [r, g, b] = context.getImageData(130, 647, 1, 1).data;
     assert.ok(r < 15 && g > 240 && b < 15, "underlying page artwork must survive export");
-  } finally { await document.destroy(); }
+  } finally { await document.loadingTask.destroy(); }
   assert.ok(canvases.every(canvas => canvas.width === 1 && canvas.height === 1), "render canvases are released");
 });
 
@@ -315,7 +315,7 @@ for (const rotation of [0, 90, 180, 270]) {
             : [[true, true], [true, false], [false, true], [false, false]];
       assert.deepEqual(coordinateSums.map(([x, y], index) => [x / counts[index] > 306, y / counts[index] > 396]), expectedQuadrants);
     } finally {
-      await document.destroy();
+      await document.loadingTask.destroy();
     }
   });
 }
@@ -347,7 +347,7 @@ for (const format of ["png", "jpeg"] as const) {
       }
       assert.deepEqual(Array.from(resultContext.getImageData(306, 50, 1, 1).data), [255, 255, 255, 255]);
     } finally {
-      await document.destroy();
+      await document.loadingTask.destroy();
     }
   });
 }

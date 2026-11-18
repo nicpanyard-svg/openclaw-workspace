@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "X-Frame-Options", value: "SAMEORIGIN" },
       { key: "Referrer-Policy", value: "same-origin" },
+      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+      { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
     ] }];
   },
   allowedDevOrigins: ["127.0.0.1", "localhost", "100.93.175.20"],

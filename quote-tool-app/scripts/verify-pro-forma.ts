@@ -27,6 +27,7 @@ async function main() {
   const browser = await puppeteer.launch({ executablePath, headless: true });
   try {
     const page = await browser.newPage();
+    page.on("dialog", dialog => void dialog.accept());
     let failInvoicePdf = false;
     let attemptedEmails = 0;
     await page.setRequestInterception(true);
@@ -58,7 +59,11 @@ async function main() {
     await page.type(".pf-fields label:nth-child(3) input", "PO-2401");
     await page.type(".pf-notes textarea", "Deliver to the receiving dock.");
     await page.$$eval(".rq-editor-actions button", buttons => (buttons.find(button => button.textContent?.trim() === "Save draft") as HTMLButtonElement).click());
-    await page.reload({ waitUntil: "networkidle0" });
+    await page.waitForFunction((key, id) => {
+      const saved = JSON.parse(localStorage.getItem(key) || "{}").proposals?.find((item: { id: string }) => item.id === id)?.quote.proForma;
+      return saved?.customerPo === "PO-2401" && saved?.notes === "Deliver to the receiving dock.";
+    }, {}, PROPOSAL_STORE_KEY, proposal.id);
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
     await page.waitForSelector("#rq-nav-invoice");
     await page.click("#rq-nav-invoice");
     await page.waitForSelector(".pf-preview");
@@ -122,7 +127,7 @@ async function main() {
       assert.ok(text.includes(expectedTotal));
       assert.match(text, /PRO FORMA ONLY/);
       assert.doesNotMatch(text, /INTERNAL_COST_SECRET|vendor cost|gross profit|target margin/i);
-      await pdf.destroy();
+      await pdf.loadingTask.destroy();
       return text;
     };
     const purchaseText = await inspectPdf(bytes, "purchase-pdf", "$2,692.25");

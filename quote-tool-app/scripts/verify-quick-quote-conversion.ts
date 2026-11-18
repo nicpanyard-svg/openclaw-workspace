@@ -120,7 +120,7 @@ async function main() {
       text += content.items.map((item) => "str" in item ? item.str : "").join(" ");
     }
     const pages = pdf.numPages;
-    await pdf.destroy();
+    await pdf.loadingTask.destroy();
     for (const label of ["QA Starlink shared data", "QA Terminal access", "QA Additional usage", "QA Starlink kit", "QA Annual cloud storage", "QA Spare router", "QA Installation"]) assert.ok(text.includes(label), "PDF missing " + label);
     for (const amount of ["$270.00", "$1,200.00", "$250.00", "$0.75"]) assert.ok(text.includes(amount), "PDF missing " + amount);
     assert.doesNotMatch(text, /Quick Quote hardware cost|\$700\.00|hardware margin/);

@@ -107,7 +107,7 @@ async function appendPdf(target: PDFDocument, blob: Blob, entry: ProposalAttachm
       attachmentHeader(page, entry, font, index + 1, source.getPageCount());
     }
   } finally {
-    await renderedSource?.destroy();
+    await renderedSource?.loadingTask.destroy();
   }
 }
 

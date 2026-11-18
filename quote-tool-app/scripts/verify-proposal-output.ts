@@ -286,7 +286,7 @@ async function extractText(blob: Blob): Promise<PdfPageText[]> {
     }
     return pages;
   } finally {
-    await document.destroy();
+    await document.loadingTask.destroy();
   }
 }
 
