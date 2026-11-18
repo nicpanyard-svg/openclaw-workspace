@@ -10,7 +10,7 @@ export class ProposalSaveConflict extends Error {
   constructor(public readonly reason: "changed" | "deleted") {
     super(reason === "deleted"
       ? "This quote was deleted in another tab. It has not been saved again."
-      : "This quote changed in another tab. Your edits are still here. Open the latest saved quote before saving again.");
+      : "This quote changed in another tab. Your changes in this tab are not saved. Keep this tab open and compare your changes with the latest saved quote in a new tab.");
     this.name = "ProposalSaveConflict";
   }
 }

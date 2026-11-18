@@ -54,14 +54,14 @@ export function QuoteCopyDialog({ quote, onCancel, onConfirm }: QuoteCopyDialogP
         <button type="button" className="qcopy-icon" title="Close copy review" aria-label="Close copy review" onClick={onCancel} disabled={busy} autoFocus><X size={20} /></button>
       </header>
       <div className="qcopy-body">
-        <fieldset disabled={busy} className="qcopy-customer"><legend>Customer</legend>
+        <fieldset disabled={busy} className="qcopy-customer"><legend>Who is the new quote for?</legend>
           <label><input type="radio" name={`${id}-customer`} value="same" checked={customerMode === "same"} disabled={!source.customer.name.trim()} onChange={() => setCustomerMode("same")} />Same customer</label>
           <label><input type="radio" name={`${id}-customer`} value="different" checked={customerMode === "different"} onChange={() => setCustomerMode("different")} />Different customer</label>
         </fieldset>
-        {customerMode === "different" && <p className="qcopy-warning">Customer, contacts, addresses, saved profile links, SLA, order details, tax, CRM links, and customer-specific notes will be cleared. Selected items, quantities, and prices stay. Supplier imports and signed agreements will not carry over.</p>}
-        <fieldset disabled={busy} className="qcopy-scope"><legend>Equipment and services</legend>
+        {customerMode === "different" && <div className="qcopy-warning"><strong>The new quote will:</strong><ul><li>Clear the old customer&apos;s contacts, addresses, service agreement details, order details, tax, CRM links, profile links, and notes.</li><li>Keep the items, quantities, and prices you select below.</li><li>Leave out supplier imports and signed agreements.</li></ul></div>}
+        <fieldset disabled={busy} className="qcopy-scope"><legend>Which equipment and services should be copied?</legend>
           <div className="qcopy-scope-tools"><span>{kept.length} of {items.length} selected</span><button type="button" onClick={() => setKept(items.map((item) => item.key))}>Keep all</button><button type="button" onClick={() => setKept([])}>Remove all</button></div>
-          {!items.length && <p>No line items in this source.</p>}
+          {!items.length && <p>The original quote has no line items.</p>}
           {groups.map((group) => {
             const rows = items.filter((item) => item.group === group);
             const count = rows.filter((item) => kept.includes(item.key)).length;
@@ -70,19 +70,19 @@ export function QuoteCopyDialog({ quote, onCancel, onConfirm }: QuoteCopyDialogP
               <div className="qcopy-group-tools"><button type="button" onClick={() => toggle(rows.map((row) => row.key), true)}>Keep group</button><button type="button" onClick={() => toggle(rows.map((row) => row.key), false)}>Remove group</button></div>
               {rows.map((item) => <label className="qcopy-item" key={item.key}>
                 <input type="checkbox" checked={kept.includes(item.key)} onChange={(event) => toggle([item.key], event.target.checked)} />
-                <span><strong>{item.label || "Unnamed item"}</strong><small>{item.detail}</small>{item.specs.length > 0 && <small className="qcopy-specs">Specs: {item.specs.join(", ")}</small>}</span>
+                <span><strong>{item.label || "Unnamed item"}</strong><small>{item.detail}</small>{item.specs.length > 0 && <small className="qcopy-specs">Spec sheets: {item.specs.join(", ")}</small>}</span>
               </label>)}
             </details>;
           })}
         </fieldset>
-        {!selected.length && <p className="qcopy-warning" role="status">No scope selected. The copy will be an empty draft.</p>}
-        {selected.length < items.length && <p className="qcopy-warning">Linked specs leave with removed items. Specs on changed packages are cleared. Order confirmations must be reviewed again.{source.metadata.workflowMode !== "major_project" ? " Aggregate internal costs will be reset because they are not linked to individual items." : ""}</p>}
-        <fieldset className="qcopy-retention" disabled={busy}><legend>Terms and attachments</legend>
-          <label>Terms and commercial notes ({termsText.length})<select value={terms} onChange={(event) => setTerms(event.target.value as typeof terms)} required><option value="">Choose...</option><option value="remove">Remove source terms</option><option value="keep">Keep reviewed terms</option></select></label>
-          {termsText.length > 0 && <details className="qcopy-review-text"><summary>Review source terms</summary><ul>{termsText.map((term, index) => <li key={index}>{term}</li>)}</ul></details>}
-          {terms === "keep" && <p className="qcopy-warning">Retained terms are not automatically matched to the selected scope. Check any satellite, subscription, and service commitments.{customerMode === "different" ? " Terms naming the old customer, SLA, warranty notes, payment arrangements, and confirmations will still be cleared." : ""}</p>}
-          <label>Line-item specs ({specCount})<select value={attachments} onChange={(event) => setAttachments(event.target.value as typeof attachments)} required><option value="">Choose...</option><option value="keep">Keep specs for selected items</option><option value="remove">Remove all line-item specs</option></select></label>
-          <label>Supporting files ({supportingFiles.length})<select value={supportingAttachments} onChange={(event) => setSupportingAttachments(event.target.value as typeof supportingAttachments)} required><option value="">Choose...</option><option value="remove">Remove supporting files</option><option value="keep">{customerMode === "different" ? "Keep reviewed drawings only" : "Keep reviewed supporting files"}</option></select></label>
+        {!selected.length && <p className="qcopy-warning" role="status">No items selected. The new quote will have no equipment or services.</p>}
+        {selected.length < items.length && <p className="qcopy-warning">Removed items and their spec sheets will not be copied. Spec sheets for changed packages will also be cleared. Review the order details again.{source.metadata.workflowMode !== "major_project" ? " Combined internal cost totals will be cleared. Enter costs again for the items you keep." : ""}</p>}
+        <fieldset className="qcopy-retention" disabled={busy}><legend>Terms and attachments: choose keep or remove for each</legend>
+          <label>Copy terms and pricing notes? ({termsText.length})<select value={terms} onChange={(event) => setTerms(event.target.value as typeof terms)} required><option value="">Choose keep or remove</option><option value="remove">Remove terms</option><option value="keep">Keep terms</option></select></label>
+          {termsText.length > 0 && <details className="qcopy-review-text"><summary>Read terms from the original quote</summary><ul>{termsText.map((term, index) => <li key={index}>{term}</li>)}</ul></details>}
+          {terms === "keep" && <p className="qcopy-warning">Check that these terms still apply to the items you are keeping, including satellite, subscription, and service charges.{customerMode === "different" ? " Terms naming the old customer, service agreement details, warranty notes, payment arrangements, and confirmations will still be cleared." : ""}</p>}
+          <label>Copy spec sheets for selected items? ({specCount})<select value={attachments} onChange={(event) => setAttachments(event.target.value as typeof attachments)} required><option value="">Choose keep or remove</option><option value="keep">Keep spec sheets</option><option value="remove">Remove spec sheets</option></select></label>
+          <label>Copy other attached files? ({supportingFiles.length})<select value={supportingAttachments} onChange={(event) => setSupportingAttachments(event.target.value as typeof supportingAttachments)} required><option value="">Choose keep or remove</option><option value="remove">Remove other files</option><option value="keep">{customerMode === "different" ? "Keep drawings only" : "Keep other files"}</option></select></label>
           {supportingFiles.length > 0 && <details className="qcopy-review-text"><summary>Review supporting files</summary><ul>{supportingFiles.map((file) => <li key={file}>{file}</li>)}</ul></details>}
         </fieldset>
         {error && <p className="qcopy-error" role="alert">{error}</p>}

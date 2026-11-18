@@ -29,6 +29,7 @@
 }
 
 .rq-bulk-count { font-weight: 600; font-variant-numeric: tabular-nums; }
+.rq-bulk-input-help { margin: 7px 0 0; color: #53616b; font-size: 12px; overflow-wrap: anywhere; }
 
 .rq-bulk-presets,
 .rq-bulk-tools {

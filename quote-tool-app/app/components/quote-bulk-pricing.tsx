@@ -4,6 +4,7 @@ import { useId, useMemo, useRef, useState } from "react";
 import { Check, Eye, LoaderCircle, LockKeyhole, RefreshCw, UnlockKeyhole, X } from "lucide-react";
 import type { QuoteRecord } from "../lib/quote-record";
 import { previewBulkMargin, type BulkMarginEntry, type BulkMarginPreview } from "../lib/quote-bulk-pricing";
+import { QUOTE_PRICE_STATUS_LABELS } from "../lib/quote-price-status";
 import { QuoteExperienceDialog } from "./quote-experience-dialog";
 import "./quote-bulk-pricing.css";
 
@@ -60,9 +61,9 @@ export function BulkPricingPreviewTable({ preview, currency }: { preview: BulkMa
           </th>
           <td className="rq-bulk-money" role="cell">
             <span className="rq-bulk-preview-mobile-label" aria-hidden="true">Current unit price</span>
-            {entry.priceStatus === "included" ? "Included" : entry.priceStatus === "tbd" && !entry.currentUnitPrice ? "TBD" : money(entry.currentUnitPrice)}
-            {entry.priceStatus === "tbd" && Boolean(entry.currentUnitPrice) && <small>TBD</small>}
-            {entry.priceStatus === "allowance" && <small>Allowance</small>}
+            {entry.priceStatus === "included" ? QUOTE_PRICE_STATUS_LABELS.included : entry.priceStatus === "tbd" && !entry.currentUnitPrice ? QUOTE_PRICE_STATUS_LABELS.tbd : money(entry.currentUnitPrice)}
+            {entry.priceStatus === "tbd" && Boolean(entry.currentUnitPrice) && <small>{QUOTE_PRICE_STATUS_LABELS.tbd}</small>}
+            {entry.priceStatus === "allowance" && <small>{QUOTE_PRICE_STATUS_LABELS.allowance}</small>}
             {!entry.usageBased && entry.priceStatus !== "included" && entry.priceStatus !== "tbd" && <small>{money(entry.currentExtendedPrice)} total</small>}
           </td>
           <td className="rq-bulk-money" role="cell">
@@ -71,9 +72,9 @@ export function BulkPricingPreviewTable({ preview, currency }: { preview: BulkMa
             {entry.eligible && !entry.usageBased && <small>{money(entry.newExtendedPrice)} total</small>}
           </td>
           <td className="rq-bulk-result" role="cell">
-            {entry.eligible ? "Apply margin" : entry.skippedReason || "Skipped"}
-            {entry.eligible && entry.priceStatus === "tbd" && <small>Pricing status: Confirmed</small>}
-            {entry.eligible && entry.priceStatus === "allowance" && <small>Pricing status stays Allowance</small>}
+            {entry.eligible ? "Update selling price" : entry.skippedReason || "Price unchanged"}
+            {entry.eligible && entry.priceStatus === "tbd" && <small>New status: {QUOTE_PRICE_STATUS_LABELS.confirmed}</small>}
+            {entry.eligible && entry.priceStatus === "allowance" && <small>Still an estimated price</small>}
           </td>
         </tr>
       ))}</tbody>
@@ -87,7 +88,7 @@ export function BulkPricingChangeSummary({ preview, currency }: { preview: BulkM
     if (!entry.eligible || entry.usageBased || entry.currentExtendedPrice === null || entry.newExtendedPrice === null) continue;
     const key = `${entry.cadence}-${entry.startsYear}-${entry.optional ? "optional" : "required"}`;
     const group = groups.get(key) ?? {
-      label: `${billingLabel(entry)} / ${entry.optional ? "Optional" : "Required"} / From year ${entry.startsYear}`,
+      label: `${billingLabel(entry)} / ${entry.optional ? "Customer option" : "Base quote"} / From year ${entry.startsYear}`,
       currentCents: 0,
       proposedCents: 0,
       order: (entry.cadence === "one_time" ? 0 : entry.cadence === "monthly" ? 1 : 2) * 4 + (entry.startsYear - 1) * 2 + Number(entry.optional),
@@ -102,7 +103,7 @@ export function BulkPricingChangeSummary({ preview, currency }: { preview: BulkM
     <caption>Selected price changes</caption>
     <colgroup><col /><col /><col /></colgroup>
     <thead role="rowgroup"><tr role="row">
-      <th scope="col" role="columnheader">Scope</th>
+      <th scope="col" role="columnheader">Charges</th>
       <th scope="col" role="columnheader" className="rq-bulk-money">Current</th>
       <th scope="col" role="columnheader" className="rq-bulk-money">Proposed</th>
     </tr></thead>
@@ -156,7 +157,7 @@ function BulkMarginReview({
       <form onSubmit={(event) => { event.preventDefault(); void apply(); }} aria-busy={busy}>
         <div className="rq-bulk-body">
           <div className="rq-bulk-summary">
-            <strong>{preview.marginPercent}% margin</strong>
+            <strong>{preview.marginPercent}% gross margin</strong>
             <span>{preview.selectionCount} selected</span>
             <span>{preview.applicableCount} to update / {preview.skippedCount} skipped</span>
           </div>
@@ -222,8 +223,8 @@ export function QuoteBulkPricing({ quote, selectedIds, onApply, onClear, onSetLo
           {[15, 30, 55].map((preset) => <button key={preset} type="button" className="rq-bulk-button rq-bulk-preset" aria-label={`${preset}% margin`} aria-pressed={margin === preset} disabled={busy} onClick={() => setMarginInput(String(preset))}>{preset}%</button>)}
         </div>
         <label className="rq-bulk-custom" htmlFor={`${id}-margin`}>
-          Margin %
-          <input id={`${id}-margin`} type="number" min={0} max={95} step="any" inputMode="decimal" value={marginInput} disabled={busy} aria-invalid={margin === null} aria-describedby={margin === null ? `${id}-margin-error` : undefined} onChange={(event) => setMarginInput(event.currentTarget.value)} />
+          Gross margin %
+          <input id={`${id}-margin`} type="number" min={0} max={95} step="any" inputMode="decimal" value={marginInput} disabled={busy} aria-invalid={margin === null} aria-describedby={`${id}-margin-help${margin === null ? ` ${id}-margin-error` : ""}`} onChange={(event) => setMarginInput(event.currentTarget.value)} />
         </label>
         <button type="button" className="rq-bulk-button" disabled={busy || margin === null} onClick={openPreview}><Eye size={16} aria-hidden="true" />Preview prices</button>
         <div className="rq-bulk-tools" role="group" aria-label="Selected item actions">
@@ -236,7 +237,8 @@ export function QuoteBulkPricing({ quote, selectedIds, onApply, onClear, onSetLo
           <button type="button" className="rq-bulk-button rq-bulk-icon" title="Clear selection" data-tooltip="Clear selection" aria-label="Clear selection" disabled={busy} onClick={() => { setError(""); setNotice(""); onClear(); }}><X size={16} aria-hidden="true" /></button>
         </div>
       </div>
-      {margin === null && <p className="rq-bulk-error" id={`${id}-margin-error`} role="alert">Enter a margin from 0% to 95%.</p>}
+      <p className="rq-bulk-input-help" id={`${id}-margin-help`}>Enter the gross margin, not markup. Example: $70 cost at 30% margin gives a $100 selling price.</p>
+      {margin === null && <p className="rq-bulk-error" id={`${id}-margin-error`} role="alert">Enter a gross margin from 0% to 95%.</p>}
       {error && <p className="rq-bulk-error" role="alert">{error}</p>}
       {(busy || notice) && <p className="rq-bulk-notice" role="status">{busy ? "Updating price locks..." : notice}</p>}
     </div>}

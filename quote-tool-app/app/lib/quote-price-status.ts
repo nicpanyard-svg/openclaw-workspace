@@ -29,7 +29,14 @@ export type QuotePriceSource = {
 
 export const QUOTE_PRICE_STATUSES = ["confirmed", "allowance", "tbd", "included"] as const;
 export const QUOTE_PRICE_STATUS_LABELS: Record<QuotePriceStatus, string> = {
-  confirmed: "Confirmed", allowance: "Allowance", tbd: "TBD", included: "Included",
+  confirmed: "Price set", allowance: "Estimated price", tbd: "Needs pricing", included: "No extra charge",
+};
+
+export const QUOTE_PRICE_STATUS_HELP: Record<QuotePriceStatus, string> = {
+  confirmed: "The price shown is ready to quote.",
+  allowance: "Estimated charge. Final price may change.",
+  tbd: "Enter a selling price before final export.",
+  included: "No separate charge. This line must be $0.",
 };
 
 export function normalizeQuoteLinePriceStatus(value: unknown): QuotePriceStatus | undefined {
@@ -80,13 +87,13 @@ export function getQuoteLinePriceProblem(line: QuotePriceSource): string | null 
   if ([unit, total].some(value => value != null && !Number.isFinite(value))) return "Enter a valid price.";
   if (status === "included") {
     return [unit, total].some(value => value != null && value !== 0)
-      ? "Included requires a zero price. Review the price or choose Confirmed; amounts have not been changed." : null;
+      ? "This item still has a price. Enter $0 for No extra charge, or choose Price set. The amount has not been changed." : null;
   }
-  if (status === "tbd") return "Enter a price and choose Confirmed or Allowance, or explicitly choose Included.";
+  if (status === "tbd") return "Enter a selling price. If there is no separate charge, choose No extra charge.";
   if (!usage && total == null && unit != null && unit !== 0) return "Enter the line total. A unit price alone does not confirm the charge.";
   if (status === "confirmed" && amount === 0 && line.sourceLabel === "Major Project customer bundle") return null;
-  if (amount == null || amount === 0) return `Enter a ${usage ? "usage rate" : "price"} for ${QUOTE_PRICE_STATUS_LABELS[status]}, or choose Included.`;
-  if (status === "allowance" && amount < 0) return "An allowance needs a positive price. Choose Confirmed for a credit.";
+  if (amount == null || amount === 0) return `Enter a ${usage ? "usage rate" : "selling price"}, or choose No extra charge for a $0 item.`;
+  if (status === "allowance" && amount < 0) return "An estimated price must be positive. For a credit, choose Price set.";
   if (!usage && total != null && unit != null && unit !== 0 && total === 0) return "Review the zero line total before confirming the price.";
   return null;
 }
@@ -103,12 +110,12 @@ export function getMappedQuotePriceStatus(line: QuotePriceSource, children: Quot
   return getQuoteLinePriceStatus(line);
 }
 
-export function formatQuoteLinePrice(line: QuotePriceSource, formattedAmount: string) {
+export function formatQuoteLinePrice(line: QuotePriceSource, formattedAmount: string, audience: "customer" | "editor" = "customer") {
   const status = getQuoteLinePriceStatus(line);
-  if (status === "tbd") return "TBD";
-  if (status === "included") return getQuoteLinePriceProblem(line) ? "Pricing needs review" : "Included";
+  if (status === "tbd") return audience === "editor" ? QUOTE_PRICE_STATUS_LABELS.tbd : "TBD";
+  if (status === "included") return getQuoteLinePriceProblem(line) ? "Pricing needs review" : audience === "editor" ? QUOTE_PRICE_STATUS_LABELS.included : "Included";
   if (getQuoteLinePriceProblem(line)) return "Pricing needs review";
-  return status === "allowance" ? `${formattedAmount} (Allowance)` : formattedAmount;
+  return status === "allowance" ? `${formattedAmount} (${audience === "editor" ? "estimate" : "Allowance"})` : formattedAmount;
 }
 
 export function isQuickQuoteCostAllocation(component: MajorProjectComponent) {

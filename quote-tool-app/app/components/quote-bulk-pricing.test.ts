@@ -57,11 +57,11 @@ test("preview shows current and proposed prices plus explicit lock and included 
   assert.match(html, /Proposed unit price/);
   assert.match(html, /\$100\.00/);
   assert.match(html, /selling price is locked/);
-  assert.match(html, /Included items are not repriced/);
+  assert.match(html, /No extra charge items are not repriced/);
   assert.match(html, /Unchanged/);
-  assert.match(html, />TBD</);
-  assert.match(html, /Pricing status: Confirmed/);
-  assert.match(html, /Pricing status stays Allowance/);
+  assert.match(html, />Needs pricing</);
+  assert.match(html, /New status: Price set/);
+  assert.match(html, /Still an estimated price/);
   assert.match(html, /Optional/);
 });
 
@@ -116,12 +116,12 @@ test("selected price summaries separate cadence, optional scope, and renewal sta
   const preview = previewBulkMargin(source, components.map((item) => item.id), 30);
   const html = renderToStaticMarkup(createElement(BulkPricingChangeSummary, { preview, currency: "USD" }));
   const expected = [
-    ["one_time-1-required", "One-time / Required / From year 1", "$120.00", "$120.00"],
-    ["one_time-1-optional", "One-time / Optional / From year 1", "$40.00", "$30.00"],
-    ["monthly-1-required", "Monthly / Required / From year 1", "$25.00", "$20.00"],
-    ["annual-1-required", "Annual / Required / From year 1", "$200.00", "$150.00"],
-    ["annual-2-required", "Annual / Required / From year 2", "$300.00", "$200.00"],
-    ["annual-2-optional", "Annual / Optional / From year 2", "$80.00", "$60.00"],
+    ["one_time-1-required", "One-time / Base quote / From year 1", "$120.00", "$120.00"],
+    ["one_time-1-optional", "One-time / Customer option / From year 1", "$40.00", "$30.00"],
+    ["monthly-1-required", "Monthly / Base quote / From year 1", "$25.00", "$20.00"],
+    ["annual-1-required", "Annual / Base quote / From year 1", "$200.00", "$150.00"],
+    ["annual-2-required", "Annual / Base quote / From year 2", "$300.00", "$200.00"],
+    ["annual-2-optional", "Annual / Customer option / From year 2", "$80.00", "$60.00"],
   ];
   assert.match(html, /<caption>Selected price changes<\/caption>/);
   assert.equal((html.match(/data-group=/g) || []).length, expected.length);

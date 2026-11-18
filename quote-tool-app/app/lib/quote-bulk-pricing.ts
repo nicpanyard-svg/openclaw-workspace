@@ -108,9 +108,9 @@ function pricingLine(source: PricingSource, duplicates: Set<string>): BulkPricin
   let skippedReason: string | null = null;
 
   if (!source.id || duplicates.has(source.id)) skippedReason = "The item ID is missing or duplicated. Resolve it before bulk pricing.";
-  else if (source.priceLocked === true) skippedReason = "The selling price is locked.";
+  else if (source.priceLocked === true) skippedReason = "The selling price is locked. Unlock this item to change its price.";
   else if (advanced && isQuickQuoteCostAllocation(source)) skippedReason = "Quick Quote aggregate cost is not a per-item vendor cost.";
-  else if (priceStatus === "included") skippedReason = "Included items are not repriced.";
+  else if (priceStatus === "included") skippedReason = "No extra charge items are not repriced.";
   else if (advanced && (source.passThrough || source.resaleBasis === "pass_through")) skippedReason = "Pass-through pricing is not repriced.";
   else if ([cost, extendedCost, currentUnitPrice, currentExtendedPrice, source.quantity].some(value => value !== null && value < 0)) skippedReason = "Credits and negative quantities are not repriced.";
   else if (!Number.isFinite(source.quantity) || source.quantity < 0 || (!usageBased && source.quantity === 0)) skippedReason = "Enter a valid positive quantity.";

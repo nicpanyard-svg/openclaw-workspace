@@ -118,7 +118,7 @@ test("locked, Included, pass-through and aggregate cost rows carry clear skip re
   const lines = getBulkPricingLines(quote);
   assert.deepEqual(lines.map(row => row.eligible), [false, false, false, false, false, true]);
   assert.match(lines[0].skippedReason!, /locked/);
-  assert.match(lines[1].skippedReason!, /Included/);
+  assert.match(lines[1].skippedReason!, /No extra charge/);
   assert.match(lines[2].skippedReason!, /Pass-through/);
   assert.match(lines[3].skippedReason!, /Pass-through/);
   assert.match(lines[4].skippedReason!, /aggregate cost/);

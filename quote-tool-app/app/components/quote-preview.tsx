@@ -441,7 +441,7 @@ function buildMarginPricingSummary(cost: number | undefined, marginPercent: numb
   const safeCost = Number.isFinite(Number(cost)) ? Math.max(Number(cost), 0) : 0;
   const safeMargin = Number.isFinite(marginPercent) ? Math.min(Math.max(marginPercent, 0), 95) : 0;
   if (safeCost <= 0) {
-    return `${safeMargin}% gross margin will seed customer pricing from vendor cost when cost is available.`;
+    return `Enter the supplier's cost per item to calculate a selling price at ${safeMargin}% gross margin.`;
   }
   const customerPrice = applyMarginToCost(safeCost, safeMargin);
   return `${formatCurrency(safeCost, currencyCode)} vendor cost -> ${formatCurrency(customerPrice, currencyCode)} customer price at ${safeMargin}% margin.`;
@@ -2744,13 +2744,13 @@ export default function QuotePreview() {
       return draft;
     });
 
-    setWorkflowNotice(`Seeded ${importedWithoutLabels.length} imported component${importedWithoutLabels.length === 1 ? "" : "s"} with customer-facing labels from their internal names.`);
+    setWorkflowNotice(`Filled ${importedWithoutLabels.length} missing customer item name${importedWithoutLabels.length === 1 ? "" : "s"} using the internal item names.`);
   };
 
   const seedImportedMajorProjectPricingFromCost = () => {
     const importedWithoutPricing = importedMajorProjectComponents.filter((component) => component.customerUnitPrice <= 0 && component.vendorUnitCost > 0 && !component.priceLocked && component.priceStatus !== "included" && !component.passThrough && component.resaleBasis !== "pass_through");
     if (!importedWithoutPricing.length) {
-      setWorkflowNotice("Imported components already have starter pricing, or there is no vendor cost available to seed from.");
+      setWorkflowNotice("No prices changed. Check that an item has a supplier cost, no selling price, and an unlocked price.");
       return;
     }
 
@@ -2776,7 +2776,7 @@ export default function QuotePreview() {
       return draft;
     });
 
-    setWorkflowNotice(`Seeded ${DEFAULT_IMPORTED_MARGIN_PERCENT}% starter pricing from vendor cost for ${importedWithoutPricing.length} imported component${importedWithoutPricing.length === 1 ? "" : "s"}.`);
+    setWorkflowNotice(`Calculated selling prices at ${DEFAULT_IMPORTED_MARGIN_PERCENT}% gross margin for ${importedWithoutPricing.length} unpriced item${importedWithoutPricing.length === 1 ? "" : "s"}.`);
   };
 
   const applyImportedMajorProjectMarginFromCost = () => {
@@ -3571,7 +3571,7 @@ export default function QuotePreview() {
 
                 {vendorQuote.status === "loaded" && !(vendorQuote.importedComponentIds?.length) ? (
                   <div className="mt-3 rounded-[14px] border border-[#dce5fb] bg-[#f5f8ff] px-3 py-3 text-[12px] text-[#28446c]">
-                    This file is staged only. Choose <strong>Add components</strong>; RapidQuote will use vendor cost plus the margin % above to seed customer pricing.
+                    These items have not been added to the quote. Review their supplier costs and gross margin, then choose <strong>Add components</strong> to add them with calculated selling prices.
                   </div>
                 ) : null}
 
@@ -3602,7 +3602,7 @@ export default function QuotePreview() {
                         {buildVendorQuoteMetadataSummary(item).length ? <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[#60707f]">{buildVendorQuoteMetadataSummary(item).map((detail) => <span key={`${item.id}-${detail}`} className="rounded-full border border-[#e1e7ed] bg-[#f8fbfd] px-2 py-1">{detail}</span>)}</div> : null}
                         <div className="mt-2 flex flex-wrap gap-4 text-[#5f6c78]">
                           <span>Vendor cost {formatCurrency(Math.max(item.unitCost ?? item.unitPrice, 0), currencyCode)}</span>
-                          <span>Seeded sell {formatCurrency(applyMarginToCost(Math.max(item.unitCost ?? item.unitPrice, 0), vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT), currencyCode)}</span>
+                          <span>Selling price {formatCurrency(applyMarginToCost(Math.max(item.unitCost ?? item.unitPrice, 0), vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT), currencyCode)}</span>
                           <span>Ext. {formatCurrency(item.extendedPrice, currencyCode)}</span>
                           {item.vendor ? <span>Vendor {item.vendor}</span> : null}
                         </div>
@@ -4998,7 +4998,7 @@ export default function QuotePreview() {
     quantity: <input aria-label={`Service ${index + 1} quantity`} type="number" min="0" value={row.rowType === "overage" ? "" : row.quantity ?? ""} disabled={row.rowType === "support" || row.rowType === "overage"} onChange={(event) => updateActiveSectionARow(row.id, "quantity", event.target.value)} />,
     rate: <input aria-label={`Service ${index + 1} rate`} type="number" min="0" step="0.01" value={row.monthlyRate ?? row.unitPrice ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "monthlyRate", event.target.value)} />,
     cadence: row.rowType === "support" ? "Included" : row.rowType === "overage" ? (row.unitLabel?.trim() ? `Per ${row.unitLabel.trim().replace(/^per\s+/i, "")}` : "Usage-based") : <QuoteBillingSelect label={`Service ${index + 1} billing`} billing={getLineBilling(row, "monthly")} cadences={["monthly", "annual"]} onChange={(billing) => updateQuote((draft) => { const rows = draft.sections.sectionA.mode === "pool" ? draft.sections.sectionA.poolRows : draft.sections.sectionA.perKitRows; const target = rows.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />,
-    total: formatQuoteLinePrice(row, row.rowType === "overage" ? "Usage-based" : formatCurrency(row.totalMonthlyRate ?? row.monthlyRate ?? 0, currencyCode)),
+    total: formatQuoteLinePrice(row, row.rowType === "overage" ? "Usage-based" : formatCurrency(row.totalMonthlyRate ?? row.monthlyRate ?? 0, currencyCode), "editor"),
     optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateActiveSectionARow(row.id, "optional", checked),
     actions: <RowActions totalRows={activeSectionARows.length} rowNumber={index + 1} onMoveUp={() => moveActiveSectionARow(row.id, -1)} onMoveDown={() => moveActiveSectionARow(row.id, 1)} onMoveTo={(position) => moveActiveSectionAToPosition(row.id, position)} onDuplicate={() => duplicateActiveSectionARow(row.id)} onRemove={() => removeActiveSectionARow(row.id)} />,
     details: <div className="rq-detail-fields"><label className="builder-field"><span>Unit label</span><input value={row.unitLabel ?? ""} disabled={row.rowType === "support"} onChange={(event) => updateActiveSectionARow(row.id, "unitLabel", event.target.value)} /></label>{row.rowType === "support" && <label className="builder-field"><span>Support details</span><textarea rows={3} value={(row.includedText ?? []).join("\n")} onChange={(event) => updateActiveSectionARow(row.id, "includedText", event.target.value)} /></label>}</div>,
@@ -5017,7 +5017,7 @@ export default function QuotePreview() {
     description: <div className="rq-item-name">{row.imageUrl && <img src={row.imageUrl} alt="" width={32} height={32} />}<input aria-label={`Hardware ${index + 1} name`} value={row.itemName} onChange={(event) => updateEquipmentRow(row.id, "itemName", event.target.value)} /></div>,
     quantity: <input aria-label={`Hardware ${index + 1} quantity`} type="number" min="0" value={row.quantity} onChange={(event) => updateEquipmentRow(row.id, "quantity", event.target.value)} />,
     rate: <input aria-label={`Hardware ${index + 1} unit price`} type="number" min="0" step="0.01" value={row.unitPrice} onChange={(event) => updateEquipmentRow(row.id, "unitPrice", event.target.value)} />,
-    cadence: <QuoteBillingSelect label={`Hardware ${index + 1} billing`} billing={getLineBilling(row)} cadences={["one_time", "annual"]} onChange={(billing) => updateQuote((draft) => { const target = draft.sections.sectionB.lineItems.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />, total: formatQuoteLinePrice(row, formatCurrency(row.totalPrice, currencyCode)),
+    cadence: <QuoteBillingSelect label={`Hardware ${index + 1} billing`} billing={getLineBilling(row)} cadences={["one_time", "annual"]} onChange={(billing) => updateQuote((draft) => { const target = draft.sections.sectionB.lineItems.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />, total: formatQuoteLinePrice(row, formatCurrency(row.totalPrice, currencyCode), "editor"),
     optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateEquipmentRow(row.id, "optional", checked),
     actions: <RowActions totalRows={quote.sections.sectionB.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveEquipmentRow(row.id, -1)} onMoveDown={() => moveEquipmentRow(row.id, 1)} onMoveTo={(position) => moveEquipmentRowToPosition(row.id, position)} onDuplicate={() => duplicateEquipmentRow(row.id)} onRemove={() => removeEquipmentRow(row.id)} />,
     details: <div className="rq-detail-fields">
@@ -5074,7 +5074,7 @@ export default function QuotePreview() {
     description: <input aria-label={`Field service ${index + 1} description`} value={row.description} onChange={(event) => updateServiceRow(row.id, "description", event.target.value)} />,
     quantity: <input aria-label={`Field service ${index + 1} quantity`} type="number" min="0" value={row.quantity} onChange={(event) => updateServiceRow(row.id, "quantity", event.target.value)} />,
     rate: <input aria-label={`Field service ${index + 1} unit price`} type="number" min="0" step="0.01" value={row.unitPrice} onChange={(event) => updateServiceRow(row.id, "unitPrice", event.target.value)} />,
-    cadence: <QuoteBillingSelect label={`Field service ${index + 1} billing`} billing={getLineBilling(row)} cadences={["one_time", "annual"]} onChange={(billing) => updateQuote((draft) => { const target = draft.sections.sectionC.lineItems.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />, total: formatQuoteLinePrice(row, formatCurrency(row.totalPrice, currencyCode)),
+    cadence: <QuoteBillingSelect label={`Field service ${index + 1} billing`} billing={getLineBilling(row)} cadences={["one_time", "annual"]} onChange={(billing) => updateQuote((draft) => { const target = draft.sections.sectionC.lineItems.find((item) => item.id === row.id); if (target) target.billing = billing; return draft; })} />, total: formatQuoteLinePrice(row, formatCurrency(row.totalPrice, currencyCode), "editor"),
     optional: isOptionalLineItem(row), onOptionalChange: (checked) => updateServiceRow(row.id, "optional", checked),
     actions: <RowActions totalRows={quote.sections.sectionC.lineItems.length} rowNumber={index + 1} onMoveUp={() => moveServiceRow(row.id, -1)} onMoveDown={() => moveServiceRow(row.id, 1)} onMoveTo={(position) => moveServiceRowToPosition(row.id, position)} onDuplicate={() => duplicateServiceRow(row.id)} onRemove={() => removeServiceRow(row.id)} />,
     details: <div className="rq-detail-fields"><label className="builder-field"><span>Pricing stage</span><select value={row.pricingStage ?? "budgetary"} onChange={(event) => updateServiceRow(row.id, "pricingStage", event.target.value)}><option value="budgetary">Budgetary</option><option value="final">Final</option></select></label><label className="builder-field"><span>Notes</span><textarea rows={2} value={row.notes ?? ""} onChange={(event) => updateServiceRow(row.id, "notes", event.target.value)} /></label></div>,
@@ -5465,10 +5465,10 @@ export default function QuotePreview() {
                                   </ul>
                                 </div>
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                  <button type="button" className="pill-button" onClick={seedImportedMajorProjectCustomerLabels} disabled={importedMajorProjectNeedsCustomerLabelCount === 0}>Seed blank customer labels</button>
-                                  <button type="button" className="pill-button" onClick={seedImportedMajorProjectPricingFromCost} disabled={importedMajorProjectNeedsCustomerPricingCount === 0}>Seed customer pricing from cost</button>
+                                  <button type="button" className="pill-button" onClick={seedImportedMajorProjectCustomerLabels} disabled={importedMajorProjectNeedsCustomerLabelCount === 0}>Fill missing customer item names</button>
+                                  <button type="button" className="pill-button" onClick={seedImportedMajorProjectPricingFromCost} disabled={importedMajorProjectNeedsCustomerPricingCount === 0}>Price unpriced items at {DEFAULT_IMPORTED_MARGIN_PERCENT}% margin</button>
                                   <label className="builder-field compact min-w-[120px]">
-                                    <span>Margin %</span>
+                                    <span>Gross margin %</span>
                                     <input
                                       type="number"
                                       step="0.01"
@@ -5478,7 +5478,7 @@ export default function QuotePreview() {
                                       onChange={(e) => setMajorProjectImportedMarginPercent(e.target.value)}
                                     />
                                   </label>
-                                  <button type="button" className="pill-button" onClick={applyImportedMajorProjectMarginFromCost} disabled={importedMajorProjectNeedsCustomerPricingCount === 0}>Apply margin from cost</button>
+                                  <button type="button" className="pill-button" onClick={applyImportedMajorProjectMarginFromCost} disabled={importedMajorProjectNeedsCustomerPricingCount === 0}>Calculate prices for unpriced items</button>
                                   <div className="rounded-full border border-[#d7e0e8] bg-white px-3 py-2 text-[12px] font-medium text-[#435262]">
                                     {importedMajorProjectUnbundledCount} component{importedMajorProjectUnbundledCount === 1 ? "" : "s"} are still unbundled if you want optional packaging
                                   </div>
@@ -5494,7 +5494,7 @@ export default function QuotePreview() {
                                   </div>
                                   <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">2. Adjust pricing only if needed</div>
-                                    <div className="mt-2 text-[12px] text-[#435262]">Starter sell pricing is seeded automatically. Only change margin logic or supporting specs when the default output is not enough.</div>
+                                    <div className="mt-2 text-[12px] text-[#435262]">Review calculated selling prices and spec sheets before exporting the quote.</div>
                                   </div>
                                   <div className="rounded-[12px] border border-[#d7e0e8] bg-white px-3 py-3">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#60707f]">3. Package only if needed</div>
@@ -5656,7 +5656,7 @@ export default function QuotePreview() {
 
                                   {vendorQuote.status === "loaded" && !(vendorQuote.importedRowIds?.length) ? (
                                     <div className="mt-3 rounded-[14px] border border-[#dce5fb] bg-[#f5f8ff] px-3 py-3 text-[12px] text-[#28446c]">
-                                      This file is staged only. Choose <strong>Add draft rows</strong> to apply the parsed rows to the live quote using vendor cost plus the margin % above for customer pricing.
+                                      These items have not been added to the quote. Review their supplier costs and gross margin, then choose <strong>Add draft rows</strong> to add them with calculated selling prices.
                                     </div>
                                   ) : null}
 
@@ -5713,7 +5713,7 @@ export default function QuotePreview() {
                                             {item.description ? <div className="mt-2 text-[#5f6c78]">{item.description}</div> : null}
                                             <div className="mt-2 flex flex-wrap gap-4 text-[#5f6c78]">
                                               <span>Vendor cost {formatCurrency(Math.max(item.unitCost ?? item.unitPrice, 0), currencyCode)}</span>
-                                              <span>Seeded sell {formatCurrency(applyMarginToCost(Math.max(item.unitCost ?? item.unitPrice, 0), vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT), currencyCode)}</span>
+                                              <span>Selling price {formatCurrency(applyMarginToCost(Math.max(item.unitCost ?? item.unitPrice, 0), vendorQuote.pricingMarginPercent ?? DEFAULT_IMPORTED_MARGIN_PERCENT), currencyCode)}</span>
                                               <span>Ext. {formatCurrency(item.extendedPrice, currencyCode)}</span>
                                               {item.vendor ? <span>Vendor {item.vendor}</span> : null}
                                             </div>
@@ -5765,7 +5765,7 @@ return {
   quantity: <input aria-label={`Major item ${index + 1} quantity`} type="number" min="0" step="0.01" value={row.quantity} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => { const quantity = Math.max(parseNumber(event.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), ourExtendedCost: Number((quantity * current.ourUnitCost).toFixed(2)) }; })} />,
   rate: <div className="rq-price-control"><input aria-label={`Major item ${index + 1} unit price`} disabled={row.priceLocked === true} type="number" min="0" step="0.01" value={row.customerUnitPrice} onChange={(event) => updateActiveMajorSimpleRow(row.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /><QuotePriceLock locked={row.priceLocked === true} label={row.label || `Item ${index + 1}`} onChange={(priceLocked) => updateActiveMajorSimpleRow(row.id, current => ({ ...current, priceLocked }))} /></div>,
   cadence: row.bucket === "hardware" || row.bucket === "install" ? "One-time" : "Monthly",
-  total: formatQuoteLinePrice(row, formatCurrency(rowRevenue, currencyCode)), optional: row.optional === true, onOptionalChange: (checked) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, optional: checked })),
+  total: formatQuoteLinePrice(row, formatCurrency(rowRevenue, currencyCode), "editor"), optional: row.optional === true, onOptionalChange: (checked) => updateActiveMajorSimpleRow(row.id, (current) => ({ ...current, optional: checked })),
   actions: <RowActions totalRows={activeMajorOptionSimpleRows.length} rowNumber={index + 1} onMoveUp={() => moveMajorProjectSimpleRow(row.id, -1)} onMoveDown={() => moveMajorProjectSimpleRow(row.id, 1)} onMoveTo={(position) => moveMajorProjectSimpleRowToPosition(row.id, position)} onDuplicate={() => duplicateMajorProjectSimpleRow(row.id)} onRemove={() => removeMajorProjectSimpleRow(row.id)} />,
   details: <div className="rq-component-details">                                  {row.bucket === "hardware" ? (
                                     <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
@@ -5900,7 +5900,7 @@ return {
   quantity: <input aria-label={`Component ${index + 1} quantity`} type="number" min="0" step="0.01" value={component.quantity} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const quantity = Math.max(parseNumber(event.target.value), 0); return { ...current, quantity, customerExtendedPrice: Number((quantity * current.customerUnitPrice).toFixed(2)), vendorExtendedCost: Number((quantity * current.vendorUnitCost).toFixed(2)) }; })} />,
   rate: <div className="rq-price-control"><input aria-label={`Component ${index + 1} unit price`} disabled={component.priceLocked === true} type="number" min="0" step="0.01" value={component.customerUnitPrice} onChange={(event) => updateActiveMajorComponent(component.id, (current) => { const customerUnitPrice = Math.max(parseNumber(event.target.value), 0); return { ...current, customerUnitPrice, customerExtendedPrice: Number((current.quantity * customerUnitPrice).toFixed(2)) }; })} /><QuotePriceLock locked={component.priceLocked === true} label={component.internalName || `Component ${index + 1}`} onChange={(priceLocked) => updateActiveMajorComponent(component.id, current => ({ ...current, priceLocked }))} /></div>,
   cadence: component.quickQuoteSource?.usageBased ? `Per ${component.unit || "GB"}` : <QuoteBillingSelect label={`Component ${index + 1} billing`} billing={getLineBilling(component, component.schedule === "recurring" ? "monthly" : "one_time")} onChange={(billing) => updateActiveMajorComponent(component.id, (current) => ({ ...current, billing, schedule: billing.cadence === "monthly" ? "recurring" : "one_time" }))} />,
-  total: formatQuoteLinePrice(component, component.quickQuoteSource?.usageBased ? "Usage-based" : formatCurrency(componentRevenue, currencyCode)),
+  total: formatQuoteLinePrice(component, component.quickQuoteSource?.usageBased ? "Usage-based" : formatCurrency(componentRevenue, currencyCode), "editor"),
   optional: component.optional === true, onOptionalChange: (checked) => updateActiveMajorComponent(component.id, (current) => ({ ...current, optional: checked })),
   actions: <RowActions rowNumber={index + 1} totalRows={activeMajorOptionComponents.length} onMoveUp={() => moveMajorProjectComponent(component.id, -1)} onMoveDown={() => moveMajorProjectComponent(component.id, 1)} onMoveTo={(position) => moveMajorProjectComponentToPosition(component.id, position)} onDuplicate={() => duplicateMajorProjectComponent(component.id)} onRemove={() => removeMajorProjectComponent(component.id)} />,
   details: <div className="rq-component-details">
@@ -6004,11 +6004,11 @@ return {
                             />
                             <div className="mt-3 rounded-[18px] border border-[#e2e7ec] bg-white p-4">
                               <div className="text-[14px] font-semibold text-[#16202b]">Pricing controls</div>
-                              <div className="mt-1 text-[12px] text-[#6a7682]">Keep commercial basis and pass-through settings available without hiding the line item description.</div>
+                              <div className="mt-1 text-[12px] text-[#6a7682]">Record where the cost came from and how you priced this item. These choices do not recalculate the selling price.</div>
                               <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-                                <label className="builder-field compact"><span>Cost basis</span><select value={component.costBasis} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, costBasis: e.target.value as MajorProjectComponent["costBasis"] }))}><option value="vendor_quote">Vendor quote</option><option value="msrp">MSRP</option><option value="estimate">Estimate</option><option value="internal_labor">Internal labor</option><option value="blended">Blended</option><option value="other">Other</option></select></label>
-                                <label className="builder-field compact"><span>Resale basis</span><select value={component.resaleBasis} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, resaleBasis: e.target.value as MajorProjectComponent["resaleBasis"] }))}><option value="fixed_fee">Fixed fee</option><option value="cost_plus">Cost plus</option><option value="target_margin">Target margin</option><option value="pass_through">Pass through</option><option value="bundle">Bundle</option><option value="other">Other</option></select></label>
-                                <label className="inline-flex items-center gap-3 rounded-[18px] border border-[#d7dde4] bg-white px-4 py-3 text-[14px] font-medium text-[#24303b]"><input type="checkbox" checked={component.passThrough} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, passThrough: e.target.checked }))} /> Pass-through</label>
+                                <label className="builder-field compact"><span>Where did this cost come from?</span><select value={component.costBasis} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, costBasis: e.target.value as MajorProjectComponent["costBasis"] }))}><option value="vendor_quote">Supplier quote</option><option value="msrp">Manufacturer list price</option><option value="estimate">Estimate</option><option value="internal_labor">Our labor cost</option><option value="blended">Combined cost sources</option><option value="other">Other</option></select></label>
+                                <label className="builder-field compact"><span>How was the selling price calculated?</span><select value={component.resaleBasis} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, resaleBasis: e.target.value as MajorProjectComponent["resaleBasis"] }))}><option value="fixed_fee">Fixed selling price</option><option value="cost_plus">Cost plus markup</option><option value="target_margin">Gross margin target</option><option value="pass_through">Vendor charge billed at cost</option><option value="bundle">Part of a package</option><option value="other">Other</option></select></label>
+                                <label className="builder-field compact"><span className="inline-flex items-center gap-3"><input type="checkbox" checked={component.passThrough} onChange={(e) => updateActiveMajorComponent(component.id, (current) => ({ ...current, passThrough: e.target.checked }))} /> Vendor charge billed at cost</span><small>Excluded from bulk margin changes. Enter the selling price yourself.</small></label>
                               </div>
                             </div>
                             <div className="commercial-metric-grid mt-3">

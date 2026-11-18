@@ -70,6 +70,7 @@ async function main() {
     assert.equal(blocked.status, 422);
     assert.match(blocked.text, /Resolve pricing/);
     await page.select('select[aria-label="Component 2 pricing status"]', "included");
+    assert.match(await page.$eval('select[aria-label="Component 2 pricing status"]', el => el.parentElement?.textContent || ""), /No separate charge\. This line must be \$0/);
     await page.select('select[aria-label="Component 1 pricing status"]', "allowance");
     await enter(page, 'input[aria-label="Component 1 name"]', "Camera package");
     await page.waitForFunction((key, id) => {
@@ -102,19 +103,19 @@ async function main() {
     await page.bringToFront();
     await enter(page, 'input[aria-label="Component 1 name"]', "Current camera BOM");
     await page.waitForFunction((key, id) => JSON.parse(localStorage.getItem(key) || "{}").proposals?.find((p: { id: string }) => p.id === id)?.quote.majorProject.options[0].components[0].internalName === "Current camera BOM", {}, PROPOSAL_STORE_KEY, quote.internal.quoteId);
-    await olderTab.waitForFunction(() => document.querySelector('[aria-label="Browser save and recovery"]')?.textContent?.includes("Save paused"), { polling: 100 });
+    await olderTab.waitForFunction(() => document.querySelector('[aria-label="Browser save and recovery"]')?.textContent?.includes("Not saved: quote changed in another tab"), { polling: 100 });
     await olderTab.bringToFront();
     await enter(olderTab, 'input[aria-label="Component 1 name"]', "Stale tab edit");
     await clickText(olderTab, ".rq-editor-actions button", "Save draft");
-    await olderTab.waitForFunction(() => document.querySelector('[aria-label="Browser save and recovery"]')?.textContent?.includes("Save paused"));
+    await olderTab.waitForFunction(() => document.querySelector('[aria-label="Browser save and recovery"]')?.textContent?.includes("Not saved: quote changed in another tab"));
     assert.equal(await olderTab.evaluate((key, id) => JSON.parse(localStorage.getItem(key)!).proposals.find((p: {id:string}) => p.id === id).quote.majorProject.options[0].components[0].internalName, PROPOSAL_STORE_KEY, quote.internal.quoteId), "Current camera BOM", "An older tab cannot replace the newer saved quote");
     await olderTab.close();
     await page.bringToFront();
     await page.click('[aria-label="Browser save and recovery"] summary');
-    const recoveryButtons = await page.$$('[aria-label="Browser save and recovery"] button[aria-label^="Load recovery"]');
+    const recoveryButtons = await page.$$('[aria-label="Browser save and recovery"] button[aria-label^="Open previous version"]');
     assert.ok(recoveryButtons.length >= 2, "Prior versions are retained");
     await recoveryButtons[recoveryButtons.length - 1].click();
-    await page.waitForFunction(() => document.querySelector('[aria-label="Browser save and recovery"]')?.textContent?.includes("Recovered draft - not saved"));
+    await page.waitForFunction(() => document.querySelector('[aria-label="Browser save and recovery"]')?.textContent?.includes("Previous version opened - not saved"));
     assert.equal(await page.evaluate((key, id) => JSON.parse(localStorage.getItem(key)!).proposals.find((p: {id:string}) => p.id === id).quote.majorProject.options[0].components[0].internalName, PROPOSAL_STORE_KEY, quote.internal.quoteId), "Current camera BOM", "Recovery does not overwrite Workspace until saved");
     await page.reload({ waitUntil: "networkidle0" });
     await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
@@ -126,6 +127,8 @@ async function main() {
     await page.click("#rq-nav-review");
     await clickText(page, "button", "Duplicate quote");
     await page.waitForSelector("dialog.qcopy-dialog[open]");
+    assert.match(await page.$eval("dialog.qcopy-dialog", el => el.textContent || ""), /Who is the new quote for\?/);
+    assert.match(await page.$eval("dialog.qcopy-dialog", el => el.textContent || ""), /Copy spec sheets for selected items\?/);
     await page.click('dialog input[value="different"]');
     await page.select("dialog .qcopy-retention label:nth-of-type(1) select", "remove");
     await page.select("dialog .qcopy-retention label:nth-of-type(2) select", "remove");
